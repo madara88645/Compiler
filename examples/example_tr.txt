@@ -1,0 +1,1 @@
+Python ile mikroservis mimarisi tasarım adımlarını detaylı ancak okunabilir bir formatta açıkla, tablo kullan.

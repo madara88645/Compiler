@@ -1,0 +1,31 @@
+[project]
+name = "promptc"
+version = "0.1.0"
+description = "Prompt Compiler App: compile free-text prompts into structured IR + prompts + plan"
+authors = [ { name = "Your Name" } ]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+	"fastapi==0.110.0",
+	"uvicorn==0.23.2",
+	"pydantic==1.10.13",
+	"typer==0.9.0",
+	"jsonschema==4.21.1",
+	"rich==13.7.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["app", "api", "cli"]
+include-package-data = true
+
+[project.scripts]
+promptc = "cli.main:app"
+
+[project.optional-dependencies]
+dev = ["pytest==8.0.0"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,1 @@
+Generate a concise JSON summary of the latest developments in quantum machine learning models. Provide structured output.

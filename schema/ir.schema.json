@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "required": ["language","role","domain","goals","tasks","constraints","style","tone",
+               "output_format","length_hint","steps","examples","banned","tools","metadata"],
+  "properties": {
+    "language": { "enum": ["tr","en"] },
+    "role": { "type": "string" },
+    "domain": { "type": "string" },
+    "goals": { "type": "array", "items": { "type": "string" } },
+    "tasks": { "type": "array", "items": { "type": "string" } },
+    "inputs": { "type": "object", "additionalProperties": { "type": "string" } },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "style": { "type": "array", "items": { "type": "string" } },
+    "tone": { "type": "array", "items": { "type": "string" } },
+    "output_format": { "enum": ["markdown","json","yaml","table","text"] },
+    "length_hint": { "enum": ["short","medium","long"] },
+    "steps": { "type": "array", "items": { "type": "string" } },
+    "examples": { "type": "array", "items": { "type": "string" } },
+    "banned": { "type": "array", "items": { "type": "string" } },
+    "tools": { "type": "array", "items": { "type": "string" } },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "conflicts": { "type": "array", "items": { "type": "string" } },
+        "detected_domain_evidence": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
