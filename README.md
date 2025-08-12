@@ -2,7 +2,7 @@
 
 Compile messy prompts (TR/EN) into a strict IR (JSON) and generate System Prompt, User Prompt, Plan, and an Expanded Prompt for everyday use.
 
-CI: ![CI](https://github.com/your/repo/actions/workflows/ci.yml/badge.svg)
+CI: ![CI](https://github.com/madara88645/Compiler/actions/workflows/ci.yml/badge.svg)
 
 ## Features
 - Language (tr/en), domain guess with evidence
