@@ -6,6 +6,24 @@
 
 Compile messy prompts (Turkish/English) into a structured Intermediate Representation (JSON) and generate optimized System Prompt, User Prompt, Plan, and Expanded Prompt for everyday use with LLMs.
 
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Command Line Interface (CLI)](#command-line-interface-cli)
+  - [API Server](#api-server)
+- [Examples](#examples)
+- [Intermediate Representation (IR) Schema](#intermediate-representation-ir-schema)
+- [What to copy into an LLM?](#what-to-copy-into-an-llm)
+- [Project Structure](#project-structure)
+- [Use Cases](#use-cases)
+- [Development Setup](#development-setup)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Features](#advanced-features)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
+
 ## Features
 - **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
 - **Structured IR**: JSON Schema validated Intermediate Representation with fields: goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
@@ -300,6 +318,34 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 **Q: Turkish characters not displaying correctly**
 - Ensure your terminal supports UTF-8 encoding
 - On Windows, use Windows Terminal or PowerShell 7+
+
+## Advanced Features
+
+### Teaching Mode Detection
+The compiler automatically detects educational intent and enhances prompts:
+```bash
+promptc "teach me machine learning in 1 hour for beginners"
+# Automatically adds: level detection, time constraints, structured steps, mini quiz
+```
+
+### Recency Rule  
+For time-sensitive queries, automatically adds web research capability:
+```bash
+promptc "latest developments in AI 2024"
+# Automatically adds: web tool + "requires up-to-date info" constraint
+```
+
+### Domain Detection
+Automatically detects and provides evidence for domain classification:
+- **software**: Python, JavaScript, programming keywords
+- **ai/ml**: machine learning, neural networks, AI keywords  
+- **shopping**: budget, price, product keywords
+- **general**: fallback for unspecified domains
+
+### Language Support
+- **Turkish (tr)**: Full support with Turkish system prompts and localized examples
+- **English (en)**: Complete English language support
+- **Auto-detection**: Based on input text analysis
 
 ## Contributing
 See CONTRIBUTING.md and CODE_OF_CONDUCT.md
