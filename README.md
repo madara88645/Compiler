@@ -29,6 +29,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Structured IR**: JSON Schema validated Intermediate Representation with fields: goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 - **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
 - **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, language-specific professor persona, and mini quiz generation
+ - **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
 - **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
@@ -344,6 +345,68 @@ Example:
 promptc "teach me binary search in 10 minutes beginner level"
 ```
 Will set role to English instructor persona, add analogies + level + duration constraints and produce structured steps + quiz examples.
+
+### General Task Enhancements
+These features are automatically detected and stored in `metadata` (so the IR schema değişmedi):
+
+#### 1. Summary Detection
+Triggers on keywords: `özetle`, `kısaca`, `tl;dr`, `summarize`, `summary`, `brief`.
+Adds constraints:
+- `Provide a concise summary`
+- `Max N bullet points` (if "5 madde", "7 bullets" gibi ifade bulunursa)
+
+Example:
+```bash
+promptc "metni 5 madde ile özetle"
+```
+Metadata alanları:
+- `summary`: `true|false`
+- `summary_limit`: sayı (isteğe bağlı)
+
+#### 2. Comparison Detection
+Triggers on: `vs`, `karşılaştır`, `compare`, `versus`, `farkları`.
+Heuristikle öğeleri ayrıştırır ("python vs go", "python ile go karşılaştır").
+Ekler:
+- Constraint: `Present a structured comparison`
+- `output_format` otomatik `table` (markdown tablosu üretimi hedeflenir)
+Metadata:
+- `comparison_items`: list of extracted items
+
+Example:
+```bash
+promptc "python vs go performans karşılaştır"
+```
+
+#### 3. Variant (Alternatif) Generation
+Triggers on: `alternatif`, `alternatifler`, `alternatives`, `variants`, `seçenek`, `options`.
+Sayı verilirse ("3 alternatif", "2 options") aralık 2–10 arasında normalize edilir; yoksa varsayılan 3.
+- Constraint: `Generate N distinct variants`
+Metadata:
+- `variant_count`: N (>=1; 1 ise varyant modu aktif değildir)
+
+Example:
+```bash
+promptc "summarize the text in 7 bullet points and give 2 variants"
+```
+
+#### Birlikte Kullanım Örneği
+```bash
+promptc "python vs go performans karşılaştır 3 alternatif öner"
+```
+Üretilen metadata (özet):
+```json
+{
+  "comparison_items": ["python", "go ..."],
+  "variant_count": 3
+}
+```
+Constraints örneği:
+```
+Present a structured comparison
+Generate 3 distinct variants
+```
+
+> Not: Bu alanlar şimdilik IR `metadata` altında tutulur; ileride şema genişletilebilir.
 
 ### Recency Rule  
 For time-sensitive queries, automatically adds web research capability:
