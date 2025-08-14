@@ -111,10 +111,16 @@ def compile_text(text: str) -> IR:
     )
     # Teaching intent enrichment
     if detect_teaching_intent(text):
+        # Language-specific teaching persona
+        if lang == 'tr':
+            ir.role = "bilgili ve öğretici bir profesör uzman"
+        else:
+            ir.role = "a knowledgeable and instructive professor expert"
         lvl = (inputs.get('level') or '').lower()
         dur = inputs.get('duration')  # e.g., 10m, 1h
         if lang == 'tr':
             ir.constraints.append("Aşamalı, kavramdan örneğe doğru öğretici anlatım kullan")
+            ir.constraints.append("Öğrenme konularında analoji kullan")
             if lvl == 'beginner':
                 ir.constraints.append("Sıfırdan başlayanlar için basit dil kullan")
             elif lvl == 'intermediate':
@@ -136,11 +142,12 @@ def compile_text(text: str) -> IR:
             ir.steps = base_steps
             # Mini quiz template in examples
             ir.examples = ir.examples or [
-                "Örn: Giriş → Örnek → Alıştırma → Özet",
+                "Örn: Giriş -> Örnek -> Alıştırma -> Özet",
                 "Mini Quiz: 3 soru (1 kolay, 1 orta, 1 zor) ve kısa cevap anahtarı"
             ]
         else:
             ir.constraints.append("Use a progressive, pedagogical flow from concepts to examples")
+            ir.constraints.append("Use analogies to make concepts clearer")
             if lvl == 'beginner':
                 ir.constraints.append("Use simple language for beginners")
             elif lvl == 'intermediate':
@@ -161,7 +168,7 @@ def compile_text(text: str) -> IR:
                 base_steps.insert(2, "Add a brief deep-dive section")
             ir.steps = base_steps
             ir.examples = ir.examples or [
-                "Ex: Intro → Example → Exercise → Summary",
+                "Ex: Intro -> Example -> Exercise -> Summary",
                 "Mini Quiz: 3 questions (easy, medium, hard) with short answer key"
             ]
     return ir
