@@ -5,7 +5,7 @@ from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
-    detect_teaching_intent
+    detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count
 )
 
 GENERIC_GOAL = {
@@ -81,6 +81,22 @@ def compile_text(text: str) -> IR:
         tools.append('web')
         constraints.append(RECENCY_CONSTRAINT_TR if lang=='tr' else RECENCY_CONSTRAINT_EN)
 
+    # General task enhancements (stored in metadata to avoid schema changes)
+    is_summary, summary_count = detect_summary(text)
+    comparison_items = extract_comparison_items(text)
+    variant_count = extract_variant_count(text)
+    if is_summary:
+        constraints.append('Provide a concise summary')
+        if summary_count:
+            constraints.append(f'Max {summary_count} bullet points')
+        output_format = output_format or 'markdown'
+    if comparison_items and len(comparison_items) >= 2:
+        constraints.append('Present a structured comparison')
+        if output_format == 'markdown':
+            output_format = 'table'
+    if variant_count > 1:
+        constraints.append(f'Generate {variant_count} distinct variants')
+
     # Include original text in conflict detection so opposing adjectives inside prompt are caught.
     conflicts = detect_conflicts(constraints + [text])
 
@@ -106,6 +122,10 @@ def compile_text(text: str) -> IR:
             'conflicts': conflicts,
             'detected_domain_evidence': evidence,
             'notes': [],
+            'summary': str(is_summary).lower(),
+            'summary_limit': summary_count if summary_count else None,
+            'comparison_items': comparison_items,
+            'variant_count': variant_count,
             'original_text': text
         }
     )

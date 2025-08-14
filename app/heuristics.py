@@ -37,6 +37,68 @@ TEACHING_KEYWORDS = [
     r"öğret", r"anlat", r"ders", r"öğrenmek istiyorum"
 ]
 
+# --- New general-purpose heuristics ---
+SUMMARY_KEYWORDS = [r"özetle", r"kısaca", r"tl;dr", r"summarize", r"summary", r"brief", r"short version"]
+COMPARISON_KEYWORDS = [r"karşılaştır", r"vs", r"hangisi", r"compare", r"versus", r"farkları"]
+VARIANT_KEYWORDS = [r"alternatif", r"alternatifler", r"alternatives", r"variants", r"seçenek", r"options"]
+
+def detect_summary(text: str) -> tuple[bool, int|None]:
+    lower = text.lower()
+    if any(k in lower for k in SUMMARY_KEYWORDS):
+        # Try to find a number of bullets requested (e.g. "5 madde", "5 bullets")
+        m = re.search(r"(\d{1,2})\s*(madde|bullet|bullets|özet|point|points)", lower)
+        if m:
+            try:
+                n = int(m.group(1))
+                return True, n
+            except ValueError:
+                pass
+        return True, None
+    return False, None
+
+def extract_comparison_items(text: str) -> list[str]:
+    lower = text.lower()
+    items: list[str] = []
+    # common pattern: "x vs y" or "x vs y vs z"
+    if " vs " in lower:
+        raw = [p.strip() for p in re.split(r"\bvs\b", lower) if p.strip()]
+        items = raw
+    # Turkish pattern: "x ile y karşılaştır" or "x ve y karşılaştır"
+    if not items and any(k in lower for k in COMPARISON_KEYWORDS):
+        m = re.search(r"(.+?)\s+(karşılaştır|compare)", lower)
+        if m:
+            segment = m.group(1)
+            parts = re.split(r"\b(ve|ile|,|/|&|\|)\b", segment)
+            cand = [p.strip() for p in parts if p and p.strip() and p not in {"ve","ile",",","/","&","|"}]
+            if len(cand) >= 2:
+                items = cand
+    # de-dup & shorten
+    cleaned: list[str] = []
+    seen = set()
+    for it in items:
+        it2 = it[:40].strip()
+        if not it2:
+            continue
+        if it2 in seen:
+            continue
+        seen.add(it2)
+        cleaned.append(it2)
+    return cleaned
+
+def extract_variant_count(text: str) -> int:
+    lower = text.lower()
+    if any(k in lower for k in VARIANT_KEYWORDS):
+        m = re.search(r"(\d{1,2})\s*(alternatif|seçenek|variant|variants|options)", lower)
+        if m:
+            try:
+                v = int(m.group(1))
+                return max(2, min(v, 10))
+            except ValueError:
+                return 3
+        # default if keyword present but no number
+        return 3
+    return 1
+
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish specific chars or common words
     tr_chars = "çğıöşü"
