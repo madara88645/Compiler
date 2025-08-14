@@ -28,7 +28,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
 - **Structured IR**: JSON Schema validated Intermediate Representation with fields: goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 - **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
-- **Teaching Mode**: Intelligent detection of learning intent with level, duration, and mini quiz generation
+- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, language-specific professor persona, and mini quiz generation
 - **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
@@ -327,6 +327,23 @@ The compiler automatically detects educational intent and enhances prompts:
 promptc "teach me machine learning in 1 hour for beginners"
 # Automatically adds: level detection, time constraints, structured steps, mini quiz
 ```
+
+#### Teaching Mode Details
+When a learning / teaching intent is detected (keywords like *teach, explain, öğret, ders*):
+- Role changes to a language-specific expert instructor persona
+  - TR: `bilgili ve öğretici bir profesör uzman`
+  - EN: `a knowledgeable and instructive professor expert`
+- Adds progressive pedagogical flow constraint
+- Adds analogy usage constraint (TR: "Öğrenme konularında analoji kullan", EN: "Use analogies to make concepts clearer")
+- Detects level (beginner/intermediate/advanced) and adjusts constraints
+- Detects duration (e.g. `15m`, `1h`) and adds time-bound constraint
+- Rebuilds steps into a teaching sequence and injects a mini quiz scaffold
+
+Example:
+```bash
+promptc "teach me binary search in 10 minutes beginner level"
+```
+Will set role to English instructor persona, add analogies + level + duration constraints and produce structured steps + quiz examples.
 
 ### Recency Rule  
 For time-sensitive queries, automatically adds web research capability:
