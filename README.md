@@ -26,7 +26,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 
 ## Features
 - **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
-- **Structured IR**: JSON Schema validated Intermediate Representation with fields: goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
+- **Structured IR**: JSON Schema validated Intermediate Representation with fields: persona, role, goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 - **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
 - **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, language-specific professor persona, and mini quiz generation
  - **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
@@ -141,7 +141,7 @@ curl -X POST http://127.0.0.1:8000/compile \
 ```json
 {
   "ir": {"language": "tr", "domain": "shopping", "goals": ["arkadaşıma hediye öner"]},
-  "system_prompt": "Role: Helpful generative AI assistant...",
+  "system_prompt": "Persona: assistant\nRole: Helpful generative AI assistant...",
   "user_prompt": "Goals: arkadaşıma hediye öner...",
   "plan": "1. Identify football-related gift options",
   "expanded_prompt": "Generate clear suggestions..."
@@ -174,7 +174,8 @@ The tool converts natural language prompts into a structured JSON format followi
 ```json
 {
   "language": "tr|en",           // Detected language
-  "role": "string",              // Assistant role
+  "persona": "assistant|teacher|researcher|coach|mentor", // High-level persona enum
+  "role": "string",              // Natural language role text
   "domain": "string",            // Detected domain (general, shopping, etc)
   "goals": ["string"],           // Main objectives
   "tasks": ["string"],           // Specific tasks to accomplish
@@ -194,7 +195,7 @@ The tool converts natural language prompts into a structured JSON format followi
   "examples": ["string"],        // Example outputs
   "banned": ["string"],          // Forbidden content
   "tools": ["string"],           // Required tools (web, etc)
-  "metadata": {                  // Additional info
+  "metadata": {                  // Additional info (extensible; includes persona_evidence, comparison_items, variant_count, summary flags)
     "conflicts": ["string"],
     "detected_domain_evidence": ["string"],
     "notes": ["string"]

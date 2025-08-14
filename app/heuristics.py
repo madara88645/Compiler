@@ -37,6 +37,31 @@ TEACHING_KEYWORDS = [
     r"öğret", r"anlat", r"ders", r"öğrenmek istiyorum"
 ]
 
+# Persona keyword groups (simple scoring)
+PERSONA_KEYWORDS = {
+    "teacher": [r"teach", r"öğret", r"ders", r"explain", r"tutorial", r"öğretici"],
+    "researcher": [r"research", r"araştır", r"analyze", r"analysis", r"paper", r"literature"],
+    "coach": [r"coach", r"koç", r"motivate", r"motivation", r"rehberlik"],
+    "mentor": [r"mentor", r"mentorluk", r"career", r"kariyer", r"advice", r"guidance"],
+}
+
+def pick_persona(text: str) -> tuple[str, dict]:
+    lower = text.lower()
+    scores = {k:0 for k in PERSONA_KEYWORDS}
+    evidence: dict[str,list[str]] = {k:[] for k in PERSONA_KEYWORDS}
+    for persona, pats in PERSONA_KEYWORDS.items():
+        for p in pats:
+            if re.search(p, lower):
+                scores[persona] += 1
+                evidence[persona].append(p)
+    # choose highest score, tie -> deterministic alphabetical order of persona key
+    ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+    if ranked and ranked[0][1] > 0:
+        chosen = ranked[0][0]
+    else:
+        chosen = "assistant"
+    return chosen, {"scores": scores, "evidence": evidence, "chosen": chosen}
+
 # --- New general-purpose heuristics ---
 SUMMARY_KEYWORDS = [r"özetle", r"kısaca", r"tl;dr", r"summarize", r"summary", r"brief", r"short version"]
 COMPARISON_KEYWORDS = [r"karşılaştır", r"vs", r"hangisi", r"compare", r"versus", r"farkları"]

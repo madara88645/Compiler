@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.1] - 2025-08-14
 ### Added
+- Structured persona field (schema + model) with heuristic selection and evidence metadata
+- Persona surfaced in System Prompt, Expanded Prompt context, and CLI output
+### Changed
+- README updated (persona in features, schema, API response example)
+
+## [0.1.1] - 2025-08-14
+### Added
 - Language-specific teaching personas (TR / EN)
 - Analogy usage constraints for teaching mode (TR & EN)
 - Explicit role display in CLI output

@@ -5,7 +5,7 @@ from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
-    detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count
+    detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count, pick_persona
 )
 
 GENERIC_GOAL = {
@@ -100,10 +100,13 @@ def compile_text(text: str) -> IR:
     # Include original text in conflict detection so opposing adjectives inside prompt are caught.
     conflicts = detect_conflicts(constraints + [text])
 
+    # Persona selection (base)
+    persona, persona_info = pick_persona(text)
     role = DEFAULT_ROLE_TR if lang=='tr' else DEFAULT_ROLE_EN
 
     ir = IR(
         language=lang,
+        persona=persona,
         role=role,
         domain=domain,
         goals=goals,
@@ -126,11 +129,14 @@ def compile_text(text: str) -> IR:
             'summary_limit': summary_count if summary_count else None,
             'comparison_items': comparison_items,
             'variant_count': variant_count,
-            'original_text': text
+            'original_text': text,
+            'persona_evidence': persona_info
         }
     )
     # Teaching intent enrichment
     if detect_teaching_intent(text):
+        persona = 'teacher'
+        ir.persona = persona
         # Language-specific teaching persona
         if lang == 'tr':
             ir.role = "bilgili ve öğretici bir profesör uzman"

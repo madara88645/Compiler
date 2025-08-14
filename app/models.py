@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, validator
 # Intermediate Representation (IR) model mirroring the JSON Schema.
 class IR(BaseModel):
     language: str = Field(..., description="Detected language code: tr|en")
+    persona: str = Field(..., description="High-level assistant persona")
     role: str = Field(..., description="Assistant role description")
     domain: str = Field(..., description="Primary domain guess")
     goals: List[str] = Field(default_factory=list)
@@ -55,6 +56,13 @@ class IR(BaseModel):
     def _fmt(cls, v):  # type: ignore
         if v not in {"markdown","json","yaml","table","text"}:
             raise ValueError("invalid output_format")
+        return v
+
+    @validator('persona')
+    def _persona(cls, v):  # type: ignore
+        allowed = {"assistant","teacher","researcher","coach","mentor"}
+        if v not in allowed:
+            raise ValueError(f"persona must be one of {sorted(allowed)}")
         return v
 
     @validator('length_hint')

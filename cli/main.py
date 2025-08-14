@@ -16,6 +16,7 @@ def compile(text: List[str] = typer.Argument(..., help="Prompt metni: tırnak ko
     user_prompt = emit_user_prompt(ir)
     plan = emit_plan(ir)
     expanded = emit_expanded_prompt(ir)
+    print(f"[bold white]Persona:[/bold white] {ir.persona}")
     print(f"[bold white]Role:[/bold white] {ir.role}")
     print("\n[bold blue]IR JSON:[/bold blue]")
     print(json.dumps(ir.dict(), ensure_ascii=False, indent=2))

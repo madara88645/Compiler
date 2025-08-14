@@ -3,7 +3,8 @@ from .models import IR
 
 def emit_system_prompt(ir: IR) -> str:
     parts = [
-        f"Role: {ir.role}",
+    f"Persona: {ir.persona}",
+    f"Role: {ir.role}",
         "Rules:",
         "- Follow goals, tasks, constraints, and style/tone.",
         f"- Output format: {ir.output_format}; length: {ir.length_hint}.",
@@ -54,6 +55,8 @@ def emit_expanded_prompt(ir: IR) -> str:
     ctx_lines = []
     if ir.goals:
         ctx_lines.append(("Amaçlar" if lang=='tr' else "Goals")+": "+" | ".join(ir.goals[:3]))
+    # Persona context first for visibility
+    ctx_lines.insert(0, ("Persona" if lang!='tr' else "Persona")+": "+ir.persona)
     if ir.tasks:
         ctx_lines.append(("Görevler" if lang=='tr' else "Tasks")+": "+" | ".join(ir.tasks[:3]))
     if ir.constraints:
