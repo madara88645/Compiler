@@ -28,8 +28,9 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
 - **Structured IR**: JSON Schema validated Intermediate Representation with fields: persona, role, goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 - **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
-- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, language-specific professor persona, and mini quiz generation
- - **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
+- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, instructor persona, and mini quiz generation
+- **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
+- **Extended Heuristics**: Risk flags (financial/health/legal), entity extraction, complexity score, ambiguous term detection with clarify questions, code request detection
 - **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
@@ -79,9 +80,6 @@ The CLI is the fastest way to compile prompts:
 ```bash
 # Basic usage
 promptc "teach me gradient descent in 15 minutes at intermediate level"
-
-# Turkish example
-promptc "Python ile mikroservis mimarisi tasarım adımlarını detaylı ancak okunabilir bir formatta açıkla, tablo kullan"
 
 # Multiple word prompt (quotes recommended)
 promptc "explain quantum computing concepts for beginners"
@@ -331,12 +329,10 @@ promptc "teach me machine learning in 1 hour for beginners"
 ```
 
 #### Teaching Mode Details
-When a learning / teaching intent is detected (keywords like *teach, explain, öğret, ders*):
-- Role changes to a language-specific expert instructor persona
-  - TR: `bilgili ve öğretici bir profesör uzman`
-  - EN: `a knowledgeable and instructive professor expert`
+When a learning / teaching intent is detected (keywords like *teach, explain*):
+- Role changes to an expert instructor persona (English only in examples)
 - Adds progressive pedagogical flow constraint
-- Adds analogy usage constraint (TR: "Öğrenme konularında analoji kullan", EN: "Use analogies to make concepts clearer")
+- Adds analogy usage constraint
 - Detects level (beginner/intermediate/advanced) and adjusts constraints
 - Detects duration (e.g. `15m`, `1h`) and adds time-bound constraint
 - Rebuilds steps into a teaching sequence and injects a mini quiz scaffold
@@ -351,14 +347,14 @@ Will set role to English instructor persona, add analogies + level + duration co
 These features are automatically detected and stored in `metadata` (so the IR schema değişmedi):
 
 #### 1. Summary Detection
-Triggers on keywords: `özetle`, `kısaca`, `tl;dr`, `summarize`, `summary`, `brief`.
+Triggers on keywords: `tl;dr`, `summarize`, `summary`, `brief`.
 Adds constraints:
 - `Provide a concise summary`
 - `Max N bullet points` (if "5 madde", "7 bullets" gibi ifade bulunursa)
 
 Example:
 ```bash
-promptc "metni 5 madde ile özetle"
+promptc "summarize the text in 5 bullet points"
 ```
 Metadata alanları:
 - `summary`: `true|false`
@@ -390,16 +386,25 @@ Example:
 promptc "summarize the text in 7 bullet points and give 2 variants"
 ```
 
-#### Birlikte Kullanım Örneği
+#### Combined Example
 ```bash
-promptc "python vs go performans karşılaştır 3 alternatif öner"
-```
-Üretilen metadata (özet):
-```json
-{
-  "comparison_items": ["python", "go ..."],
-  "variant_count": 3
+promptc "python vs go performance compare give 3 alternatives"
 }
+
+## Extended Heuristics
+
+The compiler enriches metadata and constraints with additional safety and clarity signals:
+
+| Feature | Detection | Effect |
+|---------|-----------|--------|
+| Risk Flags | financial / health / legal keywords | Adds general-info (non-professional advice) constraint |
+| Entities | Capitalized tokens & tech patterns | Stored in metadata.entities |
+| Complexity | Length + concept signals | metadata.complexity = low/medium/high |
+| Ambiguous Terms | optimize, improve, better, efficient, scalable, fast, robust | Clarify constraint + metadata.ambiguous_terms |
+| Clarify Questions | From ambiguous terms list | metadata.clarify_questions (up to 5) |
+| Code Request | code/snippet/python/function terms | Adds inline comments constraint + metadata.code_request |
+
+All new fields live in metadata (schema remains stable).
 ```
 Constraints örneği:
 ```
