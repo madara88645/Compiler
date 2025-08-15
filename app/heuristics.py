@@ -124,6 +124,77 @@ def extract_variant_count(text: str) -> int:
         return 3
     return 1
 
+# --- Extended heuristics (IR & heuristics expansion) ---
+
+RISK_KEYWORDS = {
+    'financial': [r"yatırım", r"hisse", r"borsa", r"stock", r"invest", r"trading", r"kripto", r"crypto"],
+    'health': [r"diyet", r"sağlık", r"hastalık", r"disease", r"treatment", r"therapy", r"nutrition"],
+    'legal': [r"sözleşme", r"contract", r"legal", r"hukuk", r"sue", r"dava", r"regulation"],
+}
+
+AMBIGUOUS_TERMS = {
+    'optimize': "Which metric or aspect should be optimized? (performance, cost, memory?)",
+    'improve': "What specific improvement dimension matters (speed, accuracy, UX?)",
+    'better': "Better in what sense (quality, efficiency, reliability?)",
+    'efficient': "Which resource should be minimized (time, memory, cost?)",
+    'scalable': "Target scale or concurrency level?",
+    'fast': "What response time / throughput target?",
+    'robust': "Robust against which failures or edge cases?",
+}
+
+CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod"]
+
+def detect_risk_flags(text: str) -> list[str]:
+    lower = text.lower()
+    flags: list[str] = []
+    for cat, pats in RISK_KEYWORDS.items():
+        if any(re.search(p, lower) for p in pats):
+            flags.append(cat)
+    return flags
+
+def extract_entities(text: str) -> list[str]:
+    # Simple heuristic: capitalized tokens & tech patterns
+    entities: list[str] = []
+    # Capture tokens like GPT-4, ISO 27001, Kubernetes
+    pattern = re.compile(r"\b([A-Z][a-zA-Z0-9_-]{2,}|[A-Z]{2,}\d{0,4}|GPT-\d|ISO\s?\d{3,5})\b")
+    for m in pattern.finditer(text):
+        val = m.group(1)
+        if val and val not in entities and len(entities) < 30:
+            entities.append(val)
+    return entities
+
+def estimate_complexity(text: str) -> str:
+    length = len(text.split())
+    unique = len(set(w.lower() for w in re.findall(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9]+", text)))
+    score = 0
+    if length > 40: score += 1
+    if unique > 30: score += 1
+    if any(k in text.lower() for k in [" vs ", "compare", "karşılaştır"]): score += 1
+    if any(k in text.lower() for k in ["teach", "öğret", "explain"]): score += 1
+    return 'high' if score >= 3 else 'medium' if score == 2 else 'low'
+
+def detect_ambiguous_terms(text: str) -> list[str]:
+    lower = text.lower()
+    found = []
+    for term in AMBIGUOUS_TERMS:
+        if term in lower:
+            found.append(term)
+    return found
+
+def generate_clarify_questions(terms: list[str]) -> list[str]:
+    qs: list[str] = []
+    for t in terms:
+        hint = AMBIGUOUS_TERMS.get(t)
+        if hint and hint not in qs:
+            qs.append(hint)
+        if len(qs) >= 5:
+            break
+    return qs
+
+def detect_code_request(text: str) -> bool:
+    lower = text.lower()
+    return any(re.search(p, lower) for p in CODE_REQUEST_KEYWORDS)
+
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish specific chars or common words
     tr_chars = "çğıöşü"

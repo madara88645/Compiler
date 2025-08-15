@@ -5,7 +5,9 @@ from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
-    detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count, pick_persona
+    detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count, pick_persona,
+    detect_risk_flags, extract_entities, estimate_complexity, detect_ambiguous_terms, generate_clarify_questions,
+    detect_code_request
 )
 
 GENERIC_GOAL = {
@@ -85,6 +87,12 @@ def compile_text(text: str) -> IR:
     is_summary, summary_count = detect_summary(text)
     comparison_items = extract_comparison_items(text)
     variant_count = extract_variant_count(text)
+    risk_flags = detect_risk_flags(text)
+    entities = extract_entities(text)
+    complexity = estimate_complexity(text)
+    ambiguous = detect_ambiguous_terms(text)
+    clarify_qs = generate_clarify_questions(ambiguous)
+    code_req = detect_code_request(text)
     if is_summary:
         constraints.append('Provide a concise summary')
         if summary_count:
@@ -96,6 +104,21 @@ def compile_text(text: str) -> IR:
             output_format = 'table'
     if variant_count > 1:
         constraints.append(f'Generate {variant_count} distinct variants')
+    if risk_flags:
+        if lang == 'tr':
+            constraints.append('Riskli alan: profesyonel tavsiye yerine genel bilgi ver (finans/tıp/hukuk)')
+        else:
+            constraints.append('Risk domain detected: provide general information, not professional advice')
+    if code_req:
+        if lang == 'tr':
+            constraints.append('Kod örneklerinde kısa yorum satırları ekle')
+        else:
+            constraints.append('Include brief inline comments in code examples')
+    if ambiguous:
+        if lang == 'tr':
+            constraints.append('Belirsiz terimleri netleştir: ' + ", ".join(sorted(ambiguous)))
+        else:
+            constraints.append('Clarify ambiguous terms: ' + ", ".join(sorted(ambiguous)))
 
     # Include original text in conflict detection so opposing adjectives inside prompt are caught.
     conflicts = detect_conflicts(constraints + [text])
@@ -130,7 +153,13 @@ def compile_text(text: str) -> IR:
             'comparison_items': comparison_items,
             'variant_count': variant_count,
             'original_text': text,
-            'persona_evidence': persona_info
+            'persona_evidence': persona_info,
+            'risk_flags': risk_flags,
+            'entities': entities,
+            'complexity': complexity,
+            'ambiguous_terms': ambiguous,
+            'clarify_questions': clarify_qs,
+            'code_request': code_req
         }
     )
     # Teaching intent enrichment
