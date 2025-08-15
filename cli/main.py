@@ -9,13 +9,16 @@ from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_e
 app = typer.Typer(help="Prompt Compiler CLI")
 
 @app.command()
-def compile(text: List[str] = typer.Argument(..., help="Prompt metni: tırnak koymazsan kelimeler arası boşluklarla ayırabilirsin")):
+def compile(
+    text: List[str] = typer.Argument(..., help="Prompt text (wrap in quotes for multi-word)"),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt")
+):
     full_text = " ".join(text)
     ir = optimize_ir(compile_text(full_text))
     system_prompt = emit_system_prompt(ir)
     user_prompt = emit_user_prompt(ir)
     plan = emit_plan(ir)
-    expanded = emit_expanded_prompt(ir)
+    expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
     print(f"[bold white]Persona:[/bold white] {ir.persona}")
     print(f"[bold white]Role:[/bold white] {ir.role}")
     print("\n[bold blue]IR JSON:[/bold blue]")

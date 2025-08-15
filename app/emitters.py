@@ -44,7 +44,7 @@ def emit_plan(ir: IR) -> str:
         out.append(f"{i}. {step}\n   {rationale}")
     return "\n".join(out) if out else "1. Analyze request\n   Rationale: establish understanding"
 
-def emit_expanded_prompt(ir: IR) -> str:
+def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
     # Natural, example-based one-shot style expansion for everyday users
     lang = ir.language
     title = "Genişletilmiş İstem" if lang == 'tr' else "Expanded Prompt"
@@ -93,4 +93,19 @@ def emit_expanded_prompt(ir: IR) -> str:
         example_header+":",
         example_block
     ]
+    if diagnostics:
+        diag_lines = []
+        risk_flags = (ir.metadata or {}).get('risk_flags') or []
+        ambiguous = (ir.metadata or {}).get('ambiguous_terms') or []
+        clarify = (ir.metadata or {}).get('clarify_questions') or []
+        if risk_flags:
+            diag_lines.append(("Risk Flags" if lang!='tr' else "Risk Flags")+": "+", ".join(risk_flags[:5]))
+        if ambiguous:
+            diag_lines.append(("Ambiguous Terms" if lang!='tr' else "Ambiguous Terms")+": "+", ".join(sorted(ambiguous)[:10]))
+        if clarify:
+            diag_lines.append(("Clarify Questions" if lang!='tr' else "Clarify Questions")+":")
+            for q in clarify[:3]:
+                diag_lines.append(f"- {q}")
+        if diag_lines:
+            prompt.extend(["", "Diagnostics:", *diag_lines])
     return "\n".join([line for line in prompt if line is not None])

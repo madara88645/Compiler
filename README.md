@@ -31,6 +31,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, instructor persona, and mini quiz generation
 - **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
 - **Extended Heuristics**: Risk flags (financial/health/legal), entity extraction, complexity score, ambiguous term detection with clarify questions, code request detection
+ - **Diagnostics Mode**: Optional expanded prompt section (--diagnostics) surfacing risk flags, ambiguous terms, and clarify questions
 - **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
@@ -83,6 +84,9 @@ promptc "teach me gradient descent in 15 minutes at intermediate level"
 
 # Multiple word prompt (quotes recommended)
 promptc "explain quantum computing concepts for beginners"
+
+# With diagnostics (risk & ambiguity insights)
+promptc --diagnostics "Analyze stock market investment strategy and optimize performance"
 ```
 
 **Example Output:**
