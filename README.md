@@ -406,13 +406,13 @@ The compiler enriches metadata and constraints with additional safety and clarit
 
 All new fields live in metadata (schema remains stable).
 ```
-Constraints örneği:
+Constraints example:
 ```
 Present a structured comparison
 Generate 3 distinct variants
 ```
 
-> Not: Bu alanlar şimdilik IR `metadata` altında tutulur; ileride şema genişletilebilir.
+> Note: These fields are currently kept under IR metadata for now. The schema can be expanded in the future.
 
 ### Recency Rule  
 For time-sensitive queries, automatically adds web research capability:
