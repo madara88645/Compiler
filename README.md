@@ -35,6 +35,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
+- **Desktop UI (Tkinter)**: Offline GUI (`python ui_desktop.py`) with copy buttons, diagnostics toggle, and light/dark theme switch
 
 ## Installation
 
@@ -117,6 +118,31 @@ promptc --diagnostics "Analyze stock market investment strategy and optimize per
     "Summarize and list resources"
   ]
 }
+```
+
+### Desktop UI (Offline)
+
+Launch the local desktop interface (no server required):
+
+```powershell
+python ui_desktop.py
+```
+
+Features:
+- Enter prompt text and click Generate
+- Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
+- Copy buttons per tab (System / User / Plan / Expanded / IR JSON)
+- Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
+- Light / Dark theme toggle (bottom button in toolbar row)
+
+Screenshots (dark & light):
+
+| Light Theme | Dark Theme |
+|-------------|------------|
+| ![Light UI](docs/images/desktop_light.png) | ![Dark UI](docs/images/desktop_dark.png) |
+
+> If images are missing, capture and add them under `docs/images/`.
+
 ### API Server
 
 Start the FastAPI server:
