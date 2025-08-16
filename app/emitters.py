@@ -93,6 +93,15 @@ def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
         example_header+":",
         example_block
     ]
+    # Clarification questions block (always if present) before diagnostics
+    clarify_all = (ir.metadata or {}).get('clarify_questions') or []
+    if clarify_all:
+        prompt.extend([
+            "",
+            ("Clarification Questions" if lang!='tr' else "Açıklama Soruları")+":",
+        ])
+        for q in clarify_all[:5]:
+            prompt.append(f"- {q}")
     if diagnostics:
         diag_lines = []
         risk_flags = (ir.metadata or {}).get('risk_flags') or []
