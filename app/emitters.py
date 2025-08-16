@@ -93,6 +93,29 @@ def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
         example_header+":",
         example_block
     ]
+    # Assumptions block (lightweight) before clarification questions
+    meta = ir.metadata or {}
+    risk_flags = meta.get('risk_flags') or []
+    variant_count = meta.get('variant_count') or 0
+    assumptions = []
+    if lang == 'tr':
+        assumptions.append("Eksik ayrıntılar makul örnek değerlerle doldurulacaktır.")
+        if risk_flags:
+            assumptions.append("Profesyonel tavsiye değildir; yalnızca bilgilendiricidir.")
+        if variant_count and variant_count > 1:
+            assumptions.append('Her varyant benzersiz bir bakış açısı için "Distinct Angle:" satırı ile başlayacaktır.')
+        header_assump = "Varsayımlar" if assumptions else None
+    else:
+        assumptions.append("Missing details will be filled with reasonable sample values.")
+        if risk_flags:
+            assumptions.append("Not professional advice; informational only.")
+        if variant_count and variant_count > 1:
+            assumptions.append('Each variant begins with "Distinct Angle:" to mark a unique perspective.')
+        header_assump = "Assumptions" if assumptions else None
+    if assumptions:
+        prompt.extend(["", f"{header_assump}:"])
+        for a in assumptions[:5]:
+            prompt.append(f"- {a}")
     # Clarification questions block (always if present) before diagnostics
     clarify_all = (ir.metadata or {}).get('clarify_questions') or []
     if clarify_all:
