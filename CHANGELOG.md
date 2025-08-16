@@ -9,6 +9,13 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - README updated (Desktop UI feature + usage section, screenshots placeholders)
 
+## [0.1.4] - 2025-08-16
+### Added
+- Always-on Clarification Questions block (appears before diagnostics when ambiguous terms exist)
+- Lightweight Assumptions block (missing details, disclaimer for risk domains, variant differentiation rule)
+### Changed
+- README updated (features list + new Assumptions & Clarification Blocks section)
+
 ## [0.1.2] - 2025-08-15
 ### Added
 - Extended heuristics: risk flags (financial/health/legal), entity extraction, complexity estimate, ambiguous term detection + clarify questions, code request detection

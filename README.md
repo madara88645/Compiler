@@ -36,6 +36,8 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Deterministic & Offline**: No external API calls, fully reproducible results
 - **FastAPI + CLI**: Both REST API and command-line interface available
 - **Desktop UI (Tkinter)**: Offline GUI (`python ui_desktop.py`) with copy buttons, diagnostics toggle, and light/dark theme switch
+ - **Clarification Questions Block**: Always injected (before diagnostics) when ambiguous terms detected
+ - **Assumptions Block**: Lightweight assumptions (missing details, non-professional disclaimer, variant differentiation) auto-added
 
 ## Installation
 
@@ -462,6 +464,28 @@ Automatically detects and provides evidence for domain classification:
 - **Turkish (tr)**: Full support with Turkish system prompts and localized examples
 - **English (en)**: Complete English language support
 - **Auto-detection**: Based on input text analysis
+
+### Assumptions & Clarification Blocks
+The Expanded Prompt includes extra structured clarity sections:
+
+- **Assumptions Block** (added when relevant):
+  - Fills missing unspecified details with reasonable sample values
+  - Adds non-professional disclaimer if risk flags (financial / health / legal) detected
+  - Enforces variant differentiation: each variant begins with `Distinct Angle:` when multiple variants requested
+- **Clarification Questions Block**: Always appears (before diagnostics) when ambiguous terms are detected (up to 5 questions)
+- **Diagnostics Section**: Still optional; when `--diagnostics` is enabled, consolidates Risk Flags, Ambiguous Terms, and top Clarify Questions
+
+Example (excerpt):
+```
+Assumptions:
+- Missing details will be filled with reasonable sample values.
+- Not professional advice; informational only.
+- Each variant begins with "Distinct Angle:" to mark a unique perspective.
+
+Clarification Questions:
+- What exact user segment is the primary target?
+- What is the baseline latency expectation?
+```
 
 ## Contributing
 See CONTRIBUTING.md and CODE_OF_CONDUCT.md
