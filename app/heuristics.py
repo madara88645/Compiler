@@ -333,20 +333,24 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
 
     # Duration extraction (minutes/hours)
     # Examples: "10 dakikada", "15 dk", "30 dakika", "1 saat", "in 10 minutes", "30 mins", "30m"
-    dur_patterns = [
-        # Turkish with locative suffix
-        (r"(\d{1,3})\s*(dk|dakika)(?:da|de|ta|te)?\b", "m"),
-        (r"(\d{1,2})\s*(saat)(?:te|ta|de|da)?\b", "h"),
-        # English
-        (r"(\d{1,3})\s*(min|minute|minutes|mins|m)\b", "m"),
-        (r"(\d{1,2})\s*(hour|hours|h)\b", "h"),
-        (r"in\s*(\d{1,3})\s*(minutes|minute|mins)\b", "m"),
-    ]
-    for dp, norm in dur_patterns:
-        md = re.search(dp, lower)
-        if md:
-            num = md.group(1)
-            inputs["duration"] = f"{num}{norm}"
-            break
+    # Verbal half-hour forms (Turkish & English)
+    if "yarım saat" in lower or re.search(r"\bhalf\s+(an\s+)?hour\b", lower):
+        inputs["duration"] = "30m"
+    else:
+        dur_patterns = [
+            # Turkish with locative suffix
+            (r"(\d{1,3})\s*(dk|dakika)(?:da|de|ta|te)?\b", "m"),
+            (r"(\d{1,2})\s*(saat)(?:te|ta|de|da)?\b", "h"),
+            # English
+            (r"(\d{1,3})\s*(min|minute|minutes|mins|m)\b", "m"),
+            (r"(\d{1,2})\s*(hour|hours|h)\b", "h"),
+            (r"in\s*(\d{1,3})\s*(minutes|minute|mins)\b", "m"),
+        ]
+        for dp, norm in dur_patterns:
+            md = re.search(dp, lower)
+            if md:
+                num = md.group(1)
+                inputs["duration"] = f"{num}{norm}"
+                break
 
     return inputs
