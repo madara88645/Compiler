@@ -28,7 +28,7 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
 - **Structured IR**: JSON Schema validated Intermediate Representation with fields: persona, role, goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 - **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
-- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, instructor persona, and mini quiz generation
+- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, instructor persona, mini quiz generation, and reputable source recommendations constraint
 - **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
 - **Extended Heuristics**: Risk flags (financial/health/legal), entity extraction, complexity score, ambiguous term detection with clarify questions, code request detection
  - **Diagnostics Mode**: Optional expanded prompt section (--diagnostics) surfacing risk flags, ambiguous terms, and clarify questions
@@ -365,6 +365,7 @@ When a learning / teaching intent is detected (keywords like *teach, explain*):
 - Role changes to an expert instructor persona (English only in examples)
 - Adds progressive pedagogical flow constraint
 - Adds analogy usage constraint
+- Adds reputable source recommendations constraint (TR: `İlgili güvenilir kaynak önerileri ekle`, EN: `Include relevant reputable source recommendations`)
 - Detects level (beginner/intermediate/advanced) and adjusts constraints
 - Detects duration (e.g. `15m`, `1h`) and adds time-bound constraint
 - Rebuilds steps into a teaching sequence and injects a mini quiz scaffold
