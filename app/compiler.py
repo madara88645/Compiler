@@ -176,6 +176,7 @@ def compile_text(text: str) -> IR:
         if lang == 'tr':
             ir.constraints.append("Aşamalı, kavramdan örneğe doğru öğretici anlatım kullan")
             ir.constraints.append("Öğrenme konularında analoji kullan")
+            ir.constraints.append("İlgili güvenilir kaynak önerileri ekle")
             if lvl == 'beginner':
                 ir.constraints.append("Sıfırdan başlayanlar için basit dil kullan")
             elif lvl == 'intermediate':
@@ -203,6 +204,7 @@ def compile_text(text: str) -> IR:
         else:
             ir.constraints.append("Use a progressive, pedagogical flow from concepts to examples")
             ir.constraints.append("Use analogies to make concepts clearer")
+            ir.constraints.append("Include relevant reputable source recommendations")
             if lvl == 'beginner':
                 ir.constraints.append("Use simple language for beginners")
             elif lvl == 'intermediate':
