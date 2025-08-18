@@ -5,6 +5,7 @@ import typer
 from rich import print
 from app.compiler import compile_text, optimize_ir
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
+from app import get_version
 
 app = typer.Typer(help="Prompt Compiler CLI")
 
@@ -30,3 +31,8 @@ def compile(
 
 if __name__ == "__main__":  # pragma: no cover
     app()
+
+@app.command()
+def version():
+    """Print package version."""
+    print(get_version())

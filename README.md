@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Compile messy prompts (Turkish/English) into a structured Intermediate Representation (JSON) and generate optimized System Prompt, User Prompt, Plan, and Expanded Prompt for everyday use with LLMs.
+Compile messy natural language prompts (Turkish / English) into a structured Intermediate Representation (IR JSON) and generate optimized System Prompt, User Prompt, Plan, and Expanded Prompt for everyday use with LLMs. (Project documentation below is now fully in English for consistency.)
 
 ## Table of Contents
 - [Features](#features)
@@ -25,19 +25,20 @@ Compile messy prompts (Turkish/English) into a structured Intermediate Represent
 - [License](#license)
 
 ## Features
-- **Language Detection**: Automatic language detection (Turkish/English) with domain guessing and evidence
-- **Structured IR**: JSON Schema validated Intermediate Representation with fields: persona, role, goals, tasks, inputs (interest/budget/format/level/duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
-- **Recency Rule**: Automatically adds `web` tool + constraints for time-sensitive queries
-- **Teaching Mode**: Intelligent detection of learning intent with level, duration, analogy guidance, instructor persona, mini quiz generation, and reputable source recommendations constraint
-- **Summary / Comparison / Variants**: Auto-detect summary requests (with optional bullet limits), structured multi-item comparisons (auto table), and multiple variant generation (2–10)
-- **Extended Heuristics**: Risk flags (financial/health/legal), entity extraction, complexity score, ambiguous term detection with clarify questions, code request detection
- - **Diagnostics Mode**: Optional expanded prompt section (--diagnostics) surfacing risk flags, ambiguous terms, and clarify questions
-- **Multiple Outputs**: Generates System Prompt, User Prompt, Plan, and Expanded Prompt for different use cases
-- **Deterministic & Offline**: No external API calls, fully reproducible results
-- **FastAPI + CLI**: Both REST API and command-line interface available
-- **Desktop UI (Tkinter)**: Offline GUI (`python ui_desktop.py`) with copy buttons, diagnostics toggle, and light/dark theme switch
- - **Clarification Questions Block**: Always injected (before diagnostics) when ambiguous terms detected
- - **Assumptions Block**: Lightweight assumptions (missing details, non-professional disclaimer, variant differentiation) auto-added
+* **Language Detection**: Automatic detection (Turkish / English) with domain guessing and evidence
+* **Structured IR**: JSON Schema validated IR with: persona, role, goals, tasks, inputs (interest / budget / format / level / duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
+* **Recency Rule**: Adds `web` tool + recency constraint for time-sensitive queries
+* **Teaching Mode**: Detects learning intent; adds instructor persona, level/duration constraints, pedagogical steps, mini quiz scaffold, reputable sources constraint
+* **Summary / Comparison / Variants**: Detects summary (with bullet limits), multi-item comparisons (auto switch to table), and variant generation (2–10 distinct variants)
+* **Extended Heuristics**: Risk flags (financial / health / legal), entity extraction, complexity score, ambiguous terms -> clarification questions, code request detection
+* **Awareness Extensions (new)**: Broader domain/persona/risk/ambiguous keyword coverage (e.g., cloud, security, resilient, secure, portfolio, compliance)
+* **Diagnostics Mode**: Optional expanded prompt section (--diagnostics) surfacing risk flags, ambiguous terms, clarify questions
+* **Clarification Questions Block**: Auto-added (before diagnostics) when ambiguity detected
+* **Assumptions Block**: Adds missing detail filler policy, disclaimer (for risky domains), and variant differentiation rule
+* **Multiple Outputs**: System Prompt, User Prompt, Plan, Expanded Prompt, plus raw IR JSON
+* **Deterministic & Offline**: No external API calls; reproducible
+* **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
+* **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 
 ## Installation
 
@@ -153,9 +154,17 @@ Start the FastAPI server:
 uvicorn api.main:app --reload
 ```
 
-The API will be available at:
-- **Health Check**: http://127.0.0.1:8000/health
-- **API Documentation**: http://127.0.0.1:8000/docs (Swagger UI)
+The API provides:
+* **Health Check**: http://127.0.0.1:8000/health
+* **Version**: http://127.0.0.1:8000/version
+* **Docs (Swagger)**: http://127.0.0.1:8000/docs
+
+#### GET /version
+Returns running package version.
+
+```json
+{"version": "0.0.0-dev"}
+```
 
 #### POST /compile
 Compile a text prompt into structured IR and generated prompts.
@@ -271,12 +280,12 @@ The tool converts natural language prompts into a structured JSON format followi
 ## Use Cases
 
 **When to use promptc:**
-- 🎯 **Consistent Prompting**: Need reproducible, structured prompts for LLM workflows
-- 🌐 **Multi-language**: Working with Turkish and English prompts  
-- 📚 **Teaching Content**: Creating educational content with automatic level detection
-- 🛍️ **Structured Tasks**: Shopping recommendations, comparisons, planning
-- ⏰ **Time-sensitive**: Queries that need current information (auto-adds web tool)
-- 🔄 **Batch Processing**: Converting many natural prompts into structured format
+* 🎯 **Consistent Prompting**: Reproducible, structured prompts for LLM pipelines
+* 🌐 **Multi-language TR/EN**: Automatic language adaptation
+* 📚 **Teaching Content**: Educational flows with pedagogy enhancements
+* 🛍️ **Structured Tasks**: Shopping, comparisons, planning, summarization
+* ⏰ **Time-sensitive**: Auto web tool addition when recency detected
+* 🔄 **Batch Processing**: Convert many raw prompts into clean standardized structure
 
 **What promptc outputs:**
 - **System Prompt**: For LLM system instructions
@@ -407,7 +416,7 @@ Example:
 promptc "python vs go performans karşılaştır"
 ```
 
-#### 3. Variant (Alternatif) Generation
+#### 3. Variant Generation
 Triggers on: `alternatif`, `alternatifler`, `alternatives`, `variants`, `seçenek`, `options`.
 Sayı verilirse ("3 alternatif", "2 options") aralık 2–10 arasında normalize edilir; yoksa varsayılan 3.
 - Constraint: `Generate N distinct variants`
@@ -437,7 +446,7 @@ The compiler enriches metadata and constraints with additional safety and clarit
 | Clarify Questions | From ambiguous terms list | metadata.clarify_questions (up to 5) |
 | Code Request | code/snippet/python/function terms | Adds inline comments constraint + metadata.code_request |
 
-All new fields live in metadata (schema remains stable).
+All new fields live in metadata (schema remains stable). Recently expanded coverage adds cloud domain patterns, resiliency/security ambiguous terms, extended risk terms (portfolio, compliance, diagnosis), and richer persona triggers (workshop, accountability, growth).
 ```
 Constraints example:
 ```
@@ -447,7 +456,7 @@ Generate 3 distinct variants
 
 > Note: These fields are currently kept under IR metadata for now. The schema can be expanded in the future.
 
-### Recency Rule  
+### Recency Rule
 For time-sensitive queries, automatically adds web research capability:
 ```bash
 promptc "latest developments in AI 2024"

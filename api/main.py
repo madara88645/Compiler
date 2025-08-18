@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pathlib import Path
 from app.compiler import compile_text, optimize_ir
+from app import get_version
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
 
 app = FastAPI(title="Prompt Compiler API")
@@ -22,6 +23,11 @@ class CompileResponse(BaseModel):
 @app.get('/health')
 async def health():
     return {"status": "ok"}
+
+@app.get('/version')
+async def version():
+    """Return running package version (for debugging / client caching)."""
+    return {"version": get_version()}
 
 @app.post('/compile', response_model=CompileResponse)
 async def compile_endpoint(req: CompileRequest):

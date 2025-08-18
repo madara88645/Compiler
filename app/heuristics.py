@@ -3,16 +3,19 @@ import re
 from typing import Tuple, List, Dict
 
 RECENCY_KEYWORDS = [
-    r"today", r"recent", r"latest", r"breaking", r"current", r"2025",
+    # English temporal recency markers
+    r"today", r"recent", r"latest", r"breaking", r"current", r"this week", r"this month", r"2025",
+    # Turkish temporal markers (kept for TR input support)
     r"bugün", r"şu an", r"güncel", r"son gelişmeler", r"şimdi"
 ]
 
 DOMAIN_PATTERNS: Dict[str, List[str]] = {
-    "ai/nlp": [r"nlp", r"language model", r"prompt", r"embedding", r"transformer"],
-    "ai/ml": [r"machine learning", r"deep learning", r"neural", r"model eğit", r"yapay zeka"],
-    "finance": [r"borsa", r"hisse", r"stock", r"finans", r"döviz", r"usd", r"eur"],
-    "physics": [r"quantum", r"fizik", r"relativity", r"kuantum"],
-    "software": [r"api", r"microservice", r"docker", r"kubernetes", r"python", r"javascript"],
+    "ai/nlp": [r"nlp", r"language model", r"prompt", r"embedding", r"transformer", r"tokenization"],
+    "ai/ml": [r"machine learning", r"deep learning", r"neural", r"model eğit", r"yapay zeka", r"regression", r"classification"],
+    "finance": [r"borsa", r"hisse", r"stock", r"finans", r"döviz", r"usd", r"eur", r"investment", r"portfolio", r"hedging"],
+    "physics": [r"quantum", r"fizik", r"relativity", r"kuantum", r"particle"],
+    "software": [r"api", r"microservice", r"docker", r"kubernetes", r"python", r"javascript", r"refactor", r"microservices"],
+    "cloud": [r"aws", r"azure", r"gcp", r"cloudformation", r"terraform", r"serverless"],
 }
 
 STYLE_KEYWORDS = ["structured", "academic", "resmi", "concise", "öz" ]
@@ -39,10 +42,10 @@ TEACHING_KEYWORDS = [
 
 # Persona keyword groups (simple scoring)
 PERSONA_KEYWORDS = {
-    "teacher": [r"teach", r"öğret", r"ders", r"explain", r"tutorial", r"öğretici"],
-    "researcher": [r"research", r"araştır", r"analyze", r"analysis", r"paper", r"literature"],
-    "coach": [r"coach", r"koç", r"motivate", r"motivation", r"rehberlik"],
-    "mentor": [r"mentor", r"mentorluk", r"career", r"kariyer", r"advice", r"guidance"],
+    "teacher": [r"teach", r"öğret", r"ders", r"explain", r"tutorial", r"öğretici", r"workshop", r"lesson"],
+    "researcher": [r"research", r"araştır", r"analyze", r"analysis", r"paper", r"literature", r"survey", r"systematic review"],
+    "coach": [r"coach", r"koç", r"motivate", r"motivation", r"rehberlik", r"encourage", r"accountability"],
+    "mentor": [r"mentor", r"mentorluk", r"career", r"kariyer", r"advice", r"guidance", r"growth"],
 }
 
 def pick_persona(text: str) -> tuple[str, dict]:
@@ -63,9 +66,12 @@ def pick_persona(text: str) -> tuple[str, dict]:
     return chosen, {"scores": scores, "evidence": evidence, "chosen": chosen}
 
 # --- New general-purpose heuristics ---
-SUMMARY_KEYWORDS = [r"özetle", r"kısaca", r"tl;dr", r"summarize", r"summary", r"brief", r"short version"]
+SUMMARY_KEYWORDS = [
+    r"özetle", r"kısaca", r"tl;dr", r"summarize", r"summary", r"brief", r"short version",
+    r"abstract", r"condense", r"outline"
+]
 COMPARISON_KEYWORDS = [r"karşılaştır", r"vs", r"hangisi", r"compare", r"versus", r"farkları"]
-VARIANT_KEYWORDS = [r"alternatif", r"alternatifler", r"alternatives", r"variants", r"seçenek", r"options"]
+VARIANT_KEYWORDS = [r"alternatif", r"alternatifler", r"alternatives", r"variants", r"seçenek", r"options", r"choices"]
 
 def detect_summary(text: str) -> tuple[bool, int|None]:
     lower = text.lower()
@@ -127,9 +133,9 @@ def extract_variant_count(text: str) -> int:
 # --- Extended heuristics (IR & heuristics expansion) ---
 
 RISK_KEYWORDS = {
-    'financial': [r"yatırım", r"hisse", r"borsa", r"stock", r"invest", r"trading", r"kripto", r"crypto"],
-    'health': [r"diyet", r"sağlık", r"hastalık", r"disease", r"treatment", r"therapy", r"nutrition"],
-    'legal': [r"sözleşme", r"contract", r"legal", r"hukuk", r"sue", r"dava", r"regulation"],
+    'financial': [r"yatırım", r"hisse", r"borsa", r"stock", r"invest", r"trading", r"kripto", r"crypto", r"portfolio", r"derivative", r"option pricing"],
+    'health': [r"diyet", r"sağlık", r"hastalık", r"disease", r"treatment", r"therapy", r"nutrition", r"medical", r"diagnosis", r"supplement"],
+    'legal': [r"sözleşme", r"contract", r"legal", r"hukuk", r"sue", r"dava", r"regulation", r"compliance", r"policy", r"regulatory"],
 }
 
 AMBIGUOUS_TERMS = {
@@ -140,9 +146,11 @@ AMBIGUOUS_TERMS = {
     'scalable': "Target scale or concurrency level?",
     'fast': "What response time / throughput target?",
     'robust': "Robust against which failures or edge cases?",
+    'secure': "What threat model or security properties (confidentiality, integrity, availability?)",
+    'resilient': "Resilient against which failure modes (network partition, instance crash, data loss?)",
 }
 
-CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod"]
+CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod", r"script", r"algorithm"]
 
 def detect_risk_flags(text: str) -> list[str]:
     lower = text.lower()
