@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 from typing import List
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
+import json, hashlib, time
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
@@ -56,6 +57,30 @@ def build_steps(tasks: List[str]) -> List[str]:
         steps.append(f"Review: {t[:80]}")
     return steps
 
+
+HEURISTIC_VERSION = "2025.08.19-1"
+
+def _canonical_constraints(items: list[str]) -> list[str]:
+    seen = set()
+    out: list[str] = []
+    for c in items:
+        key = c.strip().lower()
+        if not key:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c.strip())
+    return out
+
+def _compute_signature(ir: IR) -> str:
+    # Deterministic short hash of IR core fields (exclude metadata.ir_signature itself)
+    core = ir.dict()
+    md = core.get('metadata', {}).copy()
+    md.pop('ir_signature', None)
+    core['metadata'] = md
+    blob = json.dumps(core, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode('utf-8')).hexdigest()[:12]
 
 def compile_text(text: str) -> IR:
     lang = detect_language(text)
@@ -159,7 +184,8 @@ def compile_text(text: str) -> IR:
             'complexity': complexity,
             'ambiguous_terms': ambiguous,
             'clarify_questions': clarify_qs,
-            'code_request': code_req
+            'code_request': code_req,
+            'heuristic_version': HEURISTIC_VERSION
         }
     )
     # Teaching intent enrichment
@@ -228,6 +254,10 @@ def compile_text(text: str) -> IR:
                 "Ex: Intro -> Example -> Exercise -> Summary",
                 "Mini Quiz: 3 questions (easy, medium, hard) with short answer key"
             ]
+    # Final constraint normalization
+    ir.constraints = _canonical_constraints(ir.constraints)
+    # Attach signature
+    ir.metadata['ir_signature'] = _compute_signature(ir)
     return ir
 
 

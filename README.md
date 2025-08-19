@@ -39,6 +39,10 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **Deterministic & Offline**: No external API calls; reproducible
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
+* **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
+* **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
+* **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
+* **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 
 ## Installation
 
@@ -183,7 +187,10 @@ curl -X POST http://127.0.0.1:8000/compile \
   "system_prompt": "Persona: assistant\nRole: Helpful generative AI assistant...",
   "user_prompt": "Goals: arkadaşıma hediye öner...",
   "plan": "1. Identify football-related gift options",
-  "expanded_prompt": "Generate clear suggestions..."
+  "expanded_prompt": "Generate clear suggestions...",
+  "processing_ms": 11,
+  "request_id": "a1b2c3d4e5f6",
+  "heuristic_version": "2025.08.19-1"
 }
 ```
 
@@ -447,6 +454,22 @@ The compiler enriches metadata and constraints with additional safety and clarit
 | Code Request | code/snippet/python/function terms | Adds inline comments constraint + metadata.code_request |
 
 All new fields live in metadata (schema remains stable). Recently expanded coverage adds cloud domain patterns, resiliency/security ambiguous terms, extended risk terms (portfolio, compliance, diagnosis), and richer persona triggers (workshop, accountability, growth).
+
+### Heuristic Version & IR Signature
+Each IR embeds a human-readable `heuristic_version` and a deterministic short hash `ir_signature` (first 12 chars of SHA-256 over normalized IR). Useful for caching and diffing.
+
+### CLI New Flags
+```powershell
+promptc --json-only "summarize abstract transformer tokenization outline"
+promptc --quiet "secure resilient scalable api design"
+promptc --persona teacher "explain recursion in 10 minutes"
+```
+
+### API Extra Fields
+`processing_ms` = server latency (ms), `request_id` = short UUID slice, `heuristic_version` mirrors IR metadata.
+
+### Follow-up Questions Block
+Expanded Prompt concludes with 2 generic future-oriented follow-up questions (language-aware) to guide refinement.
 ```
 Constraints example:
 ```

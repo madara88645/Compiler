@@ -125,6 +125,25 @@ def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
         ])
         for q in clarify_all[:5]:
             prompt.append(f"- {q}")
+    # Follow-up Questions (simple heuristic: if no clarify questions or even if present, add 2 generic next-step questions)
+    followups = []
+    if ir.language == 'tr':
+        followups = [
+            "Ek olarak hangi başarı ölçütleri önemli?",
+            "Bir sonraki yinelemede ne derinleştirilmeli?",
+        ]
+        header_fu = "Follow-up Soruları"
+    else:
+        followups = [
+            "Which success metrics matter most next?",
+            "What should be deepened in the next iteration?",
+        ]
+        header_fu = "Follow-up Questions"
+    if followups:
+        prompt.extend(["", header_fu+":"])
+        for f in followups[:2]:
+            prompt.append(f"- {f}")
+
     if diagnostics:
         diag_lines = []
         risk_flags = (ir.metadata or {}).get('risk_flags') or []

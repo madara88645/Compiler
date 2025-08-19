@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pathlib import Path
-from app.compiler import compile_text, optimize_ir
+from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION
+import time, uuid
 from app import get_version
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
 
@@ -19,6 +20,9 @@ class CompileResponse(BaseModel):
     user_prompt: str
     plan: str
     expanded_prompt: str
+    processing_ms: int
+    request_id: str
+    heuristic_version: str
 
 @app.get('/health')
 async def health():
@@ -31,14 +35,20 @@ async def version():
 
 @app.post('/compile', response_model=CompileResponse)
 async def compile_endpoint(req: CompileRequest):
-        ir = optimize_ir(compile_text(req.text))
-        return CompileResponse(
-                ir=ir.dict(),
-                system_prompt=emit_system_prompt(ir),
-                user_prompt=emit_user_prompt(ir),
-                plan=emit_plan(ir),
-                expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics)
-        )
+    t0 = time.time()
+    rid = uuid.uuid4().hex[:12]
+    ir = optimize_ir(compile_text(req.text))
+    elapsed = int((time.time() - t0)*1000)
+    return CompileResponse(
+        ir=ir.dict(),
+        system_prompt=emit_system_prompt(ir),
+        user_prompt=emit_user_prompt(ir),
+        plan=emit_plan(ir),
+        expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics),
+        processing_ms=elapsed,
+        request_id=rid,
+        heuristic_version=HEURISTIC_VERSION
+    )
 
 
 @app.get('/schema')

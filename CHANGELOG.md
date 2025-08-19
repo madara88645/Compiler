@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.5] - 2025-08-18
 ### Added
+## [0.1.6] - 2025-08-19
+### Added
+- Heuristic version tagging (metadata.heuristic_version)
+- Deterministic IR signature hash (metadata.ir_signature)
+- CLI flags: --json-only, --quiet, --persona override
+- API fields: processing_ms, request_id, heuristic_version
+- Expanded Prompt follow-up questions block
+### Changed
+- Constraint de-duplication / normalization pass
+### Fixed
+- None (backward compatible)
+
 - Version exposure: `/version` API endpoint and `promptc version` CLI command
 - Heuristic expansions: cloud domain (AWS/Azure/GCP), broader finance/health/legal risk terms, new ambiguous terms (secure, resilient), extra persona triggers (workshop, survey, accountability, growth), new summary keywords (abstract, condense, outline), variant keyword (choices), code request terms (script, algorithm), additional recency phrases (this week, this month)
 ### Changed
