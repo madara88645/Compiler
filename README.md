@@ -43,6 +43,8 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
+* **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
+* **Domain Candidates (new)**: Alternative plausible domains surfaced in `metadata.domain_candidates`
 
 ## Installation
 
@@ -190,7 +192,7 @@ curl -X POST http://127.0.0.1:8000/compile \
   "expanded_prompt": "Generate clear suggestions...",
   "processing_ms": 11,
   "request_id": "a1b2c3d4e5f6",
-  "heuristic_version": "2025.08.19-1"
+  "heuristic_version": "2025.08.19-2"
 }
 ```
 
@@ -486,12 +488,14 @@ API example request body:
 Response includes a `trace` array:
 ```json
 "trace": [
-  "heuristic_version=2025.08.19-1",
+  "heuristic_version=2025.08.19-2",
   "language=en",
   "persona=assistant",
   "domain=cloud (2 evid)",
   "domain_evidence:cloud:aws,cloud:serverless",
   "ambiguous_terms=secure,resilient,scalable",
+  "pii_flags=email",
+  "domain_candidates=cloud,software",
   "variant_count=1",
   "complexity=medium",
   "ir_signature=abcdef123456"
