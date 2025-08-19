@@ -8,7 +8,7 @@ from .heuristics import (
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
     detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count, pick_persona,
     detect_risk_flags, extract_entities, estimate_complexity, detect_ambiguous_terms, generate_clarify_questions,
-    detect_code_request
+    detect_code_request, detect_pii, detect_domain_candidates
 )
 
 GENERIC_GOAL = {
@@ -58,7 +58,7 @@ def build_steps(tasks: List[str]) -> List[str]:
     return steps
 
 
-HEURISTIC_VERSION = "2025.08.19-1"
+HEURISTIC_VERSION = "2025.08.19-2"
 
 def _canonical_constraints(items: list[str]) -> list[str]:
     seen = set()
@@ -85,6 +85,7 @@ def _compute_signature(ir: IR) -> str:
 def compile_text(text: str) -> IR:
     lang = detect_language(text)
     domain, evidence = detect_domain(text)
+    domain_candidates = detect_domain_candidates(evidence)
     output_format = extract_format(text)
     length_hint = detect_length_hint(text)
     style, tone = extract_style_tone(text)
@@ -118,6 +119,7 @@ def compile_text(text: str) -> IR:
     ambiguous = detect_ambiguous_terms(text)
     clarify_qs = generate_clarify_questions(ambiguous)
     code_req = detect_code_request(text)
+    pii_flags = detect_pii(text)
     if is_summary:
         constraints.append('Provide a concise summary')
         if summary_count:
@@ -134,6 +136,11 @@ def compile_text(text: str) -> IR:
             constraints.append('Riskli alan: profesyonel tavsiye yerine genel bilgi ver (finans/tıp/hukuk)')
         else:
             constraints.append('Risk domain detected: provide general information, not professional advice')
+    if pii_flags:
+        if lang == 'tr':
+            constraints.append('Kişisel/özel veri içerebilir: Özel bilgileri maskele ve gizliliğe dikkat et')
+        else:
+            constraints.append('Possible personal/sensitive data: anonymize or mask and respect privacy')
     if code_req:
         if lang == 'tr':
             constraints.append('Kod örneklerinde kısa yorum satırları ekle')
@@ -185,6 +192,8 @@ def compile_text(text: str) -> IR:
             'ambiguous_terms': ambiguous,
             'clarify_questions': clarify_qs,
             'code_request': code_req,
+            'pii_flags': pii_flags,
+            'domain_candidates': domain_candidates,
             'heuristic_version': HEURISTIC_VERSION
         }
     )
@@ -298,6 +307,12 @@ def generate_trace(ir: IR) -> list[str]:
         add("clarify_q_count", len(clar))
     if md.get('code_request'):
         add("code_request", True)
+    pii = md.get('pii_flags') or []
+    if pii:
+        add('pii_flags', ",".join(pii))
+    candidates = md.get('domain_candidates') or []
+    if candidates and len(candidates) > 1:
+        add('domain_candidates', ",".join(candidates))
     ents = md.get('entities') or []
     if ents:
         add("entities", ",".join(ents[:6]))

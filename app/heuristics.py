@@ -152,6 +152,39 @@ AMBIGUOUS_TERMS = {
 
 CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod", r"script", r"algorithm"]
 
+# --- Privacy / PII detection (lightweight heuristic, no external deps) ---
+PII_PATTERNS = {
+    'email': re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    # Simplistic international phone (avoids matching short numbers); requires 7+ digits overall
+    'phone': re.compile(r"(?:(?:\+|00)?\d{1,3}[ \-]?)?(?:\d{3}[ \-]?){2,3}\d{2,4}"),
+    # Credit card (13-16 digits with optional spaces/hyphens) – basic filter, later Luhn could be added
+    'credit_card': re.compile(r"\b(?:\d[ -]?){13,16}\b"),
+    # Turkish IBAN (TR + 24 digits) simplified
+    'iban': re.compile(r"\bTR\d{24}\b", re.IGNORECASE),
+}
+
+def detect_pii(text: str) -> list[str]:
+    lower = text.lower()
+    flags: list[str] = []
+    # To reduce false positives for credit cards: ensure at least 13 digits contiguous when stripped
+    for kind, pat in PII_PATTERNS.items():
+        for m in pat.finditer(text):
+            val = m.group(0)
+            if kind == 'credit_card':
+                digits = re.sub(r"[^0-9]", "", val)
+                if len(digits) < 13:
+                    continue
+            if kind == 'phone':
+                digits = re.sub(r"[^0-9]", "", val)
+                if len(digits) < 7:
+                    continue
+            if kind not in flags:
+                flags.append(kind)
+            # Do not collect more than 5 kinds to keep metadata small
+            if len(flags) >= 5:
+                break
+    return flags
+
 def detect_risk_flags(text: str) -> list[str]:
     lower = text.lower()
     flags: list[str] = []
@@ -227,6 +260,20 @@ def detect_domain(text: str) -> Tuple[str, List[str]]:
         counts[d] = counts.get(d,0)+1
     domain = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[0][0]
     return domain, evidence
+
+def detect_domain_candidates(evidence: List[str], top_k: int = 3) -> List[str]:
+    """Return ordered list of plausible domain candidates from evidence.
+
+    Keeps deterministic ordering: primary domain first then others by count then name.
+    """
+    if not evidence:
+        return []
+    counts: Dict[str,int] = {}
+    for ev in evidence:
+        d = ev.split(":",1)[0]
+        counts[d] = counts.get(d,0)+1
+    ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+    return [d for d,_ in ranked[:top_k]]
 
 
 def detect_recency(text: str) -> bool:
