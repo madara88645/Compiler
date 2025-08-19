@@ -260,6 +260,57 @@ def compile_text(text: str) -> IR:
     ir.metadata['ir_signature'] = _compute_signature(ir)
     return ir
 
+def generate_trace(ir: IR) -> list[str]:
+    """Produce a human-readable trace of heuristic triggers for debugging.
+
+    Only uses existing IR + metadata (no recomputation) so it's deterministic.
+    """
+    md = ir.metadata or {}
+    lines: list[str] = []
+    def add(k: str, v):
+        lines.append(f"{k}={v}")
+    add("heuristic_version", md.get('heuristic_version'))
+    add("language", ir.language)
+    add("persona", ir.persona)
+    # Domain evidence
+    ev = md.get('detected_domain_evidence') or []
+    add("domain", f"{ir.domain} ({len(ev)} evid)" if ev else ir.domain)
+    if ev:
+        lines.append("domain_evidence:" + ",".join(ev[:8]))
+    add("summary", md.get('summary'))
+    limit = md.get('summary_limit')
+    if limit:
+        add("summary_limit", limit)
+    comp_items = md.get('comparison_items') or []
+    if comp_items:
+        add("comparison_items", len(comp_items))
+    add("variant_count", md.get('variant_count'))
+    if ir.tools:
+        add("tools", ",".join(ir.tools))
+    risk = md.get('risk_flags') or []
+    if risk:
+        add("risk_flags", ",".join(risk))
+    amb = md.get('ambiguous_terms') or []
+    if amb:
+        add("ambiguous_terms", ",".join(sorted(amb)))
+    clar = md.get('clarify_questions') or []
+    if clar:
+        add("clarify_q_count", len(clar))
+    if md.get('code_request'):
+        add("code_request", True)
+    ents = md.get('entities') or []
+    if ents:
+        add("entities", ",".join(ents[:6]))
+    add("complexity", md.get('complexity'))
+    # Persona scores
+    pe = md.get('persona_evidence', {})
+    scores = pe.get('scores') or {}
+    if scores:
+        score_line = ",".join(f"{k}:{v}" for k,v in sorted(scores.items()))
+        add("persona_scores", score_line)
+    add("ir_signature", md.get('ir_signature'))
+    return lines
+
 
 def optimize_ir(ir: IR) -> IR:
     # Placeholder for future optimization passes: could merge similar tasks, etc.

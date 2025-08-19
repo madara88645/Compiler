@@ -470,6 +470,33 @@ promptc --persona teacher "explain recursion in 10 minutes"
 
 ### Follow-up Questions Block
 Expanded Prompt concludes with 2 generic future-oriented follow-up questions (language-aware) to guide refinement.
+
+### Trace Mode
+You can request a heuristic trace that lists which signals were detected and their counts/scores.
+
+CLI examples:
+```powershell
+promptc --trace --json-only "cloud portfolio optimization this month"
+promptc --trace "secure resilient scalable api design"
+```
+API example request body:
+```json
+{ "text": "secure resilient scalable api design", "trace": true }
+```
+Response includes a `trace` array:
+```json
+"trace": [
+  "heuristic_version=2025.08.19-1",
+  "language=en",
+  "persona=assistant",
+  "domain=cloud (2 evid)",
+  "domain_evidence:cloud:aws,cloud:serverless",
+  "ambiguous_terms=secure,resilient,scalable",
+  "variant_count=1",
+  "complexity=medium",
+  "ir_signature=abcdef123456"
+]
+```
 ```
 Constraints example:
 ```

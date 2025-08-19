@@ -13,6 +13,7 @@ app = FastAPI(title="Prompt Compiler API")
 class CompileRequest(BaseModel):
     text: str
     diagnostics: bool = False
+    trace: bool = False
 
 class CompileResponse(BaseModel):
     ir: dict
@@ -23,6 +24,8 @@ class CompileResponse(BaseModel):
     processing_ms: int
     request_id: str
     heuristic_version: str
+    trace: list[str] | None = None
+from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION, generate_trace
 
 @app.get('/health')
 async def health():
@@ -39,6 +42,7 @@ async def compile_endpoint(req: CompileRequest):
     rid = uuid.uuid4().hex[:12]
     ir = optimize_ir(compile_text(req.text))
     elapsed = int((time.time() - t0)*1000)
+    trace_lines = generate_trace(ir) if req.trace else None
     return CompileResponse(
         ir=ir.dict(),
         system_prompt=emit_system_prompt(ir),
@@ -47,7 +51,8 @@ async def compile_endpoint(req: CompileRequest):
         expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics),
         processing_ms=elapsed,
         request_id=rid,
-        heuristic_version=HEURISTIC_VERSION
+        heuristic_version=HEURISTIC_VERSION,
+        trace=trace_lines
     )
 
 
