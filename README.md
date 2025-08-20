@@ -180,15 +180,15 @@ Compile a text prompt into structured IR and generated prompts.
 ```bash
 curl -X POST http://127.0.0.1:8000/compile \
   -H "Content-Type: application/json" \
-  -d '{"text":"arkadaşıma hediye öner futbol sever bütçe 1500-3000 tl tablo"}'
+  -d '{"text":"suggest a gift for my friend football fan budget 1500-3000 tl table"}'
 ```
 
 **Response:**
 ```json
 {
-  "ir": {"language": "tr", "domain": "shopping", "goals": ["arkadaşıma hediye öner"]},
+  "ir": {"language": "en", "domain": "shopping", "goals": ["suggest a gift for my friend"]},
   "system_prompt": "Persona: assistant\nRole: Helpful generative AI assistant...",
-  "user_prompt": "Goals: arkadaşıma hediye öner...",
+  "user_prompt": "Goals: suggest a gift for my friend...",
   "plan": "1. Identify football-related gift options",
   "expanded_prompt": "Generate clear suggestions...",
   "processing_ms": 11,
@@ -207,7 +207,7 @@ curl -X POST http://127.0.0.1:8000/compile \
 The `examples/` directory contains sample prompts to test different features:
 
 - **`example_en.txt`**: English prompt for structured output
-- **`example_tr.txt`**: Turkish prompt with table format request  
+- **`example_tr.txt`**: Turkish prompt with table format request (file name retained for legacy example)
 - **`example_recency_tr.txt`**: Turkish prompt triggering recency rule (adds web tool)
 
 Try them:
@@ -384,7 +384,7 @@ When a learning / teaching intent is detected (keywords like *teach, explain*):
 - Role changes to an expert instructor persona (English only in examples)
 - Adds progressive pedagogical flow constraint
 - Adds analogy usage constraint
-- Adds reputable source recommendations constraint (TR: `İlgili güvenilir kaynak önerileri ekle`, EN: `Include relevant reputable source recommendations`)
+- Adds reputable source recommendations constraint
 - Detects level (beginner/intermediate/advanced) and adjusts constraints
 - Detects duration (e.g. `15m`, `1h`) and adds time-bound constraint
 - Rebuilds steps into a teaching sequence and injects a mini quiz scaffold
@@ -396,42 +396,42 @@ promptc "teach me binary search in 10 minutes beginner level"
 Will set role to English instructor persona, add analogies + level + duration constraints and produce structured steps + quiz examples.
 
 ### General Task Enhancements
-These features are automatically detected and stored in `metadata` (so the IR schema değişmedi):
+These features are automatically detected and stored in `metadata` (so the IR schema does not change):
 
 #### 1. Summary Detection
 Triggers on keywords: `tl;dr`, `summarize`, `summary`, `brief`.
 Adds constraints:
 - `Provide a concise summary`
-- `Max N bullet points` (if "5 madde", "7 bullets" gibi ifade bulunursa)
+- `Max N bullet points` (if a phrase like "5 bullet points" appears)
 
 Example:
 ```bash
 promptc "summarize the text in 5 bullet points"
 ```
-Metadata alanları:
+Metadata fields:
 - `summary`: `true|false`
-- `summary_limit`: sayı (isteğe bağlı)
+- `summary_limit`: integer (optional)
 
 #### 2. Comparison Detection
-Triggers on: `vs`, `karşılaştır`, `compare`, `versus`, `farkları`.
-Heuristikle öğeleri ayrıştırır ("python vs go", "python ile go karşılaştır").
-Ekler:
+Triggers on: `vs`, `compare`, `versus`.
+Extracts items heuristicly ("python vs go", "python vs go vs rust").
+Adds:
 - Constraint: `Present a structured comparison`
-- `output_format` otomatik `table` (markdown tablosu üretimi hedeflenir)
+- `output_format` auto `table` (targets a markdown table)
 Metadata:
 - `comparison_items`: list of extracted items
 
 Example:
 ```bash
-promptc "python vs go performans karşılaştır"
+promptc "python vs go performance comparison"
 ```
 
 #### 3. Variant Generation
-Triggers on: `alternatif`, `alternatifler`, `alternatives`, `variants`, `seçenek`, `options`.
-Sayı verilirse ("3 alternatif", "2 options") aralık 2–10 arasında normalize edilir; yoksa varsayılan 3.
+Triggers on: `alternatives`, `variants`, `options`.
+If a number is provided ("3 variants", "2 options") it's clamped 2–10; otherwise default 3.
 - Constraint: `Generate N distinct variants`
 Metadata:
-- `variant_count`: N (>=1; 1 ise varyant modu aktif değildir)
+- `variant_count`: N (>=1; if 1 then variant mode is effectively off)
 
 Example:
 ```bash
