@@ -9,26 +9,17 @@ from app import get_version
 
 app = typer.Typer(help="Prompt Compiler CLI")
 
-@app.command()
-def compile(
-    text: List[str] = typer.Argument(..., help="Prompt text (wrap in quotes for multi-word)"),
-    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
-    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
-    quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
-    persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
-    trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
-):
-    full_text = " ".join(text)
+def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool, persona: str | None, trace: bool):
     ir = optimize_ir(compile_text(full_text))
     if persona:
         ir.persona = persona.strip().lower()
+    # Resolve quiet vs json_only
     if json_only and quiet:
-        quiet = False  # prioritize quiet? Choose system prompt only; resolve by disabling json_only
+        quiet = False
     system_prompt = emit_system_prompt(ir)
     if quiet:
         print(system_prompt)
         return
-    system_prompt = emit_system_prompt(ir)
     user_prompt = emit_user_prompt(ir)
     plan = emit_plan(ir)
     expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
@@ -49,6 +40,38 @@ def compile(
     print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
     print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
     print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
+
+@app.callback(invoke_without_command=True)
+def root(
+    ctx: typer.Context,
+    text: List[str] = typer.Argument(None, help="Prompt text (omit to show help)", show_default=False),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
+    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
+    quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
+    persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
+    trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
+):
+    """If no subcommand is provided, behave like the compile command for convenience."""
+    if ctx.invoked_subcommand is not None:
+        return
+    if not text:
+        # Show help if nothing supplied
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+    full_text = " ".join(text)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace)
+
+@app.command()
+def compile(
+    text: List[str] = typer.Argument(..., help="Prompt text (wrap in quotes for multi-word)"),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
+    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
+    quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
+    persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
+    trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
+):
+    full_text = " ".join(text)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace)
 
 if __name__ == "__main__":  # pragma: no cover
     app()
