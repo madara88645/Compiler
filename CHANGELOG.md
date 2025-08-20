@@ -21,6 +21,14 @@ All notable changes to this project will be documented in this file.
 - Heuristic version bumped to 2025.08.19-2 for coverage/accuracy iteration
 ### Fixed
 - None (backward compatible; existing tests unaffected)
+## [0.1.8] - 2025-08-20
+### Added
+- Domain confidence ratio (metadata.domain_confidence) + raw counts (metadata.domain_scores) + scoring mode (metadata.domain_score_mode)
+- Trace lines now show domain_conf and domain_scores
+### Changed
+- Heuristic version bumped to 2025.08.20-1 for confidence feature
+### Fixed
+- None (all tests pass)
 
 
 - Offline Desktop UI (`ui_desktop.py`) with prompt input, diagnostics toggle, copy buttons, summary header

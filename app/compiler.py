@@ -58,7 +58,7 @@ def build_steps(tasks: List[str]) -> List[str]:
     return steps
 
 
-HEURISTIC_VERSION = "2025.08.19-2"
+HEURISTIC_VERSION = "2025.08.20-1"
 
 def _canonical_constraints(items: list[str]) -> list[str]:
     seen = set()
@@ -86,6 +86,17 @@ def compile_text(text: str) -> IR:
     lang = detect_language(text)
     domain, evidence = detect_domain(text)
     domain_candidates = detect_domain_candidates(evidence)
+    # Domain confidence (ratio of primary domain evidence to total evidence)
+    domain_scores: dict[str,int] = {}
+    for ev in evidence:
+        d = ev.split(":",1)[0]
+        domain_scores[d] = domain_scores.get(d,0)+1
+    if domain != 'general' and domain_scores:
+        total_ev = sum(domain_scores.values())
+        primary_count = domain_scores.get(domain, 0)
+        domain_confidence: float | None = (primary_count / total_ev) if total_ev > 0 else None
+    else:
+        domain_confidence = None
     output_format = extract_format(text)
     length_hint = detect_length_hint(text)
     style, tone = extract_style_tone(text)
@@ -194,7 +205,10 @@ def compile_text(text: str) -> IR:
             'code_request': code_req,
             'pii_flags': pii_flags,
             'domain_candidates': domain_candidates,
-            'heuristic_version': HEURISTIC_VERSION
+            'heuristic_version': HEURISTIC_VERSION,
+            'domain_scores': domain_scores,
+            'domain_confidence': domain_confidence,
+            'domain_score_mode': 'ratio'
         }
     )
     # Teaching intent enrichment
@@ -294,6 +308,13 @@ def generate_trace(ir: IR) -> list[str]:
     if comp_items:
         add("comparison_items", len(comp_items))
     add("variant_count", md.get('variant_count'))
+    # Domain confidence & scores
+    if md.get('domain_confidence') is not None:
+        add('domain_conf', f"{md.get('domain_confidence'):.2f}")
+    dscores = md.get('domain_scores') or {}
+    if dscores:
+        packed = ",".join(f"{k}:{v}" for k,v in sorted(dscores.items()))
+        add('domain_scores', packed)
     if ir.tools:
         add("tools", ",".join(ir.tools))
     risk = md.get('risk_flags') or []

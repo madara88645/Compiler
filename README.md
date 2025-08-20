@@ -45,6 +45,7 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
 * **Domain Candidates (new)**: Alternative plausible domains surfaced in `metadata.domain_candidates`
+* **Domain Confidence (new)**: Ratio of primary domain evidence to total + raw counts (`metadata.domain_confidence`, `metadata.domain_scores`)
 
 ## Installation
 
@@ -488,7 +489,7 @@ API example request body:
 Response includes a `trace` array:
 ```json
 "trace": [
-  "heuristic_version=2025.08.19-2",
+  "heuristic_version=2025.08.20-1",
   "language=en",
   "persona=assistant",
   "domain=cloud (2 evid)",
@@ -496,6 +497,8 @@ Response includes a `trace` array:
   "ambiguous_terms=secure,resilient,scalable",
   "pii_flags=email",
   "domain_candidates=cloud,software",
+  "domain_conf=0.67",
+  "domain_scores=cloud:2,software:1",
   "variant_count=1",
   "complexity=medium",
   "ir_signature=abcdef123456"
