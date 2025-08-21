@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2025-08-21 (unreleased)
+### Added
+- External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override
+- Structured clarification objects (`metadata.clarify_questions_struct` with category + question)
+- Temporal signal extraction (`metadata.temporal_flags`) for years, quarters, relative time phrases
+- Quantity extraction (`metadata.quantities`) for numeric + unit patterns (minutes, hours, days, counts, ranges)
+- Constraint origin tracking (`metadata.constraint_origins`) mapping each constraint to its heuristic source
+- Teaching mode constraints refactored to integrate pre-IR creation (fixing regression)
+### Changed
+- Rebuilt `compile_text` for clearer pipeline order and early teaching enrichment
+- Domain confidence now `None` (instead of 0.0) when domain is `general` or no evidence
+- Heuristic version bumped to 2025.08.21-1
+### Fixed
+- Restored teaching intent constraints (friendly tone, pedagogical flow, source recommendations)
+- Regression causing missing duration/level constraints in teaching tests
+
 ## [0.1.5] - 2025-08-18
 ### Added
 ## [0.1.6] - 2025-08-19

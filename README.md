@@ -46,6 +46,10 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
 * **Domain Candidates (new)**: Alternative plausible domains surfaced in `metadata.domain_candidates`
 * **Domain Confidence (new)**: Ratio of primary domain evidence to total + raw counts (`metadata.domain_confidence`, `metadata.domain_scores`)
+* **Temporal & Quantity Extraction (new)**: Detects temporal signals (years, quarters, relative phrases) and numeric quantities with units -> `metadata.temporal_flags`, `metadata.quantities`
+* **Structured Clarification Objects (new)**: Rich clarify entries with category + question -> `metadata.clarify_questions_struct`
+* **Constraint Origins (new)**: Maps each constraint to its heuristic source -> `metadata.constraint_origins`
+* **External Config Overrides (new)**: Optional YAML/JSON patterns file to extend domains, ambiguity, risk keywords without code changes
 
 ## Installation
 
@@ -460,6 +464,20 @@ All new fields live in metadata (schema remains stable). Recently expanded cover
 
 ### Heuristic Version & IR Signature
 Each IR embeds a human-readable `heuristic_version` and a deterministic short hash `ir_signature` (first 12 chars of SHA-256 over normalized IR). Useful for caching and diffing.
+
+### Temporal & Quantity Signals
+Automatically extracts:
+- Years (2023, 2024, etc), quarters (Q1, Q2 ...), months, relative phrases ("this month", "last year") → `metadata.temporal_flags`
+- Quantities with units (e.g. `10m`, `15 minutes`, `3 hours`, `5 items`, ranges like `1500-3000 tl`) → `metadata.quantities`
+
+### Structured Clarification Objects
+`metadata.clarify_questions_struct` provides a list of objects: `{ "term": "scalable", "category": "performance", "question": "What scale target (users, rps, region) is expected?" }` enabling richer UI rendering.
+
+### Constraint Origins
+`metadata.constraint_origins` maps each normalized constraint string to the heuristic source (`teaching`, `summary`, `recency`, `risk_flags`, etc) for transparency and debugging.
+
+### External Config Overrides
+You can drop a `patterns.yml` (or `.json`) to extend / override domain patterns, ambiguous terms (with categories), and risk keywords at runtime—no code change needed.
 
 ### CLI New Flags
 ```powershell

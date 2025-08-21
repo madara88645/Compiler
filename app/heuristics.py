@@ -1,6 +1,10 @@
 from __future__ import annotations
-import re
-from typing import Tuple, List, Dict
+import re, os, json
+from typing import Tuple, List, Dict, Any
+try:
+    import yaml  # type: ignore
+except Exception:  # optional dependency
+    yaml = None  # type: ignore
 
 RECENCY_KEYWORDS = [
     # English temporal recency markers
@@ -139,15 +143,15 @@ RISK_KEYWORDS = {
 }
 
 AMBIGUOUS_TERMS = {
-    'optimize': "Which metric or aspect should be optimized? (performance, cost, memory?)",
-    'improve': "What specific improvement dimension matters (speed, accuracy, UX?)",
-    'better': "Better in what sense (quality, efficiency, reliability?)",
-    'efficient': "Which resource should be minimized (time, memory, cost?)",
-    'scalable': "Target scale or concurrency level?",
-    'fast': "What response time / throughput target?",
-    'robust': "Robust against which failures or edge cases?",
-    'secure': "What threat model or security properties (confidentiality, integrity, availability?)",
-    'resilient': "Resilient against which failure modes (network partition, instance crash, data loss?)",
+    'optimize': {"question": "Which metric or aspect should be optimized? (performance, cost, memory?)", "category": "performance"},
+    'improve': {"question": "What specific improvement dimension matters (speed, accuracy, UX?)", "category": "quality"},
+    'better': {"question": "Better in what sense (quality, efficiency, reliability?)", "category": "quality"},
+    'efficient': {"question": "Which resource should be minimized (time, memory, cost?)", "category": "performance"},
+    'scalable': {"question": "Target scale or concurrency level?", "category": "scalability"},
+    'fast': {"question": "What response time / throughput target?", "category": "performance"},
+    'robust': {"question": "Robust against which failures or edge cases?", "category": "reliability"},
+    'secure': {"question": "What threat model or security properties (confidentiality, integrity, availability?)", "category": "security"},
+    'resilient': {"question": "Resilient against which failure modes (network partition, instance crash, data loss?)", "category": "reliability"},
 }
 
 CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod", r"script", r"algorithm"]
@@ -216,21 +220,116 @@ def estimate_complexity(text: str) -> str:
 
 def detect_ambiguous_terms(text: str) -> list[str]:
     lower = text.lower()
-    found = []
-    for term in AMBIGUOUS_TERMS:
-        if term in lower:
-            found.append(term)
-    return found
+    return [t for t in AMBIGUOUS_TERMS if t in lower]
 
 def generate_clarify_questions(terms: list[str]) -> list[str]:
-    qs: list[str] = []
+    # Backward compatible simple list (used by existing tests)
+    out: list[str] = []
     for t in terms:
-        hint = AMBIGUOUS_TERMS.get(t)
-        if hint and hint not in qs:
-            qs.append(hint)
-        if len(qs) >= 5:
+        info = AMBIGUOUS_TERMS.get(t)
+        if not info:
+            continue
+        q = info["question"]
+        if q not in out:
+            out.append(q)
+        if len(out) >= 5:
             break
-    return qs
+    return out
+
+def generate_clarify_questions_struct(terms: list[str]) -> list[dict[str, Any]]:
+    struct: list[dict[str,Any]] = []
+    for t in terms:
+        info = AMBIGUOUS_TERMS.get(t)
+        if not info:
+            continue
+        struct.append({
+            'term': t,
+            'category': info.get('category'),
+            'question': info.get('question')
+        })
+        if len(struct) >= 5:
+            break
+    return struct
+
+# --- Temporal & Quantity Extraction ---
+YEAR_PATTERN = re.compile(r"\b(19\d{2}|20\d{2})\b")
+QUARTER_PATTERN = re.compile(r"\bq([1-4])\s*(20\d{2})\b", re.IGNORECASE)
+MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"]
+REL_TEMPORAL = ["today","yesterday","tomorrow","this week","next week","this month","next month","this year","recent"]
+
+def extract_temporal_flags(text: str) -> list[str]:
+    lower = text.lower()
+    flags: list[str] = []
+    for m in YEAR_PATTERN.findall(text):
+        if m not in flags:
+            flags.append(m)
+    for qm in QUARTER_PATTERN.findall(text):
+        qflag = f"Q{qm[0]} {qm[1]}"
+        if qflag not in flags:
+            flags.append(qflag)
+    for m in MONTHS:
+        if m in lower and m not in flags:
+            flags.append(m)
+    for token in REL_TEMPORAL:
+        if token in lower and token not in flags:
+            flags.append(token)
+    return flags[:20]
+
+QUANTITY_PATTERN = re.compile(r"\b(\d+(?:\.\d+)?)\s*(ms|s|sec|seconds|m|min|minutes|h|hours|%|percent|users?|reqs?|requests?|mb|gb|tb)\b", re.IGNORECASE)
+
+def extract_quantities(text: str) -> list[dict[str,str]]:
+    out: list[dict[str,str]] = []
+    for m in QUANTITY_PATTERN.finditer(text):
+        val, unit = m.groups()
+        unit_norm = unit.lower()
+        out.append({'value': val, 'unit': unit_norm})
+        if len(out) >= 30:
+            break
+    # Range pattern like 1500-3000 ms
+    range_pat = re.compile(r"\b(\d{2,})-(\d{2,})\s*(ms|s|m|h|users|requests|reqs|mb|gb|tb|%)?\b", re.IGNORECASE)
+    for m in range_pat.finditer(text):
+        v1,v2,unit = m.groups()
+        out.append({'value': f"{v1}-{v2}", 'unit': (unit or '').lower()})
+        if len(out) >= 40:
+            break
+    return out
+
+# --- Config Externalization ---
+CONFIG_PATH = os.environ.get('PROMPTC_CONFIG', 'config/patterns.yml')
+
+def _apply_external_config(data: dict[str, Any]):
+    global DOMAIN_PATTERNS, AMBIGUOUS_TERMS, RISK_KEYWORDS
+    if 'domain_patterns' in data and isinstance(data['domain_patterns'], dict):
+        DOMAIN_PATTERNS = {k: list(v) for k,v in data['domain_patterns'].items() if isinstance(v, (list,tuple))}
+    if 'ambiguous_terms' in data and isinstance(data['ambiguous_terms'], dict):
+        # expected format: term: {question:..., category:...}
+        AMBIGUOUS_TERMS = data['ambiguous_terms']  # type: ignore
+    if 'risk_keywords' in data and isinstance(data['risk_keywords'], dict):
+        RISK_KEYWORDS = data['risk_keywords']  # type: ignore
+
+def load_external_config(path: str = CONFIG_PATH) -> bool:
+    if not os.path.exists(path):
+        return False
+    try:
+        if yaml:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        else:
+            # Very naive fallback: expect JSON if yaml not available
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        if isinstance(data, dict):
+            _apply_external_config(data)
+            return True
+    except Exception:
+        return False
+    return False
+
+def reload_patterns():
+    load_external_config()
+
+# Initial load attempt (non-fatal)
+load_external_config()
 
 def detect_code_request(text: str) -> bool:
     lower = text.lower()

@@ -8,7 +8,8 @@ from .heuristics import (
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
     detect_teaching_intent, detect_summary, extract_comparison_items, extract_variant_count, pick_persona,
     detect_risk_flags, extract_entities, estimate_complexity, detect_ambiguous_terms, generate_clarify_questions,
-    detect_code_request, detect_pii, detect_domain_candidates
+    detect_code_request, detect_pii, detect_domain_candidates, extract_temporal_flags, extract_quantities,
+    generate_clarify_questions_struct
 )
 
 GENERIC_GOAL = {
@@ -53,122 +54,164 @@ def build_steps(tasks: List[str]) -> List[str]:
     for t in tasks:
         if len(steps) >= 8:
             break
-        # Simple transformation
-        steps.append(f"Review: {t[:80]}")
+        # naive split: each task maybe broken into sub points (not implemented yet)
+        steps.append(t)
     return steps
 
+HEURISTIC_VERSION = "2025.08.21-1"
 
-HEURISTIC_VERSION = "2025.08.20-1"
-
-def _canonical_constraints(items: list[str]) -> list[str]:
+def _canonical_constraints(items: List[str]) -> List[str]:
+    out: List[str] = []
     seen = set()
-    out: list[str] = []
     for c in items:
-        key = c.strip().lower()
-        if not key:
+        c2 = c.strip()
+        if not c2:
             continue
-        if key in seen:
+        low = c2.lower()
+        if low in seen:
             continue
-        seen.add(key)
-        out.append(c.strip())
+        seen.add(low)
+        out.append(c2)
     return out
 
 def _compute_signature(ir: IR) -> str:
-    # Deterministic short hash of IR core fields (exclude metadata.ir_signature itself)
-    core = ir.dict()
-    md = core.get('metadata', {}).copy()
-    md.pop('ir_signature', None)
-    core['metadata'] = md
-    blob = json.dumps(core, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(blob.encode('utf-8')).hexdigest()[:12]
+    data = json.dumps({
+        'goals': ir.goals,
+        'tasks': ir.tasks,
+        'constraints': ir.constraints,
+        'domain': ir.domain,
+        'persona': ir.persona,
+        'language': ir.language,
+        'heur_ver': ir.metadata.get('heuristic_version') if ir.metadata else None
+    }, sort_keys=True)
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()[:16]
 
 def compile_text(text: str) -> IR:
     lang = detect_language(text)
     domain, evidence = detect_domain(text)
-    domain_candidates = detect_domain_candidates(evidence)
-    # Domain confidence (ratio of primary domain evidence to total evidence)
-    domain_scores: dict[str,int] = {}
-    for ev in evidence:
-        d = ev.split(":",1)[0]
-        domain_scores[d] = domain_scores.get(d,0)+1
-    if domain != 'general' and domain_scores:
-        total_ev = sum(domain_scores.values())
-        primary_count = domain_scores.get(domain, 0)
-        domain_confidence: float | None = (primary_count / total_ev) if total_ev > 0 else None
-    else:
-        domain_confidence = None
-    output_format = extract_format(text)
+    goals, tasks = extract_goals_tasks(text, lang)
     length_hint = detect_length_hint(text)
     style, tone = extract_style_tone(text)
+    output_format = extract_format(text)
     inputs = extract_inputs(text, lang)
-    # If user explicitly hinted a format, prefer it over general detection
     if inputs.get('format'):
         output_format = inputs['format']
-    goals, tasks = extract_goals_tasks(text, lang)
     steps = build_steps(tasks)
+
     constraints: List[str] = []
-    if length_hint == 'short':
-        constraints.append('Keep it concise')
-    elif length_hint == 'long':
-        constraints.append('Provide comprehensive detail')
+    constraint_origins: dict[str,str] = {}
+    def add_constraint(val: str, origin: str):
+        v = val.strip()
+        if not v:
+            return
+        constraints.append(v)
+        if v not in constraint_origins:
+            constraint_origins[v] = origin
 
-    # Banned placeholder (empty unless found later)
     banned: List[str] = []
-
     tools: List[str] = []
     if detect_recency(text):
         tools.append('web')
-        constraints.append(RECENCY_CONSTRAINT_TR if lang=='tr' else RECENCY_CONSTRAINT_EN)
+        add_constraint(RECENCY_CONSTRAINT_TR if lang=='tr' else RECENCY_CONSTRAINT_EN, 'recency')
 
-    # General task enhancements (stored in metadata to avoid schema changes)
     is_summary, summary_count = detect_summary(text)
     comparison_items = extract_comparison_items(text)
     variant_count = extract_variant_count(text)
     risk_flags = detect_risk_flags(text)
-    entities = extract_entities(text)
-    complexity = estimate_complexity(text)
     ambiguous = detect_ambiguous_terms(text)
     clarify_qs = generate_clarify_questions(ambiguous)
+    clarify_struct = generate_clarify_questions_struct(ambiguous)
+    temporal_flags = extract_temporal_flags(text)
+    quantities = extract_quantities(text)
     code_req = detect_code_request(text)
     pii_flags = detect_pii(text)
+    entities = extract_entities(text)
+    complexity = estimate_complexity(text)
+
+    # Domain candidates & confidence ratio
+    domain_candidates = detect_domain_candidates(evidence)
+    domain_scores: dict[str,int] = {}
+    if evidence:
+        for ev in evidence:
+            d = ev.split(':',1)[0]
+            domain_scores[d] = domain_scores.get(d,0)+1
+        primary_evidence = domain_scores.get(domain, 0)
+        total_evidence = sum(domain_scores.values())
+        domain_confidence = (primary_evidence / total_evidence) if total_evidence else None
+    else:
+        domain_confidence = None
+
+    # Teaching intent enrichment BEFORE IR instantiation
+    persona, persona_info = pick_persona(text)
+    role = DEFAULT_ROLE_TR if lang=='tr' else DEFAULT_ROLE_EN
+    if detect_teaching_intent(text):
+        persona = 'teacher'
+        lvl = (inputs.get('level') or '').lower()
+        dur = inputs.get('duration')
+        if lang == 'tr':
+            role = "bilgili ve öğretici bir profesör uzman"
+            add_constraint("Aşamalı, kavramdan örneğe doğru öğretici anlatım kullan", 'teaching')
+            add_constraint("Öğrenme konularında analoji kullan", 'teaching')
+            add_constraint("İlgili güvenilir kaynak önerileri ekle", 'teaching')
+            if lvl == 'beginner':
+                add_constraint("Sıfırdan başlayanlar için basit dil kullan", 'teaching_level')
+            elif lvl == 'intermediate':
+                add_constraint("Orta seviye için yeterli ayrıntı ekle", 'teaching_level')
+            elif lvl == 'advanced':
+                add_constraint("İleri seviye için derin teknik içerik ekle", 'teaching_level')
+            if dur:
+                add_constraint(f"Süre hedefi: {dur} içinde bitecek kapsam", 'teaching_duration')
+        else:
+            role = "a knowledgeable and instructive professor expert"
+            add_constraint("Use a progressive, pedagogical flow from concepts to examples", 'teaching')
+            add_constraint("Use analogies to make concepts clearer", 'teaching')
+            add_constraint("Include relevant reputable source recommendations", 'teaching')
+            if lvl == 'beginner':
+                add_constraint("Use simple language for beginners", 'teaching_level')
+            elif lvl == 'intermediate':
+                add_constraint("Provide sufficient detail for intermediate level", 'teaching_level')
+            elif lvl == 'advanced':
+                add_constraint("Include deep technical content for advanced learners", 'teaching_level')
+            if dur:
+                add_constraint(f"Time-bound: target completion within {dur}", 'teaching_duration')
+        if 'structured' not in style:
+            style.append('structured')
+        if 'friendly' not in tone:
+            tone.append('friendly')
+
     if is_summary:
-        constraints.append('Provide a concise summary')
+        add_constraint('Provide a concise summary', 'summary')
         if summary_count:
-            constraints.append(f'Max {summary_count} bullet points')
+            add_constraint(f'Max {summary_count} bullet points', 'summary_limit')
         output_format = output_format or 'markdown'
     if comparison_items and len(comparison_items) >= 2:
-        constraints.append('Present a structured comparison')
+        add_constraint('Present a structured comparison', 'comparison')
         if output_format == 'markdown':
             output_format = 'table'
     if variant_count > 1:
-        constraints.append(f'Generate {variant_count} distinct variants')
+        add_constraint(f'Generate {variant_count} distinct variants', 'variants')
     if risk_flags:
         if lang == 'tr':
-            constraints.append('Riskli alan: profesyonel tavsiye yerine genel bilgi ver (finans/tıp/hukuk)')
+            add_constraint('Riskli alan: profesyonel tavsiye yerine genel bilgi ver (finans/tıp/hukuk)', 'risk_flags')
         else:
-            constraints.append('Risk domain detected: provide general information, not professional advice')
+            add_constraint('Risk domain detected: provide general information, not professional advice', 'risk_flags')
     if pii_flags:
         if lang == 'tr':
-            constraints.append('Kişisel/özel veri içerebilir: Özel bilgileri maskele ve gizliliğe dikkat et')
+            add_constraint('Kişisel/özel veri içerebilir: Özel bilgileri maskele ve gizliliğe dikkat et', 'pii')
         else:
-            constraints.append('Possible personal/sensitive data: anonymize or mask and respect privacy')
+            add_constraint('Possible personal/sensitive data: anonymize or mask and respect privacy', 'pii')
     if code_req:
         if lang == 'tr':
-            constraints.append('Kod örneklerinde kısa yorum satırları ekle')
+            add_constraint('Kod örneklerinde kısa yorum satırları ekle', 'code_request')
         else:
-            constraints.append('Include brief inline comments in code examples')
+            add_constraint('Include brief inline comments in code examples', 'code_request')
     if ambiguous:
         if lang == 'tr':
-            constraints.append('Belirsiz terimleri netleştir: ' + ", ".join(sorted(ambiguous)))
+            add_constraint('Belirsiz terimleri netleştir: ' + ", ".join(sorted(ambiguous)), 'ambiguous_terms')
         else:
-            constraints.append('Clarify ambiguous terms: ' + ", ".join(sorted(ambiguous)))
+            add_constraint('Clarify ambiguous terms: ' + ", ".join(sorted(ambiguous)), 'ambiguous_terms')
 
-    # Include original text in conflict detection so opposing adjectives inside prompt are caught.
     conflicts = detect_conflicts(constraints + [text])
-
-    # Persona selection (base)
-    persona, persona_info = pick_persona(text)
-    role = DEFAULT_ROLE_TR if lang=='tr' else DEFAULT_ROLE_EN
 
     ir = IR(
         language=lang,
@@ -177,8 +220,8 @@ def compile_text(text: str) -> IR:
         domain=domain,
         goals=goals,
         tasks=tasks,
-    inputs=inputs,
-        constraints=constraints,
+        inputs=inputs,
+        constraints=_canonical_constraints(constraints),
         style=style,
         tone=tone,
         output_format=output_format,
@@ -202,84 +245,20 @@ def compile_text(text: str) -> IR:
             'complexity': complexity,
             'ambiguous_terms': ambiguous,
             'clarify_questions': clarify_qs,
+            'clarify_questions_struct': clarify_struct,
             'code_request': code_req,
             'pii_flags': pii_flags,
             'domain_candidates': domain_candidates,
             'heuristic_version': HEURISTIC_VERSION,
             'domain_scores': domain_scores,
             'domain_confidence': domain_confidence,
-            'domain_score_mode': 'ratio'
+            'domain_score_mode': 'ratio',
+            'temporal_flags': temporal_flags,
+            'quantities': quantities
         }
     )
-    # Teaching intent enrichment
-    if detect_teaching_intent(text):
-        persona = 'teacher'
-        ir.persona = persona
-        # Language-specific teaching persona
-        if lang == 'tr':
-            ir.role = "bilgili ve öğretici bir profesör uzman"
-        else:
-            ir.role = "a knowledgeable and instructive professor expert"
-        lvl = (inputs.get('level') or '').lower()
-        dur = inputs.get('duration')  # e.g., 10m, 1h
-        if lang == 'tr':
-            ir.constraints.append("Aşamalı, kavramdan örneğe doğru öğretici anlatım kullan")
-            ir.constraints.append("Öğrenme konularında analoji kullan")
-            ir.constraints.append("İlgili güvenilir kaynak önerileri ekle")
-            if lvl == 'beginner':
-                ir.constraints.append("Sıfırdan başlayanlar için basit dil kullan")
-            elif lvl == 'intermediate':
-                ir.constraints.append("Orta seviye için yeterli ayrıntı ekle")
-            elif lvl == 'advanced':
-                ir.constraints.append("İleri seviye için derin teknik içerik ekle")
-            if dur:
-                ir.constraints.append(f"Süre hedefi: {dur} içinde bitecek kapsam")
-            ir.style.append("structured")
-            ir.tone.append("friendly")
-            base_steps = [
-                "Temel kavramları sade dille tanıt",
-                "Örneklerle göster",
-                "Kısa bir egzersiz öner",
-                "Özetle ve kaynakları listele"
-            ]
-            if lvl == 'advanced':
-                base_steps.insert(2, "Kısa bir derinlemesine bölüm ekle")
-            ir.steps = base_steps
-            # Mini quiz template in examples
-            ir.examples = ir.examples or [
-                "Örn: Giriş -> Örnek -> Alıştırma -> Özet",
-                "Mini Quiz: 3 soru (1 kolay, 1 orta, 1 zor) ve kısa cevap anahtarı"
-            ]
-        else:
-            ir.constraints.append("Use a progressive, pedagogical flow from concepts to examples")
-            ir.constraints.append("Use analogies to make concepts clearer")
-            ir.constraints.append("Include relevant reputable source recommendations")
-            if lvl == 'beginner':
-                ir.constraints.append("Use simple language for beginners")
-            elif lvl == 'intermediate':
-                ir.constraints.append("Provide sufficient detail for intermediate level")
-            elif lvl == 'advanced':
-                ir.constraints.append("Include deep technical content for advanced learners")
-            if dur:
-                ir.constraints.append(f"Time-bound: target completion within {dur}")
-            ir.style.append("structured")
-            ir.tone.append("friendly")
-            base_steps = [
-                "Introduce core concepts simply",
-                "Demonstrate with examples",
-                "Propose a short exercise",
-                "Summarize and list resources"
-            ]
-            if lvl == 'advanced':
-                base_steps.insert(2, "Add a brief deep-dive section")
-            ir.steps = base_steps
-            ir.examples = ir.examples or [
-                "Ex: Intro -> Example -> Exercise -> Summary",
-                "Mini Quiz: 3 questions (easy, medium, hard) with short answer key"
-            ]
-    # Final constraint normalization
-    ir.constraints = _canonical_constraints(ir.constraints)
-    # Attach signature
+
+    ir.metadata['constraint_origins'] = {c: constraint_origins.get(c,'') for c in ir.constraints}
     ir.metadata['ir_signature'] = _compute_signature(ir)
     return ir
 
