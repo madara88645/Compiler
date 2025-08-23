@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 from typing import List
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
+from .models_v2 import IRv2, ConstraintV2, StepV2
 import json, hashlib, time
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
@@ -59,6 +60,7 @@ def build_steps(tasks: List[str]) -> List[str]:
     return steps
 
 HEURISTIC_VERSION = "2025.08.21-1"
+HEURISTIC2_VERSION = "2025.08.23-0"
 
 def _canonical_constraints(items: List[str]) -> List[str]:
     out: List[str] = []
@@ -85,6 +87,62 @@ def _compute_signature(ir: IR) -> str:
         'heur_ver': ir.metadata.get('heuristic_version') if ir.metadata else None
     }, sort_keys=True)
     return hashlib.sha256(data.encode('utf-8')).hexdigest()[:16]
+
+def _mk_id(text: str) -> str:
+    return hashlib.sha1(text.strip().lower().encode('utf-8')).hexdigest()[:10]
+
+def compile_text_v2(text: str) -> IRv2:
+    # Reuse v1 heuristics to keep behavior; map to richer IRv2 model
+    ir1 = compile_text(text)
+    intents: list[str] = []
+    md = ir1.metadata or {}
+    if md.get('summary') == 'true': intents.append('summary')
+    if md.get('comparison_items'): intents.append('compare')
+    if md.get('variant_count', 1) > 1: intents.append('variants')
+    if md.get('risk_flags'): intents.append('risk')
+    if md.get('code_request'): intents.append('code')
+    if md.get('ambiguous_terms'): intents.append('ambiguous')
+    if 'web' in (ir1.tools or []): intents.append('recency')
+    if ir1.persona == 'teacher': intents.append('teaching')
+
+    # Prioritize constraints by origin
+    origins = md.get('constraint_origins') or {}
+    prio_map = {
+        'recency': 80,
+        'risk_flags': 70,
+        'teaching_duration': 65,
+        'teaching_level': 60,
+        'teaching': 60,
+        'comparison': 50,
+        'variants': 50,
+        'summary': 40,
+        'summary_limit': 40,
+        'ambiguous_terms': 30,
+        'code_request': 30,
+    }
+    c_v2: list[ConstraintV2] = []
+    for c in ir1.constraints:
+        origin = origins.get(c, '')
+        pr = prio_map.get(origin, 40)
+        c_v2.append(ConstraintV2(id=_mk_id(c), text=c, origin=origin or 'unknown', priority=pr))
+
+    # Typed steps: keep as 'task' for now
+    steps_v2: list[StepV2] = [StepV2(type='task', text=s) for s in (ir1.steps or [])]
+
+    ir2 = IRv2(
+        language=ir1.language,
+        persona=ir1.persona, role=ir1.role, domain=ir1.domain,
+        intents=intents,
+        goals=ir1.goals, tasks=ir1.tasks, inputs=ir1.inputs,
+        constraints=c_v2, style=ir1.style, tone=ir1.tone,
+        output_format=ir1.output_format, length_hint=ir1.length_hint,
+        steps=steps_v2, examples=ir1.examples, banned=ir1.banned, tools=ir1.tools,
+        metadata={
+            **(ir1.metadata or {}),
+            'heuristic2_version': HEURISTIC2_VERSION
+        }
+    )
+    return ir2
 
 def compile_text(text: str) -> IR:
     lang = detect_language(text)

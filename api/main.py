@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pathlib import Path
 from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION
+from app.compiler import compile_text_v2, HEURISTIC2_VERSION
 import time, uuid
 from app import get_version
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
@@ -14,9 +15,11 @@ class CompileRequest(BaseModel):
     text: str
     diagnostics: bool = False
     trace: bool = False
+    v2: bool = False
 
 class CompileResponse(BaseModel):
     ir: dict
+    ir_v2: dict | None = None
     system_prompt: str
     user_prompt: str
     plan: str
@@ -24,6 +27,7 @@ class CompileResponse(BaseModel):
     processing_ms: int
     request_id: str
     heuristic_version: str
+    heuristic2_version: str | None = None
     trace: list[str] | None = None
 from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION, generate_trace
 
@@ -43,8 +47,10 @@ async def compile_endpoint(req: CompileRequest):
     ir = optimize_ir(compile_text(req.text))
     elapsed = int((time.time() - t0)*1000)
     trace_lines = generate_trace(ir) if req.trace else None
+    ir2 = compile_text_v2(req.text) if req.v2 else None
     return CompileResponse(
         ir=ir.dict(),
+        ir_v2=(ir2.dict() if ir2 else None),
         system_prompt=emit_system_prompt(ir),
         user_prompt=emit_user_prompt(ir),
         plan=emit_plan(ir),
@@ -52,6 +58,7 @@ async def compile_endpoint(req: CompileRequest):
         processing_ms=elapsed,
         request_id=rid,
         heuristic_version=HEURISTIC_VERSION,
+        heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
         trace=trace_lines
     )
 
