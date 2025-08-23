@@ -40,6 +40,7 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
+* **IR v2 (preview)**: New richer IR model with constraint objects (id/origin/priority), explicit intents, typed steps. Available via Python `compile_text_v2()` or API `{ "v2": true }` as `ir_v2`.
 * **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
@@ -200,6 +201,14 @@ curl -X POST http://127.0.0.1:8000/compile \
   "heuristic_version": "2025.08.19-2"
 }
 ```
+
+To also get IR v2 in the same response:
+```bash
+curl -X POST http://127.0.0.1:8000/compile \
+  -H "Content-Type: application/json" \
+  -d '{"text":"teach me binary search in 10 minutes beginner level", "v2": true}'
+```
+The response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v2.schema.json` for the IR v2 schema.
 
 #### GET /health
 ```json
@@ -522,61 +531,3 @@ Response includes a `trace` array:
   "ir_signature=abcdef123456"
 ]
 ```
-```
-Constraints example:
-```
-Present a structured comparison
-Generate 3 distinct variants
-```
-
-> Note: These fields are currently kept under IR metadata for now. The schema can be expanded in the future.
-
-### Recency Rule
-For time-sensitive queries, automatically adds web research capability:
-```bash
-promptc "latest developments in AI 2024"
-# Automatically adds: web tool + "requires up-to-date info" constraint
-```
-
-### Domain Detection
-Automatically detects and provides evidence for domain classification:
-- **software**: Python, JavaScript, programming keywords
-- **ai/ml**: machine learning, neural networks, AI keywords  
-- **shopping**: budget, price, product keywords
-- **general**: fallback for unspecified domains
-
-### Language Support
-- **Turkish (tr)**: Full support with Turkish system prompts and localized examples
-- **English (en)**: Complete English language support
-- **Auto-detection**: Based on input text analysis
-
-### Assumptions & Clarification Blocks
-The Expanded Prompt includes extra structured clarity sections:
-
-- **Assumptions Block** (added when relevant):
-  - Fills missing unspecified details with reasonable sample values
-  - Adds non-professional disclaimer if risk flags (financial / health / legal) detected
-  - Enforces variant differentiation: each variant begins with `Distinct Angle:` when multiple variants requested
-- **Clarification Questions Block**: Always appears (before diagnostics) when ambiguous terms are detected (up to 5 questions)
-- **Diagnostics Section**: Still optional; when `--diagnostics` is enabled, consolidates Risk Flags, Ambiguous Terms, and top Clarify Questions
-
-Example (excerpt):
-```
-Assumptions:
-- Missing details will be filled with reasonable sample values.
-- Not professional advice; informational only.
-- Each variant begins with "Distinct Angle:" to mark a unique perspective.
-
-Clarification Questions:
-- What exact user segment is the primary target?
-- What is the baseline latency expectation?
-```
-
-## Contributing
-See CONTRIBUTING.md and CODE_OF_CONDUCT.md
-
-## Security
-See SECURITY.md
-
-## License
-MIT

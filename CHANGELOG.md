@@ -10,10 +10,13 @@ All notable changes to this project will be documented in this file.
 - Quantity extraction (`metadata.quantities`) for numeric + unit patterns (minutes, hours, days, counts, ranges)
 - Constraint origin tracking (`metadata.constraint_origins`) mapping each constraint to its heuristic source
 - Teaching mode constraints refactored to integrate pre-IR creation (fixing regression)
+- IR v2 (preview, behind flag): new `IRv2` model with typed `constraints {id,text,origin,priority}` and `intents` + typed `steps`; Python API `compile_text_v2`, HTTP API `v2: true` returns `ir_v2`
+- IR v2 JSON Schema: `schema/ir_v2.schema.json`
 ### Changed
 - Rebuilt `compile_text` for clearer pipeline order and early teaching enrichment
 - Domain confidence now `None` (instead of 0.0) when domain is `general` or no evidence
 - Heuristic version bumped to 2025.08.21-1
+ - Heuristic2 (v2) version introduced: 2025.08.23-0 (for IR v2 mapping/priorities)
 ### Fixed
 - Restored teaching intent constraints (friendly tone, pedagogical flow, source recommendations)
 - Regression causing missing duration/level constraints in teaching tests
