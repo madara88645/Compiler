@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.9] - 2025-08-21 (unreleased)
+## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override
 - Structured clarification objects (`metadata.clarify_questions_struct` with category + question)
@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Teaching mode constraints refactored to integrate pre-IR creation (fixing regression)
 - IR v2 (preview, behind flag): new `IRv2` model with typed `constraints {id,text,origin,priority}` and `intents` + typed `steps`; Python API `compile_text_v2`, HTTP API `v2: true` returns `ir_v2`
 - IR v2 JSON Schema: `schema/ir_v2.schema.json`
+- Basic Spanish (es) language support across detection, models/schemas, and emitters (localized labels)
 ### Changed
 - Rebuilt `compile_text` for clearer pipeline order and early teaching enrichment
 - Domain confidence now `None` (instead of 0.0) when domain is `general` or no evidence
@@ -48,7 +49,6 @@ All notable changes to this project will be documented in this file.
 - Heuristic version bumped to 2025.08.20-1 for confidence feature
 ### Fixed
 - None (all tests pass)
-
 
 - Offline Desktop UI (`ui_desktop.py`) with prompt input, diagnostics toggle, copy buttons, summary header
 ### Changed

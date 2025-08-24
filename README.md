@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Compile messy natural language prompts (Turkish / English) into a structured Intermediate Representation (IR JSON) and generate optimized System Prompt, User Prompt, Plan, and Expanded Prompt for everyday use with LLMs. (Project documentation below is now fully in English for consistency.)
+Compile messy natural language prompts (Turkish / English / Spanish) into a structured Intermediate Representation (IR JSON) and generate optimized System Prompt, User Prompt, Plan, and Expanded Prompt for everyday use with LLMs. (Project documentation below is now fully in English for consistency.)
 
 ## Table of Contents
 - [Features](#features)
@@ -25,7 +25,7 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 - [License](#license)
 
 ## Features
-* **Language Detection**: Automatic detection (Turkish / English) with domain guessing and evidence
+* **Language Detection**: Automatic detection (Turkish / English / Spanish) with domain guessing and evidence
 * **Structured IR**: JSON Schema validated IR with: persona, role, goals, tasks, inputs (interest / budget / format / level / duration), constraints, style, tone, output_format, length_hint, steps, examples, banned, tools, metadata
 * **Recency Rule**: Adds `web` tool + recency constraint for time-sensitive queries
 * **Teaching Mode**: Detects learning intent; adds instructor persona, level/duration constraints, pedagogical steps, mini quiz scaffold, reputable sources constraint
@@ -41,6 +41,7 @@ Compile messy natural language prompts (Turkish / English) into a structured Int
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (preview)**: New richer IR model with constraint objects (id/origin/priority), explicit intents, typed steps. Available via Python `compile_text_v2()` or API `{ "v2": true }` as `ir_v2`.
+* **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
@@ -235,7 +236,7 @@ The tool converts natural language prompts into a structured JSON format followi
 
 ```json
 {
-  "language": "tr|en",           // Detected language
+  "language": "tr|en|es",        // Detected language
   "persona": "assistant|teacher|researcher|coach|mentor", // High-level persona enum
   "role": "string",              // Natural language role text
   "domain": "string",            // Detected domain (general, shopping, etc)
@@ -285,7 +286,8 @@ The tool converts natural language prompts into a structured JSON format followi
 ├── cli/                   # Command-line interface  
 │   └── main.py           # Typer CLI application
 ├── schema/               # JSON Schema validation
-│   └── ir.schema.json    # IR format schema
+│   ├── ir.schema.json        # IR v1 format schema
+│   └── ir_v2.schema.json     # IR v2 format schema (preview)
 ├── examples/             # Sample prompts for testing
 │   ├── example_en.txt    # English example
 │   ├── example_tr.txt    # Turkish example
@@ -304,7 +306,7 @@ The tool converts natural language prompts into a structured JSON format followi
 
 **When to use promptc:**
 * 🎯 **Consistent Prompting**: Reproducible, structured prompts for LLM pipelines
-* 🌐 **Multi-language TR/EN**: Automatic language adaptation
+* 🌐 **Multi-language TR/EN/ES**: Automatic language adaptation
 * 📚 **Teaching Content**: Educational flows with pedagogy enhancements
 * 🛍️ **Structured Tasks**: Shopping, comparisons, planning, summarization
 * ⏰ **Time-sensitive**: Auto web tool addition when recency detected
