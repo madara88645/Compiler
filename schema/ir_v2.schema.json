@@ -4,7 +4,7 @@
   "required": ["version","language","persona","role","domain","goals","tasks","constraints","style","tone","output_format","length_hint","steps","examples","banned","tools","metadata","intents"],
   "properties": {
     "version": { "const": "2.0" },
-    "language": { "enum": ["tr","en"] },
+  "language": { "enum": ["tr","en","es"] },
     "persona": { "enum": ["assistant","teacher","researcher","coach","mentor"] },
     "role": { "type": "string" },
     "domain": { "type": "string" },

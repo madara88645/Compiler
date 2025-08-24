@@ -18,7 +18,7 @@ class StepV2(BaseModel):
 
 class IRv2(BaseModel):
     version: Literal['2.0'] = '2.0'
-    language: Literal['tr','en']
+    language: Literal['tr','en','es']
     persona: Literal['assistant','teacher','researcher','coach','mentor']
     role: str
     domain: str

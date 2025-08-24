@@ -48,8 +48,8 @@ class IR(BaseModel):
 
     @validator('language')
     def _lang(cls, v):  # type: ignore
-        if v not in {"tr", "en"}:
-            raise ValueError("language must be 'tr' or 'en'")
+        if v not in {"tr", "en", "es"}:
+            raise ValueError("language must be 'tr' or 'en' or 'es'")
         return v
 
     @validator('output_format')

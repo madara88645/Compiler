@@ -336,10 +336,15 @@ def detect_code_request(text: str) -> bool:
     return any(re.search(p, lower) for p in CODE_REQUEST_KEYWORDS)
 
 def detect_language(text: str) -> str:
-    # Simple heuristic: presence of Turkish specific chars or common words
+    # Simple heuristic: presence of Turkish or Spanish indicators, else default English
+    lower = text.lower()
     tr_chars = "çğıöşü"
-    if any(c in text.lower() for c in tr_chars) or re.search(r"\bve\b|\bile\b|\bkimdir\b", text.lower()):
+    if any(c in lower for c in tr_chars) or re.search(r"\bve\b|\bile\b|\bkimdir\b", lower):
         return "tr"
+    # Spanish accents / inverted punctuation / common words
+    if any(ch in text for ch in ("ñ","á","é","í","ó","ú","ü","¿","¡")) or \
+       re.search(r"\b(enséñame|por favor|hola|qué|análisis|rápido)\b", lower):
+        return "es"
     return "en"
 
 
