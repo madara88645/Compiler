@@ -15,7 +15,7 @@ class CompileRequest(BaseModel):
     text: str
     diagnostics: bool = False
     trace: bool = False
-    v2: bool = False
+    v2: bool = True
 
 class CompileResponse(BaseModel):
     ir: dict
@@ -44,6 +44,7 @@ async def version():
 async def compile_endpoint(req: CompileRequest):
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
+    # Always produce v1 for backward compatibility; use v2 by default for clients
     ir = optimize_ir(compile_text(req.text))
     elapsed = int((time.time() - t0)*1000)
     trace_lines = generate_trace(ir) if req.trace else None
@@ -58,7 +59,7 @@ async def compile_endpoint(req: CompileRequest):
         processing_ms=elapsed,
         request_id=rid,
         heuristic_version=HEURISTIC_VERSION,
-        heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
+    heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
         trace=trace_lines
     )
 

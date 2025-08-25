@@ -17,8 +17,12 @@ try:  # Prefer installed distribution metadata
 except Exception:  # pragma: no cover - extremely defensive
 	__version__ = "0.0.0-dev"
 
+# Public constants for IR and package versions (used by API/CLI/emitters)
+IR_SCHEMA_VERSION = "2.0"
+
+
 def get_version() -> str:
 	"""Return the resolved package version (lightweight helper)."""
 	return __version__
 
-__all__ = ["__version__", "get_version"]
+__all__ = ["__version__", "get_version", "IR_SCHEMA_VERSION"]

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2025-08-25
+### Changed
+- IR v2 is now the default in API (`v2: true` by default) and CLI (use `--v1` to access legacy output and prompt renderers)
+- IR v2 metadata now includes `ir_version=2.0` and `package_version=2.0.0`
+### Added
+- API continues to return IR v1 alongside IR v2 when requested; default response includes `ir_v2`
+### Migration Notes
+- If you rely on prompt renderers (system/user/plan/expanded), use `--v1` in CLI or `{"v2": false}` in API until v2 renderers are introduced
+
 ## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override

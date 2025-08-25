@@ -40,7 +40,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
-* **IR v2 (preview)**: New richer IR model with constraint objects (id/origin/priority), explicit intents, typed steps. Available via Python `compile_text_v2()` or API `{ "v2": true }` as `ir_v2`.
+* **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
@@ -203,13 +203,13 @@ curl -X POST http://127.0.0.1:8000/compile \
 }
 ```
 
-To also get IR v2 in the same response:
+IR v2 is returned by default. To request legacy-only IR v1:
 ```bash
 curl -X POST http://127.0.0.1:8000/compile \
   -H "Content-Type: application/json" \
-  -d '{"text":"teach me binary search in 10 minutes beginner level", "v2": true}'
+  -d '{"text":"teach me binary search in 10 minutes beginner level", "v2": false}'
 ```
-The response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v2.schema.json` for the IR v2 schema.
+The default response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v2.schema.json` for the IR v2 schema.
 
 #### GET /health
 ```json

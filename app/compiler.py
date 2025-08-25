@@ -3,6 +3,7 @@ import re
 from typing import List
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
 from .models_v2 import IRv2, ConstraintV2, StepV2
+from app import get_version
 import json, hashlib, time
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
@@ -139,7 +140,9 @@ def compile_text_v2(text: str) -> IRv2:
         steps=steps_v2, examples=ir1.examples, banned=ir1.banned, tools=ir1.tools,
         metadata={
             **(ir1.metadata or {}),
-            'heuristic2_version': HEURISTIC2_VERSION
+            'heuristic2_version': HEURISTIC2_VERSION,
+            'ir_version': '2.0',
+            'package_version': get_version()
         }
     )
     return ir2
