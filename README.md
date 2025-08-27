@@ -147,9 +147,13 @@ python ui_desktop.py
 Features:
 - Enter prompt text and click Generate
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
+- Toggle Trace to show heuristic trace lines
 - Copy buttons per tab (System / User / Plan / Expanded / IR JSON)
+- Extra tabs: IR v2 JSON and Trace
+- Save... button to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
 - Light / Dark theme toggle (bottom button in toolbar row)
+- Status line shows processing time and heuristic versions
 
 Screenshots (dark & light):
 

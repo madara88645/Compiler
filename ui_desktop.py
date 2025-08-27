@@ -14,10 +14,11 @@ Features:
 from __future__ import annotations
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+import time
 from pathlib import Path
 
-from app.compiler import compile_text, optimize_ir
+from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
 from app.emitters import (
     emit_system_prompt,
     emit_user_prompt,
@@ -42,14 +43,18 @@ class PromptCompilerUI:
         self.txt_prompt = tk.Text(top, height=5, wrap=tk.WORD)
         self.txt_prompt.pack(fill=tk.X, pady=(2, 6))
 
+        # Options row
         opts = ttk.Frame(top)
         opts.pack(fill=tk.X)
         self.var_diag = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT)
+        self.var_trace = tk.BooleanVar(value=False)
+        ttk.Checkbutton(opts, text="Trace", variable=self.var_trace).pack(side=tk.LEFT, padx=(6, 0))
 
         ttk.Button(opts, text="Generate", command=self.on_generate).pack(side=tk.LEFT, padx=4)
         ttk.Button(opts, text="Show Schema", command=self.on_show_schema).pack(side=tk.LEFT, padx=4)
         ttk.Button(opts, text="Clear", command=self.on_clear).pack(side=tk.LEFT, padx=4)
+        ttk.Button(opts, text="Save...", command=self.on_save).pack(side=tk.LEFT, padx=4)
         self.btn_theme = ttk.Button(opts, text="Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
 
@@ -68,6 +73,8 @@ class PromptCompilerUI:
         self.txt_plan = self._add_tab("Plan")
         self.txt_expanded = self._add_tab("Expanded Prompt")
         self.txt_ir = self._add_tab("IR JSON")
+        self.txt_ir2 = self._add_tab("IR v2 JSON")
+        self.txt_trace = self._add_tab("Trace")
 
         self.apply_theme("light")
 
@@ -111,7 +118,7 @@ class PromptCompilerUI:
         style.configure("TNotebook", background=bg, foreground=fg)
         style.configure("TNotebook.Tab", background=panel, foreground=fg)
         style.map("TNotebook.Tab", background=[("selected", accent)])
-        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir]:
+        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace]:
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
         self.btn_theme.config(text="Light" if dark else "Dark")
 
@@ -125,7 +132,7 @@ class PromptCompilerUI:
         self.status_var.set("Copied")
 
     def on_clear(self):
-        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir]:
+        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace]:
             t.delete("1.0", tk.END)
         self.summary_var.set("")
         self.status_var.set("Cleared")
@@ -154,6 +161,7 @@ class PromptCompilerUI:
 
     def _generate_core(self, prompt: str):
         try:
+            t0 = time.time()
             ir = optimize_ir(compile_text(prompt))
             diagnostics = self.var_diag.get()
             system = emit_system_prompt(ir)
@@ -161,12 +169,21 @@ class PromptCompilerUI:
             plan = emit_plan(ir)
             expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
             ir_json = json.dumps(ir.dict(), ensure_ascii=False, indent=2)
+            # Optional extras
+            trace_lines = generate_trace(ir) if self.var_trace.get() else []
+            try:
+                ir2 = compile_text_v2(prompt)
+                ir2_json = json.dumps(ir2.dict(), ensure_ascii=False, indent=2)
+            except Exception:
+                ir2_json = ""
             mapping = [
                 (self.txt_system, system),
                 (self.txt_user, user),
                 (self.txt_plan, plan),
                 (self.txt_expanded, expanded),
                 (self.txt_ir, ir_json),
+                (self.txt_ir2, ir2_json),
+                (self.txt_trace, "\n".join(trace_lines) if trace_lines else ""),
             ]
             for widget, data in mapping:
                 widget.delete("1.0", tk.END)
@@ -183,11 +200,62 @@ class PromptCompilerUI:
                 parts.append("Risk: " + ",".join(risk_flags[:3]))
             if diagnostics and amb:
                 parts.append("Ambiguous: " + ",".join(sorted(amb)[:5]))
+            elapsed = int((time.time() - t0) * 1000)
             self.summary_var.set(" | ".join(parts))
-            self.status_var.set("Done")
+            self.status_var.set(f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}")
         except Exception as e:  # pragma: no cover
             self.status_var.set("Error")
             messagebox.showerror("Error", str(e))
+
+    def on_save(self):
+        # Offer to save combined Markdown or IR JSONs
+        win = tk.Toplevel(self.root)
+        win.title("Save Outputs")
+        win.geometry("420x200")
+        frm = ttk.Frame(win, padding=8)
+        frm.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(frm, text="Choose what to save:").pack(anchor=tk.W)
+
+        def save_md():
+            path = filedialog.asksaveasfilename(defaultextension=".md", filetypes=[("Markdown","*.md"), ("All Files","*.*")])
+            if not path:
+                return
+            content = []
+            content.append("# System Prompt\n\n" + self.txt_system.get("1.0", tk.END).strip())
+            content.append("\n\n# User Prompt\n\n" + self.txt_user.get("1.0", tk.END).strip())
+            content.append("\n\n# Plan\n\n" + self.txt_plan.get("1.0", tk.END).strip())
+            content.append("\n\n# Expanded Prompt\n\n" + self.txt_expanded.get("1.0", tk.END).strip())
+            try:
+                Path(path).write_text("\n".join(content), encoding="utf-8")
+                messagebox.showinfo("Save", f"Saved: {path}")
+            except Exception as e:
+                messagebox.showerror("Save", str(e))
+
+        def save_ir():
+            path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+            if not path:
+                return
+            try:
+                Path(path).write_text(self.txt_ir.get("1.0", tk.END).strip() + "\n", encoding="utf-8")
+                messagebox.showinfo("Save", f"Saved: {path}")
+            except Exception as e:
+                messagebox.showerror("Save", str(e))
+
+        def save_ir2():
+            path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+            if not path:
+                return
+            try:
+                Path(path).write_text(self.txt_ir2.get("1.0", tk.END).strip() + "\n", encoding="utf-8")
+                messagebox.showinfo("Save", f"Saved: {path}")
+            except Exception as e:
+                messagebox.showerror("Save", str(e))
+
+        btns = ttk.Frame(frm)
+        btns.pack(fill=tk.X, pady=(8,0))
+        ttk.Button(btns, text="Save Combined Markdown", command=save_md).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Save IR v1 JSON", command=save_ir).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Save IR v2 JSON", command=save_ir2).pack(side=tk.LEFT, padx=4)
 
 
 def main():  # pragma: no cover

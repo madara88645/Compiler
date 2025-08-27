@@ -11,6 +11,14 @@ All notable changes to this project will be documented in this file.
 ### Migration Notes
 - If you rely on prompt renderers (system/user/plan/expanded), use `--v1` in CLI or `{"v2": false}` in API until v2 renderers are introduced
 
+## [2.0.1] - 2025-08-27
+### Added
+- Desktop UI: Trace toggle and new Trace tab
+- Desktop UI: IR v2 JSON tab
+- Desktop UI: Save dialog to export combined Markdown or IR JSON (v1/v2)
+### Changed
+- Desktop UI: Status line now shows processing time and heuristic versions
+
 ## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override
