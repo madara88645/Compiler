@@ -65,6 +65,12 @@ class PromptCompilerUI:
         self.summary_var = tk.StringVar(value="")
         ttk.Label(self.root, textvariable=self.summary_var, padding=(8, 0)).pack(fill=tk.X)
 
+        # Intents chips (IR v2)
+        self.chips_frame = ttk.Frame(self.root, padding=(8, 2))
+        self.chips_frame.pack(fill=tk.X)
+        self.chips_container = ttk.Frame(self.chips_frame)
+        self.chips_container.pack(anchor=tk.W)
+
         # Notebook outputs
         self.nb = ttk.Notebook(self.root)
         self.nb.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
@@ -74,6 +80,24 @@ class PromptCompilerUI:
         self.txt_expanded = self._add_tab("Expanded Prompt")
         self.txt_ir = self._add_tab("IR JSON")
         self.txt_ir2 = self._add_tab("IR v2 JSON")
+
+        # IR v2 Constraints Viewer tab (table)
+        cons_frame = ttk.Frame(self.nb)
+        self.nb.add(cons_frame, text="IR v2 Constraints")
+        cons_bar = ttk.Frame(cons_frame)
+        cons_bar.pack(fill=tk.X)
+        ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(side=tk.LEFT, padx=2, pady=2)
+        self.tree_constraints = ttk.Treeview(cons_frame, columns=("priority","origin","id","text"), show="headings")
+        self.tree_constraints.heading("priority", text="Priority")
+        self.tree_constraints.heading("origin", text="Origin")
+        self.tree_constraints.heading("id", text="ID")
+        self.tree_constraints.heading("text", text="Text")
+        self.tree_constraints.column("priority", width=80, anchor=tk.CENTER)
+        self.tree_constraints.column("origin", width=120, anchor=tk.W)
+        self.tree_constraints.column("id", width=120, anchor=tk.W)
+        self.tree_constraints.column("text", width=600, anchor=tk.W)
+        self.tree_constraints.pack(fill=tk.BOTH, expand=True)
+
         self.txt_trace = self._add_tab("Trace")
 
         self.apply_theme("light")
@@ -118,6 +142,11 @@ class PromptCompilerUI:
         style.configure("TNotebook", background=bg, foreground=fg)
         style.configure("TNotebook.Tab", background=panel, foreground=fg)
         style.map("TNotebook.Tab", background=[("selected", accent)])
+        # Treeview (constraints)
+        style.configure("Treeview", background=panel, fieldbackground=panel, foreground=fg)
+        style.configure("Treeview.Heading", background=panel, foreground=fg)
+        # Chips label style
+        style.configure("Chip.TLabel", background=("#2d7dd2" if not dark else "#2563eb"), foreground="#ffffff", padding=(6,2))
         for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace]:
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
         self.btn_theme.config(text="Light" if dark else "Dark")
@@ -136,6 +165,12 @@ class PromptCompilerUI:
             t.delete("1.0", tk.END)
         self.summary_var.set("")
         self.status_var.set("Cleared")
+        # Clear chips and constraints
+        for w in self.chips_container.winfo_children():
+            w.destroy()
+        if hasattr(self, 'tree_constraints'):
+            for i in self.tree_constraints.get_children():
+                self.tree_constraints.delete(i)
 
     def on_show_schema(self):
         try:
@@ -171,6 +206,7 @@ class PromptCompilerUI:
             ir_json = json.dumps(ir.dict(), ensure_ascii=False, indent=2)
             # Optional extras
             trace_lines = generate_trace(ir) if self.var_trace.get() else []
+            ir2 = None
             try:
                 ir2 = compile_text_v2(prompt)
                 ir2_json = json.dumps(ir2.dict(), ensure_ascii=False, indent=2)
@@ -188,6 +224,26 @@ class PromptCompilerUI:
             for widget, data in mapping:
                 widget.delete("1.0", tk.END)
                 widget.insert(tk.END, data)
+            # Populate intents chips and constraints table from IR v2
+            for w in self.chips_container.winfo_children():
+                w.destroy()
+            if ir2 is not None:
+                # Intent chips
+                for intent in (getattr(ir2, 'intents', []) or []):
+                    lbl = ttk.Label(self.chips_container, text=intent, style="Chip.TLabel")
+                    lbl.pack(side=tk.LEFT, padx=4, pady=2)
+                # Constraints table sorted by priority desc
+                rows = []
+                for c in (getattr(ir2, 'constraints', []) or []):
+                    pr = getattr(c, 'priority', 0) or 0
+                    rows.append((pr, getattr(c,'origin',''), getattr(c,'id',''), getattr(c,'text','')))
+                rows.sort(key=lambda r: r[0], reverse=True)
+                # Clear and insert
+                if hasattr(self, 'tree_constraints'):
+                    for i in self.tree_constraints.get_children():
+                        self.tree_constraints.delete(i)
+                    for r in rows:
+                        self.tree_constraints.insert('', tk.END, values=r)
             meta = ir.metadata or {}
             persona = getattr(ir, "persona", "?")
             complexity = meta.get("complexity")
@@ -206,6 +262,21 @@ class PromptCompilerUI:
         except Exception as e:  # pragma: no cover
             self.status_var.set("Error")
             messagebox.showerror("Error", str(e))
+
+    def _copy_constraints(self):
+        if not hasattr(self, 'tree_constraints'):
+            return
+        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        if not rows:
+            return
+        # Build Markdown table
+        md = ["| Priority | Origin | ID | Text |", "|---:|---|---|---|"]
+        for pr, origin, idv, text in rows:
+            md.append(f"| {pr} | {origin} | {idv} | {str(text).replace('|','\\|')} |")
+        data = "\n".join(md)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(data)
+        self.status_var.set("Constraints copied")
 
     def on_save(self):
         # Offer to save combined Markdown or IR JSONs

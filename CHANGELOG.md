@@ -19,6 +19,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Desktop UI: Status line now shows processing time and heuristic versions
 
+## [2.0.2] - 2025-08-28
+### Added
+- Desktop UI: Intent chips under the summary (from IR v2 `intents`)
+- Desktop UI: IR v2 Constraints Viewer tab (table with priority/origin/id/text) and Copy action
+
 ## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override

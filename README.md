@@ -38,6 +38,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Multiple Outputs**: System Prompt, User Prompt, Plan, Expanded Prompt, plus raw IR JSON
 * **Deterministic & Offline**: No external API calls; reproducible
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
+* **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
@@ -149,9 +150,10 @@ Features:
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
 - Toggle Trace to show heuristic trace lines
 - Copy buttons per tab (System / User / Plan / Expanded / IR JSON)
-- Extra tabs: IR v2 JSON and Trace
+- Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy), and Trace
 - Save... button to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
+- Intent chips (IR v2) appear under the summary when available
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
 
