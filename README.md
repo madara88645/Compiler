@@ -157,6 +157,29 @@ Features:
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
 
+### One-shot pipe to OpenAI (demo)
+
+We include a minimal example that compiles your raw prompt and sends the resulting System/User prompts to OpenAI:
+
+```powershell
+# Install (optional) package for the example
+pip install openai
+
+# Set your OpenAI API key in the environment (PowerShell)
+$env:OPENAI_API_KEY = "sk-..."
+
+# Run the example with a raw prompt
+python examples/openai_pipe.py "teach me gradient descent in 15 minutes"
+
+# Options:
+#   --model gpt-4o-mini
+#   --expanded        # use Expanded Prompt instead of concise User Prompt
+#   --diagnostics     # include diagnostics in Expanded Prompt
+```
+
+Notes:
+- This demo uses IR v1 emitters for a clean system/user pairing. IR v2 remains default for JSON.
+
 Screenshots (dark & light):
 
 | Light Theme | Dark Theme |
