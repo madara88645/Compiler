@@ -175,7 +175,7 @@ $env:OPENAI_API_KEY = "sk-..."
 
 Screenshot:
 
-![OpenAI from Desktop UI](docs/images/desktop_openai.png)
+![OpenAI from Desktop UI](docs/images/image-1756540999147.png)
 
 Notes:
 - Never commit your API keys. Use environment variables.
