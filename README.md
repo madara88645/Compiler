@@ -39,6 +39,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Deterministic & Offline**: No external API calls; reproducible
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy
+* **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
@@ -156,6 +157,29 @@ Features:
 - Intent chips (IR v2) appear under the summary when available
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
+
+#### Send to OpenAI directly from the Desktop UI (new)
+
+You can send the compiled prompts straight to OpenAI without leaving the app.
+
+Steps:
+- Install the optional dependency: `pip install openai`
+- Set your API key in the environment (PowerShell):
+
+```powershell
+$env:OPENAI_API_KEY = "sk-..."
+```
+
+- In the UI toolbar, set a Model (e.g., `gpt-4o-mini`), optionally check "Use Expanded" to send the Expanded Prompt, and click "Send to OpenAI".
+- The response will appear in the "OpenAI Response" tab. The status line will show progress and completion.
+
+Screenshot:
+
+![OpenAI from Desktop UI](docs/images/desktop_openai.png)
+
+Notes:
+- Never commit your API keys. Use environment variables.
+- If the image above is missing, save a screenshot as `docs/images/desktop_openai.png`.
 
 ### One-shot pipe to OpenAI (demo)
 

@@ -13,6 +13,7 @@ Features:
 """
 from __future__ import annotations
 import json
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import time
@@ -26,9 +27,16 @@ from app.emitters import (
     emit_expanded_prompt,
 )
 
+# Optional OpenAI client (only used when sending directly from UI)
+try:  # openai>=1.0 style client
+    from openai import OpenAI  # type: ignore
+except Exception:  # pragma: no cover - optional dep
+    OpenAI = None  # type: ignore
+
 
 class PromptCompilerUI:
     def __init__(self, root: tk.Tk):
+        self.root = root
         self.root = root
         self.root.title("Prompt Compiler")
         self.root.geometry("1200x780")
@@ -58,6 +66,15 @@ class PromptCompilerUI:
         self.btn_theme = ttk.Button(opts, text="Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
 
+        # OpenAI quick-send controls
+        ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
+        self.var_model = tk.StringVar(value="gpt-4o-mini")
+        self.ent_model = ttk.Entry(opts, textvariable=self.var_model, width=18)
+        self.ent_model.pack(side=tk.LEFT)
+        self.var_openai_expanded = tk.BooleanVar(value=False)
+        ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(opts, text="Send to OpenAI", command=self.on_send_openai).pack(side=tk.LEFT, padx=6)
+
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
 
@@ -80,6 +97,7 @@ class PromptCompilerUI:
         self.txt_expanded = self._add_tab("Expanded Prompt")
         self.txt_ir = self._add_tab("IR JSON")
         self.txt_ir2 = self._add_tab("IR v2 JSON")
+        self.txt_openai = self._add_tab("OpenAI Response")
 
         # IR v2 Constraints Viewer tab (table)
         cons_frame = ttk.Frame(self.nb)
@@ -105,8 +123,6 @@ class PromptCompilerUI:
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
         self.root.bind("<F5>", lambda _e: self.on_generate())
-
-    # Tabs helper
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
         self.nb.add(frame, text=title)
@@ -147,7 +163,9 @@ class PromptCompilerUI:
         style.configure("Treeview.Heading", background=panel, foreground=fg)
         # Chips label style
         style.configure("Chip.TLabel", background=("#2d7dd2" if not dark else "#2563eb"), foreground="#ffffff", padding=(6,2))
-        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace]:
+        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None)]:
+            if t is None:
+                continue
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
         self.btn_theme.config(text="Light" if dark else "Dark")
 
@@ -161,7 +179,9 @@ class PromptCompilerUI:
         self.status_var.set("Copied")
 
     def on_clear(self):
-        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace]:
+        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None)]:
+            if t is None:
+                continue
             t.delete("1.0", tk.END)
         self.summary_var.set("")
         self.status_var.set("Cleared")
@@ -193,6 +213,55 @@ class PromptCompilerUI:
             return
         self.status_var.set("Generating...")
         self.root.after(30, lambda: self._generate_core(prompt))
+
+    def on_send_openai(self):  # pragma: no cover - UI action
+        prompt = self.txt_prompt.get("1.0", tk.END).strip()
+        if not prompt:
+            messagebox.showwarning("OpenAI", "Enter a prompt text first.")
+            return
+        if OpenAI is None:
+            messagebox.showerror("OpenAI", "Package 'openai' not installed. Run: pip install openai")
+            return
+        if not os.environ.get("OPENAI_API_KEY"):
+            messagebox.showerror("OpenAI", "OPENAI_API_KEY is not set in environment.")
+            return
+        model = (self.var_model.get() or "gpt-4o-mini").strip()
+        use_expanded = bool(self.var_openai_expanded.get())
+        diagnostics = bool(self.var_diag.get()) if use_expanded else False
+        self.status_var.set(f"OpenAI: sending ({model})...")
+
+        def _do_send():
+            try:
+                ir = optimize_ir(compile_text(prompt))
+                system = emit_system_prompt(ir)
+                if use_expanded:
+                    user = emit_expanded_prompt(ir, diagnostics=diagnostics)
+                else:
+                    user = emit_user_prompt(ir)
+                client = OpenAI()
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role":"system","content":system}, {"role":"user","content":user}],
+                    temperature=0.7,
+                )
+                try:
+                    content = resp.choices[0].message.content  # type: ignore[attr-defined]
+                except Exception:
+                    content = str(resp)
+                self.txt_openai.delete("1.0", tk.END)
+                self.txt_openai.insert(tk.END, content or "<no content>")
+                # Focus the OpenAI tab
+                for i in range(self.nb.index('end')):
+                    if self.nb.tab(i, 'text') == 'OpenAI Response':
+                        self.nb.select(i)
+                        break
+                self.status_var.set("OpenAI: done")
+            except Exception as e:
+                self.status_var.set("OpenAI: error")
+                messagebox.showerror("OpenAI", str(e))
+
+        # Run slightly later to keep UI responsive
+        self.root.after(30, _do_send)
 
     def _generate_core(self, prompt: str):
         try:

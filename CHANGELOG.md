@@ -24,6 +24,12 @@ All notable changes to this project will be documented in this file.
 - Desktop UI: Intent chips under the summary (from IR v2 `intents`)
 - Desktop UI: IR v2 Constraints Viewer tab (table with priority/origin/id/text) and Copy action
 
+## [2.0.3] - 2025-08-30
+### Added
+- Desktop UI: "Send to OpenAI" controls (model field, Use Expanded toggle, send button) and an "OpenAI Response" tab
+### Docs
+- README updated to include UI OpenAI send instructions and screenshot placeholder (`docs/images/desktop_openai.png`)
+
 ## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override
