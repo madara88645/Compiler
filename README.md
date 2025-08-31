@@ -40,6 +40,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy
 * **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
+* **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
@@ -157,6 +158,7 @@ Features:
 - Intent chips (IR v2) appear under the summary when available
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
+- Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, window geometry)
 
 #### Send to OpenAI directly from the Desktop UI (new)
 
@@ -180,6 +182,14 @@ Screenshot:
 Notes:
 - Never commit your API keys. Use environment variables.
 - If the image above is missing, save a screenshot as `docs/images/desktop_openai.png`.
+
+#### Settings persistence (new)
+
+The desktop app saves your UI preferences under your home folder (per-user):
+
+- File: `~/.promptc_ui.json` (on Windows: `C:\Users\<you>\.promptc_ui.json`)
+- Stored fields: `theme`, `diagnostics`, `trace`, `model`, `use_expanded`, `geometry`
+- Values are loaded at startup and updated automatically when changed.
 
 ### One-shot pipe to OpenAI (demo)
 
