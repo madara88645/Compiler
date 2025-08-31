@@ -69,8 +69,19 @@ class PromptCompilerUI:
         # OpenAI quick-send controls
         ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
         self.var_model = tk.StringVar(value="gpt-4o-mini")
-        self.ent_model = ttk.Entry(opts, textvariable=self.var_model, width=18)
-        self.ent_model.pack(side=tk.LEFT)
+        self.cmb_model = ttk.Combobox(
+            opts,
+            textvariable=self.var_model,
+            width=18,
+            state="readonly",
+            values=(
+                "gpt-4o-mini",
+                "gpt-4o",
+                "gpt-4.1-mini",
+                "gpt-4.1",
+            ),
+        )
+        self.cmb_model.pack(side=tk.LEFT)
         self.var_openai_expanded = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(opts, text="Send to OpenAI", command=self.on_send_openai).pack(side=tk.LEFT, padx=6)
