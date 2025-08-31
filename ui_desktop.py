@@ -37,11 +37,12 @@ except Exception:  # pragma: no cover - optional dep
 class PromptCompilerUI:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root = root
         self.root.title("Prompt Compiler")
         self.root.geometry("1200x780")
         self.root.minsize(1000, 650)
         self.current_theme = "light"
+        # Settings file (per-user)
+        self.config_path = Path.home() / ".promptc_ui.json"
 
         # Input area
         top = ttk.Frame(self.root, padding=8)
@@ -129,11 +130,21 @@ class PromptCompilerUI:
 
         self.txt_trace = self._add_tab("Trace")
 
-        self.apply_theme("light")
+        # Load settings (theme, toggles, model, geometry) and apply
+        self._load_settings()
+        self.apply_theme(self.current_theme)
+
+        # Persist on change
+        self.var_diag.trace_add("write", lambda *_: self._save_settings())
+        self.var_trace.trace_add("write", lambda *_: self._save_settings())
+        self.var_model.trace_add("write", lambda *_: self._save_settings())
+        self.var_openai_expanded.trace_add("write", lambda *_: self._save_settings())
 
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
         self.root.bind("<F5>", lambda _e: self.on_generate())
+        # Save geometry on close
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
         self.nb.add(frame, text=title)
@@ -149,6 +160,7 @@ class PromptCompilerUI:
     # Theme
     def toggle_theme(self):
         self.apply_theme("dark" if self.current_theme == "light" else "light")
+        self._save_settings()
 
     def apply_theme(self, theme: str):
         self.current_theme = theme
@@ -179,6 +191,65 @@ class PromptCompilerUI:
                 continue
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
         self.btn_theme.config(text="Light" if dark else "Dark")
+
+    # Settings persistence
+    def _load_settings(self):  # pragma: no cover - simple IO
+        data = {}
+        try:
+            if self.config_path.exists():
+                data = json.loads(self.config_path.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+        # Theme
+        theme = data.get("theme")
+        if theme in ("light", "dark"):
+            self.current_theme = theme
+        # Variables
+        try:
+            if "diagnostics" in data:
+                self.var_diag.set(bool(data.get("diagnostics")))
+            if "trace" in data:
+                self.var_trace.set(bool(data.get("trace")))
+            if "use_expanded" in data:
+                self.var_openai_expanded.set(bool(data.get("use_expanded")))
+            if "model" in data:
+                val = str(data.get("model") or "gpt-4o-mini")
+                # Only set if allowed in readonly combobox values
+                try:
+                    allowed = list(self.cmb_model["values"])  # type: ignore[attr-defined]
+                except Exception:
+                    allowed = []
+                if not allowed or val in allowed:
+                    self.var_model.set(val)
+        except Exception:
+            pass
+        # Geometry
+        if (geo := data.get("geometry")):
+            try:
+                self.root.geometry(str(geo))
+            except Exception:
+                pass
+
+    def _save_settings(self):  # pragma: no cover - simple IO
+        try:
+            payload = {
+                "theme": self.current_theme,
+                "diagnostics": bool(self.var_diag.get()),
+                "trace": bool(self.var_trace.get()),
+                "use_expanded": bool(self.var_openai_expanded.get()),
+                "model": (self.var_model.get() or "gpt-4o-mini").strip(),
+                "geometry": self.root.winfo_geometry(),
+            }
+            self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _on_close(self):  # pragma: no cover - UI callback
+        self._save_settings()
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
 
     # Actions
     def _copy_text(self, widget: tk.Text):
