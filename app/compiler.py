@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from typing import List
-from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN
+from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
 from .models_v2 import IRv2, ConstraintV2, StepV2
 from app import get_version
 import json, hashlib, time
@@ -13,6 +13,7 @@ from .heuristics import (
     detect_code_request, detect_pii, detect_domain_candidates, extract_temporal_flags, extract_quantities,
     generate_clarify_questions_struct
 )
+from .heuristics import detect_coding_context, detect_live_debug
 
 GENERIC_GOAL = {
     'tr': 'İsteği yerine getir ve faydalı, doğru bir cevap üret.',
@@ -205,7 +206,13 @@ def compile_text(text: str) -> IR:
     # Teaching intent enrichment BEFORE IR instantiation
     persona, persona_info = pick_persona(text)
     role = DEFAULT_ROLE_TR if lang=='tr' else DEFAULT_ROLE_EN
-    if detect_teaching_intent(text):
+    # Developer persona override: if coding context, prefer developer
+    coding_ctx = detect_coding_context(text)
+    if coding_ctx:
+        persona = 'developer'
+        role = DEFAULT_ROLE_DEV_TR if lang=='tr' else DEFAULT_ROLE_DEV_EN
+    # If user wants teaching AND not coding, switch to teacher
+    if detect_teaching_intent(text) and not coding_ctx:
         persona = 'teacher'
         lvl = (inputs.get('level') or '').lower()
         dur = inputs.get('duration')
@@ -239,6 +246,31 @@ def compile_text(text: str) -> IR:
             style.append('structured')
         if 'friendly' not in tone:
             tone.append('friendly')
+
+    # Coding-oriented constraints if code context requested
+    if detect_coding_context(text):
+        if lang == 'tr':
+            add_constraint('Önce çalışan, küçük parçalara bölünmüş bir çözüm geliştirin (adım adım).', 'code_request')
+            add_constraint('Kod örneklerini çalıştırılabilir ve kendi kendini açıklayan hale getirin.', 'code_request')
+            add_constraint('Gerektiğinde test veya örnek kullanım ekleyin.', 'code_request')
+        else:
+            add_constraint('Develop a working solution incrementally in small steps.', 'code_request')
+            add_constraint('Make code examples runnable and self-explanatory.', 'code_request')
+            add_constraint('Include tests or example usage when appropriate.', 'code_request')
+        if 'concise' not in style:
+            style.append('concise')
+        # Live debug mode: emphasize reproduction and hypothesis-driven fixes
+        if detect_live_debug(text):
+            if lang == 'tr':
+                add_constraint('Sorunu yeniden üretmek için minimal bir örnek (MRE) oluştur.', 'live_debug')
+                add_constraint('Hata mesajlarını/stack trace’i açıkça alıntıla ve açıklamasını yap.', 'live_debug')
+                add_constraint('Hipotez -> Deney -> Sonuç adımlarını kısa döngülerle uygula.', 'live_debug')
+            else:
+                add_constraint('Create a minimal reproducible example (MRE).', 'live_debug')
+                add_constraint('Quote and explain error messages/stack traces clearly.', 'live_debug')
+                add_constraint('Use Hypothesis -> Experiment -> Result short feedback loops.', 'live_debug')
+            # mark metadata flag for downstream UIs
+            persona_info.setdefault('flags', {})['live_debug'] = True
 
     if is_summary:
         add_constraint('Provide a concise summary', 'summary')

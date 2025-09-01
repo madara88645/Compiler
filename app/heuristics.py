@@ -50,6 +50,13 @@ PERSONA_KEYWORDS = {
     "researcher": [r"research", r"araştır", r"analyze", r"analysis", r"paper", r"literature", r"survey", r"systematic review"],
     "coach": [r"coach", r"koç", r"motivate", r"motivation", r"rehberlik", r"encourage", r"accountability"],
     "mentor": [r"mentor", r"mentorluk", r"career", r"kariyer", r"advice", r"guidance", r"growth"],
+    # New: developer/coding assistant persona
+    "developer": [
+        r"pair program", r"pair-program", r"code with me", r"walk me through code", r"tdd", r"test driven",
+        r"debug", r"refactor", r"implement", r"function", r"class", r"script", r"module", r"api",
+        r"python", r"javascript", r"typescript", r"java", r"c#", r"go", r"rust", r"deno", r"node",
+        r"kod", r"örnek kod", r"birlikte kodla", r"hata ayıkla", r"yeniden düzenle"
+    ],
 }
 
 def pick_persona(text: str) -> tuple[str, dict]:
@@ -155,6 +162,25 @@ AMBIGUOUS_TERMS = {
 }
 
 CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod", r"script", r"algorithm"]
+
+def detect_coding_context(text: str) -> bool:
+    """Broader coding trigger: either explicit code request or developer persona cues."""
+    lower = text.lower()
+    if detect_code_request(text):
+        return True
+    dev_pats = PERSONA_KEYWORDS.get("developer", [])
+    return any(re.search(p, lower) for p in dev_pats)
+
+# Live debug detection (English + Turkish cues)
+LIVE_DEBUG_KEYWORDS = [
+    r"live debug", r"help me debug", r"debug this", r"traceback", r"stack trace", r"exception",
+    r"reproduce", r"reproduction steps", r"minimal repro", r"mre", r"logs?", r"error log",
+    r"canlı debug", r"canli debug", r"canlı hata ayıklama", r"hata ayıkla", r"hata ayıklama", r"yığın izi", r"istisna",
+]
+
+def detect_live_debug(text: str) -> bool:
+    lower = text.lower()
+    return any(re.search(p, lower) for p in LIVE_DEBUG_KEYWORDS)
 
 # --- Privacy / PII detection (lightweight heuristic, no external deps) ---
 PII_PATTERNS = {

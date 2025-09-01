@@ -19,7 +19,7 @@ class StepV2(BaseModel):
 class IRv2(BaseModel):
     version: Literal['2.0'] = '2.0'
     language: Literal['tr','en','es']
-    persona: Literal['assistant','teacher','researcher','coach','mentor']
+    persona: Literal['assistant','teacher','researcher','coach','mentor','developer']
     role: str
     domain: str
     intents: List[Literal['teaching','summary','compare','variants','recency','risk','code','ambiguous']] = Field(default_factory=list)

@@ -60,7 +60,7 @@ class IR(BaseModel):
 
     @validator('persona')
     def _persona(cls, v):  # type: ignore
-        allowed = {"assistant","teacher","researcher","coach","mentor"}
+        allowed = {"assistant","teacher","researcher","coach","mentor","developer"}
         if v not in allowed:
             raise ValueError(f"persona must be one of {sorted(allowed)}")
         return v
@@ -77,3 +77,5 @@ class IR(BaseModel):
 
 DEFAULT_ROLE_TR = "Yardımcı üretken yapay zeka asistanı"
 DEFAULT_ROLE_EN = "Helpful generative AI assistant"
+DEFAULT_ROLE_DEV_TR = "Kıdemli yazılım mühendisi ve eş-programcı kod asistanı"
+DEFAULT_ROLE_DEV_EN = "Senior software engineer and pair-programmer coding assistant"

@@ -9,6 +9,9 @@ def emit_system_prompt(ir: IR) -> str:
         "- Follow goals, tasks, constraints, and style/tone.",
         f"- Output format: {ir.output_format}; length: {ir.length_hint}.",
     ]
+    if ir.persona == 'developer':
+        parts.append("- Prefer code-first, minimal narration; annotate only where clarity improves.")
+        parts.append("- When debugging: focus on reproduction, error analysis, and iterative fixes.")
     if ir.style:
         parts.append("Style: " + ", ".join(ir.style))
     if ir.tone:
