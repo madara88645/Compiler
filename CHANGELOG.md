@@ -30,6 +30,17 @@ All notable changes to this project will be documented in this file.
 ### Docs
 - README updated to include UI OpenAI send instructions and screenshot placeholder (`docs/images/desktop_openai.png`)
 
+## [2.0.4] - 2025-09-02
+### Added
+- Persona: New `developer` coding assistant persona with precedence over teacher when coding context is detected
+- Heuristics: Live debug detection (MRE, stack trace analysis, iterative fixes) and coding constraints (runnable examples, tests/usage)
+- IR v2: `persona` now permits `developer`; new `intents` value `debug` when live debug is detected
+- UI: IR v2 Constraints Viewer gains an "Only live_debug" filter checkbox
+### Tests
+- New tests covering developer persona triggers and IR v2 debug intent
+### Docs
+- README updated with developer/live debug notes, CLI examples, and UI filter mention
+
 ## [0.1.9] - 2025-08-24
 ### Added
 - External patterns config loader (YAML/JSON) for domain, ambiguity, risk keywords override

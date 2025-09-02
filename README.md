@@ -31,6 +31,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Teaching Mode**: Detects learning intent; adds instructor persona, level/duration constraints, pedagogical steps, mini quiz scaffold, reputable sources constraint
 * **Summary / Comparison / Variants**: Detects summary (with bullet limits), multi-item comparisons (auto switch to table), and variant generation (2–10 distinct variants)
 * **Extended Heuristics**: Risk flags (financial / health / legal), entity extraction, complexity score, ambiguous terms -> clarification questions, code request detection
+* **Developer Persona (new)**: Coding assistant persona with code-first guidance; auto-detected on coding context (pair-programming, TDD, debug)
+* **Live Debug (new)**: Detects "live debug" context and adds constraints for MRE, stack trace analysis, and iterative fix loops; IR v2 `intents` include `debug`
 * **Awareness Extensions (new)**: Broader domain/persona/risk/ambiguous keyword coverage (e.g., cloud, security, resilient, secure, portfolio, compliance)
 * **Diagnostics Mode**: Optional expanded prompt section (--diagnostics) surfacing risk flags, ambiguous terms, clarify questions
 * **Clarification Questions Block**: Auto-added (before diagnostics) when ambiguity detected
@@ -38,7 +40,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Multiple Outputs**: System Prompt, User Prompt, Plan, Expanded Prompt, plus raw IR JSON
 * **Deterministic & Offline**: No external API calls; reproducible
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
-* **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy
+* **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy (plus an "Only live_debug" filter)
 * **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
@@ -107,6 +109,10 @@ promptc "explain quantum computing concepts for beginners"
 
 # With diagnostics (risk & ambiguity insights)
 promptc --diagnostics "Analyze stock market investment strategy and optimize performance"
+
+# Developer & Live Debug examples
+promptc compile "Let’s pair program. TDD implement normalize_whitespace(text) with pytest tests" --json-only
+promptc compile "Live debug this Python error and create an MRE" --json-only --trace
 ```
 
 **Example Output:**
@@ -152,7 +158,7 @@ Features:
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
 - Toggle Trace to show heuristic trace lines
 - Copy buttons per tab (System / User / Plan / Expanded / IR JSON)
-- Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy), and Trace
+- Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy, and an "Only live_debug" filter), and Trace
 - Save... button to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
 - Intent chips (IR v2) appear under the summary when available
