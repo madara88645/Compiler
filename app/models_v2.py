@@ -22,7 +22,7 @@ class IRv2(BaseModel):
     persona: Literal['assistant','teacher','researcher','coach','mentor','developer']
     role: str
     domain: str
-    intents: List[Literal['teaching','summary','compare','variants','recency','risk','code','ambiguous']] = Field(default_factory=list)
+    intents: List[Literal['teaching','summary','compare','variants','recency','risk','code','ambiguous','debug']] = Field(default_factory=list)
     goals: List[str] = Field(default_factory=list)
     tasks: List[str] = Field(default_factory=list)
     inputs: Dict[str, str] = Field(default_factory=dict)

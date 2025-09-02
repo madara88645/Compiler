@@ -106,6 +106,10 @@ def compile_text_v2(text: str) -> IRv2:
     if md.get('ambiguous_terms'): intents.append('ambiguous')
     if 'web' in (ir1.tools or []): intents.append('recency')
     if ir1.persona == 'teacher': intents.append('teaching')
+    # live debug marker from persona_evidence.flags
+    flags = (md.get('persona_evidence') or {}).get('flags') or {}
+    if flags.get('live_debug'):
+        intents.append('debug')
 
     # Prioritize constraints by origin
     origins = md.get('constraint_origins') or {}
