@@ -117,6 +117,10 @@ class PromptCompilerUI:
         cons_bar = ttk.Frame(cons_frame)
         cons_bar.pack(fill=tk.X)
         ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(side=tk.LEFT, padx=2, pady=2)
+        # Filter: show only live_debug origin constraints
+        self.var_only_live_debug = tk.BooleanVar(value=False)
+        ttk.Checkbutton(cons_bar, text="Only live_debug", variable=self.var_only_live_debug,
+            command=self._render_constraints_table).pack(side=tk.LEFT, padx=6)
         self.tree_constraints = ttk.Treeview(cons_frame, columns=("priority","origin","id","text"), show="headings")
         self.tree_constraints.heading("priority", text="Priority")
         self.tree_constraints.heading("origin", text="Origin")
@@ -389,12 +393,9 @@ class PromptCompilerUI:
                     pr = getattr(c, 'priority', 0) or 0
                     rows.append((pr, getattr(c,'origin',''), getattr(c,'id',''), getattr(c,'text','')))
                 rows.sort(key=lambda r: r[0], reverse=True)
-                # Clear and insert
-                if hasattr(self, 'tree_constraints'):
-                    for i in self.tree_constraints.get_children():
-                        self.tree_constraints.delete(i)
-                    for r in rows:
-                        self.tree_constraints.insert('', tk.END, values=r)
+                # Save all rows and render via helper (supports filtering)
+                self._constraints_rows_all = rows
+                self._render_constraints_table()
             meta = ir.metadata or {}
             persona = getattr(ir, "persona", "?")
             complexity = meta.get("complexity")
@@ -428,6 +429,22 @@ class PromptCompilerUI:
         self.root.clipboard_clear()
         self.root.clipboard_append(data)
         self.status_var.set("Constraints copied")
+
+    def _render_constraints_table(self):
+        # Render constraints from cached rows with optional live_debug filter
+        if not hasattr(self, 'tree_constraints'):
+            return
+        rows = getattr(self, '_constraints_rows_all', [])
+        if not isinstance(rows, list):
+            rows = []
+        if bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()):
+            rows_to_show = [r for r in rows if (len(r) > 1 and str(r[1]) == 'live_debug')]
+        else:
+            rows_to_show = rows
+        for i in self.tree_constraints.get_children():
+            self.tree_constraints.delete(i)
+        for r in rows_to_show:
+            self.tree_constraints.insert('', tk.END, values=r)
 
     def on_save(self):
         # Offer to save combined Markdown or IR JSONs
