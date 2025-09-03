@@ -24,7 +24,11 @@ include-package-data = true
 promptc = "cli.main:app"
 
 [project.optional-dependencies]
-dev = ["pytest==8.0.0"]
+dev = [
+	"pytest==8.0.0",
+	"ruff==0.6.5",
+	"pre-commit==3.7.1",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]

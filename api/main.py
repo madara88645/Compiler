@@ -35,6 +35,11 @@ from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION, generate_
 async def health():
     return {"status": "ok"}
 
+# Alias commonly used by load balancers/monitors
+@app.get('/healthz')
+async def healthz():
+    return {"status": "ok"}
+
 @app.get('/version')
 async def version():
     """Return running package version (for debugging / client caching)."""
@@ -98,6 +103,8 @@ INDEX_HTML = """<!DOCTYPE html>
         <button id=\"btnGen\">Generate</button>
         <button id=\"btnSchema\">Show JSON Schema</button>
         <button id=\"btnClear\">Clear Outputs</button>
+    <button id=\"btnCopyAll\">Copy All</button>
+    <button id=\"btnExportIR\">Export IR JSON</button>
     </div>
     <div id=\"status\"></div>
     <div class=\"outputs\">
@@ -146,6 +153,31 @@ INDEX_HTML = """<!DOCTYPE html>
         qs('btnClear').onclick = () => {
             ['system','user','plan','expanded','ir','schema','status'].forEach(id=>qs(id).textContent='');
         };
+                qs('btnCopyAll').onclick = () => {
+                        const parts = [];
+                        const push = (title, txt) => { if(txt) parts.push(`# ${title}\n\n${txt}`) };
+                        push('System Prompt', qs('system').textContent.trim());
+                        push('User Prompt', qs('user').textContent.trim());
+                        push('Plan', qs('plan').textContent.trim());
+                        push('Expanded Prompt', qs('expanded').textContent.trim());
+                        if(!parts.length){ return; }
+                        const blob = new Blob([parts.join('\n\n')], {type:'text/plain'});
+                        navigator.clipboard.writeText(parts.join('\n\n')).then(()=>{
+                            qs('status').textContent = 'Copied all outputs';
+                        }).catch(()=>{
+                            qs('status').textContent = 'Copy failed';
+                        });
+                };
+                qs('btnExportIR').onclick = () => {
+                        const data = qs('ir').textContent.trim();
+                        if(!data){ return; }
+                        const blob = new Blob([data + '\n'], {type: 'application/json'});
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = 'ir.json';
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                };
     </script>
 </body>
 </html>"""

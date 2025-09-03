@@ -157,6 +157,14 @@ class PromptCompilerUI:
         txt = tk.Text(frame, wrap=tk.NONE)
         txt.pack(fill=tk.BOTH, expand=True)
         ttk.Button(bar, text="Copy", command=lambda t=txt: self._copy_text(t)).pack(side=tk.LEFT, padx=2, pady=2)
+        if title in ("System Prompt", "User Prompt", "Plan", "Expanded Prompt"):
+            ttk.Button(bar, text="Copy all", command=self._copy_all_texts).pack(side=tk.LEFT, padx=2, pady=2)
+        if title == "IR JSON":
+            ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
+        if title == "IR v2 JSON":
+            ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir2, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
+        if title == "Expanded Prompt":
+            ttk.Button(bar, text="Export MD", command=lambda: self._export_markdown_combined()).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "Expanded Prompt":
             ttk.Label(bar, text="(Diagnostics appear here if enabled)", foreground="#666").pack(side=tk.RIGHT)
         return txt
@@ -429,6 +437,54 @@ class PromptCompilerUI:
         self.root.clipboard_clear()
         self.root.clipboard_append(data)
         self.status_var.set("Constraints copied")
+
+    def _copy_all_texts(self):
+        parts = [
+            ("System Prompt", self.txt_system),
+            ("User Prompt", self.txt_user),
+            ("Plan", self.txt_plan),
+            ("Expanded Prompt", self.txt_expanded),
+        ]
+        buf = []
+        for title, widget in parts:
+            val = widget.get("1.0", tk.END).strip()
+            if val:
+                buf.append(f"# {title}\n\n{val}")
+        if not buf:
+            return
+        data = "\n\n".join(buf)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(data)
+        self.status_var.set("All outputs copied")
+
+    def _export_text(self, widget: tk.Text, default_ext: str = ".txt"):
+        ft = [("All Files","*.*")]
+        if default_ext == ".json":
+            ft = [("JSON","*.json"), ("All Files","*.*")]
+        path = filedialog.asksaveasfilename(defaultextension=default_ext, filetypes=ft)
+        if not path:
+            return
+        data = widget.get("1.0", tk.END).strip()
+        try:
+            Path(path).write_text(data + "\n", encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
+
+    def _export_markdown_combined(self):
+        path = filedialog.asksaveasfilename(defaultextension=".md", filetypes=[("Markdown","*.md"), ("All Files","*.*")])
+        if not path:
+            return
+        content = []
+        content.append("# System Prompt\n\n" + self.txt_system.get("1.0", tk.END).strip())
+        content.append("\n\n# User Prompt\n\n" + self.txt_user.get("1.0", tk.END).strip())
+        content.append("\n\n# Plan\n\n" + self.txt_plan.get("1.0", tk.END).strip())
+        content.append("\n\n# Expanded Prompt\n\n" + self.txt_expanded.get("1.0", tk.END).strip())
+        try:
+            Path(path).write_text("\n".join(content), encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
 
     def _render_constraints_table(self):
         # Render constraints from cached rows with optional live_debug filter

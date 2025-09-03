@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 from typing import List
+from pathlib import Path
 import typer
 from rich import print
 from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
@@ -56,6 +57,7 @@ def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool
 def root(
     ctx: typer.Context,
     text: List[str] = typer.Argument(None, help="Prompt text (omit to show help)", show_default=False),
+    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
     diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
     json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
     quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
@@ -66,16 +68,23 @@ def root(
     """If no subcommand is provided, behave like the compile command for convenience."""
     if ctx.invoked_subcommand is not None:
         return
-    if not text:
+    if not text and not from_file:
         # Show help if nothing supplied
         typer.echo(ctx.get_help())
         raise typer.Exit()
-    full_text = " ".join(text)
+    if from_file is not None:
+        try:
+            full_text = from_file.read_text(encoding="utf-8")
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
+    else:
+        full_text = " ".join(text)
     _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1)
 
 @app.command()
 def compile(
-    text: List[str] = typer.Argument(..., help="Prompt text (wrap in quotes for multi-word)"),
+    text: List[str] = typer.Argument(None, help="Prompt text (wrap in quotes for multi-word)", show_default=False),
+    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
     diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
     json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
     quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
@@ -83,7 +92,15 @@ def compile(
     trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
 ):
-    full_text = " ".join(text)
+    if not text and not from_file:
+        raise typer.BadParameter("Provide TEXT or --from-file")
+    if from_file is not None:
+        try:
+            full_text = from_file.read_text(encoding="utf-8")
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
+    else:
+        full_text = " ".join(text)
     _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1)
 
 if __name__ == "__main__":  # pragma: no cover
