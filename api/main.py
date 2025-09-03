@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pathlib import Path
 from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION
 from app.compiler import compile_text_v2, HEURISTIC2_VERSION
+from app.compiler import generate_trace
 import time, uuid
 from app import get_version
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
@@ -29,7 +30,7 @@ class CompileResponse(BaseModel):
     heuristic_version: str
     heuristic2_version: str | None = None
     trace: list[str] | None = None
-from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION, generate_trace
+# (imports consolidated above)
 
 @app.get('/health')
 async def health():

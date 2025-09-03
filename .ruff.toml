@@ -2,6 +2,7 @@ line-length = 100
 target-version = "py310"
 select = ["E", "F", "I"]
 ignore = [
+  "E501",  # ignore long lines; handled by formatter/docs
 ]
 exclude = [
   "promptc.egg-info",
