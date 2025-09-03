@@ -18,6 +18,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 - [Project Structure](#project-structure)
 - [Use Cases](#use-cases)
 - [Development Setup](#development-setup)
+ - [Development Setup](#development-setup)
 - [Troubleshooting](#troubleshooting)
 - [Advanced Features](#advanced-features)
 - [Contributing](#contributing)
@@ -43,11 +44,12 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy (plus an "Only live_debug" filter)
 * **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
+* **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
-* **New CLI Flags**: `--json-only`, `--quiet`, `--persona` (override)
+* **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
@@ -92,7 +94,7 @@ promptc --help
 ```powershell
 uvicorn api.main:app --reload
 ```
-Health: http://127.0.0.1:8000/health
+Health: http://127.0.0.1:8000/health (alias: `/healthz`)  •  Version: http://127.0.0.1:8000/version
 
 ## Usage
 
@@ -113,6 +115,10 @@ promptc --diagnostics "Analyze stock market investment strategy and optimize per
 # Developer & Live Debug examples
 promptc compile "Let’s pair program. TDD implement normalize_whitespace(text) with pytest tests" --json-only
 promptc compile "Live debug this Python error and create an MRE" --json-only --trace
+
+# Read prompt from a file (Windows PowerShell)
+promptc --from-file .\examples\example_en.txt --json-only
+promptc compile --from-file .\examples\example_tr.txt --v1 --diagnostics
 ```
 
 **Example Output:**
@@ -157,9 +163,9 @@ Features:
 - Enter prompt text and click Generate
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
 - Toggle Trace to show heuristic trace lines
-- Copy buttons per tab (System / User / Plan / Expanded / IR JSON)
+- Copy buttons per tab (System / User / Plan / Expanded / IR JSON) and a "Copy all" action on prompt tabs
 - Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy, and an "Only live_debug" filter), and Trace
-- Save... button to export combined Markdown or IR JSON (v1/v2)
+- Export buttons: "Export JSON" on IR v1/v2 tabs, "Export MD" on Expanded; plus a Save... dialog to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
 - Intent chips (IR v2) appear under the summary when available
 - Light / Dark theme toggle (bottom button in toolbar row)
@@ -238,6 +244,7 @@ uvicorn api.main:app --reload
 
 The API provides:
 * **Health Check**: http://127.0.0.1:8000/health
+* **Health Check (alias)**: http://127.0.0.1:8000/healthz
 * **Version**: http://127.0.0.1:8000/version
 * **Docs (Swagger)**: http://127.0.0.1:8000/docs
 
@@ -281,6 +288,11 @@ curl -X POST http://127.0.0.1:8000/compile \
 The default response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v2.schema.json` for the IR v2 schema.
 
 #### GET /health
+```json
+{"status": "ok"}
+```
+
+#### GET /healthz
 ```json
 {"status": "ok"}
 ```

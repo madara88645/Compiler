@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.5] - 2025-09-03
+### Added
+- CLI: `--from-file` flag on root and `compile` commands to read prompt text from UTF-8 files
+- Desktop UI: "Copy all" action for prompt tabs; "Export JSON" on IR v1/v2 tabs; "Export MD" for Expanded
+- API: `/healthz` alias for health and a tiny web demo enhancement with Copy/Export actions
+### Changed
+- Docs: README updated (CLI --from-file examples, UI export/copy details, API endpoints)
+- Tooling: ruff and pre-commit configuration added; CI continues to lint with ruff
+
 ## [2.0.0] - 2025-08-25
 ### Changed
 - IR v2 is now the default in API (`v2: true` by default) and CLI (use `--v1` to access legacy output and prompt renderers)
