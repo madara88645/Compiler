@@ -20,10 +20,10 @@ Notes:
 - Requires package 'openai' (see requirements.txt). Reads OPENAI_API_KEY from environment.
 """
 from __future__ import annotations
+import argparse
 import os
 import sys
-import argparse
-from typing import List, Dict, Any
+from typing import Dict, List
 
 try:
     # New style client (openai>=1.0)
@@ -33,7 +33,7 @@ except Exception:
 
 # Local imports from this repo
 from app.compiler import compile_text, optimize_ir
-from app.emitters import emit_system_prompt, emit_user_prompt, emit_expanded_prompt
+from app.emitters import emit_expanded_prompt, emit_system_prompt, emit_user_prompt
 
 
 def compile_messages(raw_prompt: str, use_expanded: bool, diagnostics: bool) -> List[Dict[str, str]]:

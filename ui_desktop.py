@@ -432,7 +432,8 @@ class PromptCompilerUI:
         # Build Markdown table
         md = ["| Priority | Origin | ID | Text |", "|---:|---|---|---|"]
         for pr, origin, idv, text in rows:
-            md.append(f"| {pr} | {origin} | {idv} | {str(text).replace('|','\\|')} |")
+            text_str = str(text).replace('|', '\\|')
+            md.append(f"| {pr} | {origin} | {idv} | {text_str} |")
         data = "\n".join(md)
         self.root.clipboard_clear()
         self.root.clipboard_append(data)

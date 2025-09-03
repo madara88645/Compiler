@@ -1,10 +1,11 @@
 from __future__ import annotations
+import json
+import hashlib
 import re
-from typing import List
+from typing import List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
 from .models_v2 import IRv2, ConstraintV2, StepV2
 from app import get_version
-import json, hashlib, time
 from .heuristics import (
     detect_language, detect_domain, detect_recency, extract_format,
     detect_length_hint, extract_style_tone, detect_conflicts, extract_inputs,
@@ -31,8 +32,6 @@ def split_sentences(text: str) -> List[str]:
     parts = re.split(r'[\n;.]+', text)
     return [p.strip() for p in parts if p.strip()]
 
-
-from typing import Tuple
 
 def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
     sentences = split_sentences(text)
@@ -98,14 +97,22 @@ def compile_text_v2(text: str) -> IRv2:
     ir1 = compile_text(text)
     intents: list[str] = []
     md = ir1.metadata or {}
-    if md.get('summary') == 'true': intents.append('summary')
-    if md.get('comparison_items'): intents.append('compare')
-    if md.get('variant_count', 1) > 1: intents.append('variants')
-    if md.get('risk_flags'): intents.append('risk')
-    if md.get('code_request'): intents.append('code')
-    if md.get('ambiguous_terms'): intents.append('ambiguous')
-    if 'web' in (ir1.tools or []): intents.append('recency')
-    if ir1.persona == 'teacher': intents.append('teaching')
+    if md.get('summary') == 'true':
+        intents.append('summary')
+    if md.get('comparison_items'):
+        intents.append('compare')
+    if md.get('variant_count', 1) > 1:
+        intents.append('variants')
+    if md.get('risk_flags'):
+        intents.append('risk')
+    if md.get('code_request'):
+        intents.append('code')
+    if md.get('ambiguous_terms'):
+        intents.append('ambiguous')
+    if 'web' in (ir1.tools or []):
+        intents.append('recency')
+    if ir1.persona == 'teacher':
+        intents.append('teaching')
     # live debug marker from persona_evidence.flags
     flags = (md.get('persona_evidence') or {}).get('flags') or {}
     if flags.get('live_debug'):

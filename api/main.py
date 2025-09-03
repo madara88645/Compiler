@@ -3,10 +3,10 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pathlib import Path
-from app.compiler import compile_text, optimize_ir, HEURISTIC_VERSION
-from app.compiler import compile_text_v2, HEURISTIC2_VERSION
-from app.compiler import generate_trace
-import time, uuid
+from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
+from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
+import time
+import uuid
 from app import get_version
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
 

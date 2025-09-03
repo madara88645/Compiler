@@ -1,6 +1,8 @@
 from __future__ import annotations
-import re, os, json
-from typing import Tuple, List, Dict, Any
+import json
+import os
+import re
+from typing import Any, Dict, List, Tuple
 try:
     import yaml  # type: ignore
 except Exception:  # optional dependency
@@ -194,7 +196,6 @@ PII_PATTERNS = {
 }
 
 def detect_pii(text: str) -> list[str]:
-    lower = text.lower()
     flags: list[str] = []
     # To reduce false positives for credit cards: ensure at least 13 digits contiguous when stripped
     for kind, pat in PII_PATTERNS.items():
@@ -238,10 +239,14 @@ def estimate_complexity(text: str) -> str:
     length = len(text.split())
     unique = len(set(w.lower() for w in re.findall(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9]+", text)))
     score = 0
-    if length > 40: score += 1
-    if unique > 30: score += 1
-    if any(k in text.lower() for k in [" vs ", "compare", "karşılaştır"]): score += 1
-    if any(k in text.lower() for k in ["teach", "öğret", "explain"]): score += 1
+    if length > 40:
+        score += 1
+    if unique > 30:
+        score += 1
+    if any(k in text.lower() for k in [" vs ", "compare", "karşılaştır"]):
+        score += 1
+    if any(k in text.lower() for k in ["teach", "öğret", "explain"]):
+        score += 1
     return 'high' if score >= 3 else 'medium' if score == 2 else 'low'
 
 def detect_ambiguous_terms(text: str) -> list[str]:
