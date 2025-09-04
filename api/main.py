@@ -7,7 +7,7 @@ from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
 import uuid
-from app import get_build_info, get_version
+from app import get_build_info
 from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
 
 app = FastAPI(title="Prompt Compiler API")
