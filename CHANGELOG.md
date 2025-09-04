@@ -11,6 +11,17 @@ All notable changes to this project will be documented in this file.
 - Docs: README updated (CLI --from-file examples, UI export/copy details, API endpoints)
 - Tooling: ruff and pre-commit configuration added; CI continues to lint with ruff
 
+## [2.0.6] - 2025-09-04
+### Added
+- CLI: `--out`, `--out-dir`, and `--format {json|md}` to save outputs to files (supports v1/v2 JSON and combined Markdown)
+- API: `/version` now returns `{ version, git_sha, ir_schema_version }`
+- Desktop UI: IR Diff tab (v1 vs v2), Ctrl+F quick find dialog, and "Export Trace" on the Constraints toolbar
+- Desktop UI: Persist Only live_debug filter in `~/.promptc_ui.json`
+### Fixed
+- Desktop UI: Resolved indentation/scope errors around constraints toolbar and diff tab; improved theming coverage
+### Docs
+- README updated with new CLI save flags, UI IR Diff/Ctrl+F/Export Trace features, and `/version` response example
+
 ## [2.0.0] - 2025-08-25
 ### Changed
 - IR v2 is now the default in API (`v2: true` by default) and CLI (use `--v1` to access legacy output and prompt renderers)

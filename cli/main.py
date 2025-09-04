@@ -10,7 +10,18 @@ from app import get_version
 
 app = typer.Typer(help="Prompt Compiler CLI")
 
-def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool, persona: str | None, trace: bool, v1: bool = False):
+def _run_compile(
+    full_text: str,
+    diagnostics: bool,
+    json_only: bool,
+    quiet: bool,
+    persona: str | None,
+    trace: bool,
+    v1: bool = False,
+    out: Path | None = None,
+    out_dir: Path | None = None,
+    fmt: str | None = None,
+):
     if v1:
         ir = optimize_ir(compile_text(full_text))
         ir2 = None
@@ -18,7 +29,7 @@ def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool
         ir2 = compile_text_v2(full_text)
         # For rendering, continue to use v1 emitters if needed; here we print IR JSON by default
         ir = None
-    if persona:
+    if persona and (ir is not None):
         ir.persona = persona.strip().lower()
     # Resolve quiet vs json_only
     if json_only and quiet:
@@ -35,7 +46,11 @@ def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool
         if trace:
             if ir:
                 data['trace'] = generate_trace(ir)
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+        payload = json.dumps(data, ensure_ascii=False, indent=2)
+        if out or out_dir:
+            _write_output(payload, out, out_dir, default_name="ir.json")
+            return
+        print(payload)
         return
     if ir:
         print(f"[bold white]Persona:[/bold white] {ir.persona} (heuristics v{HEURISTIC_VERSION})")
@@ -46,12 +61,37 @@ def _run_compile(full_text: str, diagnostics: bool, json_only: bool, quiet: bool
     ir_json = ir.dict() if ir else ir2.dict()
     if trace and ir:
         ir_json['trace'] = generate_trace(ir)
-    print(json.dumps(ir_json, ensure_ascii=False, indent=2))
+    rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)
+    if out or out_dir:
+        # Support --format md to save prompts as Markdown
+        if fmt and fmt.lower() == 'md' and ir:
+            md_parts = [
+                "# System Prompt\n\n" + system_prompt,
+                "\n\n# User Prompt\n\n" + user_prompt,
+                "\n\n# Plan\n\n" + plan,
+                "\n\n# Expanded Prompt\n\n" + expanded,
+                "\n\n# IR JSON\n\n```json\n" + rendered + "\n```",
+            ]
+            _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
+            return
+        _write_output(rendered, out, out_dir, default_name="ir.json")
+        return
+    print(rendered)
     if ir:
         print("\n[bold green]System Prompt:[/bold green]\n" + system_prompt)
         print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
         print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
         print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
+def _write_output(content: str, out: Path | None, out_dir: Path | None, default_name: str = "output.txt"):
+    target: Path
+    if out:
+        target = out
+    else:
+        directory = out_dir or Path.cwd()
+        directory.mkdir(parents=True, exist_ok=True)
+        target = directory / default_name
+    target.write_text(content + ("\n" if not content.endswith("\n") else ""), encoding="utf-8")
+    print(f"[saved] {target}")
 
 @app.callback(invoke_without_command=True)
 def root(
@@ -64,6 +104,9 @@ def root(
     persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
     trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
+    out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
+    out_dir: Path = typer.Option(None, "--out-dir", help="Write output to a directory (creates if missing)"),
+    format: str = typer.Option(None, "--format", help="Output format when saving: md|json (default json)"),
 ):
     """If no subcommand is provided, behave like the compile command for convenience."""
     if ctx.invoked_subcommand is not None:
@@ -79,7 +122,7 @@ def root(
             raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
     else:
         full_text = " ".join(text)
-    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, out=out, out_dir=out_dir, fmt=format)
 
 @app.command()
 def compile(
@@ -91,6 +134,9 @@ def compile(
     persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
     trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
+    out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
+    out_dir: Path = typer.Option(None, "--out-dir", help="Write output to a directory (creates if missing)"),
+    format: str = typer.Option(None, "--format", help="Output format when saving: md|json (default json)"),
 ):
     if not text and not from_file:
         raise typer.BadParameter("Provide TEXT or --from-file")
@@ -101,7 +147,7 @@ def compile(
             raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
     else:
         full_text = " ".join(text)
-    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, out=out, out_dir=out_dir, fmt=format)
 
 if __name__ == "__main__":  # pragma: no cover
     app()

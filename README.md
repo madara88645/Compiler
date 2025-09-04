@@ -42,6 +42,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Deterministic & Offline**: No external API calls; reproducible
 * **API + CLI + Desktop UI**: FastAPI, Typer CLI, and Tkinter GUI
 * **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy (plus an "Only live_debug" filter)
+* **Desktop UI: IR Diff + Find (new)**: IR v1 vs v2 diff tab and Ctrl+F quick search in the active tab
+* **Desktop UI: Export Trace (new)**: One-click export of Trace output from the Constraints tab toolbar
 * **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
@@ -49,7 +51,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
-* **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`
+* **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
@@ -119,6 +121,15 @@ promptc compile "Live debug this Python error and create an MRE" --json-only --t
 # Read prompt from a file (Windows PowerShell)
 promptc --from-file .\examples\example_en.txt --json-only
 promptc compile --from-file .\examples\example_tr.txt --v1 --diagnostics
+
+# Save outputs to files
+# Save IR v2 JSON next to current directory
+promptc "teach me gradient descent" --json-only --out result.json
+
+# Save multiple runs into a directory with auto names
+promptc compile --from-file .\examples\example_en.txt --out-dir .\outputs --format json
+promptc compile --from-file .\examples\example_en.txt --out-dir .\outputs --format md
+promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --format md --v1
 ```
 
 **Example Output:**
@@ -164,13 +175,16 @@ Features:
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
 - Toggle Trace to show heuristic trace lines
 - Copy buttons per tab (System / User / Plan / Expanded / IR JSON) and a "Copy all" action on prompt tabs
-- Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy, and an "Only live_debug" filter), and Trace
+- Extra tabs: IR v2 JSON, IR v2 Constraints (table: priority/origin/id/text, with Copy, Export Trace, and an "Only live_debug" filter), Trace, and IR Diff (v1 vs v2)
 - Export buttons: "Export JSON" on IR v1/v2 tabs, "Export MD" on Expanded; plus a Save... dialog to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
 - Intent chips (IR v2) appear under the summary when available
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
-- Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, window geometry)
+- Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, Only live_debug filter, window geometry)
+
+Tips:
+- Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/OpenAI)
 
 #### Send to OpenAI directly from the Desktop UI (new)
 
@@ -249,10 +263,14 @@ The API provides:
 * **Docs (Swagger)**: http://127.0.0.1:8000/docs
 
 #### GET /version
-Returns running package version.
+Returns build information.
 
 ```json
-{"version": "0.0.0-dev"}
+{
+  "version": "2.0.6",
+  "git_sha": "abc1234",
+  "ir_schema_version": "2.0"
+}
 ```
 
 #### POST /compile

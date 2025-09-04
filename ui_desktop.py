@@ -110,13 +110,13 @@ class PromptCompilerUI:
         self.txt_ir = self._add_tab("IR JSON")
         self.txt_ir2 = self._add_tab("IR v2 JSON")
         self.txt_openai = self._add_tab("OpenAI Response")
-
         # IR v2 Constraints Viewer tab (table)
         cons_frame = ttk.Frame(self.nb)
         self.nb.add(cons_frame, text="IR v2 Constraints")
         cons_bar = ttk.Frame(cons_frame)
         cons_bar.pack(fill=tk.X)
         ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(side=tk.LEFT, padx=2, pady=2)
+        ttk.Button(cons_bar, text="Export Trace", command=self._export_trace).pack(side=tk.LEFT, padx=2, pady=2)
         # Filter: show only live_debug origin constraints
         self.var_only_live_debug = tk.BooleanVar(value=False)
         ttk.Checkbutton(cons_bar, text="Only live_debug", variable=self.var_only_live_debug,
@@ -133,6 +133,8 @@ class PromptCompilerUI:
         self.tree_constraints.pack(fill=tk.BOTH, expand=True)
 
         self.txt_trace = self._add_tab("Trace")
+        # IR Diff tab (v1 vs v2)
+        self.txt_diff = self._add_tab("IR Diff")
 
         # Load settings (theme, toggles, model, geometry) and apply
         self._load_settings()
@@ -143,12 +145,16 @@ class PromptCompilerUI:
         self.var_trace.trace_add("write", lambda *_: self._save_settings())
         self.var_model.trace_add("write", lambda *_: self._save_settings())
         self.var_openai_expanded.trace_add("write", lambda *_: self._save_settings())
+        self.var_only_live_debug.trace_add("write", lambda *_: self._render_constraints_table())
 
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
         self.root.bind("<F5>", lambda _e: self.on_generate())
+        # Quick search in text widgets
+        self.root.bind("<Control-f>", lambda _e: self._find_in_active())
         # Save geometry on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
         self.nb.add(frame, text=title)
@@ -198,7 +204,7 @@ class PromptCompilerUI:
         style.configure("Treeview.Heading", background=panel, foreground=fg)
         # Chips label style
         style.configure("Chip.TLabel", background=("#2d7dd2" if not dark else "#2563eb"), foreground="#ffffff", padding=(6,2))
-        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None)]:
+        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
             if t is None:
                 continue
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
@@ -224,6 +230,8 @@ class PromptCompilerUI:
                 self.var_trace.set(bool(data.get("trace")))
             if "use_expanded" in data:
                 self.var_openai_expanded.set(bool(data.get("use_expanded")))
+            if "only_live_debug" in data:
+                self.var_only_live_debug.set(bool(data.get("only_live_debug")))
             if "model" in data:
                 val = str(data.get("model") or "gpt-4o-mini")
                 # Only set if allowed in readonly combobox values
@@ -249,6 +257,7 @@ class PromptCompilerUI:
                 "diagnostics": bool(self.var_diag.get()),
                 "trace": bool(self.var_trace.get()),
                 "use_expanded": bool(self.var_openai_expanded.get()),
+                "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
             }
@@ -387,6 +396,17 @@ class PromptCompilerUI:
             for widget, data in mapping:
                 widget.delete("1.0", tk.END)
                 widget.insert(tk.END, data)
+            # IR Diff (simple)
+            try:
+                import difflib
+                a = (ir_json or "").splitlines(keepends=True)
+                b = (ir2_json or "").splitlines(keepends=True)
+                diff = difflib.unified_diff(a, b, fromfile="IR v1", tofile="IR v2")
+                diff_text = "".join(diff)
+            except Exception:
+                diff_text = ""
+            self.txt_diff.delete("1.0", tk.END)
+            self.txt_diff.insert(tk.END, diff_text)
             # Populate intents chips and constraints table from IR v2
             for w in self.chips_container.winfo_children():
                 w.destroy()
@@ -502,6 +522,8 @@ class PromptCompilerUI:
             self.tree_constraints.delete(i)
         for r in rows_to_show:
             self.tree_constraints.insert('', tk.END, values=r)
+        # Persist filter state
+        self._save_settings()
 
     def on_save(self):
         # Offer to save combined Markdown or IR JSONs
@@ -552,6 +574,73 @@ class PromptCompilerUI:
         ttk.Button(btns, text="Save Combined Markdown", command=save_md).pack(side=tk.LEFT, padx=4)
         ttk.Button(btns, text="Save IR v1 JSON", command=save_ir).pack(side=tk.LEFT, padx=4)
         ttk.Button(btns, text="Save IR v2 JSON", command=save_ir2).pack(side=tk.LEFT, padx=4)
+
+    # Extra helpers
+    def _export_trace(self):
+        data = self.txt_trace.get("1.0", tk.END).strip()
+        if not data:
+            return
+        path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text","*.txt"), ("All Files","*.*")])
+        if not path:
+            return
+        try:
+            Path(path).write_text(data + "\n", encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
+
+    def _find_in_active(self):
+        try:
+            idx = self.nb.index(self.nb.select())
+            widget = None
+            # map tab title to text widget
+            title = self.nb.tab(idx, 'text')
+            mapping = {
+                'System Prompt': self.txt_system,
+                'User Prompt': self.txt_user,
+                'Plan': self.txt_plan,
+                'Expanded Prompt': self.txt_expanded,
+                'IR JSON': self.txt_ir,
+                'IR v2 JSON': self.txt_ir2,
+                'OpenAI Response': self.txt_openai,
+                'Trace': self.txt_trace,
+                'IR Diff': self.txt_diff,
+            }
+            widget = mapping.get(title)
+            if widget is None:
+                return
+            self._open_find_dialog(widget)
+        except Exception:
+            pass
+
+    def _open_find_dialog(self, widget: tk.Text):
+        win = tk.Toplevel(self.root)
+        win.title("Find")
+        win.geometry("320x80")
+        frm = ttk.Frame(win, padding=8)
+        frm.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(frm, text="Find:").pack(anchor=tk.W)
+        var = tk.StringVar()
+        ent = ttk.Entry(frm, textvariable=var)
+        ent.pack(fill=tk.X)
+        ent.focus_set()
+        def do_find():
+            term = var.get()
+            if not term:
+                return
+            try:
+                start = widget.search(term, widget.index(tk.INSERT), stopindex=tk.END, nocase=True)
+                if not start:
+                    start = widget.search(term, "1.0", stopindex=tk.END, nocase=True)
+                if start:
+                    end = f"{start}+{len(term)}c"
+                    widget.tag_remove('sel', '1.0', tk.END)
+                    widget.tag_add('sel', start, end)
+                    widget.mark_set(tk.INSERT, end)
+                    widget.see(start)
+            except Exception:
+                pass
+        ttk.Button(frm, text="Find Next", command=do_find).pack(anchor=tk.E, pady=(6,0))
 
 
 def main():  # pragma: no cover
