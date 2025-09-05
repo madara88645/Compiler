@@ -60,8 +60,8 @@ def build_steps(tasks: List[str]) -> List[str]:
         steps.append(t)
     return steps
 
-HEURISTIC_VERSION = "2025.08.21-1"
-HEURISTIC2_VERSION = "2025.08.23-0"
+HEURISTIC_VERSION = "2025.09.05-0"
+HEURISTIC2_VERSION = "2025.09.05-0"
 
 def _canonical_constraints(items: List[str]) -> List[str]:
     out: List[str] = []
@@ -123,6 +123,8 @@ def compile_text_v2(text: str) -> IRv2:
     prio_map = {
         'recency': 80,
         'risk_flags': 70,
+    'live_debug': 80,
+        'pii': 60,
         'teaching_duration': 65,
         'teaching_level': 60,
         'teaching': 60,

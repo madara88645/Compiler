@@ -22,6 +22,11 @@ DOMAIN_PATTERNS: Dict[str, List[str]] = {
     "physics": [r"quantum", r"fizik", r"relativity", r"kuantum", r"particle"],
     "software": [r"api", r"microservice", r"docker", r"kubernetes", r"python", r"javascript", r"refactor", r"microservices"],
     "cloud": [r"aws", r"azure", r"gcp", r"cloudformation", r"terraform", r"serverless"],
+    # Newer domains for coverage
+    "data-eng": [r"airflow", r"dbt", r"data pipeline", r"etl", r"elt", r"spark", r"kafka", r"warehouse"],
+    "mlops": [r"mlops", r"model registry", r"feature store", r"deployment", r"inference", r"monitoring"],
+    "security": [r"oauth", r"jwt", r"encryption", r"xss", r"csrf", r"sast", r"dast", r"pentest", r"owasp"],
+    "compliance": [r"gdpr", r"hipaa", r"soc 2", r"iso 27001", r"pci-dss", r"compliance"],
 }
 
 STYLE_KEYWORDS = ["structured", "academic", "resmi", "concise", "öz" ]
@@ -30,7 +35,7 @@ FORMAT_KEYWORDS = {
     "json": [r"json"],
     "yaml": [r"yaml"],
     "markdown": [r"markdown", r"md"],
-    "table": [r"table", r"tablo"],
+    "table": [r"table", r"tablo", r"csv"],
 }
 LENGTH_KEYWORDS = {
     "short": [r"short", r"kısa", r"brief"],
@@ -149,6 +154,7 @@ RISK_KEYWORDS = {
     'financial': [r"yatırım", r"hisse", r"borsa", r"stock", r"invest", r"trading", r"kripto", r"crypto", r"portfolio", r"derivative", r"option pricing"],
     'health': [r"diyet", r"sağlık", r"hastalık", r"disease", r"treatment", r"therapy", r"nutrition", r"medical", r"diagnosis", r"supplement"],
     'legal': [r"sözleşme", r"contract", r"legal", r"hukuk", r"sue", r"dava", r"regulation", r"compliance", r"policy", r"regulatory"],
+    'security': [r"security", r"güvenlik", r"pentest", r"owasp", r"rce", r"xss", r"csrf", r"sql injection", r"seçilebilirlik"],
 }
 
 AMBIGUOUS_TERMS = {
@@ -161,6 +167,8 @@ AMBIGUOUS_TERMS = {
     'robust': {"question": "Robust against which failures or edge cases?", "category": "reliability"},
     'secure': {"question": "What threat model or security properties (confidentiality, integrity, availability?)", "category": "security"},
     'resilient': {"question": "Resilient against which failure modes (network partition, instance crash, data loss?)", "category": "reliability"},
+    'scalable architecture': {"question": "Target scale, throughput or users? Horizontal/vertical scaling?", "category": "scalability"},
+    'optimize costs': {"question": "Which cost component (compute, storage, egress, API)?", "category": "cost"},
 }
 
 CODE_REQUEST_KEYWORDS = [r"code", r"function", r"snippet", r"implement", r"class", r"python", r"örnek kod", r"kod", r"script", r"algorithm"]
@@ -285,7 +293,9 @@ def generate_clarify_questions_struct(terms: list[str]) -> list[dict[str, Any]]:
 # --- Temporal & Quantity Extraction ---
 YEAR_PATTERN = re.compile(r"\b(19\d{2}|20\d{2})\b")
 QUARTER_PATTERN = re.compile(r"\bq([1-4])\s*(20\d{2})\b", re.IGNORECASE)
-MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"]
+MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december",
+          # Turkish month names
+          "ocak","şubat","subat","mart","nisan","mayıs","mayis","haziran","temmuz","ağustos","agustos","eylül","eylul","ekim","kasım","kasim","aralık","aralik"]
 REL_TEMPORAL = ["today","yesterday","tomorrow","this week","next week","this month","next month","this year","recent"]
 
 def extract_temporal_flags(text: str) -> list[str]:
@@ -306,7 +316,7 @@ def extract_temporal_flags(text: str) -> list[str]:
             flags.append(token)
     return flags[:20]
 
-QUANTITY_PATTERN = re.compile(r"\b(\d+(?:\.\d+)?)\s*(ms|s|sec|seconds|m|min|minutes|h|hours|%|percent|users?|reqs?|requests?|mb|gb|tb)\b", re.IGNORECASE)
+QUANTITY_PATTERN = re.compile(r"\b(\d+(?:\.\d+)?)\s*(ms|s|sec|seconds|m|min|minutes|h|hours|d|day|days|w|week|weeks|%|percent|users?|reqs?|requests?|kb|mb|gb|tb)\b", re.IGNORECASE)
 
 def extract_quantities(text: str) -> list[dict[str,str]]:
     out: list[dict[str,str]] = []
