@@ -49,7 +49,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
-* **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2; use `--v1` for legacy. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
+* **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
@@ -130,6 +130,9 @@ promptc "teach me gradient descent" --json-only --out result.json
 promptc compile --from-file .\examples\example_en.txt --out-dir .\outputs --format json
 promptc compile --from-file .\examples\example_en.txt --out-dir .\outputs --format md
 promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --format md --v1
+
+# Render prompts using IR v2 emitters (system/user/plan/expanded)
+promptc "compare llama3 vs gpt-4o for code generation" --render-v2
 ```
 
 **Example Output:**

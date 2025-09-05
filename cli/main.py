@@ -5,7 +5,10 @@ from pathlib import Path
 import typer
 from rich import print
 from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
-from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
+from app.emitters import (
+    emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
+    emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
+)
 from app import get_version
 
 app = typer.Typer(help="Prompt Compiler CLI")
@@ -18,6 +21,7 @@ def _run_compile(
     persona: str | None,
     trace: bool,
     v1: bool = False,
+    render_v2: bool = False,
     out: Path | None = None,
     out_dir: Path | None = None,
     fmt: str | None = None,
@@ -34,13 +38,13 @@ def _run_compile(
     # Resolve quiet vs json_only
     if json_only and quiet:
         quiet = False
-    system_prompt = emit_system_prompt(ir) if ir else ""
+    system_prompt = emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if (ir2 and render_v2) else "")
     if quiet:
         print(system_prompt)
         return
-    user_prompt = emit_user_prompt(ir) if ir else ""
-    plan = emit_plan(ir) if ir else ""
-    expanded = emit_expanded_prompt(ir, diagnostics=diagnostics) if ir else ""
+    user_prompt = emit_user_prompt(ir) if ir else (emit_user_prompt_v2(ir2) if (ir2 and render_v2) else "")
+    plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if (ir2 and render_v2) else "")
+    expanded = emit_expanded_prompt(ir, diagnostics=diagnostics) if ir else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if (ir2 and render_v2) else "")
     if json_only:
         data = ir.dict() if ir else ir2.dict()
         if trace:
@@ -77,7 +81,7 @@ def _run_compile(
         _write_output(rendered, out, out_dir, default_name="ir.json")
         return
     print(rendered)
-    if ir:
+    if ir or (ir2 and render_v2):
         print("\n[bold green]System Prompt:[/bold green]\n" + system_prompt)
         print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
         print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
@@ -104,6 +108,7 @@ def root(
     persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
     trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
+    render_v2: bool = typer.Option(False, "--render-v2", help="Render prompts using IR v2 emitters"),
     out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
     out_dir: Path = typer.Option(None, "--out-dir", help="Write output to a directory (creates if missing)"),
     format: str = typer.Option(None, "--format", help="Output format when saving: md|json (default json)"),
@@ -122,7 +127,7 @@ def root(
             raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
     else:
         full_text = " ".join(text)
-    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, out=out, out_dir=out_dir, fmt=format)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, render_v2=render_v2, out=out, out_dir=out_dir, fmt=format)
 
 @app.command()
 def compile(
@@ -134,6 +139,7 @@ def compile(
     persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
     trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
+    render_v2: bool = typer.Option(False, "--render-v2", help="Render prompts using IR v2 emitters"),
     out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
     out_dir: Path = typer.Option(None, "--out-dir", help="Write output to a directory (creates if missing)"),
     format: str = typer.Option(None, "--format", help="Output format when saving: md|json (default json)"),
@@ -147,7 +153,7 @@ def compile(
             raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
     else:
         full_text = " ".join(text)
-    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, out=out, out_dir=out_dir, fmt=format)
+    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, render_v2=render_v2, out=out, out_dir=out_dir, fmt=format)
 
 if __name__ == "__main__":  # pragma: no cover
     app()

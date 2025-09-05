@@ -8,7 +8,10 @@ from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_tr
 import time
 import uuid
 from app import get_build_info
-from app.emitters import emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt
+from app.emitters import (
+    emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
+    emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
+)
 
 app = FastAPI(title="Prompt Compiler API")
 
@@ -17,6 +20,7 @@ class CompileRequest(BaseModel):
     diagnostics: bool = False
     trace: bool = False
     v2: bool = True
+    render_v2_prompts: bool = False
 
 class CompileResponse(BaseModel):
     ir: dict
@@ -25,6 +29,10 @@ class CompileResponse(BaseModel):
     user_prompt: str
     plan: str
     expanded_prompt: str
+    system_prompt_v2: str | None = None
+    user_prompt_v2: str | None = None
+    plan_v2: str | None = None
+    expanded_prompt_v2: str | None = None
     processing_ms: int
     request_id: str
     heuristic_version: str
@@ -55,6 +63,13 @@ async def compile_endpoint(req: CompileRequest):
     elapsed = int((time.time() - t0)*1000)
     trace_lines = generate_trace(ir) if req.trace else None
     ir2 = compile_text_v2(req.text) if req.v2 else None
+    # Optional: render prompts with IR v2 emitters
+    sys_v2 = user_v2 = plan_v2 = exp_v2 = None
+    if req.render_v2_prompts and ir2 is not None:
+        sys_v2 = emit_system_prompt_v2(ir2)
+        user_v2 = emit_user_prompt_v2(ir2)
+        plan_v2 = emit_plan_v2(ir2)
+        exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
     return CompileResponse(
         ir=ir.dict(),
         ir_v2=(ir2.dict() if ir2 else None),
@@ -62,6 +77,10 @@ async def compile_endpoint(req: CompileRequest):
         user_prompt=emit_user_prompt(ir),
         plan=emit_plan(ir),
         expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics),
+        system_prompt_v2=sys_v2,
+        user_prompt_v2=user_v2,
+        plan_v2=plan_v2,
+        expanded_prompt_v2=exp_v2,
         processing_ms=elapsed,
         request_id=rid,
         heuristic_version=HEURISTIC_VERSION,
