@@ -25,6 +25,10 @@ from app.emitters import (
     emit_user_prompt,
     emit_plan,
     emit_expanded_prompt,
+    emit_system_prompt_v2,
+    emit_user_prompt_v2,
+    emit_plan_v2,
+    emit_expanded_prompt_v2,
 )
 
 # Optional OpenAI client (only used when sending directly from UI)
@@ -59,6 +63,9 @@ class PromptCompilerUI:
         ttk.Checkbutton(opts, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT)
         self.var_trace = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Trace", variable=self.var_trace).pack(side=tk.LEFT, padx=(6, 0))
+        # Toggle: render prompts using IR v2 emitters
+        self.var_render_v2 = tk.BooleanVar(value=False)
+        ttk.Checkbutton(opts, text="Use IR v2 emitters", variable=self.var_render_v2).pack(side=tk.LEFT, padx=(6, 0))
 
         ttk.Button(opts, text="Generate", command=self.on_generate).pack(side=tk.LEFT, padx=4)
         ttk.Button(opts, text="Show Schema", command=self.on_show_schema).pack(side=tk.LEFT, padx=4)
@@ -145,6 +152,7 @@ class PromptCompilerUI:
         self.var_trace.trace_add("write", lambda *_: self._save_settings())
         self.var_model.trace_add("write", lambda *_: self._save_settings())
         self.var_openai_expanded.trace_add("write", lambda *_: self._save_settings())
+        self.var_render_v2.trace_add("write", lambda *_: self._save_settings())
         self.var_only_live_debug.trace_add("write", lambda *_: self._render_constraints_table())
 
         # Shortcuts
@@ -230,6 +238,8 @@ class PromptCompilerUI:
                 self.var_trace.set(bool(data.get("trace")))
             if "use_expanded" in data:
                 self.var_openai_expanded.set(bool(data.get("use_expanded")))
+            if "render_v2_emitters" in data:
+                self.var_render_v2.set(bool(data.get("render_v2_emitters")))
             if "only_live_debug" in data:
                 self.var_only_live_debug.set(bool(data.get("only_live_debug")))
             if "model" in data:
@@ -257,6 +267,7 @@ class PromptCompilerUI:
                 "diagnostics": bool(self.var_diag.get()),
                 "trace": bool(self.var_trace.get()),
                 "use_expanded": bool(self.var_openai_expanded.get()),
+                "render_v2_emitters": bool(getattr(self, 'var_render_v2', tk.BooleanVar(value=False)).get()),
                 "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
@@ -371,19 +382,28 @@ class PromptCompilerUI:
             t0 = time.time()
             ir = optimize_ir(compile_text(prompt))
             diagnostics = self.var_diag.get()
-            system = emit_system_prompt(ir)
-            user = emit_user_prompt(ir)
-            plan = emit_plan(ir)
-            expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
-            ir_json = json.dumps(ir.dict(), ensure_ascii=False, indent=2)
-            # Optional extras
-            trace_lines = generate_trace(ir) if self.var_trace.get() else []
+            # Compile IR v2 for potential rendering and tables
             ir2 = None
             try:
                 ir2 = compile_text_v2(prompt)
-                ir2_json = json.dumps(ir2.dict(), ensure_ascii=False, indent=2)
             except Exception:
-                ir2_json = ""
+                ir2 = None
+            # Choose emitters based on toggle
+            use_v2_emitters = bool(self.var_render_v2.get()) and ir2 is not None
+            if use_v2_emitters and ir2 is not None:
+                system = emit_system_prompt_v2(ir2)
+                user = emit_user_prompt_v2(ir2)
+                plan = emit_plan_v2(ir2)
+                expanded = emit_expanded_prompt_v2(ir2, diagnostics=diagnostics)
+            else:
+                system = emit_system_prompt(ir)
+                user = emit_user_prompt(ir)
+                plan = emit_plan(ir)
+                expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
+            ir_json = json.dumps(ir.dict(), ensure_ascii=False, indent=2)
+            ir2_json = json.dumps(ir2.dict(), ensure_ascii=False, indent=2) if ir2 is not None else ""
+            # Optional extras
+            trace_lines = generate_trace(ir) if self.var_trace.get() else []
             mapping = [
                 (self.txt_system, system),
                 (self.txt_user, user),
@@ -438,7 +458,8 @@ class PromptCompilerUI:
                 parts.append("Ambiguous: " + ",".join(sorted(amb)[:5]))
             elapsed = int((time.time() - t0) * 1000)
             self.summary_var.set(" | ".join(parts))
-            self.status_var.set(f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}")
+            suffix = " • v2 emitters" if use_v2_emitters else ""
+            self.status_var.set(f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}")
         except Exception as e:  # pragma: no cover
             self.status_var.set("Error")
             messagebox.showerror("Error", str(e))

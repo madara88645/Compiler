@@ -67,15 +67,18 @@ def _run_compile(
         ir_json['trace'] = generate_trace(ir)
     rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)
     if out or out_dir:
-        # Support --format md to save prompts as Markdown
-        if fmt and fmt.lower() == 'md' and ir:
-            md_parts = [
-                "# System Prompt\n\n" + system_prompt,
-                "\n\n# User Prompt\n\n" + user_prompt,
-                "\n\n# Plan\n\n" + plan,
-                "\n\n# Expanded Prompt\n\n" + expanded,
-                "\n\n# IR JSON\n\n```json\n" + rendered + "\n```",
-            ]
+        # Support --format md to save prompts as Markdown (v1 or v2 rendering)
+        if fmt and fmt.lower() == 'md' and (ir or (ir2 and render_v2)):
+            md_parts = []
+            if system_prompt:
+                md_parts.append("# System Prompt\n\n" + system_prompt)
+            if user_prompt:
+                md_parts.append("\n\n# User Prompt\n\n" + user_prompt)
+            if plan:
+                md_parts.append("\n\n# Plan\n\n" + plan)
+            if expanded:
+                md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
+            md_parts.append("\n\n# IR JSON\n\n```json\n" + rendered + "\n```")
             _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
             return
         _write_output(rendered, out, out_dir, default_name="ir.json")
