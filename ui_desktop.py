@@ -55,6 +55,9 @@ class PromptCompilerUI:
         ttk.Label(top, text="Prompt:").pack(anchor=tk.W)
         self.txt_prompt = tk.Text(top, height=5, wrap=tk.WORD)
         self.txt_prompt.pack(fill=tk.X, pady=(2, 6))
+        # Prompt stats (chars/words)
+        self.prompt_stats_var = tk.StringVar(value="")
+        ttk.Label(top, textvariable=self.prompt_stats_var, foreground="#666").pack(anchor=tk.W)
 
         # Options row
         opts = ttk.Frame(top)
@@ -123,6 +126,8 @@ class PromptCompilerUI:
         cons_bar = ttk.Frame(cons_frame)
         cons_bar.pack(fill=tk.X)
         ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(side=tk.LEFT, padx=2, pady=2)
+        ttk.Button(cons_bar, text="Export CSV", command=self._export_constraints_csv).pack(side=tk.LEFT, padx=2, pady=2)
+        ttk.Button(cons_bar, text="Export JSON", command=self._export_constraints_json).pack(side=tk.LEFT, padx=2, pady=2)
         ttk.Button(cons_bar, text="Export Trace", command=self._export_trace).pack(side=tk.LEFT, padx=2, pady=2)
         # Filter: show only live_debug origin constraints
         self.var_only_live_debug = tk.BooleanVar(value=False)
@@ -162,6 +167,17 @@ class PromptCompilerUI:
         self.root.bind("<Control-f>", lambda _e: self._find_in_active())
         # Save geometry on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        # Save selected tab on change
+        try:
+            self.nb.bind("<<NotebookTabChanged>>", lambda _e: self._save_settings())
+        except Exception:
+            pass
+        # Update prompt stats as user types
+        try:
+            self.txt_prompt.bind("<KeyRelease>", lambda _e: self._update_prompt_stats())
+            self._update_prompt_stats()
+        except Exception:
+            pass
 
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
@@ -259,9 +275,20 @@ class PromptCompilerUI:
                 self.root.geometry(str(geo))
             except Exception:
                 pass
+        # Selected tab
+        try:
+            idx = int(data.get("selected_tab", -1))
+            if idx >= 0:
+                self.nb.select(idx)
+        except Exception:
+            pass
 
     def _save_settings(self):  # pragma: no cover - simple IO
         try:
+            try:
+                selected_idx = self.nb.index(self.nb.select())
+            except Exception:
+                selected_idx = 0
             payload = {
                 "theme": self.current_theme,
                 "diagnostics": bool(self.var_diag.get()),
@@ -271,6 +298,7 @@ class PromptCompilerUI:
                 "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
+                "selected_tab": selected_idx,
             }
             self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
@@ -480,6 +508,48 @@ class PromptCompilerUI:
         self.root.clipboard_append(data)
         self.status_var.set("Constraints copied")
 
+    def _export_constraints_csv(self):
+        if not hasattr(self, 'tree_constraints'):
+            return
+        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        if not rows:
+            messagebox.showinfo("Export", "No constraints to export.")
+            return
+        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV","*.csv"), ("All Files","*.*")])
+        if not path:
+            return
+        try:
+            # Simple CSV without quotes for readability; escape commas in text
+            lines = ["priority,origin,id,text"]
+            for pr, origin, idv, text in rows:
+                text_s = str(text).replace('\n', ' ').replace('"', '""')
+                # surround text with quotes to preserve commas
+                lines.append(f"{pr},{origin},{idv},\"{text_s}\"")
+            Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
+
+    def _export_constraints_json(self):
+        if not hasattr(self, 'tree_constraints'):
+            return
+        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        if not rows:
+            messagebox.showinfo("Export", "No constraints to export.")
+            return
+        path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+        if not path:
+            return
+        try:
+            data = [
+                {"priority": pr, "origin": origin, "id": idv, "text": text}
+                for pr, origin, idv, text in rows
+            ]
+            Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
+
     def _copy_all_texts(self):
         parts = [
             ("System Prompt", self.txt_system),
@@ -662,6 +732,16 @@ class PromptCompilerUI:
             except Exception:
                 pass
         ttk.Button(frm, text="Find Next", command=do_find).pack(anchor=tk.E, pady=(6,0))
+
+    def _update_prompt_stats(self):
+        try:
+            text = self.txt_prompt.get("1.0", tk.END)
+            s = text.rstrip("\n")
+            chars = len(s)
+            words = len([w for w in s.split() if w])
+            self.prompt_stats_var.set(f"Chars: {chars} | Words: {words}")
+        except Exception:
+            pass
 
 
 def main():  # pragma: no cover
