@@ -1,6 +1,6 @@
 [project]
 name = "promptc"
-version = "2.0.4"
+version = "2.0.7"
 description = "Prompt Compiler App: compile free-text prompts into structured IR + prompts + plan"
 authors = [ { name = "Your Name" } ]
 requires-python = ">=3.10"
@@ -9,7 +9,7 @@ license = { text = "MIT" }
 dependencies = [
 	"fastapi==0.110.0",
 	"uvicorn==0.23.2",
-	"pydantic==1.10.13",
+	"pydantic==2.8.2",
 	"typer==0.9.0",
 	"jsonschema==4.21.1",
 	"rich==13.7.0"

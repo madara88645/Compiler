@@ -67,6 +67,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 ### System Requirements
 - Python 3.10 or higher
 - pip package manager
+ - Pydantic v2 (the project pins `pydantic==2.8.2`)
 
 ### Quick Install
 ```bash

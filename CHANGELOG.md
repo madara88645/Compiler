@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.7] - 2025-09-08
+### Changed
+- Migrated codebase to Pydantic v2 (use `@field_validator`, `ConfigDict`, and `.model_dump()`)
+- requirements: bump `pydantic` to `2.8.2`
+### Fixed
+- Removed deprecation warnings; test suite remains green (44/44)
+### Docs
+- README updated to note the Pydantic v2 requirement
+
 ## [2.0.5] - 2025-09-03
 ### Added
 - CLI: `--from-file` flag on root and `compile` commands to read prompt text from UTF-8 files
