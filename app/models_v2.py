@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import List, Dict, Any, Literal, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
+from pydantic import field_validator
+from pydantic.config import ConfigDict
 
 
 ConstraintPriority = Literal[10,20,30,40,50,60,65,70,80,90]
@@ -37,10 +39,7 @@ class IRv2(BaseModel):
     tools: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    @validator('constraints', pre=True, each_item=False)
+    @field_validator('constraints', mode='before')
     def _norm_constraints(cls, v):  # type: ignore
         return v or []
-
-    class Config:
-        extra = 'forbid'
-        allow_mutation = True
+    model_config = ConfigDict(extra='forbid')

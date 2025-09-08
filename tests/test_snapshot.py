@@ -35,7 +35,7 @@ def _get(d, path):
 def test_snapshots_minimal():
     for name, text in CASES.items():
         ir = compile_text(text)
-        data = ir.dict()
+        data = ir.model_dump()
         exp = EXPECTED[name]
         assert data["language"] == exp["language"]
         domain = data["domain"]

@@ -46,7 +46,7 @@ def _run_compile(
     plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if (ir2 and render_v2) else "")
     expanded = emit_expanded_prompt(ir, diagnostics=diagnostics) if ir else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if (ir2 and render_v2) else "")
     if json_only:
-        data = ir.dict() if ir else ir2.dict()
+        data = ir.model_dump() if ir else ir2.model_dump()
         if trace:
             if ir:
                 data['trace'] = generate_trace(ir)
@@ -62,7 +62,7 @@ def _run_compile(
     else:
         print(f"[bold white]IR v2[/bold white] (heuristics v{HEURISTIC2_VERSION})")
     print("\n[bold blue]IR JSON:[/bold blue]")
-    ir_json = ir.dict() if ir else ir2.dict()
+    ir_json = ir.model_dump() if ir else ir2.model_dump()
     if trace and ir:
         ir_json['trace'] = generate_trace(ir)
     rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)

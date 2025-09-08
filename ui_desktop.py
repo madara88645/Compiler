@@ -69,6 +69,9 @@ class PromptCompilerUI:
         # Toggle: render prompts using IR v2 emitters
         self.var_render_v2 = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Use IR v2 emitters", variable=self.var_render_v2).pack(side=tk.LEFT, padx=(6, 0))
+        # Toggle: wrap long lines in output panes
+        self.var_wrap = tk.BooleanVar(value=False)
+        ttk.Checkbutton(opts, text="Wrap output", variable=self.var_wrap).pack(side=tk.LEFT, padx=(6, 0))
 
         ttk.Button(opts, text="Generate", command=self.on_generate).pack(side=tk.LEFT, padx=4)
         ttk.Button(opts, text="Show Schema", command=self.on_show_schema).pack(side=tk.LEFT, padx=4)
@@ -133,6 +136,18 @@ class PromptCompilerUI:
         self.var_only_live_debug = tk.BooleanVar(value=False)
         ttk.Checkbutton(cons_bar, text="Only live_debug", variable=self.var_only_live_debug,
             command=self._render_constraints_table).pack(side=tk.LEFT, padx=6)
+        # Min priority filter
+        ttk.Label(cons_bar, text="Min priority:").pack(side=tk.LEFT, padx=(12, 4))
+        self.var_min_priority = tk.StringVar(value="Any")
+        self.cmb_min_priority = ttk.Combobox(
+            cons_bar,
+            textvariable=self.var_min_priority,
+            width=6,
+            state="readonly",
+            values=("Any","90","80","70","65","60","50","40","30","20","10"),
+        )
+        self.cmb_min_priority.pack(side=tk.LEFT)
+        self.cmb_min_priority.bind("<<ComboboxSelected>>", lambda _e: self._render_constraints_table())
         self.tree_constraints = ttk.Treeview(cons_frame, columns=("priority","origin","id","text"), show="headings")
         self.tree_constraints.heading("priority", text="Priority")
         self.tree_constraints.heading("origin", text="Origin")
@@ -159,6 +174,8 @@ class PromptCompilerUI:
         self.var_openai_expanded.trace_add("write", lambda *_: self._save_settings())
         self.var_render_v2.trace_add("write", lambda *_: self._save_settings())
         self.var_only_live_debug.trace_add("write", lambda *_: self._render_constraints_table())
+        self.var_wrap.trace_add("write", lambda *_: (self._apply_wrap(), self._save_settings()))
+        self.var_min_priority.trace_add("write", lambda *_: (self._render_constraints_table(), self._save_settings()))
 
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
@@ -172,10 +189,20 @@ class PromptCompilerUI:
             self.nb.bind("<<NotebookTabChanged>>", lambda _e: self._save_settings())
         except Exception:
             pass
+        # Ctrl+S save shortcut
+        try:
+            self.root.bind("<Control-s>", lambda _e: self.on_save())
+        except Exception:
+            pass
         # Update prompt stats as user types
         try:
             self.txt_prompt.bind("<KeyRelease>", lambda _e: self._update_prompt_stats())
             self._update_prompt_stats()
+        except Exception:
+            pass
+        # Apply initial wrap state
+        try:
+            self._apply_wrap()
         except Exception:
             pass
 
@@ -258,6 +285,14 @@ class PromptCompilerUI:
                 self.var_render_v2.set(bool(data.get("render_v2_emitters")))
             if "only_live_debug" in data:
                 self.var_only_live_debug.set(bool(data.get("only_live_debug")))
+            if "wrap" in data:
+                self.var_wrap.set(bool(data.get("wrap")))
+            if "min_priority" in data:
+                try:
+                    val = data.get("min_priority")
+                    self.var_min_priority.set(str(val) if val is not None else "Any")
+                except Exception:
+                    pass
             if "model" in data:
                 val = str(data.get("model") or "gpt-4o-mini")
                 # Only set if allowed in readonly combobox values
@@ -296,6 +331,8 @@ class PromptCompilerUI:
                 "use_expanded": bool(self.var_openai_expanded.get()),
                 "render_v2_emitters": bool(getattr(self, 'var_render_v2', tk.BooleanVar(value=False)).get()),
                 "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
+                "wrap": bool(getattr(self, 'var_wrap', tk.BooleanVar(value=False)).get()),
+                "min_priority": getattr(self, 'var_min_priority', tk.StringVar(value="Any")).get(),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
@@ -428,8 +465,8 @@ class PromptCompilerUI:
                 user = emit_user_prompt(ir)
                 plan = emit_plan(ir)
                 expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
-            ir_json = json.dumps(ir.dict(), ensure_ascii=False, indent=2)
-            ir2_json = json.dumps(ir2.dict(), ensure_ascii=False, indent=2) if ir2 is not None else ""
+            ir_json = json.dumps(ir.model_dump(), ensure_ascii=False, indent=2)
+            ir2_json = json.dumps(ir2.model_dump(), ensure_ascii=False, indent=2) if ir2 is not None else ""
             # Optional extras
             trace_lines = generate_trace(ir) if self.var_trace.get() else []
             mapping = [
@@ -609,6 +646,14 @@ class PromptCompilerUI:
             rows_to_show = [r for r in rows if (len(r) > 1 and str(r[1]) == 'live_debug')]
         else:
             rows_to_show = rows
+        # Apply min priority filter if set
+        try:
+            mp_raw = getattr(self, 'var_min_priority', tk.StringVar(value="Any")).get()
+            if mp_raw and mp_raw != "Any":
+                mp = int(mp_raw)
+                rows_to_show = [r for r in rows_to_show if (len(r) > 0 and int(r[0]) >= mp)]
+        except Exception:
+            pass
         for i in self.tree_constraints.get_children():
             self.tree_constraints.delete(i)
         for r in rows_to_show:
@@ -739,9 +784,21 @@ class PromptCompilerUI:
             s = text.rstrip("\n")
             chars = len(s)
             words = len([w for w in s.split() if w])
-            self.prompt_stats_var.set(f"Chars: {chars} | Words: {words}")
+            # Rough token estimate (~4 chars/token heuristic)
+            tokens_est = (chars + 3) // 4 if chars else 0
+            self.prompt_stats_var.set(f"Chars: {chars} | Words: {words} | ≈ Tokens: {tokens_est}")
         except Exception:
             pass
+
+    def _apply_wrap(self):
+        wrap_mode = tk.WORD if bool(self.var_wrap.get()) else tk.NONE
+        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
+            if t is None:
+                continue
+            try:
+                t.configure(wrap=wrap_mode)
+            except Exception:
+                pass
 
 
 def main():  # pragma: no cover

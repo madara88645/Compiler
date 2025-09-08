@@ -71,8 +71,8 @@ async def compile_endpoint(req: CompileRequest):
         plan_v2 = emit_plan_v2(ir2)
         exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
     return CompileResponse(
-        ir=ir.dict(),
-        ir_v2=(ir2.dict() if ir2 else None),
+    ir=ir.model_dump(),
+    ir_v2=(ir2.model_dump() if ir2 else None),
         system_prompt=emit_system_prompt(ir),
         user_prompt=emit_user_prompt(ir),
         plan=emit_plan(ir),
