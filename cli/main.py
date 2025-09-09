@@ -5,9 +5,8 @@ from pathlib import Path
 import typer
 from rich import print
 import difflib
-import sys
 import json as _json
-from jsonschema import validate as _js_validate, Draft202012Validator
+from jsonschema import Draft202012Validator
 from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
 from app.emitters import (
     emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
@@ -281,7 +280,7 @@ def json_path(
         raise typer.Exit(code=2)
     try:
         val = _jsonpath_get(data, path)
-    except KeyError as e:
+    except KeyError:
         typer.secho(f"Path not found: {path}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
     print(_json.dumps(val, ensure_ascii=False))
