@@ -136,6 +136,27 @@ promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --form
 promptc "compare llama3 vs gpt-4o for code generation" --render-v2
 ```
 
+#### CLI extras (new)
+
+Common utilities to help with validation, comparison, and bulk runs:
+
+```powershell
+# Validate IR JSON against schema (default: v2; switch to --v1 for legacy)
+promptc validate .\outputs\ir.json
+promptc validate --v1 .\outputs\ir_v1.json
+
+# Diff two IR JSON files (unified diff)
+promptc diff .\runs\a.json .\runs\b.json
+
+# Batch-compile all .txt prompts in a folder
+promptc batch .\inputs --out-dir .\outputs --format json
+promptc batch .\inputs --out-dir .\outputs --format md --render-v2
+
+# Extract a value from IR JSON using a simple dot path (supports list indices)
+promptc json-path .\outputs\file.json metadata.ir_signature
+promptc json-path .\outputs\file.json constraints.0.priority
+```
+
 **Example Output:**
 ```json
 {
