@@ -1,9 +1,13 @@
 from __future__ import annotations
 import json
-from typing import List
+from typing import List, Any
 from pathlib import Path
 import typer
 from rich import print
+import difflib
+import sys
+import json as _json
+from jsonschema import validate as _js_validate, Draft202012Validator
 from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
 from app.emitters import (
     emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
@@ -92,7 +96,9 @@ def _run_compile(
 def _write_output(content: str, out: Path | None, out_dir: Path | None, default_name: str = "output.txt"):
     target: Path
     if out:
+        # Allow specifying full filename and ensure parent exists
         target = out
+        target.parent.mkdir(parents=True, exist_ok=True)
     else:
         directory = out_dir or Path.cwd()
         directory.mkdir(parents=True, exist_ok=True)
@@ -101,36 +107,11 @@ def _write_output(content: str, out: Path | None, out_dir: Path | None, default_
     print(f"[saved] {target}")
 
 @app.callback(invoke_without_command=True)
-def root(
-    ctx: typer.Context,
-    text: List[str] = typer.Argument(None, help="Prompt text (omit to show help)", show_default=False),
-    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
-    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"),
-    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
-    quiet: bool = typer.Option(False, "--quiet", help="Print only system prompt (overrides json-only)"),
-    persona: str = typer.Option(None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"),
-    trace: bool = typer.Option(False, "--trace", help="Print heuristic trace lines (stderr friendly)"),
-    v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
-    render_v2: bool = typer.Option(False, "--render-v2", help="Render prompts using IR v2 emitters"),
-    out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
-    out_dir: Path = typer.Option(None, "--out-dir", help="Write output to a directory (creates if missing)"),
-    format: str = typer.Option(None, "--format", help="Output format when saving: md|json (default json)"),
-):
-    """If no subcommand is provided, behave like the compile command for convenience."""
-    if ctx.invoked_subcommand is not None:
-        return
-    if not text and not from_file:
-        # Show help if nothing supplied
+def root(ctx: typer.Context):
+    """Top-level CLI. Shows help when no subcommand is given."""
+    if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit()
-    if from_file is not None:
-        try:
-            full_text = from_file.read_text(encoding="utf-8")
-        except Exception as e:
-            raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
-    else:
-        full_text = " ".join(text)
-    _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, render_v2=render_v2, out=out, out_dir=out_dir, fmt=format)
 
 @app.command()
 def compile(
@@ -158,10 +139,153 @@ def compile(
         full_text = " ".join(text)
     _run_compile(full_text, diagnostics, json_only, quiet, persona, trace, v1=v1, render_v2=render_v2, out=out, out_dir=out_dir, fmt=format)
 
-if __name__ == "__main__":  # pragma: no cover
-    app()
-
 @app.command()
 def version():
     """Print package version."""
     print(get_version())
+
+
+def _schema_path(v2: bool) -> Path:
+    root = Path(__file__).resolve().parents[1]
+    return root / "schema" / ("ir_v2.schema.json" if v2 else "ir.schema.json")
+
+
+@app.command()
+def validate(
+    files: List[Path] = typer.Argument(..., help="IR JSON file(s) to validate"),
+    v2: bool = typer.Option(True, "--v2/--v1", help="Validate against IR v2 (default) or IR v1 schema"),
+):
+    """Validate IR JSON file(s) against the schema."""
+    schema_file = _schema_path(v2)
+    try:
+        schema = _json.loads(schema_file.read_text(encoding="utf-8"))
+    except Exception as e:
+        typer.secho(f"Cannot load schema: {schema_file} ({e})", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    validator = Draft202012Validator(schema)
+    failed = 0
+    for f in files:
+        try:
+            data = _json.loads(f.read_text(encoding="utf-8"))
+        except Exception as e:
+            typer.secho(f"[read-error] {f}: {e}", err=True, fg=typer.colors.RED)
+            failed += 1
+            continue
+        errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
+        if errors:
+            failed += 1
+            typer.secho(f"[invalid] {f}", err=True, fg=typer.colors.RED)
+            for err in errors[:5]:  # show first few
+                loc = ".".join(str(p) for p in err.path) or "<root>"
+                typer.secho(f"  at {loc}: {err.message}", err=True, fg=typer.colors.RED)
+        else:
+            typer.secho(f"[ok] {f}", fg=typer.colors.GREEN)
+    if failed:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def diff(
+    a: Path = typer.Argument(..., help="First IR JSON file"),
+    b: Path = typer.Argument(..., help="Second IR JSON file"),
+):
+    """Show a unified diff between two IR JSON files."""
+    try:
+        aj = _json.loads(a.read_text(encoding="utf-8"))
+        bj = _json.loads(b.read_text(encoding="utf-8"))
+    except Exception as e:
+        typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    a_txt = _json.dumps(aj, ensure_ascii=False, indent=2, sort_keys=True).splitlines(keepends=False)
+    b_txt = _json.dumps(bj, ensure_ascii=False, indent=2, sort_keys=True).splitlines(keepends=False)
+    diff_lines = list(difflib.unified_diff(a_txt, b_txt, fromfile=str(a), tofile=str(b), lineterm=""))
+    if not diff_lines:
+        print("No differences.")
+        return
+    print("\n".join(diff_lines))
+
+
+@app.command()
+def batch(
+    in_dir: Path = typer.Argument(..., help="Input directory containing .txt files"),
+    out_dir: Path = typer.Option(..., "--out-dir", help="Directory to write outputs"),
+    pattern: str = typer.Option("*.txt", "--pattern", help="Glob pattern for input files"),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics in expanded output"),
+    persona: str = typer.Option(None, "--persona", help="Force persona"),
+    trace: bool = typer.Option(False, "--trace", help="Include heuristic trace in IR v1 JSON"),
+    v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1"),
+    render_v2: bool = typer.Option(False, "--render-v2", help="Render prompts with IR v2 emitters"),
+    format: str = typer.Option("json", "--format", help="Output format: json|md"),
+):
+    """Compile all matching files in a directory."""
+    files = sorted(in_dir.glob(pattern))
+    if not files:
+        typer.secho("No input files found.", err=True, fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception as e:
+            typer.secho(f"Skip {f}: {e}", err=True, fg=typer.colors.RED)
+            continue
+        ext = "md" if (format and format.lower() == "md") else "json"
+        target = out_dir / f"{f.stem}.{ext}"
+        # Use json-only for clean JSON save; md handled internally when format==md
+        _run_compile(
+            text,
+            diagnostics=diagnostics,
+            json_only=(ext == "json"),
+            quiet=False,
+            persona=persona,
+            trace=trace,
+            v1=v1,
+            render_v2=render_v2,
+            out=target,
+            out_dir=None,
+            fmt=format,
+        )
+    print(f"[done] {len(files)} files -> {out_dir}")
+
+
+def _jsonpath_get(data: Any, path: str) -> Any:
+    cur: Any = data
+    for part in path.split('.'):
+        if part == '':
+            continue
+        # list index?
+        try:
+            idx = int(part)
+            cur = cur[idx]
+        except ValueError:
+            # dict key
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            else:
+                raise KeyError(part)
+        except Exception as e:  # index errors
+            raise KeyError(part) from e
+    return cur
+
+
+@app.command("json-path")
+def json_path(
+    file: Path = typer.Argument(..., help="IR JSON file"),
+    path: str = typer.Argument(..., help="Dot path (e.g., metadata.domain_confidence or constraints.0.priority)"),
+):
+    """Print a value from IR JSON using a simple dot path (supports list indices)."""
+    try:
+        data = _json.loads(file.read_text(encoding="utf-8"))
+    except Exception as e:
+        typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    try:
+        val = _jsonpath_get(data, path)
+    except KeyError as e:
+        typer.secho(f"Path not found: {path}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    print(_json.dumps(val, ensure_ascii=False))
+
+# Entry point
+if __name__ == "__main__":  # pragma: no cover
+    app()
