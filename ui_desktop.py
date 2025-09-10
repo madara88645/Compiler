@@ -717,7 +717,14 @@ class PromptCompilerUI:
             }
             # Minify JSON for curl
             body = json.dumps(payload, ensure_ascii=False)
-            cmd = f"curl -s -X POST http://localhost:8000/compile -H 'Content-Type: application/json' --data '{body.replace("'", "'\''")}'"
+            # Escape single quotes for POSIX shell: close quote, insert escaped quote, reopen.
+            # Replace ' with '\'' pattern (achieved via '"'"' sequence) to keep portability.
+            escaped = body.replace("'", "'\"'\"'")
+            cmd = (
+                "curl -s -X POST http://localhost:8000/compile "
+                "-H \"Content-Type: application/json\" "
+                f"--data '{escaped}'"
+            )
             self.root.clipboard_clear()
             self.root.clipboard_append(cmd)
             self.status_var.set("cURL copied")
