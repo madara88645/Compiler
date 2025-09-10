@@ -152,9 +152,11 @@ promptc diff .\runs\a.json .\runs\b.json
 promptc batch .\inputs --out-dir .\outputs --format json
 promptc batch .\inputs --out-dir .\outputs --format md --render-v2
 
-# Extract a value from IR JSON using a simple dot path (supports list indices)
-promptc json-path .\outputs\file.json metadata.ir_signature
-promptc json-path .\outputs\file.json constraints.0.priority
+# Batch with custom naming (tokens: {stem} original filename stem, {ext} chosen format ext, {ts} timestamp)
+promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-{ts}.{ext}
+
+# json-path raw output (no surrounding quotes for simple scalars)
+promptc json-path .\outputs\file.json metadata.ir_signature --raw
 ```
 
 **Example Output:**
@@ -210,6 +212,12 @@ Features:
 
 Tips:
 - Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/OpenAI)
+
+Additional new capabilities:
+- Constraints search box (filters any matching text)
+- Click column headers to sort ascending/descending
+- Min priority dropdown to hide lower-priority constraints
+- Copy as cURL button on IR JSON / IR v2 JSON tabs to reproduce the request
 
 #### Send to OpenAI directly from the Desktop UI (new)
 

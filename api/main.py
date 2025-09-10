@@ -94,6 +94,18 @@ async def schema_endpoint():
         path = Path('schema/ir.schema.json')
         return {"schema": path.read_text(encoding='utf-8')}
 
+@app.get('/schema/ir_v1')
+async def schema_ir_v1():
+    """Return IR v1 JSON schema (same as /schema legacy)."""
+    path = Path('schema/ir.schema.json')
+    return {"schema": path.read_text(encoding='utf-8')}
+
+@app.get('/schema/ir_v2')
+async def schema_ir_v2():
+    """Return IR v2 JSON schema."""
+    path = Path('schema/ir_v2.schema.json')
+    return {"schema": path.read_text(encoding='utf-8')}
+
 
 INDEX_HTML = """<!DOCTYPE html>
 <html lang=\"en\">

@@ -136,6 +136,12 @@ class PromptCompilerUI:
         self.var_only_live_debug = tk.BooleanVar(value=False)
         ttk.Checkbutton(cons_bar, text="Only live_debug", variable=self.var_only_live_debug,
             command=self._render_constraints_table).pack(side=tk.LEFT, padx=6)
+        # Text search filter
+        ttk.Label(cons_bar, text="Search:").pack(side=tk.LEFT, padx=(6,2))
+        self.var_constraints_search = tk.StringVar(value="")
+        ent_search = ttk.Entry(cons_bar, textvariable=self.var_constraints_search, width=18)
+        ent_search.pack(side=tk.LEFT)
+        self.var_constraints_search.trace_add("write", lambda *_: self._render_constraints_table())
         # Min priority filter
         ttk.Label(cons_bar, text="Min priority:").pack(side=tk.LEFT, padx=(12, 4))
         self.var_min_priority = tk.StringVar(value="Any")
@@ -149,10 +155,12 @@ class PromptCompilerUI:
         self.cmb_min_priority.pack(side=tk.LEFT)
         self.cmb_min_priority.bind("<<ComboboxSelected>>", lambda _e: self._render_constraints_table())
         self.tree_constraints = ttk.Treeview(cons_frame, columns=("priority","origin","id","text"), show="headings")
-        self.tree_constraints.heading("priority", text="Priority")
-        self.tree_constraints.heading("origin", text="Origin")
-        self.tree_constraints.heading("id", text="ID")
-        self.tree_constraints.heading("text", text="Text")
+        # Add clickable headings for sorting
+        self._constraints_sort_state = {"col": None, "reverse": False}
+        self.tree_constraints.heading("priority", text="Priority", command=lambda c="priority": self._sort_constraints(c))
+        self.tree_constraints.heading("origin", text="Origin", command=lambda c="origin": self._sort_constraints(c))
+        self.tree_constraints.heading("id", text="ID", command=lambda c="id": self._sort_constraints(c))
+        self.tree_constraints.heading("text", text="Text", command=lambda c="text": self._sort_constraints(c))
         self.tree_constraints.column("priority", width=80, anchor=tk.CENTER)
         self.tree_constraints.column("origin", width=120, anchor=tk.W)
         self.tree_constraints.column("id", width=120, anchor=tk.W)
@@ -218,8 +226,10 @@ class PromptCompilerUI:
             ttk.Button(bar, text="Copy all", command=self._copy_all_texts).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "IR JSON":
             ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "IR v2 JSON":
             ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir2, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "Expanded Prompt":
             ttk.Button(bar, text="Export MD", command=lambda: self._export_markdown_combined()).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "Expanded Prompt":
@@ -654,12 +664,65 @@ class PromptCompilerUI:
                 rows_to_show = [r for r in rows_to_show if (len(r) > 0 and int(r[0]) >= mp)]
         except Exception:
             pass
+        # Apply text search filter
+        try:
+            term = getattr(self, 'var_constraints_search', tk.StringVar(value="")).get().strip().lower()
+            if term:
+                rows_to_show = [r for r in rows_to_show if any(term in str(cell).lower() for cell in r)]
+        except Exception:
+            pass
+        # Apply sorting state
+        try:
+            state = getattr(self, '_constraints_sort_state', None)
+            if state and state.get('col'):
+                col = state['col']
+                idx_map = {'priority':0,'origin':1,'id':2,'text':3}
+                ci = idx_map.get(col)
+                if ci is not None:
+                    rows_to_show = sorted(rows_to_show, key=lambda r: (r[ci] if ci < len(r) else ''), reverse=bool(state.get('reverse')))
+        except Exception:
+            pass
         for i in self.tree_constraints.get_children():
             self.tree_constraints.delete(i)
         for r in rows_to_show:
             self.tree_constraints.insert('', tk.END, values=r)
         # Persist filter state
         self._save_settings()
+
+    def _sort_constraints(self, column: str):  # pragma: no cover - UI event
+        try:
+            state = getattr(self, '_constraints_sort_state', {"col": None, "reverse": False})
+            if state.get('col') == column:
+                state['reverse'] = not state.get('reverse')
+            else:
+                state['col'] = column
+                state['reverse'] = False
+            self._constraints_sort_state = state
+            self._render_constraints_table()
+        except Exception:
+            pass
+
+    def _copy_as_curl(self):  # pragma: no cover - UI utility
+        try:
+            prompt = self.txt_prompt.get("1.0", tk.END).strip()
+            diagnostics = 'true' if bool(self.var_diag.get()) else 'false'
+            trace = 'true' if bool(self.var_trace.get()) else 'false'
+            render_v2_prompts = 'true' if bool(self.var_render_v2.get()) else 'false'
+            payload = {
+                "text": prompt,
+                "diagnostics": diagnostics == 'true',
+                "trace": trace == 'true',
+                "v2": True,
+                "render_v2_prompts": render_v2_prompts == 'true'
+            }
+            # Minify JSON for curl
+            body = json.dumps(payload, ensure_ascii=False)
+            cmd = f"curl -s -X POST http://localhost:8000/compile -H 'Content-Type: application/json' --data '{body.replace("'", "'\''")}'"
+            self.root.clipboard_clear()
+            self.root.clipboard_append(cmd)
+            self.status_var.set("cURL copied")
+        except Exception:
+            pass
 
     def on_save(self):
         # Offer to save combined Markdown or IR JSONs

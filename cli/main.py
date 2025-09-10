@@ -163,6 +163,7 @@ def validate(
         raise typer.Exit(code=2)
     validator = Draft202012Validator(schema)
     failed = 0
+    ok = 0
     for f in files:
         try:
             data = _json.loads(f.read_text(encoding="utf-8"))
@@ -179,6 +180,8 @@ def validate(
                 typer.secho(f"  at {loc}: {err.message}", err=True, fg=typer.colors.RED)
         else:
             typer.secho(f"[ok] {f}", fg=typer.colors.GREEN)
+        ok += 1
+    typer.secho(f"Summary: ok={ok} invalid={failed}", fg=(typer.colors.GREEN if failed==0 else typer.colors.YELLOW))
     if failed:
         raise typer.Exit(code=1)
 
@@ -209,6 +212,7 @@ def batch(
     in_dir: Path = typer.Argument(..., help="Input directory containing .txt files"),
     out_dir: Path = typer.Option(..., "--out-dir", help="Directory to write outputs"),
     pattern: str = typer.Option("*.txt", "--pattern", help="Glob pattern for input files"),
+    name_template: str = typer.Option("{stem}.{ext}", "--name-template", help="Output filename template (placeholders: {stem} {ext} {ts})"),
     diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics in expanded output"),
     persona: str = typer.Option(None, "--persona", help="Force persona"),
     trace: bool = typer.Option(False, "--trace", help="Include heuristic trace in IR v1 JSON"),
@@ -222,6 +226,7 @@ def batch(
         typer.secho("No input files found.", err=True, fg=typer.colors.YELLOW)
         raise typer.Exit(code=1)
     out_dir.mkdir(parents=True, exist_ok=True)
+    import datetime as _dt
     for f in files:
         try:
             text = f.read_text(encoding="utf-8")
@@ -229,7 +234,12 @@ def batch(
             typer.secho(f"Skip {f}: {e}", err=True, fg=typer.colors.RED)
             continue
         ext = "md" if (format and format.lower() == "md") else "json"
-        target = out_dir / f"{f.stem}.{ext}"
+        ts = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        try:
+            fname = name_template.format(stem=f.stem, ext=ext, ts=ts)
+        except Exception:
+            fname = f"{f.stem}.{ext}"
+        target = out_dir / fname
         # Use json-only for clean JSON save; md handled internally when format==md
         _run_compile(
             text,
@@ -271,6 +281,7 @@ def _jsonpath_get(data: Any, path: str) -> Any:
 def json_path(
     file: Path = typer.Argument(..., help="IR JSON file"),
     path: str = typer.Argument(..., help="Dot path (e.g., metadata.domain_confidence or constraints.0.priority)"),
+    raw: bool = typer.Option(False, "--raw", help="Print raw scalar (no JSON quoting) when value is str/int/float/bool"),
 ):
     """Print a value from IR JSON using a simple dot path (supports list indices)."""
     try:
@@ -283,7 +294,10 @@ def json_path(
     except KeyError:
         typer.secho(f"Path not found: {path}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    print(_json.dumps(val, ensure_ascii=False))
+    if raw and isinstance(val, (str, int, float, bool)):
+        print(val)
+    else:
+        print(_json.dumps(val, ensure_ascii=False))
 
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
