@@ -1,4 +1,3 @@
-import json
 import sys
 import subprocess
 from pathlib import Path
@@ -50,7 +49,8 @@ def test_validate_summary_and_api_schemas(tmp_path: Path):
             s.settimeout(0.25)
             return s.connect_ex(('127.0.0.1', port)) == 0
     if port_open(8000):  # opportunistic integration check
-        import urllib.request, json as _j
+        import urllib.request
+        import json as _j
         for p in ('/schema/ir_v1', '/schema/ir_v2'):
             with urllib.request.urlopen(f'http://127.0.0.1:8000{p}') as resp:
                 data = _j.loads(resp.read().decode('utf-8'))
