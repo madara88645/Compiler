@@ -52,6 +52,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
+* **CLI Batch Concurrency (new)**: `batch --concurrency N` to compile multiple prompt files in parallel with total & average timing metrics
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
@@ -151,12 +152,28 @@ promptc diff .\runs\a.json .\runs\b.json
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
 promptc batch .\inputs --out-dir .\outputs --format md --render-v2
+promptc batch .\inputs --out-dir .\outputs --format json --concurrency 4
 
 # Batch with custom naming (tokens: {stem} original filename stem, {ext} chosen format ext, {ts} timestamp)
 promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-{ts}.{ext}
 
 # json-path raw output (no surrounding quotes for simple scalars)
 promptc json-path .\outputs\file.json metadata.ir_signature --raw
+```
+
+Batch concurrency output example:
+
+```
+[done] 12 files -> outputs in 420 ms (avg 34.9 ms) concurrency=4
+```
+
+Interpretation:
+- total: wall-clock duration for entire batch
+- avg: average per-file compile time (ms)
+- concurrency: thread count used (each thread runs a compile task)
+
+Re-run with different `--concurrency` values to benchmark scaling on your machine.
+``` 
 ```
 
 **Example Output:**
