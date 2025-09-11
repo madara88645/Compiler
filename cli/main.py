@@ -229,7 +229,8 @@ def batch(
         typer.secho("No input files found.", err=True, fg=typer.colors.YELLOW)
         raise typer.Exit(code=1)
     out_dir.mkdir(parents=True, exist_ok=True)
-    import datetime as _dt, time as _time
+    import datetime as _dt
+    import time as _time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     ext_is_md = (format and format.lower() == "md")
