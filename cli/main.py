@@ -103,7 +103,9 @@ def _write_output(content: str, out: Path | None, out_dir: Path | None, default_
         directory.mkdir(parents=True, exist_ok=True)
         target = directory / default_name
     target.write_text(content + ("\n" if not content.endswith("\n") else ""), encoding="utf-8")
-    print(f"[saved] {target}")
+    # Quiet for internal batch metrics; still show path when invoked directly
+    if not getattr(_write_output, '_suppress_log', False):  # type: ignore
+        print(f"[saved] {target}")
 
 @app.callback(invoke_without_command=True)
 def root(ctx: typer.Context):
@@ -213,6 +215,7 @@ def batch(
     out_dir: Path = typer.Option(..., "--out-dir", help="Directory to write outputs"),
     pattern: str = typer.Option("*.txt", "--pattern", help="Glob pattern for input files"),
     name_template: str = typer.Option("{stem}.{ext}", "--name-template", help="Output filename template (placeholders: {stem} {ext} {ts})"),
+    concurrency: int = typer.Option(1, "--concurrency", min=1, help="Number of files to compile in parallel (threads)"),
     diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics in expanded output"),
     persona: str = typer.Option(None, "--persona", help="Force persona"),
     trace: bool = typer.Option(False, "--trace", help="Include heuristic trace in IR v1 JSON"),
@@ -226,35 +229,76 @@ def batch(
         typer.secho("No input files found.", err=True, fg=typer.colors.YELLOW)
         raise typer.Exit(code=1)
     out_dir.mkdir(parents=True, exist_ok=True)
-    import datetime as _dt
-    for f in files:
+    import datetime as _dt, time as _time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    ext_is_md = (format and format.lower() == "md")
+    tasks = []
+
+    def prepare(f: Path):
         try:
             text = f.read_text(encoding="utf-8")
         except Exception as e:
             typer.secho(f"Skip {f}: {e}", err=True, fg=typer.colors.RED)
-            continue
-        ext = "md" if (format and format.lower() == "md") else "json"
+            return None
+        ext = "md" if ext_is_md else "json"
         ts = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         try:
             fname = name_template.format(stem=f.stem, ext=ext, ts=ts)
         except Exception:
             fname = f"{f.stem}.{ext}"
         target = out_dir / fname
-        # Use json-only for clean JSON save; md handled internally when format==md
-        _run_compile(
-            text,
-            diagnostics=diagnostics,
-            json_only=(ext == "json"),
-            quiet=False,
-            persona=persona,
-            trace=trace,
-            v1=v1,
-            render_v2=render_v2,
-            out=target,
-            out_dir=None,
-            fmt=format,
-        )
-    print(f"[done] {len(files)} files -> {out_dir}")
+        return (text, ext, target)
+
+    for f in files:
+        prep = prepare(f)
+        if prep:
+            tasks.append(prep)
+
+    start = _time.time()
+    per_times: list[float] = []
+
+    def worker(args):  # type: ignore
+        text, ext, target = args
+        t0 = _time.time()
+        # Suppress individual save logs for cleaner batch output
+        setattr(_write_output, '_suppress_log', True)
+        try:
+            _run_compile(
+                text,
+                diagnostics=diagnostics,
+                json_only=(ext == "json"),
+                quiet=False,
+                persona=persona,
+                trace=trace,
+                v1=v1,
+                render_v2=render_v2,
+                out=target,
+                out_dir=None,
+                fmt=format,
+            )
+        finally:
+            setattr(_write_output, '_suppress_log', False)
+        return _time.time() - t0
+
+    if concurrency > 1 and len(tasks) > 1:
+        with ThreadPoolExecutor(max_workers=concurrency) as ex:
+            futures = [ex.submit(worker, t) for t in tasks]
+            for fut in as_completed(futures):
+                try:
+                    per_times.append(fut.result())
+                except Exception as e:
+                    typer.secho(f"[worker-error] {e}", err=True, fg=typer.colors.RED)
+    else:
+        for t in tasks:
+            try:
+                per_times.append(worker(t))
+            except Exception as e:
+                typer.secho(f"[worker-error] {e}", err=True, fg=typer.colors.RED)
+
+    total = (_time.time() - start) * 1000
+    avg = (sum(per_times) / len(per_times) * 1000) if per_times else 0.0
+    print(f"[done] {len(tasks)} files -> {out_dir} in {int(total)} ms (avg {avg:.1f} ms) concurrency={concurrency}")
 
 
 def _jsonpath_get(data: Any, path: str) -> Any:
