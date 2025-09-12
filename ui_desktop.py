@@ -80,6 +80,25 @@ class PromptCompilerUI:
         self.btn_theme = ttk.Button(opts, text="Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
 
+        # Examples dropdown
+        try:
+            ex_files = sorted((Path("examples")).glob("*.txt"))
+        except Exception:
+            ex_files = []
+        self._examples_map = {p.name: p for p in ex_files}
+        if self._examples_map:
+            ttk.Label(opts, text="Examples:").pack(side=tk.LEFT, padx=(12, 2))
+            self.var_example = tk.StringVar(value="<select>")
+            self.cmb_examples = ttk.Combobox(
+                opts,
+                textvariable=self.var_example,
+                width=24,
+                state="readonly",
+                values=tuple(["<select>"] + list(self._examples_map.keys())),
+            )
+            self.cmb_examples.pack(side=tk.LEFT)
+            self.cmb_examples.bind("<<ComboboxSelected>>", self._on_example_selected)
+
         # OpenAI quick-send controls
         ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
         self.var_model = tk.StringVar(value="gpt-4o-mini")
@@ -728,6 +747,29 @@ class PromptCompilerUI:
             self.root.clipboard_clear()
             self.root.clipboard_append(cmd)
             self.status_var.set("cURL copied")
+        except Exception:
+            pass
+
+    def _on_example_selected(self, _e=None):  # pragma: no cover - UI utility
+        try:
+            name = getattr(self, "var_example", tk.StringVar(value="")).get()
+            if not name or name == "<select>":
+                return
+            path = getattr(self, "_examples_map", {}).get(name)
+            if not path:
+                return
+            try:
+                text = Path(path).read_text(encoding="utf-8")
+            except Exception as e:
+                messagebox.showerror("Examples", str(e))
+                return
+            self.txt_prompt.delete("1.0", tk.END)
+            self.txt_prompt.insert(tk.END, text.strip())
+            try:
+                self._update_prompt_stats()
+            except Exception:
+                pass
+            self.status_var.set(f"Loaded: {name}")
         except Exception:
             pass
 
