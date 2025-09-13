@@ -174,6 +174,7 @@ Interpretation:
 
 Re-run with different `--concurrency` values to benchmark scaling on your machine.
 ``` 
+
 ```
 
 **Example Output:**
@@ -226,9 +227,11 @@ Features:
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
 - Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, Only live_debug filter, window geometry)
+- Examples dropdown (new): Quick-load prompts from `examples/*.txt`. Add your own `.txt` files to extend the list.
 
 Tips:
 - Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/OpenAI)
+- Use the Examples dropdown to insert a sample prompt, then click Generate.
 
 Additional new capabilities:
 - Constraints search box (filters any matching text)
