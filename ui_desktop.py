@@ -98,6 +98,9 @@ class PromptCompilerUI:
             )
             self.cmb_examples.pack(side=tk.LEFT)
             self.cmb_examples.bind("<<ComboboxSelected>>", self._on_example_selected)
+            # Toggle: auto-generate after loading an example
+            self.var_autogen_example = tk.BooleanVar(value=False)
+            ttk.Checkbutton(opts, text="Auto-generate", variable=self.var_autogen_example).pack(side=tk.LEFT, padx=(6, 0))
 
         # OpenAI quick-send controls
         ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
@@ -203,6 +206,11 @@ class PromptCompilerUI:
         self.var_only_live_debug.trace_add("write", lambda *_: self._render_constraints_table())
         self.var_wrap.trace_add("write", lambda *_: (self._apply_wrap(), self._save_settings()))
         self.var_min_priority.trace_add("write", lambda *_: (self._render_constraints_table(), self._save_settings()))
+        try:
+            # Persist auto-generate toggle if present
+            getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).trace_add("write", lambda *_: self._save_settings())
+        except Exception:
+            pass
 
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
@@ -316,6 +324,11 @@ class PromptCompilerUI:
                 self.var_only_live_debug.set(bool(data.get("only_live_debug")))
             if "wrap" in data:
                 self.var_wrap.set(bool(data.get("wrap")))
+            if "auto_generate_example" in data:
+                try:
+                    getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).set(bool(data.get("auto_generate_example")))
+                except Exception:
+                    pass
             if "min_priority" in data:
                 try:
                     val = data.get("min_priority")
@@ -361,6 +374,7 @@ class PromptCompilerUI:
                 "render_v2_emitters": bool(getattr(self, 'var_render_v2', tk.BooleanVar(value=False)).get()),
                 "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
                 "wrap": bool(getattr(self, 'var_wrap', tk.BooleanVar(value=False)).get()),
+                "auto_generate_example": bool(getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).get()),
                 "min_priority": getattr(self, 'var_min_priority', tk.StringVar(value="Any")).get(),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
@@ -770,6 +784,12 @@ class PromptCompilerUI:
             except Exception:
                 pass
             self.status_var.set(f"Loaded: {name}")
+            try:
+                if bool(getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).get()):
+                    # Trigger generation shortly after UI updates
+                    self.root.after(10, self.on_generate)
+            except Exception:
+                pass
         except Exception:
             pass
 
