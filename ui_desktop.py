@@ -59,6 +59,15 @@ class PromptCompilerUI:
         self.prompt_stats_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.prompt_stats_var, foreground="#666").pack(anchor=tk.W)
 
+        # Context (optional)
+        ctx_row = ttk.Frame(top)
+        ctx_row.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(ctx_row, text="Context (optional):").pack(anchor=tk.W)
+        self.txt_context = tk.Text(ctx_row, height=4, wrap=tk.WORD)
+        self.txt_context.pack(fill=tk.X, pady=(2, 6))
+        self.var_include_context = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ctx_row, text="Include context in prompts", variable=self.var_include_context).pack(anchor=tk.W)
+
         # Options row
         opts = ttk.Frame(top)
         opts.pack(fill=tk.X)
@@ -211,6 +220,10 @@ class PromptCompilerUI:
             getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).trace_add("write", lambda *_: self._save_settings())
         except Exception:
             pass
+        try:
+            self.var_include_context.trace_add("write", lambda *_: self._save_settings())
+        except Exception:
+            pass
 
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
@@ -292,7 +305,7 @@ class PromptCompilerUI:
         style.configure("Treeview.Heading", background=panel, foreground=fg)
         # Chips label style
         style.configure("Chip.TLabel", background=("#2d7dd2" if not dark else "#2563eb"), foreground="#ffffff", padding=(6,2))
-        for t in [self.txt_prompt, self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
+        for t in [self.txt_prompt, getattr(self, 'txt_context', None), self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
             if t is None:
                 continue
             t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
@@ -508,6 +521,15 @@ class PromptCompilerUI:
                 user = emit_user_prompt(ir)
                 plan = emit_plan(ir)
                 expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
+            # Inject optional Context section (applies to both branches)
+            try:
+                if bool(self.var_include_context.get()):
+                    ctx_text = (self.txt_context.get("1.0", tk.END).strip() or "")
+                    if ctx_text:
+                        user = f"[Context]\n{ctx_text}\n\n" + user
+                        expanded = f"[Context]\n{ctx_text}\n\n" + expanded
+            except Exception:
+                pass
             ir_json = json.dumps(ir.model_dump(), ensure_ascii=False, indent=2)
             ir2_json = json.dumps(ir2.model_dump(), ensure_ascii=False, indent=2) if ir2 is not None else ""
             # Optional extras

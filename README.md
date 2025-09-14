@@ -228,10 +228,12 @@ Features:
 - Status line shows processing time and heuristic versions
 - Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, Only live_debug filter, window geometry)
 - Examples dropdown (new): Quick-load prompts from `examples/*.txt`. Add your own `.txt` files to extend the list. Optional "Auto-generate" toggle runs Generate immediately on selection.
+ - Context box (new): Paste optional background context and check "Include context in prompts" to prepend it into User/Expanded prompts. Useful for retrieval-style grounding.
 
 Tips:
 - Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/OpenAI)
 - Use the Examples dropdown to insert a sample prompt; if "Auto-generate" is checked, it will run automatically, otherwise click Generate.
+ - Keep the Context concise (e.g., the top 1–3 most relevant paragraphs) for best results.
 
 Additional new capabilities:
 - Constraints search box (filters any matching text)
