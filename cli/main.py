@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from typing import List, Any
+from typing import List, Any, Optional
 from pathlib import Path
 import typer
 from rich import print
@@ -13,8 +13,10 @@ from app.emitters import (
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
 from app import get_version
+from app.rag.simple_index import ingest_paths, search, DEFAULT_DB_PATH
 
 app = typer.Typer(help="Prompt Compiler CLI")
+rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
 
 def _run_compile(
     full_text: str,
@@ -344,6 +346,42 @@ def json_path(
     else:
         print(_json.dumps(val, ensure_ascii=False))
 
+
+@rag_app.command("index")
+def rag_index(
+    paths: List[Path] = typer.Argument(..., help="Files or directories to ingest"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
+    ext: Optional[List[str]] = typer.Option(None, "--ext", help="File extensions to include (repeatable), e.g., --ext .txt --ext .md"),
+):
+    """Ingest files/dirs into a local full-text index."""
+    n_docs, n_chunks, secs = ingest_paths([str(p) for p in paths], db_path=str(db_path) if db_path else None, exts=ext)
+    target_db = str(db_path) if db_path else DEFAULT_DB_PATH
+    ms = int(secs * 1000)
+    print(f"[indexed] {n_docs} docs, {n_chunks} chunks in {ms} ms -> {target_db}")
+
+
+@rag_app.command("query")
+def rag_query(
+    query: List[str] = typer.Argument(..., help="Search query (use quotes for multi-word)"),
+    k: int = typer.Option(5, "--k", help="Top-K results"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
+    json_only: bool = typer.Option(False, "--json", help="Output raw JSON results"),
+):
+    """Search the local index and return top-K matching chunks."""
+    q = " ".join(query)
+    results = search(q, k=k, db_path=str(db_path) if db_path else None)
+    if json_only:
+        print(json.dumps(results, ensure_ascii=False, indent=2))
+        return
+    if not results:
+        print("No results.")
+        return
+    for i, r in enumerate(results, start=1):
+        score = f"{r['score']:.3f}" if isinstance(r.get('score'), (int, float)) else str(r.get('score'))
+        print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
+    # Mount sub-commands
+    app.add_typer(rag_app, name="rag")
     app()

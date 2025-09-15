@@ -137,6 +137,25 @@ promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --form
 promptc "compare llama3 vs gpt-4o for code generation" --render-v2
 ```
 
+#### RAG (lightweight, local)
+
+Index local text sources and query them with a minimal SQLite FTS5-based retriever. No external dependencies.
+
+```powershell
+# Index files or folders (default db: ~/.promptc_index.db)
+promptc rag index .\docs .\examples --ext .txt --ext .md
+
+# Query the index
+promptc rag query "gradient descent learning rate" --k 5
+
+# Custom database path and JSON output
+promptc rag query "teaching persona" --db-path .\myindex.db --json
+```
+
+Notes:
+- Supported extensions default to .txt, .md, .py (customize with repeated `--ext`).
+- Results show file path, chunk index, score, and a short snippet.
+
 #### CLI extras (new)
 
 Common utilities to help with validation, comparison, and bulk runs:
