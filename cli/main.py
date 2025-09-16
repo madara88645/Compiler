@@ -372,7 +372,7 @@ def rag_query(
     q = " ".join(query)
     results = search(q, k=k, db_path=str(db_path) if db_path else None)
     if json_only:
-        print(json.dumps(results, ensure_ascii=False, indent=2))
+        typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
         return
     if not results:
         print("No results.")
