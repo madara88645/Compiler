@@ -17,6 +17,7 @@ from app.rag.simple_index import ingest_paths, search, DEFAULT_DB_PATH
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
+app.add_typer(rag_app, name="rag")
 
 def _run_compile(
     full_text: str,
@@ -382,6 +383,4 @@ def rag_query(
 
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
-    # Mount sub-commands
-    app.add_typer(rag_app, name="rag")
     app()
