@@ -12,6 +12,9 @@ from app.emitters import (
     emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
+from app.rag.simple_index import ingest_paths, search as rag_search, stats as rag_stats, prune as rag_prune
+from typing import List, Optional
+from pydantic import Field
 
 app = FastAPI(title="Prompt Compiler API")
 
@@ -38,6 +41,43 @@ class CompileResponse(BaseModel):
     heuristic_version: str
     heuristic2_version: str | None = None
     trace: list[str] | None = None
+
+
+class RagIngestRequest(BaseModel):
+    paths: List[str]
+    exts: Optional[List[str]] = Field(default=None, description="Extensions like .txt .md (default: .txt .md .py)")
+    db_path: Optional[str] = None
+
+class RagIngestResponse(BaseModel):
+    ingested_docs: int
+    total_chunks: int
+    elapsed_ms: int
+
+class RagQueryRequest(BaseModel):
+    query: str
+    k: int = 5
+    db_path: Optional[str] = None
+
+class RagQueryResponse(BaseModel):
+    results: List[dict]
+    count: int
+
+class RagStatsRequest(BaseModel):
+    db_path: Optional[str] = None
+
+class RagStatsResponse(BaseModel):
+    docs: int
+    chunks: int
+    total_bytes: int
+    avg_bytes: float
+    largest: List[dict]
+
+class RagPruneRequest(BaseModel):
+    db_path: Optional[str] = None
+
+class RagPruneResponse(BaseModel):
+    removed_docs: int
+    removed_chunks: int
 # (imports consolidated above)
 
 @app.get('/health')
@@ -217,3 +257,23 @@ INDEX_HTML = """<!DOCTYPE html>
 @app.get('/', response_class=HTMLResponse)
 async def root_page():
         return HTMLResponse(INDEX_HTML)
+
+@app.post('/rag/ingest', response_model=RagIngestResponse)
+async def rag_ingest(req: RagIngestRequest):
+    docs, chunks, secs = ingest_paths(req.paths, db_path=req.db_path, exts=req.exts)
+    return RagIngestResponse(ingested_docs=docs, total_chunks=chunks, elapsed_ms=int(secs*1000))
+
+@app.post('/rag/query', response_model=RagQueryResponse)
+async def rag_query(req: RagQueryRequest):
+    res = rag_search(req.query, k=req.k, db_path=req.db_path)
+    return RagQueryResponse(results=res, count=len(res))
+
+@app.post('/rag/stats', response_model=RagStatsResponse)
+async def rag_stats_endpoint(req: RagStatsRequest):
+    s = rag_stats(db_path=req.db_path)
+    return RagStatsResponse(**s)
+
+@app.post('/rag/prune', response_model=RagPruneResponse)
+async def rag_prune_endpoint(req: RagPruneRequest):
+    r = rag_prune(db_path=req.db_path)
+    return RagPruneResponse(**r)

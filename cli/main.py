@@ -13,7 +13,7 @@ from app.emitters import (
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
 from app import get_version
-from app.rag.simple_index import ingest_paths, search, DEFAULT_DB_PATH
+from app.rag.simple_index import ingest_paths, search, stats as rag_stats_fn, prune as rag_prune_fn, DEFAULT_DB_PATH
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
@@ -380,6 +380,36 @@ def rag_query(
     for i, r in enumerate(results, start=1):
         score = f"{r['score']:.3f}" if isinstance(r.get('score'), (int, float)) else str(r.get('score'))
         print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+
+
+@rag_app.command("stats")
+def rag_stats(
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
+    json_only: bool = typer.Option(False, "--json", help="Print raw JSON stats"),
+):
+    """Show index statistics (docs, chunks, sizes, largest files)."""
+    s = rag_stats_fn(db_path=str(db_path) if db_path else None)
+    if json_only:
+        typer.echo(json.dumps(s, ensure_ascii=False, indent=2))
+        return
+    print(f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}")
+    if s['largest']:
+        print("largest:")
+        for entry in s['largest']:
+            print(f"  {entry['size']:>8}  {entry['path']}")
+
+
+@rag_app.command("prune")
+def rag_prune(
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
+    json_only: bool = typer.Option(False, "--json", help="Print raw JSON result"),
+):
+    """Remove records for files that no longer exist on disk."""
+    res = rag_prune_fn(db_path=str(db_path) if db_path else None)
+    if json_only:
+        typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
+        return
+    print(f"removed_docs={res['removed_docs']} removed_chunks={res['removed_chunks']}")
 
 # Entry point
 if __name__ == "__main__":  # pragma: no cover

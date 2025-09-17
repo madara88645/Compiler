@@ -170,3 +170,64 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
         return results
     finally:
         conn.close()
+
+
+def stats(db_path: Optional[str] = None) -> dict:
+    conn = _connect(db_path)
+    try:
+        _init_schema(conn)
+        doc_count = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
+        chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        sizes = conn.execute("SELECT COALESCE(SUM(size),0), COALESCE(AVG(size),0) FROM docs").fetchone()
+        total_size, avg_size = sizes
+        largest = conn.execute(
+            "SELECT path, size FROM docs ORDER BY size DESC LIMIT 5"
+        ).fetchall()
+        return {
+            "docs": doc_count,
+            "chunks": chunk_count,
+            "total_bytes": int(total_size),
+            "avg_bytes": float(avg_size),
+            "largest": [{"path": p, "size": s} for (p, s) in largest],
+        }
+    finally:
+        conn.close()
+
+
+def prune(db_path: Optional[str] = None) -> dict:
+    """Remove docs whose files no longer exist by rebuilding index.
+
+    Strategy: capture surviving file paths, record counts, recreate DB from scratch
+    for remaining files. This avoids FTS trigger complexities on bulk deletes.
+    """
+    db_file = db_path or DEFAULT_DB_PATH
+    conn = _connect(db_file)
+    try:
+        _init_schema(conn)
+        # snapshot existing counts
+        old_chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        cur = conn.execute("SELECT path FROM docs")
+        surviving: list[str] = []
+        missing_docs = 0
+        for (p,) in cur.fetchall():
+            if Path(p).exists():
+                surviving.append(p)
+            else:
+                missing_docs += 1
+    finally:
+        conn.close()
+
+    if missing_docs == 0:
+        return {"removed_docs": 0, "removed_chunks": 0}
+
+    # Recreate database file (simple approach for small scale indexes)
+    try:
+        os.remove(db_file)
+    except OSError:
+        pass
+    # Re-ingest surviving files
+    _, new_chunk_count, _ = ingest_paths(surviving, db_path=db_file)
+    removed_chunks = old_chunk_count - new_chunk_count
+    if removed_chunks < 0:
+        removed_chunks = 0
+    return {"removed_docs": missing_docs, "removed_chunks": int(removed_chunks)}

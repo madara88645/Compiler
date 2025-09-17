@@ -150,11 +150,21 @@ promptc rag query "gradient descent learning rate" --k 5
 
 # Custom database path and JSON output
 promptc rag query "teaching persona" --db-path .\myindex.db --json
+
+# Show index statistics
+promptc rag stats --db-path .\myindex.db
+promptc rag stats --db-path .\myindex.db --json
+
+# Prune records for deleted files
+promptc rag prune --db-path .\myindex.db
+promptc rag prune --db-path .\myindex.db --json
 ```
 
 Notes:
 - Supported extensions default to .txt, .md, .py (customize with repeated `--ext`).
 - Results show file path, chunk index, score, and a short snippet.
+ - `rag stats` summarizes docs, chunks, total/avg bytes, and largest sources.
+ - `rag prune` removes entries whose source files disappeared.
 
 #### CLI extras (new)
 
