@@ -6,3 +6,4 @@ jsonschema==4.21.1
 rich==13.7.0
 pytest==8.0.0
 openai>=1.30.0  # optional for examples/openai_pipe.py
+httpx<0.28  # pin: Starlette TestClient older style requires httpx<0.28

@@ -28,6 +28,7 @@ dev = [
 	"pytest==8.0.0",
 	"ruff==0.6.5",
 	"pre-commit==3.7.1",
+	"httpx<0.28",
 ]
 
 [build-system]
