@@ -3,12 +3,15 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
+import math
+import json
 
 # Minimal SQLite FTS5-based retriever. No external deps.
 # Schema:
 #   docs(id INTEGER PRIMARY KEY, path TEXT UNIQUE, mtime REAL, size INTEGER)
 #   chunks(id INTEGER PRIMARY KEY, doc_id INTEGER, chunk_index INTEGER, content TEXT)
 #   fts(content) USING fts5(content, content="", tokenize="porter")
+#   embeddings(chunk_id INTEGER PRIMARY KEY, dim INTEGER, vec TEXT)  -- vec is JSON list of floats (L2 normalized)
 #   Triggers keep fts in sync with chunks.
 
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index.db")
@@ -40,6 +43,11 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             content TEXT
         );
         CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(content, tokenize='porter');
+        CREATE TABLE IF NOT EXISTS embeddings (
+            chunk_id INTEGER PRIMARY KEY,
+            dim INTEGER NOT NULL,
+            vec TEXT NOT NULL
+        );
 
         CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
             INSERT INTO fts(rowid, content) VALUES (new.id, new.content);
@@ -80,7 +88,27 @@ def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OV
     return chunks
 
 
-def _insert_document(conn: sqlite3.Connection, path: Path, content: str) -> None:
+def _simple_embed(text: str, dim: int = 64) -> List[float]:
+    """Deterministic tiny embedding: hash tokens into fixed-size bag, L2 normalize.
+
+    This avoids external dependencies while enabling relative similarity ranking.
+    """
+    vec = [0.0] * dim
+    # very small tokenizer: lowercase split on whitespace
+    for tok in text.lower().split():
+        # stable hash: built-in hash is randomized per run, so use sha1
+        h = 0
+        for ch in tok.encode("utf-8"):
+            h = (h * 131 + ch) & 0xFFFFFFFF
+        idx = h % dim
+        vec[idx] += 1.0
+    # L2 normalize
+    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+    vec = [v / norm for v in vec]
+    return vec
+
+
+def _insert_document(conn: sqlite3.Connection, path: Path, content: str, *, embed: bool = False, embed_dim: int = 64) -> None:
     stat = path.stat()
     cur = conn.execute(
         "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
@@ -89,13 +117,27 @@ def _insert_document(conn: sqlite3.Connection, path: Path, content: str) -> None
     doc_id = cur.fetchone()[0]
     conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
     for idx, chunk in enumerate(_chunk_text(content)):
-        conn.execute(
-            "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
+        cur = conn.execute(
+            "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?) RETURNING id",
             (doc_id, idx, chunk),
         )
+        chunk_row_id = cur.fetchone()[0]
+        if embed:
+            emb = _simple_embed(chunk, dim=embed_dim)
+            conn.execute(
+                "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
+                (chunk_row_id, embed_dim, json.dumps(emb)),
+            )
 
 
-def ingest_paths(paths: Iterable[str], db_path: Optional[str] = None, exts: Optional[Iterable[str]] = None) -> Tuple[int, int, float]:
+def ingest_paths(
+    paths: Iterable[str],
+    db_path: Optional[str] = None,
+    exts: Optional[Iterable[str]] = None,
+    *,
+    embed: bool = False,
+    embed_dim: int = 64,
+) -> Tuple[int, int, float]:
     start = time.time()
     conn = _connect(db_path)
     try:
@@ -118,7 +160,7 @@ def ingest_paths(paths: Iterable[str], db_path: Optional[str] = None, exts: Opti
                                 content = fp.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
                                 continue
-                            _insert_document(conn, fp, content)
+                            _insert_document(conn, fp, content, embed=embed, embed_dim=embed_dim)
                             n_docs += 1
             else:
                 if pth.suffix.lower() not in allowed_exts:
@@ -128,7 +170,7 @@ def ingest_paths(paths: Iterable[str], db_path: Optional[str] = None, exts: Opti
                         content = pth.read_text(encoding="utf-8", errors="ignore")
                     except Exception:
                         continue
-                    _insert_document(conn, pth, content)
+                    _insert_document(conn, pth, content, embed=embed, embed_dim=embed_dim)
                     n_docs += 1
         # count chunks
         cur = conn.execute("SELECT COUNT(*) FROM chunks")
@@ -168,6 +210,52 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                 }
             )
         return results
+    finally:
+        conn.close()
+
+
+def search_embed(query: str, k: int = 5, db_path: Optional[str] = None, embed_dim: int = 64) -> List[dict]:
+    """Embedding similarity search using cosine distance over stored vectors.
+
+    Requires that documents were ingested with embed=True.
+    """
+    conn = _connect(db_path)
+    try:
+        _init_schema(conn)
+        q_vec = _simple_embed(query, dim=embed_dim)
+        # fetch embeddings joined with chunk + doc metadata
+        cur = conn.execute(
+            """
+            SELECT e.chunk_id, c.doc_id, d.path, c.chunk_index, c.content, e.vec, e.dim
+            FROM embeddings e
+            JOIN chunks c ON c.id = e.chunk_id
+            JOIN docs d ON d.id = c.doc_id
+            WHERE e.dim = ?
+            """,
+            (embed_dim,),
+        )
+        results = []
+        for row in cur.fetchall():
+            chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
+            emb = json.loads(vec_json)
+            # cosine since vectors L2 normalized => dot product
+            sim = sum(a * b for a, b in zip(q_vec, emb))
+            # score as (1 - sim) so lower is better similar to bm25 semantics
+            score = 1.0 - sim
+            snippet = content[:200].replace("\n", " ")
+            results.append(
+                {
+                    "chunk_id": chunk_id,
+                    "doc_id": doc_id,
+                    "path": path,
+                    "chunk_index": chunk_index,
+                    "snippet": snippet,
+                    "score": score,
+                    "similarity": sim,
+                }
+            )
+        results.sort(key=lambda r: r["score"])  # lower distance first
+        return results[:k]
     finally:
         conn.close()
 

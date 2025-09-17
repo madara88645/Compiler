@@ -161,10 +161,44 @@ promptc rag prune --db-path .\myindex.db --json
 ```
 
 Notes:
-- Supported extensions default to .txt, .md, .py (customize with repeated `--ext`).
-- Results show file path, chunk index, score, and a short snippet.
  - `rag stats` summarizes docs, chunks, total/avg bytes, and largest sources.
  - `rag prune` removes entries whose source files disappeared.
+
+##### Embedding Retrieval (minimal, optional)
+
+You can enable a tiny deterministic embedding mode (no external models) to get simple semantic similarity ranking:
+
+```powershell
+# Ingest computing embeddings (stores vectors alongside chunks)
+promptc rag index .\docs --embed
+
+# Query using embeddings (cosine similarity)
+promptc rag query "gradient descent optimization" --method embed --k 5
+
+# Mixed usage: you can still run lexical queries on the same DB
+promptc rag query "gradient descent optimization" --method fts --k 5
+```
+
+Details:
+- Embeddings are 64-dim bag-of-token-hash vectors (L2 normalized) created via a deterministic lightweight function.
+- No external dependencies or network calls; suitable for quick local semantic-ish matching.
+- Must ingest with `--embed` first; otherwise `--method embed` will return zero results (no vectors stored).
+- You can adjust dimension with `--embed-dim N` (same value required at query time).
+- Scores for embedding search display similarity (`sim=`). JSON results include both `similarity` (dot product) and `score` (1 - similarity for ordering consistency).
+- Intended as a starter path toward adding real model-based embeddings later; keeps default footprint minimal.
+
+API equivalents:
+```bash
+curl -X POST http://127.0.0.1:8000/rag/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"paths":["docs"],"embed":true}'
+
+curl -X POST http://127.0.0.1:8000/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"gradient descent optimization","method":"embed"}'
+```
+
+Planned (future): weighted hybrid fusion (BM25 + embedding), context packing for token budgets, pluggable external embedding providers.
 
 #### CLI extras (new)
 

@@ -13,7 +13,7 @@ from app.emitters import (
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
 from app import get_version
-from app.rag.simple_index import ingest_paths, search, stats as rag_stats_fn, prune as rag_prune_fn, DEFAULT_DB_PATH
+from app.rag.simple_index import ingest_paths, search, search_embed, stats as rag_stats_fn, prune as rag_prune_fn, DEFAULT_DB_PATH
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
@@ -353,12 +353,21 @@ def rag_index(
     paths: List[Path] = typer.Argument(..., help="Files or directories to ingest"),
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
     ext: Optional[List[str]] = typer.Option(None, "--ext", help="File extensions to include (repeatable), e.g., --ext .txt --ext .md"),
+    embed: bool = typer.Option(False, "--embed", help="Compute & store tiny deterministic embeddings for chunks"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (only for --embed)"),
 ):
-    """Ingest files/dirs into a local full-text index."""
-    n_docs, n_chunks, secs = ingest_paths([str(p) for p in paths], db_path=str(db_path) if db_path else None, exts=ext)
+    """Ingest files/dirs into a local full-text (and optional embedding) index."""
+    n_docs, n_chunks, secs = ingest_paths(
+        [str(p) for p in paths],
+        db_path=str(db_path) if db_path else None,
+        exts=ext,
+        embed=embed,
+        embed_dim=embed_dim,
+    )
     target_db = str(db_path) if db_path else DEFAULT_DB_PATH
     ms = int(secs * 1000)
-    print(f"[indexed] {n_docs} docs, {n_chunks} chunks in {ms} ms -> {target_db}")
+    mode = "fts+embed" if embed else "fts"
+    print(f"[indexed:{mode}] {n_docs} docs, {n_chunks} chunks in {ms} ms -> {target_db}")
 
 
 @rag_app.command("query")
@@ -366,11 +375,19 @@ def rag_query(
     query: List[str] = typer.Argument(..., help="Search query (use quotes for multi-word)"),
     k: int = typer.Option(5, "--k", help="Top-K results"),
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
+    method: str = typer.Option("fts", "--method", help="Retrieval method: fts|embed"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (must match ingest)"),
     json_only: bool = typer.Option(False, "--json", help="Output raw JSON results"),
 ):
-    """Search the local index and return top-K matching chunks."""
+    """Search the local index using lexical (fts) or embedding similarity."""
     q = " ".join(query)
-    results = search(q, k=k, db_path=str(db_path) if db_path else None)
+    method_norm = method.lower()
+    if method_norm not in {"fts", "embed"}:
+        raise typer.BadParameter("--method must be one of: fts, embed")
+    if method_norm == "embed":
+        results = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
+    else:
+        results = search(q, k=k, db_path=str(db_path) if db_path else None)
     if json_only:
         typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
         return
@@ -378,8 +395,13 @@ def rag_query(
         print("No results.")
         return
     for i, r in enumerate(results, start=1):
-        score = f"{r['score']:.3f}" if isinstance(r.get('score'), (int, float)) else str(r.get('score'))
-        print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+        # show similarity when present
+        if method_norm == "embed" and "similarity" in r:
+            sim = f"{r['similarity']:.3f}"
+            print(f"[{i}] sim={sim} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+        else:
+            score = f"{r['score']:.3f}" if isinstance(r.get('score'), (int, float)) else str(r.get('score'))
+            print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
 
 
 @rag_app.command("stats")
