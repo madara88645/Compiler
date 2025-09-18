@@ -13,7 +13,16 @@ from app.emitters import (
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
 from app import get_version
-from app.rag.simple_index import ingest_paths, search, search_embed, stats as rag_stats_fn, prune as rag_prune_fn, DEFAULT_DB_PATH
+from app.rag.simple_index import (
+    ingest_paths,
+    search,
+    search_embed,
+    search_hybrid,
+    pack as pack_context,
+    stats as rag_stats_fn,
+    prune as rag_prune_fn,
+    DEFAULT_DB_PATH,
+)
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
@@ -375,19 +384,23 @@ def rag_query(
     query: List[str] = typer.Argument(..., help="Search query (use quotes for multi-word)"),
     k: int = typer.Option(5, "--k", help="Top-K results"),
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"),
-    method: str = typer.Option("fts", "--method", help="Retrieval method: fts|embed"),
+    method: str = typer.Option("fts", "--method", help="Retrieval method: fts|embed|hybrid"),
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (must match ingest)"),
+    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting (fts vs embed)"),
     json_only: bool = typer.Option(False, "--json", help="Output raw JSON results"),
 ):
-    """Search the local index using lexical (fts) or embedding similarity."""
+    """Search index using fts, embeddings, or hybrid fusion."""
     q = " ".join(query)
     method_norm = method.lower()
-    if method_norm not in {"fts", "embed"}:
-        raise typer.BadParameter("--method must be one of: fts, embed")
+    if method_norm not in {"fts", "embed", "hybrid"}:
+        raise typer.BadParameter("--method must be one of: fts, embed, hybrid")
+    dbp = str(db_path) if db_path else None
     if method_norm == "embed":
-        results = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
+        results = search_embed(q, k=k, db_path=dbp, embed_dim=embed_dim)
+    elif method_norm == "hybrid":
+        results = search_hybrid(q, k=k, db_path=dbp, embed_dim=embed_dim, alpha=alpha)
     else:
-        results = search(q, k=k, db_path=str(db_path) if db_path else None)
+        results = search(q, k=k, db_path=dbp)
     if json_only:
         typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
         return
@@ -395,13 +408,47 @@ def rag_query(
         print("No results.")
         return
     for i, r in enumerate(results, start=1):
-        # show similarity when present
         if method_norm == "embed" and "similarity" in r:
             sim = f"{r['similarity']:.3f}"
             print(f"[{i}] sim={sim} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+        elif method_norm == "hybrid" and "hybrid_score" in r:
+            hs = f"{r['hybrid_score']:.3f}"
+            sim = f"{r.get('similarity', 0):.3f}" if 'similarity' in r else '-'
+            print(f"[{i}] hybrid={hs} sim={sim} {r['path']}#{r['chunk_index']}: {r['snippet']}")
         else:
             score = f"{r['score']:.3f}" if isinstance(r.get('score'), (int, float)) else str(r.get('score'))
             print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+
+
+@rag_app.command("pack")
+def rag_pack(
+    query: List[str] = typer.Argument(..., help="Query text (used for metadata only)"),
+    k: int = typer.Option(8, "--k", help="Top-K to retrieve before packing"),
+    max_chars: int = typer.Option(4000, "--max-chars", help="Character budget for packed context"),
+    method: str = typer.Option("hybrid", "--method", help="Retrieval method fts|embed|hybrid"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (for embed/hybrid)"),
+    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index"),
+    json_only: bool = typer.Option(False, "--json", help="Print packed JSON only"),
+):
+    """Retrieve then pack top-K chunks into a single context under a char budget."""
+    q = " ".join(query)
+    dbp = str(db_path) if db_path else None
+    method_norm = method.lower()
+    if method_norm not in {"fts", "embed", "hybrid"}:
+        raise typer.BadParameter("--method must be fts|embed|hybrid")
+    if method_norm == "embed":
+        res = search_embed(q, k=k, db_path=dbp, embed_dim=embed_dim)
+    elif method_norm == "hybrid":
+        res = search_hybrid(q, k=k, db_path=dbp, embed_dim=embed_dim, alpha=alpha)
+    else:
+        res = search(q, k=k, db_path=dbp)
+    packed = pack_context(q, res, max_chars=max_chars)
+    if json_only:
+        typer.echo(json.dumps(packed, ensure_ascii=False, indent=2))
+        return
+    print(f"[packed] chars={packed['chars']} included={len(packed['included'])}")
+    print(packed['packed'])
 
 
 @rag_app.command("stats")

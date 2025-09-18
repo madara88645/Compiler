@@ -1,0 +1,6 @@
+line-length = 120
+select = ["E", "F", "I", "B", "UP", "SIM", "RET"]
+ignore = [
+  # Allow print statements in CLI and tests
+  "T201",
+]

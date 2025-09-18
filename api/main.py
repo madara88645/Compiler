@@ -12,7 +12,15 @@ from app.emitters import (
     emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
     emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
 )
-from app.rag.simple_index import ingest_paths, search as rag_search, search_embed as rag_search_embed, stats as rag_stats, prune as rag_prune
+from app.rag.simple_index import (
+    ingest_paths,
+    search as rag_search,
+    search_embed as rag_search_embed,
+    search_hybrid as rag_search_hybrid,
+    pack as rag_pack_ctx,
+    stats as rag_stats,
+    prune as rag_prune,
+)
 from typing import List, Optional
 from pydantic import Field
 
@@ -59,8 +67,9 @@ class RagQueryRequest(BaseModel):
     query: str
     k: int = 5
     db_path: Optional[str] = None
-    method: str = Field(default="fts", description="Retrieval method: fts|embed")
-    embed_dim: int = Field(default=64, description="Embedding dimension (for method=embed)")
+    method: str = Field(default="fts", description="Retrieval method: fts|embed|hybrid")
+    embed_dim: int = Field(default=64, description="Embedding dimension (for method=embed|hybrid)")
+    alpha: float = Field(default=0.5, description="Hybrid weighting factor (fts vs embed)")
 
 class RagQueryResponse(BaseModel):
     results: List[dict]
@@ -276,13 +285,59 @@ async def rag_ingest(req: RagIngestRequest):
 @app.post('/rag/query', response_model=RagQueryResponse)
 async def rag_query(req: RagQueryRequest):
     method = (req.method or "fts").lower()
-    if method not in {"fts", "embed"}:
+    if method not in {"fts", "embed", "hybrid"}:
         method = "fts"
     if method == "embed":
         res = rag_search_embed(req.query, k=req.k, db_path=req.db_path, embed_dim=req.embed_dim)
+    elif method == "hybrid":
+        res = rag_search_hybrid(
+            req.query,
+            k=req.k,
+            db_path=req.db_path,
+            embed_dim=req.embed_dim,
+            alpha=req.alpha,
+        )
     else:
         res = rag_search(req.query, k=req.k, db_path=req.db_path)
     return RagQueryResponse(results=res, count=len(res))
+
+
+class RagPackRequest(BaseModel):
+    query: str
+    k: int = Field(default=8, description="Top-K to retrieve before packing")
+    max_chars: int = Field(default=4000, description="Character budget for packed context")
+    method: str = Field(default="hybrid", description="Retrieval method fts|embed|hybrid")
+    embed_dim: int = Field(default=64, description="Embedding dimension (embed/hybrid)")
+    alpha: float = Field(default=0.5, description="Hybrid weighting factor")
+    db_path: Optional[str] = None
+
+
+class RagPackResponse(BaseModel):
+    packed: str
+    included: List[dict]
+    chars: int
+    query: str
+
+
+@app.post('/rag/pack', response_model=RagPackResponse)
+async def rag_pack_endpoint(req: RagPackRequest):
+    method = (req.method or "hybrid").lower()
+    if method not in {"fts", "embed", "hybrid"}:
+        method = "hybrid"
+    if method == "embed":
+        res = rag_search_embed(req.query, k=req.k, db_path=req.db_path, embed_dim=req.embed_dim)
+    elif method == "hybrid":
+        res = rag_search_hybrid(
+            req.query,
+            k=req.k,
+            db_path=req.db_path,
+            embed_dim=req.embed_dim,
+            alpha=req.alpha,
+        )
+    else:
+        res = rag_search(req.query, k=req.k, db_path=req.db_path)
+    packed = rag_pack_ctx(req.query, res, max_chars=req.max_chars)
+    return RagPackResponse(**packed)
 
 @app.post('/rag/stats', response_model=RagStatsResponse)
 async def rag_stats_endpoint(req: RagStatsRequest):

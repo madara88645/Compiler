@@ -2,9 +2,10 @@ import os
 import sqlite3
 import time
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Dict
 import math
 import json
+from collections import OrderedDict
 
 # Minimal SQLite FTS5-based retriever. No external deps.
 # Schema:
@@ -17,6 +18,24 @@ import json
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index.db")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
+
+# Simple in-process LRU cache for query results (per run)
+_CACHE_CAP = 64
+_query_cache: "OrderedDict[str, list]" = OrderedDict()
+
+
+def _cache_get(key: str):
+    if key in _query_cache:
+        _query_cache.move_to_end(key)
+        return _query_cache[key]
+    return None
+
+
+def _cache_put(key: str, value):
+    _query_cache[key] = value
+    _query_cache.move_to_end(key)
+    if len(_query_cache) > _CACHE_CAP:
+        _query_cache.popitem(last=False)
 
 
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
@@ -182,6 +201,10 @@ def ingest_paths(
 
 
 def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
+    cache_key = f"fts::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached[:k]
     conn = _connect(db_path)
     try:
         _init_schema(conn)
@@ -209,12 +232,17 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                     "score": row[5],
                 }
             )
+        _cache_put(cache_key, results)
         return results
     finally:
         conn.close()
 
 
 def search_embed(query: str, k: int = 5, db_path: Optional[str] = None, embed_dim: int = 64) -> List[dict]:
+    cache_key = f"emb::{embed_dim}::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached[:k]
     """Embedding similarity search using cosine distance over stored vectors.
 
     Requires that documents were ingested with embed=True.
@@ -255,9 +283,79 @@ def search_embed(query: str, k: int = 5, db_path: Optional[str] = None, embed_di
                 }
             )
         results.sort(key=lambda r: r["score"])  # lower distance first
+        _cache_put(cache_key, results)
         return results[:k]
     finally:
         conn.close()
+
+
+def search_hybrid(
+    query: str,
+    k: int = 5,
+    db_path: Optional[str] = None,
+    embed_dim: int = 64,
+    alpha: float = 0.5,
+    rrf_k: int = 60,
+) -> List[dict]:
+    """Hybrid retrieval combining lexical BM25 (fts) + embedding similarity.
+
+    Uses Reciprocal Rank Fusion (RRF) over individual ranked lists, then rescales with
+    a simple weighted score: hybrid_score = alpha * norm_bm25 + (1-alpha) * norm_sim.
+
+    For a lightweight demo we approximate normalization:
+      norm_bm25 = 1 - rank_ft / len_ft
+      norm_sim  = similarity (already 0..1-ish for our toy embeddings)
+    """
+    cache_key = f"hyb::{embed_dim}::{db_path or DEFAULT_DB_PATH}::{k}::{alpha:.3f}::{query}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached[:k]
+    fts_results = search(query, k=max(k, 20), db_path=db_path)
+    emb_results = search_embed(query, k=max(k, 50), db_path=db_path, embed_dim=embed_dim)
+    # Build rank maps
+    fts_rank: Dict[int, int] = {r["chunk_id"]: i for i, r in enumerate(fts_results)}
+    emb_rank: Dict[int, int] = {r["chunk_id"]: i for i, r in enumerate(emb_results)}
+    fused: Dict[int, dict] = {}
+    for lst in (fts_results, emb_results):
+        for i, r in enumerate(lst):
+            cid = r["chunk_id"]
+            if cid not in fused:
+                fused[cid] = r.copy()
+            # RRF contribution
+            fused[cid]["_rrf"] = fused[cid].get("_rrf", 0.0) + 1.0 / (rrf_k + i + 1)
+    # compute final hybrid score
+    len_fts = len(fts_results) or 1
+    for cid, r in fused.items():
+        rank_ft = fts_rank.get(cid, len_fts)
+        norm_bm25 = 1.0 - (rank_ft / (len_fts + 1))
+        sim = r.get("similarity") or (1.0 - float(r.get("score", 1.0)))
+        hybrid_score = alpha * norm_bm25 + (1 - alpha) * sim
+        r["hybrid_score"] = hybrid_score
+    ranked = sorted(fused.values(), key=lambda x: x["hybrid_score"], reverse=True)
+    _cache_put(cache_key, ranked)
+    return ranked[:k]
+
+
+def pack(query: str, results: List[dict], max_chars: int = 4000) -> dict:
+    """Pack ordered retrieval results into a context block respecting character budget.
+
+    Returns dict with combined text and list of included chunk metadata.
+    """
+    included = []
+    buf_parts: List[str] = []
+    total = 0
+    for r in results:
+        header = f"# {Path(r['path']).name} chunk={r['chunk_index']}\n"
+        # fetch full content for chunk (we only stored snippet); simplest approach: re-query chunk content
+        # For minimal implementation we skip refetch and just use snippet (already representative)
+        chunk_text = r.get("snippet", "")
+        block = header + chunk_text + "\n\n"
+        if total + len(block) > max_chars:
+            break
+        buf_parts.append(block)
+        total += len(block)
+        included.append({k: r[k] for k in ("path", "chunk_index", "chunk_id")})
+    return {"packed": "".join(buf_parts).rstrip(), "included": included, "chars": total, "query": query}
 
 
 def stats(db_path: Optional[str] = None) -> dict:

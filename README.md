@@ -94,6 +94,58 @@ python -m pytest -q
 promptc --help
 ```
 
+##### Hybrid Retrieval & Context Packing (new)
+
+You can now combine lexical BM25 (FTS5) and embedding similarity using a lightweight hybrid fusion plus pack retrieved chunks into a single context block for downstream LLM calls.
+
+Hybrid search uses a reciprocal-rank fusion (RRF) over separate lexical and embedding result lists, then computes a simple weighted hybrid score:
+
+```
+hybrid_score = alpha * norm_bm25 + (1 - alpha) * similarity
+```
+
+Where `norm_bm25` is an approximate rank-based normalization and `similarity` is the embedding dot product (since deterministic vectors are L2-normalized). You can tune `--alpha` (default 0.5) to shift emphasis between lexical and semantic signals.
+
+Examples:
+```powershell
+# Hybrid query (requires index created with --embed)
+promptc rag query "gradient descent optimization" --method hybrid --k 8 --alpha 0.4
+
+# Pack top-K hybrid results into a single context under a character budget
+promptc rag pack "gradient descent optimization" --k 12 --max-chars 3500 --method hybrid --alpha 0.4
+
+# Pure lexical packing (no embeddings required)
+
+
+# Pack output (JSON mode) structure:
+```jsonc
+{
+  "packed": "# file1.txt chunk=0\n...merged text...",
+  "included": [ {"path":"/abs/file1.txt","chunk_index":0,"chunk_id":123}, ... ],
+  "chars": 1980,
+  "query": "gradient descent optimization"
+}
+```
+
+API equivalents:
+```bash
+curl -X POST http://127.0.0.1:8000/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"gradient descent optimization","method":"hybrid","alpha":0.4,"k":8,"embed_dim":64}'
+
+curl -X POST http://127.0.0.1:8000/rag/pack \
+  -H "Content-Type: application/json" \
+  -d '{"query":"gradient descent optimization","method":"hybrid","alpha":0.4,"k":12,"max_chars":3500,"embed_dim":64}'
+```
+
+Notes & Limitations:
+- Hybrid falls back gracefully if embeddings are absent (acts like lexical only; still returns `hybrid_score`).
+- Packing currently uses stored snippets (first 200 chars per chunk) rather than reloading full chunk text to stay fast; you can adjust this in code (`simple_index.pack`).
+- Character budget is a simple `len()` check (Python characters ≈ UTF-8 bytes for ASCII content). Adjust margin if mixing wide Unicode.
+- No cache invalidation: the in-process LRU (capacity 64) may return stale results if you ingest new docs after querying in the same session. Restart process or bump cache key strategy if this matters.
+- Deterministic embeddings are intentionally simplistic; for production use, swap `_simple_embed` with a real model and keep the public function signatures stable.
+
+Planned (future): scored context packing with de-duplication, pluggable embedding backends, optional re-ranking, and token-aware packing (tiktoken/approximate tokenizer).
 ### Run API
 ```powershell
 uvicorn api.main:app --reload
