@@ -314,7 +314,6 @@ def search_hybrid(
     emb_results = search_embed(query, k=max(k, 50), db_path=db_path, embed_dim=embed_dim)
     # Build rank maps
     fts_rank: Dict[int, int] = {r["chunk_id"]: i for i, r in enumerate(fts_results)}
-    emb_rank: Dict[int, int] = {r["chunk_id"]: i for i, r in enumerate(emb_results)}
     fused: Dict[int, dict] = {}
     for lst in (fts_results, emb_results):
         for i, r in enumerate(lst):
