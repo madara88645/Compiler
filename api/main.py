@@ -9,8 +9,14 @@ import time
 import uuid
 from app import get_build_info
 from app.emitters import (
-    emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
-    emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2,
+    emit_system_prompt,
+    emit_user_prompt,
+    emit_plan,
+    emit_expanded_prompt,
+    emit_system_prompt_v2,
+    emit_user_prompt_v2,
+    emit_plan_v2,
+    emit_expanded_prompt_v2,
 )
 from app.rag.simple_index import (
     ingest_paths,
@@ -26,12 +32,14 @@ from pydantic import Field
 
 app = FastAPI(title="Prompt Compiler API")
 
+
 class CompileRequest(BaseModel):
     text: str
     diagnostics: bool = False
     trace: bool = False
     v2: bool = True
     render_v2_prompts: bool = False
+
 
 class CompileResponse(BaseModel):
     ir: dict
@@ -53,15 +61,21 @@ class CompileResponse(BaseModel):
 
 class RagIngestRequest(BaseModel):
     paths: List[str]
-    exts: Optional[List[str]] = Field(default=None, description="Extensions like .txt .md (default: .txt .md .py)")
+    exts: Optional[List[str]] = Field(
+        default=None, description="Extensions like .txt .md (default: .txt .md .py)"
+    )
     db_path: Optional[str] = None
-    embed: bool = Field(default=False, description="If true, compute/store tiny deterministic embeddings")
+    embed: bool = Field(
+        default=False, description="If true, compute/store tiny deterministic embeddings"
+    )
     embed_dim: int = Field(default=64, description="Embedding dimension (when embed=true)")
+
 
 class RagIngestResponse(BaseModel):
     ingested_docs: int
     total_chunks: int
     elapsed_ms: int
+
 
 class RagQueryRequest(BaseModel):
     query: str
@@ -71,12 +85,15 @@ class RagQueryRequest(BaseModel):
     embed_dim: int = Field(default=64, description="Embedding dimension (for method=embed|hybrid)")
     alpha: float = Field(default=0.5, description="Hybrid weighting factor (fts vs embed)")
 
+
 class RagQueryResponse(BaseModel):
     results: List[dict]
     count: int
 
+
 class RagStatsRequest(BaseModel):
     db_path: Optional[str] = None
+
 
 class RagStatsResponse(BaseModel):
     docs: int
@@ -85,35 +102,43 @@ class RagStatsResponse(BaseModel):
     avg_bytes: float
     largest: List[dict]
 
+
 class RagPruneRequest(BaseModel):
     db_path: Optional[str] = None
+
 
 class RagPruneResponse(BaseModel):
     removed_docs: int
     removed_chunks: int
+
+
 # (imports consolidated above)
 
-@app.get('/health')
+
+@app.get("/health")
 async def health():
     return {"status": "ok"}
 
+
 # Alias commonly used by load balancers/monitors
-@app.get('/healthz')
+@app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
 
-@app.get('/version')
+
+@app.get("/version")
 async def version():
     """Return running package version (for debugging / client caching)."""
     return get_build_info()
 
-@app.post('/compile', response_model=CompileResponse)
+
+@app.post("/compile", response_model=CompileResponse)
 async def compile_endpoint(req: CompileRequest):
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
     # Always produce v1 for backward compatibility; use v2 by default for clients
     ir = optimize_ir(compile_text(req.text))
-    elapsed = int((time.time() - t0)*1000)
+    elapsed = int((time.time() - t0) * 1000)
     trace_lines = generate_trace(ir) if req.trace else None
     ir2 = compile_text_v2(req.text) if req.v2 else None
     # Optional: render prompts with IR v2 emitters
@@ -124,8 +149,8 @@ async def compile_endpoint(req: CompileRequest):
         plan_v2 = emit_plan_v2(ir2)
         exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
     return CompileResponse(
-    ir=ir.model_dump(),
-    ir_v2=(ir2.model_dump() if ir2 else None),
+        ir=ir.model_dump(),
+        ir_v2=(ir2.model_dump() if ir2 else None),
         system_prompt=emit_system_prompt(ir),
         user_prompt=emit_user_prompt(ir),
         plan=emit_plan(ir),
@@ -137,27 +162,29 @@ async def compile_endpoint(req: CompileRequest):
         processing_ms=elapsed,
         request_id=rid,
         heuristic_version=HEURISTIC_VERSION,
-    heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
-        trace=trace_lines
+        heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
+        trace=trace_lines,
     )
 
 
-@app.get('/schema')
+@app.get("/schema")
 async def schema_endpoint():
-        path = Path('schema/ir.schema.json')
-        return {"schema": path.read_text(encoding='utf-8')}
+    path = Path("schema/ir.schema.json")
+    return {"schema": path.read_text(encoding="utf-8")}
 
-@app.get('/schema/ir_v1')
+
+@app.get("/schema/ir_v1")
 async def schema_ir_v1():
     """Return IR v1 JSON schema (same as /schema legacy)."""
-    path = Path('schema/ir.schema.json')
-    return {"schema": path.read_text(encoding='utf-8')}
+    path = Path("schema/ir.schema.json")
+    return {"schema": path.read_text(encoding="utf-8")}
 
-@app.get('/schema/ir_v2')
+
+@app.get("/schema/ir_v2")
 async def schema_ir_v2():
     """Return IR v2 JSON schema."""
-    path = Path('schema/ir_v2.schema.json')
-    return {"schema": path.read_text(encoding='utf-8')}
+    path = Path("schema/ir_v2.schema.json")
+    return {"schema": path.read_text(encoding="utf-8")}
 
 
 INDEX_HTML = """<!DOCTYPE html>
@@ -267,11 +294,13 @@ INDEX_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-@app.get('/', response_class=HTMLResponse)
-async def root_page():
-        return HTMLResponse(INDEX_HTML)
 
-@app.post('/rag/ingest', response_model=RagIngestResponse)
+@app.get("/", response_class=HTMLResponse)
+async def root_page():
+    return HTMLResponse(INDEX_HTML)
+
+
+@app.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(req: RagIngestRequest):
     docs, chunks, secs = ingest_paths(
         req.paths,
@@ -280,9 +309,10 @@ async def rag_ingest(req: RagIngestRequest):
         embed=req.embed,
         embed_dim=req.embed_dim,
     )
-    return RagIngestResponse(ingested_docs=docs, total_chunks=chunks, elapsed_ms=int(secs*1000))
+    return RagIngestResponse(ingested_docs=docs, total_chunks=chunks, elapsed_ms=int(secs * 1000))
 
-@app.post('/rag/query', response_model=RagQueryResponse)
+
+@app.post("/rag/query", response_model=RagQueryResponse)
 async def rag_query(req: RagQueryRequest):
     method = (req.method or "fts").lower()
     if method not in {"fts", "embed", "hybrid"}:
@@ -306,7 +336,9 @@ class RagPackRequest(BaseModel):
     query: str
     k: int = Field(default=8, description="Top-K to retrieve before packing")
     max_chars: int = Field(default=4000, description="Character budget for packed context")
-    max_tokens: Optional[int] = Field(default=None, description="Approx token budget; overrides chars when set")
+    max_tokens: Optional[int] = Field(
+        default=None, description="Approx token budget; overrides chars when set"
+    )
     token_ratio: float = Field(default=4.0, description="Chars per token heuristic (default 4.0)")
     method: str = Field(default="hybrid", description="Retrieval method fts|embed|hybrid")
     embed_dim: int = Field(default=64, description="Embedding dimension (embed/hybrid)")
@@ -323,7 +355,7 @@ class RagPackResponse(BaseModel):
     budget: dict | None = None
 
 
-@app.post('/rag/pack', response_model=RagPackResponse)
+@app.post("/rag/pack", response_model=RagPackResponse)
 async def rag_pack_endpoint(req: RagPackRequest):
     method = (req.method or "hybrid").lower()
     if method not in {"fts", "embed", "hybrid"}:
@@ -349,12 +381,14 @@ async def rag_pack_endpoint(req: RagPackRequest):
     )
     return RagPackResponse(**packed)
 
-@app.post('/rag/stats', response_model=RagStatsResponse)
+
+@app.post("/rag/stats", response_model=RagStatsResponse)
 async def rag_stats_endpoint(req: RagStatsRequest):
     s = rag_stats(db_path=req.db_path)
     return RagStatsResponse(**s)
 
-@app.post('/rag/prune', response_model=RagPruneResponse)
+
+@app.post("/rag/prune", response_model=RagPruneResponse)
 async def rag_prune_endpoint(req: RagPruneRequest):
     r = rag_prune(db_path=req.db_path)
     return RagPruneResponse(**r)

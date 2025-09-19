@@ -11,6 +11,7 @@ Features:
   - Persona + Complexity + Risk summary header
   - Light / Dark theme toggle
 """
+
 from __future__ import annotations
 import json
 import os
@@ -19,7 +20,14 @@ from tkinter import ttk, messagebox, filedialog
 import time
 from pathlib import Path
 
-from app.compiler import compile_text, compile_text_v2, optimize_ir, HEURISTIC_VERSION, HEURISTIC2_VERSION, generate_trace
+from app.compiler import (
+    compile_text,
+    compile_text_v2,
+    optimize_ir,
+    HEURISTIC_VERSION,
+    HEURISTIC2_VERSION,
+    generate_trace,
+)
 from app.emitters import (
     emit_system_prompt,
     emit_user_prompt,
@@ -66,7 +74,9 @@ class PromptCompilerUI:
         self.txt_context = tk.Text(ctx_row, height=4, wrap=tk.WORD)
         self.txt_context.pack(fill=tk.X, pady=(2, 6))
         self.var_include_context = tk.BooleanVar(value=False)
-        ttk.Checkbutton(ctx_row, text="Include context in prompts", variable=self.var_include_context).pack(anchor=tk.W)
+        ttk.Checkbutton(
+            ctx_row, text="Include context in prompts", variable=self.var_include_context
+        ).pack(anchor=tk.W)
 
         # Options row
         opts = ttk.Frame(top)
@@ -77,10 +87,14 @@ class PromptCompilerUI:
         ttk.Checkbutton(opts, text="Trace", variable=self.var_trace).pack(side=tk.LEFT, padx=(6, 0))
         # Toggle: render prompts using IR v2 emitters
         self.var_render_v2 = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Use IR v2 emitters", variable=self.var_render_v2).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Checkbutton(opts, text="Use IR v2 emitters", variable=self.var_render_v2).pack(
+            side=tk.LEFT, padx=(6, 0)
+        )
         # Toggle: wrap long lines in output panes
         self.var_wrap = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Wrap output", variable=self.var_wrap).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Checkbutton(opts, text="Wrap output", variable=self.var_wrap).pack(
+            side=tk.LEFT, padx=(6, 0)
+        )
 
         ttk.Button(opts, text="Generate", command=self.on_generate).pack(side=tk.LEFT, padx=4)
         ttk.Button(opts, text="Show Schema", command=self.on_show_schema).pack(side=tk.LEFT, padx=4)
@@ -109,7 +123,9 @@ class PromptCompilerUI:
             self.cmb_examples.bind("<<ComboboxSelected>>", self._on_example_selected)
             # Toggle: auto-generate after loading an example
             self.var_autogen_example = tk.BooleanVar(value=False)
-            ttk.Checkbutton(opts, text="Auto-generate", variable=self.var_autogen_example).pack(side=tk.LEFT, padx=(6, 0))
+            ttk.Checkbutton(opts, text="Auto-generate", variable=self.var_autogen_example).pack(
+                side=tk.LEFT, padx=(6, 0)
+            )
 
         # OpenAI quick-send controls
         ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
@@ -128,8 +144,12 @@ class PromptCompilerUI:
         )
         self.cmb_model.pack(side=tk.LEFT)
         self.var_openai_expanded = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(side=tk.LEFT, padx=(6, 0))
-        ttk.Button(opts, text="Send to OpenAI", command=self.on_send_openai).pack(side=tk.LEFT, padx=6)
+        ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(
+            side=tk.LEFT, padx=(6, 0)
+        )
+        ttk.Button(opts, text="Send to OpenAI", command=self.on_send_openai).pack(
+            side=tk.LEFT, padx=6
+        )
 
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
@@ -159,16 +179,28 @@ class PromptCompilerUI:
         self.nb.add(cons_frame, text="IR v2 Constraints")
         cons_bar = ttk.Frame(cons_frame)
         cons_bar.pack(fill=tk.X)
-        ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(side=tk.LEFT, padx=2, pady=2)
-        ttk.Button(cons_bar, text="Export CSV", command=self._export_constraints_csv).pack(side=tk.LEFT, padx=2, pady=2)
-        ttk.Button(cons_bar, text="Export JSON", command=self._export_constraints_json).pack(side=tk.LEFT, padx=2, pady=2)
-        ttk.Button(cons_bar, text="Export Trace", command=self._export_trace).pack(side=tk.LEFT, padx=2, pady=2)
+        ttk.Button(cons_bar, text="Copy", command=self._copy_constraints).pack(
+            side=tk.LEFT, padx=2, pady=2
+        )
+        ttk.Button(cons_bar, text="Export CSV", command=self._export_constraints_csv).pack(
+            side=tk.LEFT, padx=2, pady=2
+        )
+        ttk.Button(cons_bar, text="Export JSON", command=self._export_constraints_json).pack(
+            side=tk.LEFT, padx=2, pady=2
+        )
+        ttk.Button(cons_bar, text="Export Trace", command=self._export_trace).pack(
+            side=tk.LEFT, padx=2, pady=2
+        )
         # Filter: show only live_debug origin constraints
         self.var_only_live_debug = tk.BooleanVar(value=False)
-        ttk.Checkbutton(cons_bar, text="Only live_debug", variable=self.var_only_live_debug,
-            command=self._render_constraints_table).pack(side=tk.LEFT, padx=6)
+        ttk.Checkbutton(
+            cons_bar,
+            text="Only live_debug",
+            variable=self.var_only_live_debug,
+            command=self._render_constraints_table,
+        ).pack(side=tk.LEFT, padx=6)
         # Text search filter
-        ttk.Label(cons_bar, text="Search:").pack(side=tk.LEFT, padx=(6,2))
+        ttk.Label(cons_bar, text="Search:").pack(side=tk.LEFT, padx=(6, 2))
         self.var_constraints_search = tk.StringVar(value="")
         ent_search = ttk.Entry(cons_bar, textvariable=self.var_constraints_search, width=18)
         ent_search.pack(side=tk.LEFT)
@@ -181,17 +213,29 @@ class PromptCompilerUI:
             textvariable=self.var_min_priority,
             width=6,
             state="readonly",
-            values=("Any","90","80","70","65","60","50","40","30","20","10"),
+            values=("Any", "90", "80", "70", "65", "60", "50", "40", "30", "20", "10"),
         )
         self.cmb_min_priority.pack(side=tk.LEFT)
-        self.cmb_min_priority.bind("<<ComboboxSelected>>", lambda _e: self._render_constraints_table())
-        self.tree_constraints = ttk.Treeview(cons_frame, columns=("priority","origin","id","text"), show="headings")
+        self.cmb_min_priority.bind(
+            "<<ComboboxSelected>>", lambda _e: self._render_constraints_table()
+        )
+        self.tree_constraints = ttk.Treeview(
+            cons_frame, columns=("priority", "origin", "id", "text"), show="headings"
+        )
         # Add clickable headings for sorting
         self._constraints_sort_state = {"col": None, "reverse": False}
-        self.tree_constraints.heading("priority", text="Priority", command=lambda c="priority": self._sort_constraints(c))
-        self.tree_constraints.heading("origin", text="Origin", command=lambda c="origin": self._sort_constraints(c))
-        self.tree_constraints.heading("id", text="ID", command=lambda c="id": self._sort_constraints(c))
-        self.tree_constraints.heading("text", text="Text", command=lambda c="text": self._sort_constraints(c))
+        self.tree_constraints.heading(
+            "priority", text="Priority", command=lambda c="priority": self._sort_constraints(c)
+        )
+        self.tree_constraints.heading(
+            "origin", text="Origin", command=lambda c="origin": self._sort_constraints(c)
+        )
+        self.tree_constraints.heading(
+            "id", text="ID", command=lambda c="id": self._sort_constraints(c)
+        )
+        self.tree_constraints.heading(
+            "text", text="Text", command=lambda c="text": self._sort_constraints(c)
+        )
         self.tree_constraints.column("priority", width=80, anchor=tk.CENTER)
         self.tree_constraints.column("origin", width=120, anchor=tk.W)
         self.tree_constraints.column("id", width=120, anchor=tk.W)
@@ -214,10 +258,14 @@ class PromptCompilerUI:
         self.var_render_v2.trace_add("write", lambda *_: self._save_settings())
         self.var_only_live_debug.trace_add("write", lambda *_: self._render_constraints_table())
         self.var_wrap.trace_add("write", lambda *_: (self._apply_wrap(), self._save_settings()))
-        self.var_min_priority.trace_add("write", lambda *_: (self._render_constraints_table(), self._save_settings()))
+        self.var_min_priority.trace_add(
+            "write", lambda *_: (self._render_constraints_table(), self._save_settings())
+        )
         try:
             # Persist auto-generate toggle if present
-            getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).trace_add("write", lambda *_: self._save_settings())
+            getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).trace_add(
+                "write", lambda *_: self._save_settings()
+            )
         except Exception:
             pass
         try:
@@ -261,19 +309,39 @@ class PromptCompilerUI:
         bar.pack(fill=tk.X)
         txt = tk.Text(frame, wrap=tk.NONE)
         txt.pack(fill=tk.BOTH, expand=True)
-        ttk.Button(bar, text="Copy", command=lambda t=txt: self._copy_text(t)).pack(side=tk.LEFT, padx=2, pady=2)
+        ttk.Button(bar, text="Copy", command=lambda t=txt: self._copy_text(t)).pack(
+            side=tk.LEFT, padx=2, pady=2
+        )
         if title in ("System Prompt", "User Prompt", "Plan", "Expanded Prompt"):
-            ttk.Button(bar, text="Copy all", command=self._copy_all_texts).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="Copy all", command=self._copy_all_texts).pack(
+                side=tk.LEFT, padx=2, pady=2
+            )
         if title == "IR JSON":
-            ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
-            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(
+                bar,
+                text="Export JSON",
+                command=lambda: self._export_text(self.txt_ir, default_ext=".json"),
+            ).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(
+                side=tk.LEFT, padx=2, pady=2
+            )
         if title == "IR v2 JSON":
-            ttk.Button(bar, text="Export JSON", command=lambda: self._export_text(self.txt_ir2, default_ext=".json")).pack(side=tk.LEFT, padx=2, pady=2)
-            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(
+                bar,
+                text="Export JSON",
+                command=lambda: self._export_text(self.txt_ir2, default_ext=".json"),
+            ).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="Copy as cURL", command=self._copy_as_curl).pack(
+                side=tk.LEFT, padx=2, pady=2
+            )
         if title == "Expanded Prompt":
-            ttk.Button(bar, text="Export MD", command=lambda: self._export_markdown_combined()).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(
+                bar, text="Export MD", command=lambda: self._export_markdown_combined()
+            ).pack(side=tk.LEFT, padx=2, pady=2)
         if title == "Expanded Prompt":
-            ttk.Label(bar, text="(Diagnostics appear here if enabled)", foreground="#666").pack(side=tk.RIGHT)
+            ttk.Label(bar, text="(Diagnostics appear here if enabled)", foreground="#666").pack(
+                side=tk.RIGHT
+            )
         return txt
 
     # Theme
@@ -304,11 +372,30 @@ class PromptCompilerUI:
         style.configure("Treeview", background=panel, fieldbackground=panel, foreground=fg)
         style.configure("Treeview.Heading", background=panel, foreground=fg)
         # Chips label style
-        style.configure("Chip.TLabel", background=("#2d7dd2" if not dark else "#2563eb"), foreground="#ffffff", padding=(6,2))
-        for t in [self.txt_prompt, getattr(self, 'txt_context', None), self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
+        style.configure(
+            "Chip.TLabel",
+            background=("#2d7dd2" if not dark else "#2563eb"),
+            foreground="#ffffff",
+            padding=(6, 2),
+        )
+        for t in [
+            self.txt_prompt,
+            getattr(self, "txt_context", None),
+            self.txt_system,
+            self.txt_user,
+            self.txt_plan,
+            self.txt_expanded,
+            self.txt_ir,
+            self.txt_ir2,
+            self.txt_trace,
+            getattr(self, "txt_openai", None),
+            getattr(self, "txt_diff", None),
+        ]:
             if t is None:
                 continue
-            t.configure(bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg)
+            t.configure(
+                bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg
+            )
         self.btn_theme.config(text="Light" if dark else "Dark")
 
     # Settings persistence
@@ -339,7 +426,9 @@ class PromptCompilerUI:
                 self.var_wrap.set(bool(data.get("wrap")))
             if "auto_generate_example" in data:
                 try:
-                    getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).set(bool(data.get("auto_generate_example")))
+                    getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).set(
+                        bool(data.get("auto_generate_example"))
+                    )
                 except Exception:
                     pass
             if "min_priority" in data:
@@ -360,7 +449,7 @@ class PromptCompilerUI:
         except Exception:
             pass
         # Geometry
-        if (geo := data.get("geometry")):
+        if geo := data.get("geometry"):
             try:
                 self.root.geometry(str(geo))
             except Exception:
@@ -384,16 +473,24 @@ class PromptCompilerUI:
                 "diagnostics": bool(self.var_diag.get()),
                 "trace": bool(self.var_trace.get()),
                 "use_expanded": bool(self.var_openai_expanded.get()),
-                "render_v2_emitters": bool(getattr(self, 'var_render_v2', tk.BooleanVar(value=False)).get()),
-                "only_live_debug": bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()),
-                "wrap": bool(getattr(self, 'var_wrap', tk.BooleanVar(value=False)).get()),
-                "auto_generate_example": bool(getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).get()),
-                "min_priority": getattr(self, 'var_min_priority', tk.StringVar(value="Any")).get(),
+                "render_v2_emitters": bool(
+                    getattr(self, "var_render_v2", tk.BooleanVar(value=False)).get()
+                ),
+                "only_live_debug": bool(
+                    getattr(self, "var_only_live_debug", tk.BooleanVar(value=False)).get()
+                ),
+                "wrap": bool(getattr(self, "var_wrap", tk.BooleanVar(value=False)).get()),
+                "auto_generate_example": bool(
+                    getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).get()
+                ),
+                "min_priority": getattr(self, "var_min_priority", tk.StringVar(value="Any")).get(),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
             }
-            self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.config_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         except Exception:
             pass
 
@@ -414,7 +511,16 @@ class PromptCompilerUI:
         self.status_var.set("Copied")
 
     def on_clear(self):
-        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None)]:
+        for t in [
+            self.txt_system,
+            self.txt_user,
+            self.txt_plan,
+            self.txt_expanded,
+            self.txt_ir,
+            self.txt_ir2,
+            self.txt_trace,
+            getattr(self, "txt_openai", None),
+        ]:
             if t is None:
                 continue
             t.delete("1.0", tk.END)
@@ -423,7 +529,7 @@ class PromptCompilerUI:
         # Clear chips and constraints
         for w in self.chips_container.winfo_children():
             w.destroy()
-        if hasattr(self, 'tree_constraints'):
+        if hasattr(self, "tree_constraints"):
             for i in self.tree_constraints.get_children():
                 self.tree_constraints.delete(i)
 
@@ -455,7 +561,9 @@ class PromptCompilerUI:
             messagebox.showwarning("OpenAI", "Enter a prompt text first.")
             return
         if OpenAI is None:
-            messagebox.showerror("OpenAI", "Package 'openai' not installed. Run: pip install openai")
+            messagebox.showerror(
+                "OpenAI", "Package 'openai' not installed. Run: pip install openai"
+            )
             return
         if not os.environ.get("OPENAI_API_KEY"):
             messagebox.showerror("OpenAI", "OPENAI_API_KEY is not set in environment.")
@@ -476,7 +584,10 @@ class PromptCompilerUI:
                 client = OpenAI()
                 resp = client.chat.completions.create(
                     model=model,
-                    messages=[{"role":"system","content":system}, {"role":"user","content":user}],
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
                     temperature=0.7,
                 )
                 try:
@@ -486,8 +597,8 @@ class PromptCompilerUI:
                 self.txt_openai.delete("1.0", tk.END)
                 self.txt_openai.insert(tk.END, content or "<no content>")
                 # Focus the OpenAI tab
-                for i in range(self.nb.index('end')):
-                    if self.nb.tab(i, 'text') == 'OpenAI Response':
+                for i in range(self.nb.index("end")):
+                    if self.nb.tab(i, "text") == "OpenAI Response":
                         self.nb.select(i)
                         break
                 self.status_var.set("OpenAI: done")
@@ -524,14 +635,18 @@ class PromptCompilerUI:
             # Inject optional Context section (applies to both branches)
             try:
                 if bool(self.var_include_context.get()):
-                    ctx_text = (self.txt_context.get("1.0", tk.END).strip() or "")
+                    ctx_text = self.txt_context.get("1.0", tk.END).strip() or ""
                     if ctx_text:
                         user = f"[Context]\n{ctx_text}\n\n" + user
                         expanded = f"[Context]\n{ctx_text}\n\n" + expanded
             except Exception:
                 pass
             ir_json = json.dumps(ir.model_dump(), ensure_ascii=False, indent=2)
-            ir2_json = json.dumps(ir2.model_dump(), ensure_ascii=False, indent=2) if ir2 is not None else ""
+            ir2_json = (
+                json.dumps(ir2.model_dump(), ensure_ascii=False, indent=2)
+                if ir2 is not None
+                else ""
+            )
             # Optional extras
             trace_lines = generate_trace(ir) if self.var_trace.get() else []
             mapping = [
@@ -549,6 +664,7 @@ class PromptCompilerUI:
             # IR Diff (simple)
             try:
                 import difflib
+
                 a = (ir_json or "").splitlines(keepends=True)
                 b = (ir2_json or "").splitlines(keepends=True)
                 diff = difflib.unified_diff(a, b, fromfile="IR v1", tofile="IR v2")
@@ -562,14 +678,16 @@ class PromptCompilerUI:
                 w.destroy()
             if ir2 is not None:
                 # Intent chips
-                for intent in (getattr(ir2, 'intents', []) or []):
+                for intent in getattr(ir2, "intents", []) or []:
                     lbl = ttk.Label(self.chips_container, text=intent, style="Chip.TLabel")
                     lbl.pack(side=tk.LEFT, padx=4, pady=2)
                 # Constraints table sorted by priority desc
                 rows = []
-                for c in (getattr(ir2, 'constraints', []) or []):
-                    pr = getattr(c, 'priority', 0) or 0
-                    rows.append((pr, getattr(c,'origin',''), getattr(c,'id',''), getattr(c,'text','')))
+                for c in getattr(ir2, "constraints", []) or []:
+                    pr = getattr(c, "priority", 0) or 0
+                    rows.append(
+                        (pr, getattr(c, "origin", ""), getattr(c, "id", ""), getattr(c, "text", ""))
+                    )
                 rows.sort(key=lambda r: r[0], reverse=True)
                 # Save all rows and render via helper (supports filtering)
                 self._constraints_rows_all = rows
@@ -589,21 +707,25 @@ class PromptCompilerUI:
             elapsed = int((time.time() - t0) * 1000)
             self.summary_var.set(" | ".join(parts))
             suffix = " • v2 emitters" if use_v2_emitters else ""
-            self.status_var.set(f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}")
+            self.status_var.set(
+                f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}"
+            )
         except Exception as e:  # pragma: no cover
             self.status_var.set("Error")
             messagebox.showerror("Error", str(e))
 
     def _copy_constraints(self):
-        if not hasattr(self, 'tree_constraints'):
+        if not hasattr(self, "tree_constraints"):
             return
-        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        rows = [
+            self.tree_constraints.item(i, "values") for i in self.tree_constraints.get_children()
+        ]
         if not rows:
             return
         # Build Markdown table
         md = ["| Priority | Origin | ID | Text |", "|---:|---|---|---|"]
         for pr, origin, idv, text in rows:
-            text_str = str(text).replace('|', '\\|')
+            text_str = str(text).replace("|", "\\|")
             md.append(f"| {pr} | {origin} | {idv} | {text_str} |")
         data = "\n".join(md)
         self.root.clipboard_clear()
@@ -611,35 +733,43 @@ class PromptCompilerUI:
         self.status_var.set("Constraints copied")
 
     def _export_constraints_csv(self):
-        if not hasattr(self, 'tree_constraints'):
+        if not hasattr(self, "tree_constraints"):
             return
-        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        rows = [
+            self.tree_constraints.item(i, "values") for i in self.tree_constraints.get_children()
+        ]
         if not rows:
             messagebox.showinfo("Export", "No constraints to export.")
             return
-        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV","*.csv"), ("All Files","*.*")])
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv", filetypes=[("CSV", "*.csv"), ("All Files", "*.*")]
+        )
         if not path:
             return
         try:
             # Simple CSV without quotes for readability; escape commas in text
             lines = ["priority,origin,id,text"]
             for pr, origin, idv, text in rows:
-                text_s = str(text).replace('\n', ' ').replace('"', '""')
+                text_s = str(text).replace("\n", " ").replace('"', '""')
                 # surround text with quotes to preserve commas
-                lines.append(f"{pr},{origin},{idv},\"{text_s}\"")
+                lines.append(f'{pr},{origin},{idv},"{text_s}"')
             Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
             messagebox.showinfo("Export", f"Saved: {path}")
         except Exception as e:
             messagebox.showerror("Export", str(e))
 
     def _export_constraints_json(self):
-        if not hasattr(self, 'tree_constraints'):
+        if not hasattr(self, "tree_constraints"):
             return
-        rows = [self.tree_constraints.item(i, 'values') for i in self.tree_constraints.get_children()]
+        rows = [
+            self.tree_constraints.item(i, "values") for i in self.tree_constraints.get_children()
+        ]
         if not rows:
             messagebox.showinfo("Export", "No constraints to export.")
             return
-        path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+        path = filedialog.asksaveasfilename(
+            defaultextension=".json", filetypes=[("JSON", "*.json"), ("All Files", "*.*")]
+        )
         if not path:
             return
         try:
@@ -647,7 +777,9 @@ class PromptCompilerUI:
                 {"priority": pr, "origin": origin, "id": idv, "text": text}
                 for pr, origin, idv, text in rows
             ]
-            Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            Path(path).write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
             messagebox.showinfo("Export", f"Saved: {path}")
         except Exception as e:
             messagebox.showerror("Export", str(e))
@@ -672,9 +804,9 @@ class PromptCompilerUI:
         self.status_var.set("All outputs copied")
 
     def _export_text(self, widget: tk.Text, default_ext: str = ".txt"):
-        ft = [("All Files","*.*")]
+        ft = [("All Files", "*.*")]
         if default_ext == ".json":
-            ft = [("JSON","*.json"), ("All Files","*.*")]
+            ft = [("JSON", "*.json"), ("All Files", "*.*")]
         path = filedialog.asksaveasfilename(defaultextension=default_ext, filetypes=ft)
         if not path:
             return
@@ -686,7 +818,9 @@ class PromptCompilerUI:
             messagebox.showerror("Export", str(e))
 
     def _export_markdown_combined(self):
-        path = filedialog.asksaveasfilename(defaultextension=".md", filetypes=[("Markdown","*.md"), ("All Files","*.*")])
+        path = filedialog.asksaveasfilename(
+            defaultextension=".md", filetypes=[("Markdown", "*.md"), ("All Files", "*.*")]
+        )
         if not path:
             return
         content = []
@@ -702,18 +836,18 @@ class PromptCompilerUI:
 
     def _render_constraints_table(self):
         # Render constraints from cached rows with optional live_debug filter
-        if not hasattr(self, 'tree_constraints'):
+        if not hasattr(self, "tree_constraints"):
             return
-        rows = getattr(self, '_constraints_rows_all', [])
+        rows = getattr(self, "_constraints_rows_all", [])
         if not isinstance(rows, list):
             rows = []
-        if bool(getattr(self, 'var_only_live_debug', tk.BooleanVar(value=False)).get()):
-            rows_to_show = [r for r in rows if (len(r) > 1 and str(r[1]) == 'live_debug')]
+        if bool(getattr(self, "var_only_live_debug", tk.BooleanVar(value=False)).get()):
+            rows_to_show = [r for r in rows if (len(r) > 1 and str(r[1]) == "live_debug")]
         else:
             rows_to_show = rows
         # Apply min priority filter if set
         try:
-            mp_raw = getattr(self, 'var_min_priority', tk.StringVar(value="Any")).get()
+            mp_raw = getattr(self, "var_min_priority", tk.StringVar(value="Any")).get()
             if mp_raw and mp_raw != "Any":
                 mp = int(mp_raw)
                 rows_to_show = [r for r in rows_to_show if (len(r) > 0 and int(r[0]) >= mp)]
@@ -721,37 +855,48 @@ class PromptCompilerUI:
             pass
         # Apply text search filter
         try:
-            term = getattr(self, 'var_constraints_search', tk.StringVar(value="")).get().strip().lower()
+            term = (
+                getattr(self, "var_constraints_search", tk.StringVar(value=""))
+                .get()
+                .strip()
+                .lower()
+            )
             if term:
-                rows_to_show = [r for r in rows_to_show if any(term in str(cell).lower() for cell in r)]
+                rows_to_show = [
+                    r for r in rows_to_show if any(term in str(cell).lower() for cell in r)
+                ]
         except Exception:
             pass
         # Apply sorting state
         try:
-            state = getattr(self, '_constraints_sort_state', None)
-            if state and state.get('col'):
-                col = state['col']
-                idx_map = {'priority':0,'origin':1,'id':2,'text':3}
+            state = getattr(self, "_constraints_sort_state", None)
+            if state and state.get("col"):
+                col = state["col"]
+                idx_map = {"priority": 0, "origin": 1, "id": 2, "text": 3}
                 ci = idx_map.get(col)
                 if ci is not None:
-                    rows_to_show = sorted(rows_to_show, key=lambda r: (r[ci] if ci < len(r) else ''), reverse=bool(state.get('reverse')))
+                    rows_to_show = sorted(
+                        rows_to_show,
+                        key=lambda r: (r[ci] if ci < len(r) else ""),
+                        reverse=bool(state.get("reverse")),
+                    )
         except Exception:
             pass
         for i in self.tree_constraints.get_children():
             self.tree_constraints.delete(i)
         for r in rows_to_show:
-            self.tree_constraints.insert('', tk.END, values=r)
+            self.tree_constraints.insert("", tk.END, values=r)
         # Persist filter state
         self._save_settings()
 
     def _sort_constraints(self, column: str):  # pragma: no cover - UI event
         try:
-            state = getattr(self, '_constraints_sort_state', {"col": None, "reverse": False})
-            if state.get('col') == column:
-                state['reverse'] = not state.get('reverse')
+            state = getattr(self, "_constraints_sort_state", {"col": None, "reverse": False})
+            if state.get("col") == column:
+                state["reverse"] = not state.get("reverse")
             else:
-                state['col'] = column
-                state['reverse'] = False
+                state["col"] = column
+                state["reverse"] = False
             self._constraints_sort_state = state
             self._render_constraints_table()
         except Exception:
@@ -760,15 +905,15 @@ class PromptCompilerUI:
     def _copy_as_curl(self):  # pragma: no cover - UI utility
         try:
             prompt = self.txt_prompt.get("1.0", tk.END).strip()
-            diagnostics = 'true' if bool(self.var_diag.get()) else 'false'
-            trace = 'true' if bool(self.var_trace.get()) else 'false'
-            render_v2_prompts = 'true' if bool(self.var_render_v2.get()) else 'false'
+            diagnostics = "true" if bool(self.var_diag.get()) else "false"
+            trace = "true" if bool(self.var_trace.get()) else "false"
+            render_v2_prompts = "true" if bool(self.var_render_v2.get()) else "false"
             payload = {
                 "text": prompt,
-                "diagnostics": diagnostics == 'true',
-                "trace": trace == 'true',
+                "diagnostics": diagnostics == "true",
+                "trace": trace == "true",
                 "v2": True,
-                "render_v2_prompts": render_v2_prompts == 'true'
+                "render_v2_prompts": render_v2_prompts == "true",
             }
             # Minify JSON for curl
             body = json.dumps(payload, ensure_ascii=False)
@@ -777,7 +922,7 @@ class PromptCompilerUI:
             escaped = body.replace("'", "'\"'\"'")
             cmd = (
                 "curl -s -X POST http://localhost:8000/compile "
-                "-H \"Content-Type: application/json\" "
+                '-H "Content-Type: application/json" '
                 f"--data '{escaped}'"
             )
             self.root.clipboard_clear()
@@ -807,7 +952,7 @@ class PromptCompilerUI:
                 pass
             self.status_var.set(f"Loaded: {name}")
             try:
-                if bool(getattr(self, 'var_autogen_example', tk.BooleanVar(value=False)).get()):
+                if bool(getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).get()):
                     # Trigger generation shortly after UI updates
                     self.root.after(10, self.on_generate)
             except Exception:
@@ -825,14 +970,18 @@ class PromptCompilerUI:
         ttk.Label(frm, text="Choose what to save:").pack(anchor=tk.W)
 
         def save_md():
-            path = filedialog.asksaveasfilename(defaultextension=".md", filetypes=[("Markdown","*.md"), ("All Files","*.*")])
+            path = filedialog.asksaveasfilename(
+                defaultextension=".md", filetypes=[("Markdown", "*.md"), ("All Files", "*.*")]
+            )
             if not path:
                 return
             content = []
             content.append("# System Prompt\n\n" + self.txt_system.get("1.0", tk.END).strip())
             content.append("\n\n# User Prompt\n\n" + self.txt_user.get("1.0", tk.END).strip())
             content.append("\n\n# Plan\n\n" + self.txt_plan.get("1.0", tk.END).strip())
-            content.append("\n\n# Expanded Prompt\n\n" + self.txt_expanded.get("1.0", tk.END).strip())
+            content.append(
+                "\n\n# Expanded Prompt\n\n" + self.txt_expanded.get("1.0", tk.END).strip()
+            )
             try:
                 Path(path).write_text("\n".join(content), encoding="utf-8")
                 messagebox.showinfo("Save", f"Saved: {path}")
@@ -840,27 +989,35 @@ class PromptCompilerUI:
                 messagebox.showerror("Save", str(e))
 
         def save_ir():
-            path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+            path = filedialog.asksaveasfilename(
+                defaultextension=".json", filetypes=[("JSON", "*.json"), ("All Files", "*.*")]
+            )
             if not path:
                 return
             try:
-                Path(path).write_text(self.txt_ir.get("1.0", tk.END).strip() + "\n", encoding="utf-8")
+                Path(path).write_text(
+                    self.txt_ir.get("1.0", tk.END).strip() + "\n", encoding="utf-8"
+                )
                 messagebox.showinfo("Save", f"Saved: {path}")
             except Exception as e:
                 messagebox.showerror("Save", str(e))
 
         def save_ir2():
-            path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON","*.json"), ("All Files","*.*")])
+            path = filedialog.asksaveasfilename(
+                defaultextension=".json", filetypes=[("JSON", "*.json"), ("All Files", "*.*")]
+            )
             if not path:
                 return
             try:
-                Path(path).write_text(self.txt_ir2.get("1.0", tk.END).strip() + "\n", encoding="utf-8")
+                Path(path).write_text(
+                    self.txt_ir2.get("1.0", tk.END).strip() + "\n", encoding="utf-8"
+                )
                 messagebox.showinfo("Save", f"Saved: {path}")
             except Exception as e:
                 messagebox.showerror("Save", str(e))
 
         btns = ttk.Frame(frm)
-        btns.pack(fill=tk.X, pady=(8,0))
+        btns.pack(fill=tk.X, pady=(8, 0))
         ttk.Button(btns, text="Save Combined Markdown", command=save_md).pack(side=tk.LEFT, padx=4)
         ttk.Button(btns, text="Save IR v1 JSON", command=save_ir).pack(side=tk.LEFT, padx=4)
         ttk.Button(btns, text="Save IR v2 JSON", command=save_ir2).pack(side=tk.LEFT, padx=4)
@@ -870,7 +1027,9 @@ class PromptCompilerUI:
         data = self.txt_trace.get("1.0", tk.END).strip()
         if not data:
             return
-        path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text","*.txt"), ("All Files","*.*")])
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt", filetypes=[("Text", "*.txt"), ("All Files", "*.*")]
+        )
         if not path:
             return
         try:
@@ -884,17 +1043,17 @@ class PromptCompilerUI:
             idx = self.nb.index(self.nb.select())
             widget = None
             # map tab title to text widget
-            title = self.nb.tab(idx, 'text')
+            title = self.nb.tab(idx, "text")
             mapping = {
-                'System Prompt': self.txt_system,
-                'User Prompt': self.txt_user,
-                'Plan': self.txt_plan,
-                'Expanded Prompt': self.txt_expanded,
-                'IR JSON': self.txt_ir,
-                'IR v2 JSON': self.txt_ir2,
-                'OpenAI Response': self.txt_openai,
-                'Trace': self.txt_trace,
-                'IR Diff': self.txt_diff,
+                "System Prompt": self.txt_system,
+                "User Prompt": self.txt_user,
+                "Plan": self.txt_plan,
+                "Expanded Prompt": self.txt_expanded,
+                "IR JSON": self.txt_ir,
+                "IR v2 JSON": self.txt_ir2,
+                "OpenAI Response": self.txt_openai,
+                "Trace": self.txt_trace,
+                "IR Diff": self.txt_diff,
             }
             widget = mapping.get(title)
             if widget is None:
@@ -914,6 +1073,7 @@ class PromptCompilerUI:
         ent = ttk.Entry(frm, textvariable=var)
         ent.pack(fill=tk.X)
         ent.focus_set()
+
         def do_find():
             term = var.get()
             if not term:
@@ -924,13 +1084,14 @@ class PromptCompilerUI:
                     start = widget.search(term, "1.0", stopindex=tk.END, nocase=True)
                 if start:
                     end = f"{start}+{len(term)}c"
-                    widget.tag_remove('sel', '1.0', tk.END)
-                    widget.tag_add('sel', start, end)
+                    widget.tag_remove("sel", "1.0", tk.END)
+                    widget.tag_add("sel", start, end)
                     widget.mark_set(tk.INSERT, end)
                     widget.see(start)
             except Exception:
                 pass
-        ttk.Button(frm, text="Find Next", command=do_find).pack(anchor=tk.E, pady=(6,0))
+
+        ttk.Button(frm, text="Find Next", command=do_find).pack(anchor=tk.E, pady=(6, 0))
 
     def _update_prompt_stats(self):
         try:
@@ -946,7 +1107,17 @@ class PromptCompilerUI:
 
     def _apply_wrap(self):
         wrap_mode = tk.WORD if bool(self.var_wrap.get()) else tk.NONE
-        for t in [self.txt_system, self.txt_user, self.txt_plan, self.txt_expanded, self.txt_ir, self.txt_ir2, self.txt_trace, getattr(self, 'txt_openai', None), getattr(self, 'txt_diff', None)]:
+        for t in [
+            self.txt_system,
+            self.txt_user,
+            self.txt_plan,
+            self.txt_expanded,
+            self.txt_ir,
+            self.txt_ir2,
+            self.txt_trace,
+            getattr(self, "txt_openai", None),
+            getattr(self, "txt_diff", None),
+        ]:
             if t is None:
                 continue
             try:

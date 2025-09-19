@@ -19,7 +19,9 @@ def test_json_path_and_diff(tmp_path: Path):
     p1 = tmp_path / "a.json"
     p1.write_text(json.dumps(data1), encoding="utf-8")
 
-    code, out2, err = run_cli(["compile", "--json-only", "teach me gradient descent in 10 minutes"], Path.cwd())
+    code, out2, err = run_cli(
+        ["compile", "--json-only", "teach me gradient descent in 10 minutes"], Path.cwd()
+    )
     assert code == 0
     data2 = json.loads(out2)
     p2 = tmp_path / "b.json"
@@ -38,7 +40,9 @@ def test_json_path_and_diff(tmp_path: Path):
 
 def test_validate_command(tmp_path: Path):
     # compile a valid IR v2 and validate
-    code, out_json, err = run_cli(["compile", "--json-only", "teach me gradient descent"], Path.cwd())
+    code, out_json, err = run_cli(
+        ["compile", "--json-only", "teach me gradient descent"], Path.cwd()
+    )
     assert code == 0
     j = tmp_path / "ok.json"
     j.write_text(out_json, encoding="utf-8")
@@ -61,7 +65,9 @@ def test_batch_command(tmp_path: Path):
     (in_dir / "x.txt").write_text("teach me binary search", encoding="utf-8")
     (in_dir / "y.txt").write_text("gift ideas football fan table", encoding="utf-8")
 
-    code, out, err = run_cli(["batch", str(in_dir), "--out-dir", str(out_dir), "--format", "json"], Path.cwd())
+    code, out, err = run_cli(
+        ["batch", str(in_dir), "--out-dir", str(out_dir), "--format", "json"], Path.cwd()
+    )
     assert code == 0
     assert (out_dir / "x.json").exists()
     assert (out_dir / "y.json").exists()

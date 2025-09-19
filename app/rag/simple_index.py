@@ -127,7 +127,9 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
     return vec
 
 
-def _insert_document(conn: sqlite3.Connection, path: Path, content: str, *, embed: bool = False, embed_dim: int = 64) -> None:
+def _insert_document(
+    conn: sqlite3.Connection, path: Path, content: str, *, embed: bool = False, embed_dim: int = 64
+) -> None:
     stat = path.stat()
     cur = conn.execute(
         "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
@@ -238,7 +240,9 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
         conn.close()
 
 
-def search_embed(query: str, k: int = 5, db_path: Optional[str] = None, embed_dim: int = 64) -> List[dict]:
+def search_embed(
+    query: str, k: int = 5, db_path: Optional[str] = None, embed_dim: int = 64
+) -> List[dict]:
     cache_key = f"emb::{embed_dim}::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
     cached = _cache_get(cache_key)
     if cached is not None:
@@ -388,11 +392,11 @@ def stats(db_path: Optional[str] = None) -> dict:
         _init_schema(conn)
         doc_count = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
         chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
-        sizes = conn.execute("SELECT COALESCE(SUM(size),0), COALESCE(AVG(size),0) FROM docs").fetchone()
+        sizes = conn.execute(
+            "SELECT COALESCE(SUM(size),0), COALESCE(AVG(size),0) FROM docs"
+        ).fetchone()
         total_size, avg_size = sizes
-        largest = conn.execute(
-            "SELECT path, size FROM docs ORDER BY size DESC LIMIT 5"
-        ).fetchall()
+        largest = conn.execute("SELECT path, size FROM docs ORDER BY size DESC LIMIT 5").fetchall()
         return {
             "docs": doc_count,
             "chunks": chunk_count,

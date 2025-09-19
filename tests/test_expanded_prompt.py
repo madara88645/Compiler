@@ -1,6 +1,7 @@
 from app.compiler import compile_text
 from app.emitters import emit_expanded_prompt
 
+
 def test_expanded_prompt_contains_input_and_example():
     txt = "arkadaşıma hediye öner futbol sever"
     ir = compile_text(txt)

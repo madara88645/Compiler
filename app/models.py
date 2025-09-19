@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator
 from pydantic.config import ConfigDict
 
+
 # Intermediate Representation (IR) model mirroring the JSON Schema.
 class IR(BaseModel):
     language: str = Field(..., description="Detected language code: tr|en")
@@ -24,7 +25,18 @@ class IR(BaseModel):
     tools: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator('goals','tasks','constraints','style','tone','steps','examples','banned','tools', mode='before')
+    @field_validator(
+        "goals",
+        "tasks",
+        "constraints",
+        "style",
+        "tone",
+        "steps",
+        "examples",
+        "banned",
+        "tools",
+        mode="before",
+    )
     def _norm_list(cls, v):  # type: ignore
         if v is None:
             return []
@@ -45,32 +57,33 @@ class IR(BaseModel):
             out.append(item2)
         return out
 
-    @field_validator('language')
+    @field_validator("language")
     def _lang(cls, v):  # type: ignore
         if v not in {"tr", "en", "es"}:
             raise ValueError("language must be 'tr' or 'en' or 'es'")
         return v
 
-    @field_validator('output_format')
+    @field_validator("output_format")
     def _fmt(cls, v):  # type: ignore
-        if v not in {"markdown","json","yaml","table","text"}:
+        if v not in {"markdown", "json", "yaml", "table", "text"}:
             raise ValueError("invalid output_format")
         return v
 
-    @field_validator('persona')
+    @field_validator("persona")
     def _persona(cls, v):  # type: ignore
-        allowed = {"assistant","teacher","researcher","coach","mentor","developer"}
+        allowed = {"assistant", "teacher", "researcher", "coach", "mentor", "developer"}
         if v not in allowed:
             raise ValueError(f"persona must be one of {sorted(allowed)}")
         return v
 
-    @field_validator('length_hint')
+    @field_validator("length_hint")
     def _len(cls, v):  # type: ignore
-        if v not in {"short","medium","long"}:
+        if v not in {"short", "medium", "long"}:
             raise ValueError("invalid length_hint")
         return v
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
+
 
 DEFAULT_ROLE_TR = "Yardımcı üretken yapay zeka asistanı"
 DEFAULT_ROLE_EN = "Helpful generative AI assistant"

@@ -17,14 +17,20 @@ EXPECTED = {
     },
     "cloud_case": {
         "language": "en",
-        "domain_anyof": ["cloud", "software", "general", "finance"],  # finance may appear due to 'portfolio' keyword
+        "domain_anyof": [
+            "cloud",
+            "software",
+            "general",
+            "finance",
+        ],  # finance may appear due to 'portfolio' keyword
         "metadata.ambiguous_terms_contains": ["secure", "resilient"],
-    }
+    },
 }
+
 
 def _get(d, path):
     cur = d
-    for part in path.split('.'):
+    for part in path.split("."):
         if isinstance(cur, dict):
             cur = cur.get(part)
         else:
@@ -39,7 +45,9 @@ def test_snapshots_minimal():
         exp = EXPECTED[name]
         assert data["language"] == exp["language"]
         domain = data["domain"]
-        assert domain in exp["domain_anyof"], f"domain {domain} not in allowed {exp['domain_anyof']}"
+        assert domain in exp["domain_anyof"], (
+            f"domain {domain} not in allowed {exp['domain_anyof']}"
+        )
         summary_flag = _get(data, "metadata.summary")
         if "metadata.summary" in exp:
             assert summary_flag == exp["metadata.summary"]

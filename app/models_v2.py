@@ -5,7 +5,8 @@ from pydantic import field_validator
 from pydantic.config import ConfigDict
 
 
-ConstraintPriority = Literal[10,20,30,40,50,60,65,70,80,90]
+ConstraintPriority = Literal[10, 20, 30, 40, 50, 60, 65, 70, 80, 90]
+
 
 class ConstraintV2(BaseModel):
     id: str = Field(..., description="Deterministic id for the constraint")
@@ -14,32 +15,47 @@ class ConstraintV2(BaseModel):
     priority: ConstraintPriority = Field(40, description="Priority weight (higher first)")
     rationale: Optional[str] = Field(None, description="Optional explanation")
 
+
 class StepV2(BaseModel):
-    type: Literal['task','teach','research','compare','plan'] = 'task'
+    type: Literal["task", "teach", "research", "compare", "plan"] = "task"
     text: str
 
+
 class IRv2(BaseModel):
-    version: Literal['2.0'] = '2.0'
-    language: Literal['tr','en','es']
-    persona: Literal['assistant','teacher','researcher','coach','mentor','developer']
+    version: Literal["2.0"] = "2.0"
+    language: Literal["tr", "en", "es"]
+    persona: Literal["assistant", "teacher", "researcher", "coach", "mentor", "developer"]
     role: str
     domain: str
-    intents: List[Literal['teaching','summary','compare','variants','recency','risk','code','ambiguous','debug']] = Field(default_factory=list)
+    intents: List[
+        Literal[
+            "teaching",
+            "summary",
+            "compare",
+            "variants",
+            "recency",
+            "risk",
+            "code",
+            "ambiguous",
+            "debug",
+        ]
+    ] = Field(default_factory=list)
     goals: List[str] = Field(default_factory=list)
     tasks: List[str] = Field(default_factory=list)
     inputs: Dict[str, str] = Field(default_factory=dict)
     constraints: List[ConstraintV2] = Field(default_factory=list)
     style: List[str] = Field(default_factory=list)
     tone: List[str] = Field(default_factory=list)
-    output_format: Literal['markdown','json','yaml','table','text']
-    length_hint: Literal['short','medium','long']
+    output_format: Literal["markdown", "json", "yaml", "table", "text"]
+    length_hint: Literal["short", "medium", "long"]
     steps: List[StepV2] = Field(default_factory=list)
     examples: List[str] = Field(default_factory=list)
     banned: List[str] = Field(default_factory=list)
     tools: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator('constraints', mode='before')
+    @field_validator("constraints", mode="before")
     def _norm_constraints(cls, v):  # type: ignore
         return v or []
-    model_config = ConfigDict(extra='forbid')
+
+    model_config = ConfigDict(extra="forbid")

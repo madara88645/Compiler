@@ -19,6 +19,7 @@ Notes:
   are not yet shipped. This demo keeps a stable, concise user message.
 - Requires package 'openai' (see requirements.txt). Reads OPENAI_API_KEY from environment.
 """
+
 from __future__ import annotations
 import argparse
 import os
@@ -36,7 +37,9 @@ from app.compiler import compile_text, optimize_ir
 from app.emitters import emit_expanded_prompt, emit_system_prompt, emit_user_prompt
 
 
-def compile_messages(raw_prompt: str, use_expanded: bool, diagnostics: bool) -> List[Dict[str, str]]:
+def compile_messages(
+    raw_prompt: str, use_expanded: bool, diagnostics: bool
+) -> List[Dict[str, str]]:
     ir = optimize_ir(compile_text(raw_prompt))
     system = emit_system_prompt(ir)
     if use_expanded:
@@ -52,9 +55,17 @@ def compile_messages(raw_prompt: str, use_expanded: bool, diagnostics: bool) -> 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="PromptC → OpenAI demo pipe")
     parser.add_argument("prompt", nargs="?", help="Raw prompt text. If omitted, will prompt stdin.")
-    parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI chat model (default: gpt-4o-mini)")
-    parser.add_argument("--expanded", action="store_true", help="Send Expanded Prompt instead of concise User Prompt")
-    parser.add_argument("--diagnostics", action="store_true", help="Include diagnostics in Expanded Prompt")
+    parser.add_argument(
+        "--model", default="gpt-4o-mini", help="OpenAI chat model (default: gpt-4o-mini)"
+    )
+    parser.add_argument(
+        "--expanded",
+        action="store_true",
+        help="Send Expanded Prompt instead of concise User Prompt",
+    )
+    parser.add_argument(
+        "--diagnostics", action="store_true", help="Include diagnostics in Expanded Prompt"
+    )
     args = parser.parse_args(argv)
 
     raw = args.prompt
@@ -70,7 +81,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # Ensure openai client is available
     if OpenAI is None:
-        print("The 'openai' package is not installed. Please run 'pip install openai' or 'pip install -r requirements.txt'.")
+        print(
+            "The 'openai' package is not installed. Please run 'pip install openai' or 'pip install -r requirements.txt'."
+        )
         return 2
     if not os.environ.get("OPENAI_API_KEY"):
         print("OPENAI_API_KEY is not set. In PowerShell:  $env:OPENAI_API_KEY = 'sk-...' ")
