@@ -306,6 +306,8 @@ class RagPackRequest(BaseModel):
     query: str
     k: int = Field(default=8, description="Top-K to retrieve before packing")
     max_chars: int = Field(default=4000, description="Character budget for packed context")
+    max_tokens: Optional[int] = Field(default=None, description="Approx token budget; overrides chars when set")
+    token_ratio: float = Field(default=4.0, description="Chars per token heuristic (default 4.0)")
     method: str = Field(default="hybrid", description="Retrieval method fts|embed|hybrid")
     embed_dim: int = Field(default=64, description="Embedding dimension (embed/hybrid)")
     alpha: float = Field(default=0.5, description="Hybrid weighting factor")
@@ -316,7 +318,9 @@ class RagPackResponse(BaseModel):
     packed: str
     included: List[dict]
     chars: int
+    tokens: int | None = None
     query: str
+    budget: dict | None = None
 
 
 @app.post('/rag/pack', response_model=RagPackResponse)
@@ -336,7 +340,13 @@ async def rag_pack_endpoint(req: RagPackRequest):
         )
     else:
         res = rag_search(req.query, k=req.k, db_path=req.db_path)
-    packed = rag_pack_ctx(req.query, res, max_chars=req.max_chars)
+    packed = rag_pack_ctx(
+        req.query,
+        res,
+        max_chars=req.max_chars,
+        max_tokens=req.max_tokens,
+        token_chars=req.token_ratio,
+    )
     return RagPackResponse(**packed)
 
 @app.post('/rag/stats', response_model=RagStatsResponse)

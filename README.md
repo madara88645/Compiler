@@ -114,6 +114,9 @@ promptc rag query "gradient descent optimization" --method hybrid --k 8 --alpha 
 # Pack top-K hybrid results into a single context under a character budget
 promptc rag pack "gradient descent optimization" --k 12 --max-chars 3500 --method hybrid --alpha 0.4
 
+# Approximate token budget (4 chars ≈ 1 token by default)
+promptc rag pack "gradient descent optimization" --k 12 --max-tokens 1200 --token-ratio 4.0 --method hybrid
+
 # Pure lexical packing (no embeddings required)
 
 
@@ -135,13 +138,14 @@ curl -X POST http://127.0.0.1:8000/rag/query \
 
 curl -X POST http://127.0.0.1:8000/rag/pack \
   -H "Content-Type: application/json" \
-  -d '{"query":"gradient descent optimization","method":"hybrid","alpha":0.4,"k":12,"max_chars":3500,"embed_dim":64}'
+  -d '{"query":"gradient descent optimization","method":"hybrid","alpha":0.4,"k":12,"max_chars":3500,"max_tokens":1200,"token_ratio":4.0,"embed_dim":64}'
 ```
 
 Notes & Limitations:
 - Hybrid falls back gracefully if embeddings are absent (acts like lexical only; still returns `hybrid_score`).
 - Packing currently uses stored snippets (first 200 chars per chunk) rather than reloading full chunk text to stay fast; you can adjust this in code (`simple_index.pack`).
 - Character budget is a simple `len()` check (Python characters ≈ UTF-8 bytes for ASCII content). Adjust margin if mixing wide Unicode.
+- Token budget is approximate: tokens ≈ chars / token_ratio (default 4.0). For more accuracy, plug in a tokenizer later.
 - No cache invalidation: the in-process LRU (capacity 64) may return stale results if you ingest new docs after querying in the same session. Restart process or bump cache key strategy if this matters.
 - Deterministic embeddings are intentionally simplistic; for production use, swap `_simple_embed` with a real model and keep the public function signatures stable.
 

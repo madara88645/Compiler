@@ -425,6 +425,8 @@ def rag_pack(
     query: List[str] = typer.Argument(..., help="Query text (used for metadata only)"),
     k: int = typer.Option(8, "--k", help="Top-K to retrieve before packing"),
     max_chars: int = typer.Option(4000, "--max-chars", help="Character budget for packed context"),
+    max_tokens: Optional[int] = typer.Option(None, "--max-tokens", help="Approx token budget; overrides max-chars when set"),
+    token_ratio: float = typer.Option(4.0, "--token-ratio", help="Chars per token heuristic (default 4.0)"),
     method: str = typer.Option("hybrid", "--method", help="Retrieval method fts|embed|hybrid"),
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (for embed/hybrid)"),
     alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting"),
@@ -443,11 +445,15 @@ def rag_pack(
         res = search_hybrid(q, k=k, db_path=dbp, embed_dim=embed_dim, alpha=alpha)
     else:
         res = search(q, k=k, db_path=dbp)
-    packed = pack_context(q, res, max_chars=max_chars)
+    packed = pack_context(q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio)
     if json_only:
         typer.echo(json.dumps(packed, ensure_ascii=False, indent=2))
         return
-    print(f"[packed] chars={packed['chars']} included={len(packed['included'])}")
+    toks = packed.get('tokens')
+    if toks is not None:
+        print(f"[packed] tokens={toks} chars={packed['chars']} included={len(packed['included'])}")
+    else:
+        print(f"[packed] chars={packed['chars']} included={len(packed['included'])}")
     print(packed['packed'])
 
 

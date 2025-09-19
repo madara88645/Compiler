@@ -335,26 +335,51 @@ def search_hybrid(
     return ranked[:k]
 
 
-def pack(query: str, results: List[dict], max_chars: int = 4000) -> dict:
-    """Pack ordered retrieval results into a context block respecting character budget.
+def pack(
+    query: str,
+    results: List[dict],
+    max_chars: int = 4000,
+    *,
+    max_tokens: Optional[int] = None,
+    token_chars: float = 4.0,
+) -> dict:
+    """Pack ordered retrieval results into a context block respecting budget.
+
+    Budgets:
+      - max_chars: upper bound by character count
+      - max_tokens: approximate token budget (tokens ≈ len(text)/token_chars)
 
     Returns dict with combined text and list of included chunk metadata.
     """
     included = []
     buf_parts: List[str] = []
     total = 0
+    total_tokens = 0
     for r in results:
         header = f"# {Path(r['path']).name} chunk={r['chunk_index']}\n"
         # fetch full content for chunk (we only stored snippet); simplest approach: re-query chunk content
         # For minimal implementation we skip refetch and just use snippet (already representative)
         chunk_text = r.get("snippet", "")
         block = header + chunk_text + "\n\n"
-        if total + len(block) > max_chars:
+        next_chars = total + len(block)
+        next_tokens = int(next_chars / token_chars)
+        if max_tokens is not None:
+            if total_tokens + int(len(block) / token_chars) > max_tokens:
+                break
+        if next_chars > max_chars:
             break
         buf_parts.append(block)
-        total += len(block)
+        total = next_chars
+        total_tokens = next_tokens
         included.append({k: r[k] for k in ("path", "chunk_index", "chunk_id")})
-    return {"packed": "".join(buf_parts).rstrip(), "included": included, "chars": total, "query": query}
+    return {
+        "packed": "".join(buf_parts).rstrip(),
+        "included": included,
+        "chars": total,
+        "tokens": total_tokens,
+        "query": query,
+        "budget": {"max_chars": max_chars, "max_tokens": max_tokens, "token_chars": token_chars},
+    }
 
 
 def stats(db_path: Optional[str] = None) -> dict:
