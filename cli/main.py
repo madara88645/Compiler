@@ -227,12 +227,18 @@ def _schema_path(v2: bool) -> Path:
 @app.command()
 def validate(
     files: List[Path] = typer.Argument(..., help="IR JSON file(s) to validate"),
-    v2: bool = typer.Option(
-        True, "--v2/--no-v2", help="Validate against IR v2 (default) or IR v1 schema"
+    ir_version: str = typer.Option(
+        "v2",
+        "--ir-version",
+        help="Schema version to validate against: v1 or v2 (default v2)",
+        case_sensitive=False,
     ),
 ):
     """Validate IR JSON file(s) against the schema."""
-    schema_file = _schema_path(v2)
+    ver = ir_version.lower().strip()
+    if ver not in {"v1", "v2"}:
+        raise typer.BadParameter("--ir-version must be 'v1' or 'v2'")
+    schema_file = _schema_path(ver == "v2")
     try:
         schema = _json.loads(schema_file.read_text(encoding="utf-8"))
     except Exception as e:
