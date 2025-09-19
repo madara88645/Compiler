@@ -228,7 +228,7 @@ def _schema_path(v2: bool) -> Path:
 def validate(
     files: List[Path] = typer.Argument(..., help="IR JSON file(s) to validate"),
     v2: bool = typer.Option(
-        True, "--v2/--v1", help="Validate against IR v2 (default) or IR v1 schema"
+        True, "--v2/--no-v2", help="Validate against IR v2 (default) or IR v1 schema"
     ),
 ):
     """Validate IR JSON file(s) against the schema."""
