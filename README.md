@@ -292,7 +292,7 @@ Interpretation:
 - concurrency: thread count used (each thread runs a compile task)
 
 Re-run with different `--concurrency` values to benchmark scaling on your machine.
-``` 
+```
 
 ```
 
@@ -319,7 +319,7 @@ Re-run with different `--concurrency` values to benchmark scaling on your machin
   "length_hint": "medium",
   "steps": [
     "Introduce core concepts simply",
-    "Demonstrate with examples", 
+    "Demonstrate with examples",
     "Propose a short exercise",
     "Summarize and list resources"
   ]
@@ -517,7 +517,7 @@ The tool converts natural language prompts into a structured JSON format followi
   "tasks": ["string"],           // Specific tasks to accomplish
   "inputs": {                    // Extracted structured inputs
     "interest": "string",        // User interests
-    "budget": "string",          // Budget constraints  
+    "budget": "string",          // Budget constraints
     "format": "string",          // Requested format
     "level": "string",           // Skill/knowledge level
     "duration": "string"         // Time constraints
@@ -556,7 +556,7 @@ The tool converts natural language prompts into a structured JSON format followi
 │   └── emitters.py        # Prompt generation (system, user, plan, expanded)
 ├── api/                   # FastAPI REST API
 │   └── main.py           # API endpoints and request/response models
-├── cli/                   # Command-line interface  
+├── cli/                   # Command-line interface
 │   └── main.py           # Typer CLI application
 ├── schema/               # JSON Schema validation
 │   ├── ir.schema.json        # IR v1 format schema
@@ -619,7 +619,7 @@ python -m pytest --cov=app --cov=api --cov=cli
 # Format code (optional)
 black app/ api/ cli/ tests/
 
-# Lint code (optional)  
+# Lint code (optional)
 flake8 app/ api/ cli/
 ```
 
