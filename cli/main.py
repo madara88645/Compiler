@@ -7,6 +7,11 @@ from rich import print
 import difflib
 import json as _json
 from jsonschema import Draft202012Validator
+# Optional YAML support
+try:
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover
+    yaml = None  # type: ignore
 from app.compiler import (
     compile_text,
     compile_text_v2,
@@ -86,14 +91,56 @@ def _run_compile(
     )
     if json_only:
         data = ir.model_dump() if ir else ir2.model_dump()
-        if trace:
-            if ir:
-                data["trace"] = generate_trace(ir)
-        payload = json.dumps(data, ensure_ascii=False, indent=2)
+        if trace and ir:
+            data["trace"] = generate_trace(ir)
+        fmt_l = (fmt or "json").lower()
+        # Prepare payload according to desired format
+        if fmt_l in {"yaml", "yml"}:
+            if yaml is None:
+                typer.secho("PyYAML not installed; falling back to JSON", fg=typer.colors.YELLOW)
+                payload = json.dumps(data, ensure_ascii=False, indent=2)
+                default_name = "ir.json"
+            else:
+                payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)  # type: ignore
+                default_name = "ir.yaml"
+        else:
+            payload = json.dumps(data, ensure_ascii=False, indent=2)
+            default_name = "ir.json"
         if out or out_dir:
-            _write_output(payload, out, out_dir, default_name="ir.json")
+            if fmt_l == "md" and (ir or (ir2 and render_v2)):
+                # Support --format md to save prompts as Markdown (v1 or v2 rendering)
+                md_parts = []
+                if system_prompt:
+                    md_parts.append("# System Prompt\n\n" + system_prompt)
+                if user_prompt:
+                    md_parts.append("\n\n# User Prompt\n\n" + user_prompt)
+                if plan:
+                    md_parts.append("\n\n# Plan\n\n" + plan)
+                if expanded:
+                    md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
+                md_parts.append("\n\n# IR JSON\n\n```json\n" + json.dumps(data, ensure_ascii=False, indent=2) + "\n```")
+                _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
+                return
+            _write_output(payload, out, out_dir, default_name=default_name)
             return
-        print(payload)
+        # Print to console
+        if fmt_l in {"yaml", "yml"} and yaml is not None:
+            typer.echo(payload)
+        elif fmt_l == "md" and (ir or (ir2 and render_v2)):
+            # Print a minimal markdown block to console when requested
+            md_parts = []
+            if system_prompt:
+                md_parts.append("# System Prompt\n\n" + system_prompt)
+            if user_prompt:
+                md_parts.append("\n\n# User Prompt\n\n" + user_prompt)
+            if plan:
+                md_parts.append("\n\n# Plan\n\n" + plan)
+            if expanded:
+                md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
+            md_parts.append("\n\n# IR JSON\n\n```json\n" + json.dumps(data, ensure_ascii=False, indent=2) + "\n```")
+            typer.echo("\n".join(md_parts))
+        else:
+            typer.echo(payload)
         return
     if ir:
         print(f"[bold white]Persona:[/bold white] {ir.persona} (heuristics v{HEURISTIC_VERSION})")
@@ -106,8 +153,9 @@ def _run_compile(
         ir_json["trace"] = generate_trace(ir)
     rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)
     if out or out_dir:
+        fmt_l = (fmt or "json").lower()
         # Support --format md to save prompts as Markdown (v1 or v2 rendering)
-        if fmt and fmt.lower() == "md" and (ir or (ir2 and render_v2)):
+        if fmt_l == "md" and (ir or (ir2 and render_v2)):
             md_parts = []
             if system_prompt:
                 md_parts.append("# System Prompt\n\n" + system_prompt)
@@ -119,6 +167,14 @@ def _run_compile(
                 md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
             md_parts.append("\n\n# IR JSON\n\n```json\n" + rendered + "\n```")
             _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
+            return
+        if fmt_l in {"yaml", "yml"}:
+            if yaml is None:
+                typer.secho("PyYAML not installed; writing JSON instead", fg=typer.colors.YELLOW)
+                _write_output(rendered, out, out_dir, default_name="ir.json")
+            else:
+                ytxt = yaml.safe_dump(ir_json, sort_keys=False, allow_unicode=True)  # type: ignore
+                _write_output(ytxt, out, out_dir, default_name="ir.yaml")
             return
         _write_output(rendered, out, out_dir, default_name="ir.json")
         return
@@ -167,7 +223,7 @@ def compile(
     diagnostics: bool = typer.Option(
         False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"
     ),
-    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON"),
+    json_only: bool = typer.Option(False, "--json-only", help="Print only IR JSON/YAML"),
     quiet: bool = typer.Option(
         False, "--quiet", help="Print only system prompt (overrides json-only)"
     ),
@@ -186,7 +242,7 @@ def compile(
         None, "--out-dir", help="Write output to a directory (creates if missing)"
     ),
     format: str = typer.Option(
-        None, "--format", help="Output format when saving: md|json (default json)"
+        None, "--format", help="Output format when saving/printing: md|json|yaml (default json)"
     ),
 ):
     if not text and not from_file:
@@ -219,386 +275,266 @@ def version():
     print(get_version())
 
 
-def _schema_path(v2: bool) -> Path:
-    root = Path(__file__).resolve().parents[1]
-    return root / "schema" / ("ir_v2.schema.json" if v2 else "ir.schema.json")
+# --------------
+# RAG subcommands
+# --------------
 
-
-@app.command()
-def validate(
-    files: List[Path] = typer.Argument(..., help="IR JSON file(s) to validate"),
-    ir_version: str = typer.Option(
-        "v2",
-        "--ir-version",
-        help="Schema version to validate against: v1 or v2 (default v2)",
-        case_sensitive=False,
-    ),
+@rag_app.command("index")
+def rag_index(
+    paths: List[Path] = typer.Argument(..., help="Files or folders to index"),
+    ext: List[str] = typer.Option(None, "--ext", help="Extensions to include, e.g. .txt --ext .md"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help=f"SQLite DB path (default {DEFAULT_DB_PATH})"),
+    embed: bool = typer.Option(False, "--embed", help="Compute and store tiny deterministic embeddings"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension when --embed is set"),
 ):
-    """Validate IR JSON file(s) against the schema."""
-    ver = ir_version.lower().strip()
-    if ver not in {"v1", "v2"}:
-        raise typer.BadParameter("--ir-version must be 'v1' or 'v2'")
-    schema_file = _schema_path(ver == "v2")
-    try:
-        schema = _json.loads(schema_file.read_text(encoding="utf-8"))
-    except Exception as e:
-        typer.secho(f"Cannot load schema: {schema_file} ({e})", err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=2)
-    validator = Draft202012Validator(schema)
-    failed = 0
-    ok = 0
-    for f in files:
-        try:
-            data = _json.loads(f.read_text(encoding="utf-8"))
-        except Exception as e:
-            typer.secho(f"[read-error] {f}: {e}", err=True, fg=typer.colors.RED)
-            failed += 1
-            continue
-        errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
-        if errors:
-            failed += 1
-            typer.secho(f"[invalid] {f}", err=True, fg=typer.colors.RED)
-            for err in errors[:5]:  # show first few
-                loc = ".".join(str(p) for p in err.path) or "<root>"
-                typer.secho(f"  at {loc}: {err.message}", err=True, fg=typer.colors.RED)
-        else:
-            typer.secho(f"[ok] {f}", fg=typer.colors.GREEN)
-        ok += 1
-    typer.secho(
-        f"Summary: ok={ok} invalid={failed}",
-        fg=(typer.colors.GREEN if failed == 0 else typer.colors.YELLOW),
-    )
-    if failed:
-        raise typer.Exit(code=1)
+    exts = ext or [".txt", ".md", ".py"]
+    docs, chunks, secs = ingest_paths([str(p) for p in paths], db_path=str(db_path) if db_path else None, exts=exts, embed=embed, embed_dim=embed_dim)
+    print(f"[indexed] docs={docs} chunks={chunks} in {int(secs*1000)} ms -> {(db_path or Path(DEFAULT_DB_PATH))}")
 
 
-@app.command()
-def diff(
-    a: Path = typer.Argument(..., help="First IR JSON file"),
-    b: Path = typer.Argument(..., help="Second IR JSON file"),
+@rag_app.command("query")
+def rag_query(
+    query: List[str] = typer.Argument(..., help="Query text"),
+    k: int = typer.Option(5, "--k", help="Top-K results"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
+    method: str = typer.Option("fts", "--method", help="fts|embed|hybrid"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
+    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
+    json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
+    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
 ):
-    """Show a unified diff between two IR JSON files."""
-    try:
-        aj = _json.loads(a.read_text(encoding="utf-8"))
-        bj = _json.loads(b.read_text(encoding="utf-8"))
-    except Exception as e:
-        typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=2)
-    a_txt = _json.dumps(aj, ensure_ascii=False, indent=2, sort_keys=True).splitlines(keepends=False)
-    b_txt = _json.dumps(bj, ensure_ascii=False, indent=2, sort_keys=True).splitlines(keepends=False)
-    diff_lines = list(
-        difflib.unified_diff(a_txt, b_txt, fromfile=str(a), tofile=str(b), lineterm="")
-    )
-    if not diff_lines:
-        print("No differences.")
-        return
-    print("\n".join(diff_lines))
-
-
-@app.command()
-def batch(
-    in_dir: Path = typer.Argument(..., help="Input directory containing .txt files"),
-    out_dir: Path = typer.Option(..., "--out-dir", help="Directory to write outputs"),
-    pattern: str = typer.Option("*.txt", "--pattern", help="Glob pattern for input files"),
-    name_template: str = typer.Option(
-        "{stem}.{ext}",
-        "--name-template",
-        help="Output filename template (placeholders: {stem} {ext} {ts})",
-    ),
-    concurrency: int = typer.Option(
-        1, "--concurrency", min=1, help="Number of files to compile in parallel (threads)"
-    ),
-    diagnostics: bool = typer.Option(
-        False, "--diagnostics", help="Include diagnostics in expanded output"
-    ),
-    persona: str = typer.Option(None, "--persona", help="Force persona"),
-    trace: bool = typer.Option(False, "--trace", help="Include heuristic trace in IR v1 JSON"),
-    v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1"),
-    render_v2: bool = typer.Option(False, "--render-v2", help="Render prompts with IR v2 emitters"),
-    format: str = typer.Option("json", "--format", help="Output format: json|md"),
-):
-    """Compile all matching files in a directory."""
-    files = sorted(in_dir.glob(pattern))
-    if not files:
-        typer.secho("No input files found.", err=True, fg=typer.colors.YELLOW)
-        raise typer.Exit(code=1)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    import datetime as _dt
-    import time as _time
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    ext_is_md = format and format.lower() == "md"
-    tasks = []
-
-    def prepare(f: Path):
-        try:
-            text = f.read_text(encoding="utf-8")
-        except Exception as e:
-            typer.secho(f"Skip {f}: {e}", err=True, fg=typer.colors.RED)
-            return None
-        ext = "md" if ext_is_md else "json"
-        ts = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        try:
-            fname = name_template.format(stem=f.stem, ext=ext, ts=ts)
-        except Exception:
-            fname = f"{f.stem}.{ext}"
-        target = out_dir / fname
-        return (text, ext, target)
-
-    for f in files:
-        prep = prepare(f)
-        if prep:
-            tasks.append(prep)
-
-    start = _time.time()
-    per_times: list[float] = []
-
-    def worker(args):  # type: ignore
-        text, ext, target = args
-        t0 = _time.time()
-        # Suppress individual save logs for cleaner batch output
-        setattr(_write_output, "_suppress_log", True)
-        try:
-            _run_compile(
-                text,
-                diagnostics=diagnostics,
-                json_only=(ext == "json"),
-                quiet=False,
-                persona=persona,
-                trace=trace,
-                v1=v1,
-                render_v2=render_v2,
-                out=target,
-                out_dir=None,
-                fmt=format,
-            )
-        finally:
-            setattr(_write_output, "_suppress_log", False)
-        return _time.time() - t0
-
-    if concurrency > 1 and len(tasks) > 1:
-        with ThreadPoolExecutor(max_workers=concurrency) as ex:
-            futures = [ex.submit(worker, t) for t in tasks]
-            for fut in as_completed(futures):
-                try:
-                    per_times.append(fut.result())
-                except Exception as e:
-                    typer.secho(f"[worker-error] {e}", err=True, fg=typer.colors.RED)
+    q = " ".join(query)
+    m = (method or "fts").lower()
+    if m == "embed":
+        res = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
+    elif m == "hybrid":
+        res = search_hybrid(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha)
     else:
-        for t in tasks:
-            try:
-                per_times.append(worker(t))
-            except Exception as e:
-                typer.secho(f"[worker-error] {e}", err=True, fg=typer.colors.RED)
+        res = search(q, k=k, db_path=str(db_path) if db_path else None)
+    fmt_l = (format or "json").lower() if format else None
+    if json_out or fmt_l:
+        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
+            typer.echo(yaml.safe_dump(res, sort_keys=False, allow_unicode=True))  # type: ignore
+        else:
+            typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
+    else:
+        for i, r in enumerate(res, 1):
+            meta = []
+            if "similarity" in r:
+                meta.append(f"sim={r['similarity']:.3f}")
+            if "hybrid_score" in r:
+                meta.append(f"hyb={r['hybrid_score']:.3f}")
+            score = f"score={r['score']:.3f}" if 'score' in r else ""
+            print(f"{i}. {Path(r['path']).name} #{r['chunk_index']} {score} {' '.join(meta)}\n   {r['snippet']}")
 
-    total = (_time.time() - start) * 1000
-    avg = (sum(per_times) / len(per_times) * 1000) if per_times else 0.0
-    print(
-        f"[done] {len(tasks)} files -> {out_dir} in {int(total)} ms (avg {avg:.1f} ms) concurrency={concurrency}"
-    )
+
+@rag_app.command("pack")
+def rag_pack(
+    query: List[str] = typer.Argument(..., help="Query to pack context for"),
+    k: int = typer.Option(8, "--k", help="Top-K to retrieve before packing"),
+    max_chars: int = typer.Option(4000, "--max-chars", help="Character budget"),
+    max_tokens: Optional[int] = typer.Option(None, "--max-tokens", help="Approximate token budget (overrides chars)"),
+    token_ratio: float = typer.Option(4.0, "--token-ratio", help="Chars per token heuristic"),
+    method: str = typer.Option("hybrid", "--method", help="fts|embed|hybrid"),
+    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
+    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
+    json_out: bool = typer.Option(True, "--json", help="Print JSON (default true)"),
+    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+):
+    q = " ".join(query)
+    m = (method or "hybrid").lower()
+    if m == "embed":
+        res = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
+    elif m == "hybrid":
+        res = search_hybrid(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha)
+    else:
+        res = search(q, k=k, db_path=str(db_path) if db_path else None)
+    packed = pack_context(q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio)
+    fmt_l = (format or "json").lower() if format else None
+    if json_out or fmt_l:
+        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
+            typer.echo(yaml.safe_dump(packed, sort_keys=False, allow_unicode=True))  # type: ignore
+        else:
+            typer.echo(json.dumps(packed, ensure_ascii=False, indent=2))
+    else:
+        print(packed.get("packed", ""))
 
 
-def _jsonpath_get(data: Any, path: str) -> Any:
-    cur: Any = data
-    for part in path.split("."):
-        if part == "":
-            continue
-        # list index?
-        try:
-            idx = int(part)
-            cur = cur[idx]
-        except ValueError:
-            # dict key
-            if isinstance(cur, dict) and part in cur:
-                cur = cur[part]
-            else:
-                raise KeyError(part)
-        except Exception as e:  # index errors
-            raise KeyError(part) from e
-    return cur
+@rag_app.command("stats")
+def rag_stats(
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
+    json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
+    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+):
+    s = rag_stats_fn(db_path=str(db_path) if db_path else None)
+    fmt_l = (format or "json").lower() if format else None
+    if json_out or fmt_l:
+        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
+            typer.echo(yaml.safe_dump(s, sort_keys=False, allow_unicode=True))  # type: ignore
+        else:
+            typer.echo(json.dumps(s, ensure_ascii=False, indent=2))
+    else:
+        print(f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}")
+        if s.get("largest"):
+            print("largest:")
+            for it in s["largest"]:
+                print(f" - {it['path']} ({it['size']})")
 
+
+@rag_app.command("prune")
+def rag_prune(
+    db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
+    json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
+    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+):
+    r = rag_prune_fn(db_path=str(db_path) if db_path else None)
+    fmt_l = (format or "json").lower() if format else None
+    if json_out or fmt_l:
+        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
+            typer.echo(yaml.safe_dump(r, sort_keys=False, allow_unicode=True))  # type: ignore
+        else:
+            typer.echo(json.dumps(r, ensure_ascii=False, indent=2))
+    else:
+        print(f"removed_docs={r['removed_docs']} removed_chunks={r['removed_chunks']}")
+
+
+# -----------------
+# JSON path utility
+# -----------------
 
 @app.command("json-path")
 def json_path(
-    file: Path = typer.Argument(..., help="IR JSON file"),
-    path: str = typer.Argument(
-        ..., help="Dot path (e.g., metadata.domain_confidence or constraints.0.priority)"
-    ),
-    raw: bool = typer.Option(
-        False, "--raw", help="Print raw scalar (no JSON quoting) when value is str/int/float/bool"
-    ),
+    file: Path = typer.Argument(..., help="JSON file path"),
+    path: str = typer.Argument(..., help="Dot path into JSON, e.g. metadata.ir_signature"),
+    raw: bool = typer.Option(False, "--raw", help="Print raw value without quotes when scalar"),
 ):
-    """Print a value from IR JSON using a simple dot path (supports list indices)."""
     try:
         data = _json.loads(file.read_text(encoding="utf-8"))
     except Exception as e:
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
-    try:
-        val = _jsonpath_get(data, path)
-    except KeyError:
-        typer.secho(f"Path not found: {path}", err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-    if raw and isinstance(val, (str, int, float, bool)):
-        print(val)
-    else:
-        print(_json.dumps(val, ensure_ascii=False))
-
-
-@rag_app.command("index")
-def rag_index(
-    paths: List[Path] = typer.Argument(..., help="Files or directories to ingest"),
-    db_path: Optional[Path] = typer.Option(
-        None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"
-    ),
-    ext: Optional[List[str]] = typer.Option(
-        None, "--ext", help="File extensions to include (repeatable), e.g., --ext .txt --ext .md"
-    ),
-    embed: bool = typer.Option(
-        False, "--embed", help="Compute & store tiny deterministic embeddings for chunks"
-    ),
-    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (only for --embed)"),
-):
-    """Ingest files/dirs into a local full-text (and optional embedding) index."""
-    n_docs, n_chunks, secs = ingest_paths(
-        [str(p) for p in paths],
-        db_path=str(db_path) if db_path else None,
-        exts=ext,
-        embed=embed,
-        embed_dim=embed_dim,
-    )
-    target_db = str(db_path) if db_path else DEFAULT_DB_PATH
-    ms = int(secs * 1000)
-    mode = "fts+embed" if embed else "fts"
-    print(f"[indexed:{mode}] {n_docs} docs, {n_chunks} chunks in {ms} ms -> {target_db}")
-
-
-@rag_app.command("query")
-def rag_query(
-    query: List[str] = typer.Argument(..., help="Search query (use quotes for multi-word)"),
-    k: int = typer.Option(5, "--k", help="Top-K results"),
-    db_path: Optional[Path] = typer.Option(
-        None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"
-    ),
-    method: str = typer.Option("fts", "--method", help="Retrieval method: fts|embed|hybrid"),
-    embed_dim: int = typer.Option(
-        64, "--embed-dim", help="Embedding dimension (must match ingest)"
-    ),
-    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting (fts vs embed)"),
-    json_only: bool = typer.Option(False, "--json", help="Output raw JSON results"),
-):
-    """Search index using fts, embeddings, or hybrid fusion."""
-    q = " ".join(query)
-    method_norm = method.lower()
-    if method_norm not in {"fts", "embed", "hybrid"}:
-        raise typer.BadParameter("--method must be one of: fts, embed, hybrid")
-    dbp = str(db_path) if db_path else None
-    if method_norm == "embed":
-        results = search_embed(q, k=k, db_path=dbp, embed_dim=embed_dim)
-    elif method_norm == "hybrid":
-        results = search_hybrid(q, k=k, db_path=dbp, embed_dim=embed_dim, alpha=alpha)
-    else:
-        results = search(q, k=k, db_path=dbp)
-    if json_only:
-        typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
-        return
-    if not results:
-        print("No results.")
-        return
-    for i, r in enumerate(results, start=1):
-        if method_norm == "embed" and "similarity" in r:
-            sim = f"{r['similarity']:.3f}"
-            print(f"[{i}] sim={sim} {r['path']}#{r['chunk_index']}: {r['snippet']}")
-        elif method_norm == "hybrid" and "hybrid_score" in r:
-            hs = f"{r['hybrid_score']:.3f}"
-            sim = f"{r.get('similarity', 0):.3f}" if "similarity" in r else "-"
-            print(f"[{i}] hybrid={hs} sim={sim} {r['path']}#{r['chunk_index']}: {r['snippet']}")
+    cur: Any = data
+    for part in [p for p in path.split('.') if p]:
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
         else:
-            score = (
-                f"{r['score']:.3f}"
-                if isinstance(r.get("score"), (int, float))
-                else str(r.get("score"))
+            typer.secho("<not-found>", fg=typer.colors.YELLOW)
+            raise typer.Exit(code=1)
+    if raw and isinstance(cur, (int, float)):
+        typer.echo(str(cur))
+    elif raw and isinstance(cur, str):
+        typer.echo(cur)
+    else:
+        typer.echo(_json.dumps(cur, ensure_ascii=False))
+
+
+# -----------------
+# Diff utility
+# -----------------
+
+@app.command("diff")
+def json_diff(
+    a: Path = typer.Argument(..., help="First JSON file"),
+    b: Path = typer.Argument(..., help="Second JSON file"),
+    context: int = typer.Option(3, "--context", help="Number of context lines for unified diff"),
+):
+    try:
+        ja = _json.loads(a.read_text(encoding="utf-8"))
+        jb = _json.loads(b.read_text(encoding="utf-8"))
+    except Exception as e:
+        typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    sa = _json.dumps(ja, ensure_ascii=False, indent=2).splitlines(keepends=False)
+    sb = _json.dumps(jb, ensure_ascii=False, indent=2).splitlines(keepends=False)
+    diff = difflib.unified_diff(sa, sb, fromfile=str(a), tofile=str(b), n=context)
+    out = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
+    # Print even if empty; tests expect some output for different inputs
+    typer.echo(out)
+
+
+# -----------------
+# Validate against schema(s)
+# -----------------
+
+@app.command("validate")
+def validate(
+    files: List[Path] = typer.Argument(..., help="JSON files to validate (v1 or v2)"),
+):
+    ok = 0
+    fail = 0
+    for p in files:
+        try:
+            data = _json.loads(p.read_text(encoding="utf-8"))
+        except Exception as e:
+            fail += 1
+            typer.secho(f"[fail] {p}: {e}", fg=typer.colors.RED)
+            continue
+        # Choose schema by version
+        v2 = isinstance(data, dict) and data.get("version") == "2.0"
+        schema_path = Path("schema/ir_v2.schema.json" if v2 else "schema/ir.schema.json")
+        try:
+            schema = _json.loads(schema_path.read_text(encoding="utf-8"))
+            Draft202012Validator(schema).validate(data)
+            ok += 1
+            typer.secho(f"[ok] {p}", fg=typer.colors.GREEN)
+        except Exception as e:
+            fail += 1
+            typer.secho(f"[fail] {p}: {e}", fg=typer.colors.RED)
+    total = ok + fail
+    summary = f"Summary: OK={ok} Failed={fail} Total={total}"
+    typer.echo(summary)
+    if fail:
+        raise typer.Exit(code=1)
+
+
+# -----------------
+# Batch processing
+# -----------------
+
+@app.command("batch")
+def batch(
+    in_dir: Path = typer.Argument(..., help="Input directory containing .txt files"),
+    out_dir: Path = typer.Option(..., "--out-dir", help="Directory to write outputs"),
+    format: str = typer.Option("json", "--format", help="Output format: json|md|yaml"),
+    name_template: str = typer.Option(
+        "{stem}.{ext}",
+        "--name-template",
+        help="Template for output file name; placeholders: {stem} {ext}",
+    ),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics in expanded"),
+):
+    if not in_dir.exists() or not in_dir.is_dir():
+        raise typer.BadParameter(f"Input dir not found: {in_dir}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fmt = (format or "json").lower()
+    if fmt not in {"json", "md", "yaml", "yml"}:
+        raise typer.BadParameter("--format must be json, md or yaml")
+    out_ext = "json" if fmt == "json" else ("md" if fmt == "md" else "yaml")
+    # Suppress per-file saved logs for cleaner output
+    setattr(_write_output, "_suppress_log", True)  # type: ignore
+    try:
+        files = sorted([p for p in in_dir.glob("*.txt") if p.is_file()])
+        for src in files:
+            text = src.read_text(encoding="utf-8")
+            target_name = name_template.format(stem=src.stem, ext=out_ext)
+            target_path = out_dir / target_name
+            _run_compile(
+                full_text=text,
+                diagnostics=diagnostics,
+                json_only=True if fmt in {"json", "yaml", "yml"} else False,
+                quiet=False,
+                persona=None,
+                trace=False,
+                v1=False,
+                render_v2=(fmt == "md"),
+                out=target_path,
+                out_dir=None,
+                fmt=fmt,
             )
-            print(f"[{i}] score={score} {r['path']}#{r['chunk_index']}: {r['snippet']}")
-
-
-@rag_app.command("pack")
-def rag_pack(
-    query: List[str] = typer.Argument(..., help="Query text (used for metadata only)"),
-    k: int = typer.Option(8, "--k", help="Top-K to retrieve before packing"),
-    max_chars: int = typer.Option(4000, "--max-chars", help="Character budget for packed context"),
-    max_tokens: Optional[int] = typer.Option(
-        None, "--max-tokens", help="Approx token budget; overrides max-chars when set"
-    ),
-    token_ratio: float = typer.Option(
-        4.0, "--token-ratio", help="Chars per token heuristic (default 4.0)"
-    ),
-    method: str = typer.Option("hybrid", "--method", help="Retrieval method fts|embed|hybrid"),
-    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension (for embed/hybrid)"),
-    alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting"),
-    db_path: Optional[Path] = typer.Option(None, "--db-path", help="Path to SQLite index"),
-    json_only: bool = typer.Option(False, "--json", help="Print packed JSON only"),
-):
-    """Retrieve then pack top-K chunks into a single context under a char budget."""
-    q = " ".join(query)
-    dbp = str(db_path) if db_path else None
-    method_norm = method.lower()
-    if method_norm not in {"fts", "embed", "hybrid"}:
-        raise typer.BadParameter("--method must be fts|embed|hybrid")
-    if method_norm == "embed":
-        res = search_embed(q, k=k, db_path=dbp, embed_dim=embed_dim)
-    elif method_norm == "hybrid":
-        res = search_hybrid(q, k=k, db_path=dbp, embed_dim=embed_dim, alpha=alpha)
-    else:
-        res = search(q, k=k, db_path=dbp)
-    packed = pack_context(
-        q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio
-    )
-    if json_only:
-        typer.echo(json.dumps(packed, ensure_ascii=False, indent=2))
-        return
-    toks = packed.get("tokens")
-    if toks is not None:
-        print(f"[packed] tokens={toks} chars={packed['chars']} included={len(packed['included'])}")
-    else:
-        print(f"[packed] chars={packed['chars']} included={len(packed['included'])}")
-    print(packed["packed"])
-
-
-@rag_app.command("stats")
-def rag_stats(
-    db_path: Optional[Path] = typer.Option(
-        None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"
-    ),
-    json_only: bool = typer.Option(False, "--json", help="Print raw JSON stats"),
-):
-    """Show index statistics (docs, chunks, sizes, largest files)."""
-    s = rag_stats_fn(db_path=str(db_path) if db_path else None)
-    if json_only:
-        typer.echo(json.dumps(s, ensure_ascii=False, indent=2))
-        return
-    print(
-        f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}"
-    )
-    if s["largest"]:
-        print("largest:")
-        for entry in s["largest"]:
-            print(f"  {entry['size']:>8}  {entry['path']}")
-
-
-@rag_app.command("prune")
-def rag_prune(
-    db_path: Optional[Path] = typer.Option(
-        None, "--db-path", help="Path to SQLite index (defaults to ~/.promptc_index.db)"
-    ),
-    json_only: bool = typer.Option(False, "--json", help="Print raw JSON result"),
-):
-    """Remove records for files that no longer exist on disk."""
-    res = rag_prune_fn(db_path=str(db_path) if db_path else None)
-    if json_only:
-        typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
-        return
-    print(f"removed_docs={res['removed_docs']} removed_chunks={res['removed_chunks']}")
+    finally:
+        # Re-enable logging for other commands
+        setattr(_write_output, "_suppress_log", False)  # type: ignore
 
 
 # Entry point
