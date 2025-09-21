@@ -7,6 +7,7 @@ from rich import print
 import difflib
 import json as _json
 from jsonschema import Draft202012Validator
+
 # Optional YAML support
 try:
     import yaml  # type: ignore
@@ -118,7 +119,11 @@ def _run_compile(
                     md_parts.append("\n\n# Plan\n\n" + plan)
                 if expanded:
                     md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
-                md_parts.append("\n\n# IR JSON\n\n```json\n" + json.dumps(data, ensure_ascii=False, indent=2) + "\n```")
+                md_parts.append(
+                    "\n\n# IR JSON\n\n```json\n"
+                    + json.dumps(data, ensure_ascii=False, indent=2)
+                    + "\n```"
+                )
                 _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
                 return
             _write_output(payload, out, out_dir, default_name=default_name)
@@ -137,7 +142,11 @@ def _run_compile(
                 md_parts.append("\n\n# Plan\n\n" + plan)
             if expanded:
                 md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
-            md_parts.append("\n\n# IR JSON\n\n```json\n" + json.dumps(data, ensure_ascii=False, indent=2) + "\n```")
+            md_parts.append(
+                "\n\n# IR JSON\n\n```json\n"
+                + json.dumps(data, ensure_ascii=False, indent=2)
+                + "\n```"
+            )
             typer.echo("\n".join(md_parts))
         else:
             typer.echo(payload)
@@ -279,17 +288,32 @@ def version():
 # RAG subcommands
 # --------------
 
+
 @rag_app.command("index")
 def rag_index(
     paths: List[Path] = typer.Argument(..., help="Files or folders to index"),
     ext: List[str] = typer.Option(None, "--ext", help="Extensions to include, e.g. .txt --ext .md"),
-    db_path: Optional[Path] = typer.Option(None, "--db-path", help=f"SQLite DB path (default {DEFAULT_DB_PATH})"),
-    embed: bool = typer.Option(False, "--embed", help="Compute and store tiny deterministic embeddings"),
-    embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension when --embed is set"),
+    db_path: Optional[Path] = typer.Option(
+        None, "--db-path", help=f"SQLite DB path (default {DEFAULT_DB_PATH})"
+    ),
+    embed: bool = typer.Option(
+        False, "--embed", help="Compute and store tiny deterministic embeddings"
+    ),
+    embed_dim: int = typer.Option(
+        64, "--embed-dim", help="Embedding dimension when --embed is set"
+    ),
 ):
     exts = ext or [".txt", ".md", ".py"]
-    docs, chunks, secs = ingest_paths([str(p) for p in paths], db_path=str(db_path) if db_path else None, exts=exts, embed=embed, embed_dim=embed_dim)
-    print(f"[indexed] docs={docs} chunks={chunks} in {int(secs*1000)} ms -> {(db_path or Path(DEFAULT_DB_PATH))}")
+    docs, chunks, secs = ingest_paths(
+        [str(p) for p in paths],
+        db_path=str(db_path) if db_path else None,
+        exts=exts,
+        embed=embed,
+        embed_dim=embed_dim,
+    )
+    print(
+        f"[indexed] docs={docs} chunks={chunks} in {int(secs*1000)} ms -> {(db_path or Path(DEFAULT_DB_PATH))}"
+    )
 
 
 @rag_app.command("query")
@@ -301,14 +325,18 @@ def rag_query(
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
     alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
     json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
-    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Output format: yaml|json (default json)"
+    ),
 ):
     q = " ".join(query)
     m = (method or "fts").lower()
     if m == "embed":
         res = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
     elif m == "hybrid":
-        res = search_hybrid(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha)
+        res = search_hybrid(
+            q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha
+        )
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
@@ -324,8 +352,10 @@ def rag_query(
                 meta.append(f"sim={r['similarity']:.3f}")
             if "hybrid_score" in r:
                 meta.append(f"hyb={r['hybrid_score']:.3f}")
-            score = f"score={r['score']:.3f}" if 'score' in r else ""
-            print(f"{i}. {Path(r['path']).name} #{r['chunk_index']} {score} {' '.join(meta)}\n   {r['snippet']}")
+            score = f"score={r['score']:.3f}" if "score" in r else ""
+            print(
+                f"{i}. {Path(r['path']).name} #{r['chunk_index']} {score} {' '.join(meta)}\n   {r['snippet']}"
+            )
 
 
 @rag_app.command("pack")
@@ -333,24 +363,32 @@ def rag_pack(
     query: List[str] = typer.Argument(..., help="Query to pack context for"),
     k: int = typer.Option(8, "--k", help="Top-K to retrieve before packing"),
     max_chars: int = typer.Option(4000, "--max-chars", help="Character budget"),
-    max_tokens: Optional[int] = typer.Option(None, "--max-tokens", help="Approximate token budget (overrides chars)"),
+    max_tokens: Optional[int] = typer.Option(
+        None, "--max-tokens", help="Approximate token budget (overrides chars)"
+    ),
     token_ratio: float = typer.Option(4.0, "--token-ratio", help="Chars per token heuristic"),
     method: str = typer.Option("hybrid", "--method", help="fts|embed|hybrid"),
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
     alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
     json_out: bool = typer.Option(True, "--json", help="Print JSON (default true)"),
-    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Output format: yaml|json (default json)"
+    ),
 ):
     q = " ".join(query)
     m = (method or "hybrid").lower()
     if m == "embed":
         res = search_embed(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim)
     elif m == "hybrid":
-        res = search_hybrid(q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha)
+        res = search_hybrid(
+            q, k=k, db_path=str(db_path) if db_path else None, embed_dim=embed_dim, alpha=alpha
+        )
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
-    packed = pack_context(q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio)
+    packed = pack_context(
+        q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio
+    )
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l:
         if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
@@ -365,7 +403,9 @@ def rag_pack(
 def rag_stats(
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
     json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
-    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Output format: yaml|json (default json)"
+    ),
 ):
     s = rag_stats_fn(db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
@@ -375,7 +415,9 @@ def rag_stats(
         else:
             typer.echo(json.dumps(s, ensure_ascii=False, indent=2))
     else:
-        print(f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}")
+        print(
+            f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}"
+        )
         if s.get("largest"):
             print("largest:")
             for it in s["largest"]:
@@ -386,7 +428,9 @@ def rag_stats(
 def rag_prune(
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
     json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
-    format: Optional[str] = typer.Option(None, "--format", help="Output format: yaml|json (default json)"),
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Output format: yaml|json (default json)"
+    ),
 ):
     r = rag_prune_fn(db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
@@ -403,6 +447,7 @@ def rag_prune(
 # JSON path utility
 # -----------------
 
+
 @app.command("json-path")
 def json_path(
     file: Path = typer.Argument(..., help="JSON file path"),
@@ -415,7 +460,7 @@ def json_path(
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
     cur: Any = data
-    for part in [p for p in path.split('.') if p]:
+    for part in [p for p in path.split(".") if p]:
         if isinstance(cur, dict) and part in cur:
             cur = cur[part]
         else:
@@ -432,6 +477,7 @@ def json_path(
 # -----------------
 # Diff utility
 # -----------------
+
 
 @app.command("diff")
 def json_diff(
@@ -456,6 +502,7 @@ def json_diff(
 # -----------------
 # Validate against schema(s)
 # -----------------
+
 
 @app.command("validate")
 def validate(
@@ -492,6 +539,7 @@ def validate(
 # Batch processing
 # -----------------
 
+
 @app.command("batch")
 def batch(
     in_dir: Path = typer.Argument(..., help="Input directory containing .txt files"),
@@ -502,7 +550,9 @@ def batch(
         "--name-template",
         help="Template for output file name; placeholders: {stem} {ext}",
     ),
-    diagnostics: bool = typer.Option(False, "--diagnostics", help="Include diagnostics in expanded"),
+    diagnostics: bool = typer.Option(
+        False, "--diagnostics", help="Include diagnostics in expanded"
+    ),
 ):
     if not in_dir.exists() or not in_dir.is_dir():
         raise typer.BadParameter(f"Input dir not found: {in_dir}")
