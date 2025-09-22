@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from typing import List, Any, Optional
 from pathlib import Path
+import sys
 import typer
 from rich import print
 import difflib
@@ -229,6 +230,9 @@ def compile(
     from_file: Path = typer.Option(
         None, "--from-file", help="Read prompt text from a file (UTF-8)"
     ),
+    stdin: bool = typer.Option(
+        False, "--stdin", help="Read prompt text from STDIN (overrides TEXT and --from-file)"
+    ),
     diagnostics: bool = typer.Option(
         False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"
     ),
@@ -254,9 +258,14 @@ def compile(
         None, "--format", help="Output format when saving/printing: md|json|yaml (default json)"
     ),
 ):
-    if not text and not from_file:
-        raise typer.BadParameter("Provide TEXT or --from-file")
-    if from_file is not None:
+    if not text and not from_file and not stdin:
+        raise typer.BadParameter("Provide TEXT, --from-file, or --stdin")
+    if stdin:
+        try:
+            full_text = sys.stdin.read()
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read from STDIN: {e}")
+    elif from_file is not None:
         try:
             full_text = from_file.read_text(encoding="utf-8")
         except Exception as e:
@@ -328,6 +337,8 @@ def rag_query(
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: yaml|json (default json)"
     ),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
+    out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
 ):
     q = " ".join(query)
     m = (method or "fts").lower()
@@ -340,11 +351,19 @@ def rag_query(
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
-    if json_out or fmt_l:
-        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
-            typer.echo(yaml.safe_dump(res, sort_keys=False, allow_unicode=True))  # type: ignore
+    if json_out or fmt_l or out or out_dir:
+        # Decide serialization
+        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+        payload = (
+            yaml.safe_dump(res, sort_keys=False, allow_unicode=True)  # type: ignore
+            if use_yaml
+            else json.dumps(res, ensure_ascii=False, indent=2)
+        )
+        if out or out_dir:
+            ext = "yaml" if use_yaml else "json"
+            _write_output(payload, out, out_dir, default_name=f"rag_query.{ext}")
         else:
-            typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
+            typer.echo(payload)
     else:
         for i, r in enumerate(res, 1):
             meta = []
@@ -375,6 +394,8 @@ def rag_pack(
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: yaml|json (default json)"
     ),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
+    out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
 ):
     q = " ".join(query)
     m = (method or "hybrid").lower()
@@ -390,11 +411,18 @@ def rag_pack(
         q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio
     )
     fmt_l = (format or "json").lower() if format else None
-    if json_out or fmt_l:
-        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
-            typer.echo(yaml.safe_dump(packed, sort_keys=False, allow_unicode=True))  # type: ignore
+    if json_out or fmt_l or out or out_dir:
+        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+        payload = (
+            yaml.safe_dump(packed, sort_keys=False, allow_unicode=True)  # type: ignore
+            if use_yaml
+            else json.dumps(packed, ensure_ascii=False, indent=2)
+        )
+        if out or out_dir:
+            ext = "yaml" if use_yaml else "json"
+            _write_output(payload, out, out_dir, default_name=f"rag_pack.{ext}")
         else:
-            typer.echo(json.dumps(packed, ensure_ascii=False, indent=2))
+            typer.echo(payload)
     else:
         print(packed.get("packed", ""))
 
@@ -406,14 +434,23 @@ def rag_stats(
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: yaml|json (default json)"
     ),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
+    out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
 ):
     s = rag_stats_fn(db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
-    if json_out or fmt_l:
-        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
-            typer.echo(yaml.safe_dump(s, sort_keys=False, allow_unicode=True))  # type: ignore
+    if json_out or fmt_l or out or out_dir:
+        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+        payload = (
+            yaml.safe_dump(s, sort_keys=False, allow_unicode=True)  # type: ignore
+            if use_yaml
+            else json.dumps(s, ensure_ascii=False, indent=2)
+        )
+        if out or out_dir:
+            ext = "yaml" if use_yaml else "json"
+            _write_output(payload, out, out_dir, default_name=f"rag_stats.{ext}")
         else:
-            typer.echo(json.dumps(s, ensure_ascii=False, indent=2))
+            typer.echo(payload)
     else:
         print(
             f"docs={s['docs']} chunks={s['chunks']} total_bytes={s['total_bytes']} avg_bytes={int(s['avg_bytes'])}"
@@ -431,14 +468,23 @@ def rag_prune(
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: yaml|json (default json)"
     ),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
+    out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
 ):
     r = rag_prune_fn(db_path=str(db_path) if db_path else None)
     fmt_l = (format or "json").lower() if format else None
-    if json_out or fmt_l:
-        if fmt_l in {"yaml", "yml"} and yaml is not None:  # type: ignore
-            typer.echo(yaml.safe_dump(r, sort_keys=False, allow_unicode=True))  # type: ignore
+    if json_out or fmt_l or out or out_dir:
+        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+        payload = (
+            yaml.safe_dump(r, sort_keys=False, allow_unicode=True)  # type: ignore
+            if use_yaml
+            else json.dumps(r, ensure_ascii=False, indent=2)
+        )
+        if out or out_dir:
+            ext = "yaml" if use_yaml else "json"
+            _write_output(payload, out, out_dir, default_name=f"rag_prune.{ext}")
         else:
-            typer.echo(json.dumps(r, ensure_ascii=False, indent=2))
+            typer.echo(payload)
     else:
         print(f"removed_docs={r['removed_docs']} removed_chunks={r['removed_chunks']}")
 
