@@ -363,7 +363,7 @@ def rag_query(
         # Decide serialization
         if fmt_l == "md":
             lines = [
-                f"# RAG Query\n",
+                "# RAG Query\n",
                 f"**query:** {q}",
                 f"\n**method:** {m}  ",
                 f"**k:** {k}",
@@ -445,7 +445,7 @@ def rag_pack(
     if json_out or fmt_l or out or out_dir:
         if fmt_l == "md":
             lines = [
-                f"# RAG Pack\n",
+                "# RAG Pack\n",
                 f"**query:** {q}",
                 f"\n**method:** {m}  ",
                 f"**k:** {k}  ",
