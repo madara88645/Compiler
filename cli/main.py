@@ -233,6 +233,11 @@ def compile(
     stdin: bool = typer.Option(
         False, "--stdin", help="Read prompt text from STDIN (overrides TEXT and --from-file)"
     ),
+    fail_on_empty: bool = typer.Option(
+        False,
+        "--fail-on-empty",
+        help="Exit with non-zero status if input is empty/whitespace",
+    ),
     diagnostics: bool = typer.Option(
         False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"
     ),
@@ -272,6 +277,9 @@ def compile(
             raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
     else:
         full_text = " ".join(text)
+    if fail_on_empty and not (full_text or "").strip():
+        typer.secho("Input is empty", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
     _run_compile(
         full_text,
         diagnostics,
@@ -335,7 +343,7 @@ def rag_query(
     alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
     json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
     format: Optional[str] = typer.Option(
-        None, "--format", help="Output format: yaml|json (default json)"
+        None, "--format", help="Output format: md|yaml|json (default json)"
     ),
     out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
     out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
@@ -353,14 +361,37 @@ def rag_query(
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
         # Decide serialization
-        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-        payload = (
-            yaml.safe_dump(res, sort_keys=False, allow_unicode=True)  # type: ignore
-            if use_yaml
-            else json.dumps(res, ensure_ascii=False, indent=2)
-        )
-        if out or out_dir:
+        if fmt_l == "md":
+            lines = [
+                f"# RAG Query\n",
+                f"**query:** {q}",
+                f"\n**method:** {m}  ",
+                f"**k:** {k}",
+                "\n\n## Results\n",
+            ]
+            for i, r in enumerate(res, 1):
+                score_bits = []
+                if "score" in r:
+                    score_bits.append(f"score={r['score']:.3f}")
+                if "similarity" in r:
+                    score_bits.append(f"sim={r['similarity']:.3f}")
+                if "hybrid_score" in r:
+                    score_bits.append(f"hyb={r['hybrid_score']:.3f}")
+                label = f"{Path(r['path']).name}#{r.get('chunk_index', 0)}"
+                meta = f" ({', '.join(score_bits)})" if score_bits else ""
+                snippet = r.get("snippet", "").replace("\r\n", "\n")
+                lines.append(f"{i}. **{label}**{meta}\n\n   {snippet}\n")
+            payload = "\n".join(lines)
+            ext = "md"
+        else:
+            use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+            payload = (
+                yaml.safe_dump(res, sort_keys=False, allow_unicode=True)  # type: ignore
+                if use_yaml
+                else json.dumps(res, ensure_ascii=False, indent=2)
+            )
             ext = "yaml" if use_yaml else "json"
+        if out or out_dir:
             _write_output(payload, out, out_dir, default_name=f"rag_query.{ext}")
         else:
             typer.echo(payload)
@@ -392,7 +423,7 @@ def rag_pack(
     db_path: Optional[Path] = typer.Option(None, "--db-path", help="SQLite DB path"),
     json_out: bool = typer.Option(True, "--json", help="Print JSON (default true)"),
     format: Optional[str] = typer.Option(
-        None, "--format", help="Output format: yaml|json (default json)"
+        None, "--format", help="Output format: md|yaml|json (default json)"
     ),
     out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
     out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
@@ -412,14 +443,31 @@ def rag_pack(
     )
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
-        use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-        payload = (
-            yaml.safe_dump(packed, sort_keys=False, allow_unicode=True)  # type: ignore
-            if use_yaml
-            else json.dumps(packed, ensure_ascii=False, indent=2)
-        )
-        if out or out_dir:
+        if fmt_l == "md":
+            lines = [
+                f"# RAG Pack\n",
+                f"**query:** {q}",
+                f"\n**method:** {m}  ",
+                f"**k:** {k}  ",
+                f"**budget:** {'%d chars'%max_chars if not max_tokens else '%d tokens'%max_tokens}\n",
+                "\n## Packed Context\n",
+                "```\n" + (packed.get("packed", "") or "") + "\n```\n",
+                "\n## Sources\n",
+            ]
+            for i, r in enumerate(res, 1):
+                label = f"{Path(r['path']).name}#{r.get('chunk_index', 0)}"
+                lines.append(f"- {i}. {label}")
+            payload = "\n".join(lines)
+            ext = "md"
+        else:
+            use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
+            payload = (
+                yaml.safe_dump(packed, sort_keys=False, allow_unicode=True)  # type: ignore
+                if use_yaml
+                else json.dumps(packed, ensure_ascii=False, indent=2)
+            )
             ext = "yaml" if use_yaml else "json"
+        if out or out_dir:
             _write_output(payload, out, out_dir, default_name=f"rag_pack.{ext}")
         else:
             typer.echo(payload)
