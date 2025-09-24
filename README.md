@@ -51,8 +51,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
-* **New CLI Flags**: `--from-file`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
-* **CLI Batch Concurrency (new)**: `batch --concurrency N` to compile multiple prompt files in parallel with total & average timing metrics
+* **New CLI Flags**: `--from-file`, `--stdin`, `--fail-on-empty`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
+* **CLI Batch Concurrency (new)**: `batch --jobs N` to compile multiple prompt files in parallel with total & average timing metrics
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
@@ -113,6 +113,9 @@ promptc rag query "gradient descent optimization" --method hybrid --k 8 --alpha 
 
 # Pack top-K hybrid results into a single context under a character budget
 promptc rag pack "gradient descent optimization" --k 12 --max-chars 3500 --method hybrid --alpha 0.4
+
+# Save packed context as Markdown
+promptc rag pack "gradient descent optimization" --k 8 --format md --out .\out\pack.md
 
 # Approximate token budget (4 chars ≈ 1 token by default)
 promptc rag pack "gradient descent optimization" --k 12 --max-tokens 1200 --token-ratio 4.0 --method hybrid
@@ -176,9 +179,11 @@ promptc --diagnostics "Analyze stock market investment strategy and optimize per
 promptc compile "Let’s pair program. TDD implement normalize_whitespace(text) with pytest tests" --json-only
 promptc compile "Live debug this Python error and create an MRE" --json-only --trace
 
-# Read prompt from a file (Windows PowerShell)
+# Read prompt from a file or STDIN (Windows PowerShell)
 promptc --from-file .\examples\example_en.txt --json-only
 promptc compile --from-file .\examples\example_tr.txt --v1 --diagnostics
+Get-Content .\examples\example_en.txt | promptc compile --stdin --json-only
+echo "  " | promptc compile --stdin --fail-on-empty
 
 # Save outputs to files
 # Save IR v2 JSON next to current directory
@@ -201,8 +206,10 @@ Index local text sources and query them with a minimal SQLite FTS5-based retriev
 # Index files or folders (default db: ~/.promptc_index.db)
 promptc rag index .\docs .\examples --ext .txt --ext .md
 
-# Query the index
+# Query the index (JSON/YAML/Markdown)
 promptc rag query "gradient descent learning rate" --k 5
+promptc rag query "gradient descent" --k 5 --format yaml
+promptc rag query "gradient descent" --k 5 --format md --out .\out\query.md
 
 # Custom database path and JSON output
 promptc rag query "teaching persona" --db-path .\myindex.db --json
@@ -271,7 +278,7 @@ promptc diff .\runs\a.json .\runs\b.json
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
 promptc batch .\inputs --out-dir .\outputs --format md --render-v2
-promptc batch .\inputs --out-dir .\outputs --format json --concurrency 4
+promptc batch .\inputs --out-dir .\outputs --format json --jobs 4
 
 # Batch with custom naming (tokens: {stem} original filename stem, {ext} chosen format ext, {ts} timestamp)
 promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-{ts}.{ext}
@@ -283,15 +290,15 @@ promptc json-path .\outputs\file.json metadata.ir_signature --raw
 Batch concurrency output example:
 
 ```
-[done] 12 files -> outputs in 420 ms (avg 34.9 ms) concurrency=4
+[done] 12 files -> outputs in 420 ms (avg 34.9 ms) jobs=4
 ```
 
 Interpretation:
 - total: wall-clock duration for entire batch
 - avg: average per-file compile time (ms)
-- concurrency: thread count used (each thread runs a compile task)
+- jobs: thread count used (each thread runs a compile task)
 
-Re-run with different `--concurrency` values to benchmark scaling on your machine.
+Re-run with different `--jobs` values to benchmark scaling on your machine.
 ```
 
 ```

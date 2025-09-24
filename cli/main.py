@@ -6,6 +6,8 @@ import sys
 import typer
 from rich import print
 import difflib
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json as _json
 from jsonschema import Draft202012Validator
 
@@ -647,6 +649,9 @@ def batch(
     diagnostics: bool = typer.Option(
         False, "--diagnostics", help="Include diagnostics in expanded"
     ),
+    jobs: int = typer.Option(
+        1, "--jobs", min=1, help="Number of worker threads to use for parallel processing"
+    ),
 ):
     if not in_dir.exists() or not in_dir.is_dir():
         raise typer.BadParameter(f"Input dir not found: {in_dir}")
@@ -659,7 +664,9 @@ def batch(
     setattr(_write_output, "_suppress_log", True)  # type: ignore
     try:
         files = sorted([p for p in in_dir.glob("*.txt") if p.is_file()])
-        for src in files:
+        start = time.perf_counter()
+
+        def process_file(src: Path):
             text = src.read_text(encoding="utf-8")
             target_name = name_template.format(stem=src.stem, ext=out_ext)
             target_path = out_dir / target_name
@@ -676,6 +683,22 @@ def batch(
                 out_dir=None,
                 fmt=fmt,
             )
+            return src
+
+        if jobs == 1 or len(files) <= 1:
+            for src in files:
+                process_file(src)
+        else:
+            with ThreadPoolExecutor(max_workers=jobs) as ex:
+                futures = {ex.submit(process_file, src): src for src in files}
+                for _ in as_completed(futures):
+                    pass
+
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        avg_ms = elapsed_ms / max(1, len(files))
+        print(
+            f"[done] {len(files)} files -> outputs in {int(elapsed_ms)} ms (avg {avg_ms:.1f} ms) jobs={jobs}"
+        )
     finally:
         # Re-enable logging for other commands
         setattr(_write_output, "_suppress_log", False)  # type: ignore
