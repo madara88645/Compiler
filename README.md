@@ -53,6 +53,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **New CLI Flags**: `--from-file`, `--stdin`, `--fail-on-empty`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **CLI Batch Concurrency (new)**: `batch --jobs N` to compile multiple prompt files in parallel with total & average timing metrics
+* **CLI Utilities Enhancements (new)**: `json-path` now supports list indices (`items[0].field`), `diff` supports `--color` & `--sort-keys`, `batch` supports `--jsonl` aggregated IR export and `--stdout` streaming (JSONL / YAML multi-doc / Markdown sections)
 * **API Extra Fields**: `/compile` returns `processing_ms`, `request_id`, `heuristic_version`
 * **Follow-up Questions**: Expanded Prompt ends with 2 generic next-step questions
 * **PII Detection (new)**: Emails / phones / credit cards / IBAN -> `metadata.pii_flags` + privacy constraint
@@ -274,17 +275,25 @@ promptc validate --v1 .\outputs\ir_v1.json
 
 # Diff two IR JSON files (unified diff)
 promptc diff .\runs\a.json .\runs\b.json
+promptc diff .\runs\a.json .\runs\b.json --color
+promptc diff .\runs\a.json .\runs\b.json --sort-keys --color  # reduce noise from unordered object keys
 
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
 promptc batch .\inputs --out-dir .\outputs --format md --render-v2
 promptc batch .\inputs --out-dir .\outputs --format json --jobs 4
+promptc batch .\inputs --out-dir .\outputs --format json --jobs 4 --jsonl .\outputs\all_ir.jsonl
+promptc batch .\inputs --out-dir .\outputs --format json --stdout   # emit JSONL to STDOUT
+promptc batch .\inputs --out-dir .\outputs --format yaml --stdout   # emit multi-document YAML to STDOUT
+promptc batch .\inputs --out-dir .\outputs --format md --stdout     # emit per-file markdown sections
 
 # Batch with custom naming (tokens: {stem} original filename stem, {ext} chosen format ext, {ts} timestamp)
 promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-{ts}.{ext}
 
 # json-path raw output (no surrounding quotes for simple scalars)
 promptc json-path .\outputs\file.json metadata.ir_signature --raw
+promptc json-path .\outputs\file.json steps[0]          # list index access
+promptc json-path .\outputs\file.json metadata.domain_candidates[1]
 ```
 
 Batch concurrency output example:
@@ -299,6 +308,19 @@ Interpretation:
 - jobs: thread count used (each thread runs a compile task)
 
 Re-run with different `--jobs` values to benchmark scaling on your machine.
+
+Additional batch output modes:
+
+| Flag | Format json | Format yaml | Format md |
+|------|-------------|-------------|-----------|
+| `--stdout` | Streams JSONL (one compact JSON per line) | Streams multi-document YAML separated by `---` | Streams concatenated sections (`---\n# filename.txt`) |
+| `--jsonl path.jsonl` | Writes aggregated JSON Lines file | n/a | n/a |
+
+Notes:
+- `--jsonl` requires `--format json`.
+- When using `--stdout`, per-file save logs are suppressed; summary line still prints to stderr-friendly stream.
+- JSONL lines are compact (no indentation) to reduce size.
+- YAML multi-doc output trims surrounding whitespace per document.
 ```
 
 ```
