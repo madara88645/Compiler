@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from typing import List, Any, Optional
 from pathlib import Path
 import sys
@@ -550,18 +551,48 @@ def json_path(
     path: str = typer.Argument(..., help="Dot path into JSON, e.g. metadata.ir_signature"),
     raw: bool = typer.Option(False, "--raw", help="Print raw value without quotes when scalar"),
 ):
+    """Navigate JSON with simple path syntax including list indexes.
+
+    Supported forms:
+      metadata.ir_signature
+      items[0].name
+      nested.list[2].objects[0].value
+    """
     try:
         data = _json.loads(file.read_text(encoding="utf-8"))
     except Exception as e:
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
+
+    token_re = re.compile(r"([A-Za-z0-9_\-]+)|\[(\d+)\]")
+    # Split by dots but keep bracket expressions
+    segments: list[str] = []
+    for dot_part in [p for p in path.split(".") if p]:
+        idx = 0
+        while idx < len(dot_part):
+            m = token_re.match(dot_part, idx)
+            if not m:
+                typer.secho("<not-found>", fg=typer.colors.YELLOW)
+                raise typer.Exit(code=1)
+            if m.group(1):
+                segments.append(m.group(1))
+            else:
+                segments.append(int(m.group(2)))  # type: ignore
+            idx = m.end()
     cur: Any = data
-    for part in [p for p in path.split(".") if p]:
-        if isinstance(cur, dict) and part in cur:
-            cur = cur[part]
-        else:
-            typer.secho("<not-found>", fg=typer.colors.YELLOW)
-            raise typer.Exit(code=1)
+    for seg in segments:
+        if isinstance(seg, str):
+            if isinstance(cur, dict) and seg in cur:
+                cur = cur[seg]
+            else:
+                typer.secho("<not-found>", fg=typer.colors.YELLOW)
+                raise typer.Exit(code=1)
+        else:  # list index
+            if isinstance(cur, list) and 0 <= seg < len(cur):  # type: ignore
+                cur = cur[seg]  # type: ignore
+            else:
+                typer.secho("<not-found>", fg=typer.colors.YELLOW)
+                raise typer.Exit(code=1)
     if raw and isinstance(cur, (int, float)):
         typer.echo(str(cur))
     elif raw and isinstance(cur, str):
@@ -580,6 +611,10 @@ def json_diff(
     a: Path = typer.Argument(..., help="First JSON file"),
     b: Path = typer.Argument(..., help="Second JSON file"),
     context: int = typer.Option(3, "--context", help="Number of context lines for unified diff"),
+    color: bool = typer.Option(False, "--color", help="Colorize diff output"),
+    sort_keys: bool = typer.Option(
+        False, "--sort-keys", help="Sort JSON object keys before diff (reduces noise)"
+    ),
 ):
     try:
         ja = _json.loads(a.read_text(encoding="utf-8"))
@@ -587,12 +622,29 @@ def json_diff(
     except Exception as e:
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
-    sa = _json.dumps(ja, ensure_ascii=False, indent=2).splitlines(keepends=False)
-    sb = _json.dumps(jb, ensure_ascii=False, indent=2).splitlines(keepends=False)
+    sa = _json.dumps(ja, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+        keepends=False
+    )
+    sb = _json.dumps(jb, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+        keepends=False
+    )
     diff = difflib.unified_diff(sa, sb, fromfile=str(a), tofile=str(b), n=context)
-    out = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
-    # Print even if empty; tests expect some output for different inputs
-    typer.echo(out)
+    if not color:
+        out = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
+        typer.echo(out)
+    else:
+        for line in diff:
+            ln = line if line.endswith("\n") else line + "\n"
+            if line.startswith("+++") or line.startswith("---"):
+                print(f"[bold]{ln.rstrip()}[/bold]")
+            elif line.startswith("@@"):
+                print(f"[cyan]{ln.rstrip()}[/cyan]")
+            elif line.startswith("+") and not line.startswith("+++"):
+                print(f"[green]{ln.rstrip()}[/green]")
+            elif line.startswith("-") and not line.startswith("---"):
+                print(f"[red]{ln.rstrip()}[/red]")
+            else:
+                print(ln.rstrip())
 
 
 # -----------------
@@ -652,6 +704,16 @@ def batch(
     jobs: int = typer.Option(
         1, "--jobs", min=1, help="Number of worker threads to use for parallel processing"
     ),
+    jsonl: Path = typer.Option(
+        None,
+        "--jsonl",
+        help="Write all IRs (json format only) to a JSON Lines file (one compact JSON per line)",
+    ),
+    stdout: bool = typer.Option(
+        False,
+        "--stdout",
+        help="Stream outputs to STDOUT (JSONL for json, multi-doc for yaml, sections for md) instead of per-file logs",
+    ),
 ):
     if not in_dir.exists() or not in_dir.is_dir():
         raise typer.BadParameter(f"Input dir not found: {in_dir}")
@@ -659,12 +721,20 @@ def batch(
     fmt = (format or "json").lower()
     if fmt not in {"json", "md", "yaml", "yml"}:
         raise typer.BadParameter("--format must be json, md or yaml")
+    if jsonl and fmt != "json":
+        raise typer.BadParameter("--jsonl requires --format json")
     out_ext = "json" if fmt == "json" else ("md" if fmt == "md" else "yaml")
     # Suppress per-file saved logs for cleaner output
     setattr(_write_output, "_suppress_log", True)  # type: ignore
     try:
         files = sorted([p for p in in_dir.glob("*.txt") if p.is_file()])
         start = time.perf_counter()
+        jsonl_file = None
+        if jsonl:
+            jsonl.parent.mkdir(parents=True, exist_ok=True)
+            jsonl_file = jsonl.open("w", encoding="utf-8")
+
+        stdout_chunks: list[str] = []
 
         def process_file(src: Path):
             text = src.read_text(encoding="utf-8")
@@ -683,6 +753,22 @@ def batch(
                 out_dir=None,
                 fmt=fmt,
             )
+            # For JSONL / STDOUT capture
+            if fmt == "json" and (jsonl_file or stdout):
+                try:
+                    obj = _json.loads(target_path.read_text(encoding="utf-8"))
+                    line = _json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+                    if jsonl_file:
+                        jsonl_file.write(line + "\n")
+                    if stdout:
+                        stdout_chunks.append(line)
+                except Exception:
+                    pass
+            elif stdout and fmt in {"yaml", "yml"}:
+                stdout_chunks.append(target_path.read_text(encoding="utf-8"))
+            elif stdout and fmt == "md":
+                content = target_path.read_text(encoding="utf-8")
+                stdout_chunks.append(f"\n---\n# {src.name}\n\n{content}")
             return src
 
         if jobs == 1 or len(files) <= 1:
@@ -694,11 +780,22 @@ def batch(
                 for _ in as_completed(futures):
                     pass
 
+        if jsonl and jsonl_file:
+            jsonl_file.close()
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         avg_ms = elapsed_ms / max(1, len(files))
         print(
             f"[done] {len(files)} files -> outputs in {int(elapsed_ms)} ms (avg {avg_ms:.1f} ms) jobs={jobs}"
         )
+        if stdout and stdout_chunks:
+            if fmt == "json":
+                # Print JSONL
+                typer.echo("\n".join(stdout_chunks))
+            elif fmt in {"yaml", "yml"}:
+                # Separate YAML docs
+                typer.echo("\n---\n".join(chunk.strip() for chunk in stdout_chunks))
+            else:  # md
+                typer.echo("\n".join(stdout_chunks))
     finally:
         # Re-enable logging for other commands
         setattr(_write_output, "_suppress_log", False)  # type: ignore
