@@ -550,6 +550,11 @@ def json_path(
     file: Path = typer.Argument(..., help="JSON file path"),
     path: str = typer.Argument(..., help="Dot path into JSON, e.g. metadata.ir_signature"),
     raw: bool = typer.Option(False, "--raw", help="Print raw value without quotes when scalar"),
+    default: Optional[str] = typer.Option(
+        None,
+        "--default",
+        help="Fallback value to print when path is not found (exits 0 instead of 1)",
+    ),
 ):
     """Navigate JSON with simple path syntax including list indexes.
 
@@ -572,6 +577,9 @@ def json_path(
         while idx < len(dot_part):
             m = token_re.match(dot_part, idx)
             if not m:
+                if default is not None:
+                    typer.echo(default)
+                    raise typer.Exit(code=0)
                 typer.secho("<not-found>", fg=typer.colors.YELLOW)
                 raise typer.Exit(code=1)
             if m.group(1):
@@ -585,12 +593,18 @@ def json_path(
             if isinstance(cur, dict) and seg in cur:
                 cur = cur[seg]
             else:
+                if default is not None:
+                    typer.echo(default)
+                    raise typer.Exit(code=0)
                 typer.secho("<not-found>", fg=typer.colors.YELLOW)
                 raise typer.Exit(code=1)
         else:  # list index
             if isinstance(cur, list) and 0 <= seg < len(cur):  # type: ignore
                 cur = cur[seg]  # type: ignore
             else:
+                if default is not None:
+                    typer.echo(default)
+                    raise typer.Exit(code=0)
                 typer.secho("<not-found>", fg=typer.colors.YELLOW)
                 raise typer.Exit(code=1)
     if raw and isinstance(cur, (int, float)):
@@ -615,6 +629,11 @@ def json_diff(
     sort_keys: bool = typer.Option(
         False, "--sort-keys", help="Sort JSON object keys before diff (reduces noise)"
     ),
+    brief: bool = typer.Option(
+        False,
+        "--brief",
+        help="Exit with status 1 if files differ, print nothing (good for CI)",
+    ),
 ):
     try:
         ja = _json.loads(a.read_text(encoding="utf-8"))
@@ -622,6 +641,11 @@ def json_diff(
     except Exception as e:
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
+    if brief:
+        # Dict/list equality ignores key order; suitable for structural equality
+        if ja == jb:
+            return
+        raise typer.Exit(code=1)
     sa = _json.dumps(ja, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
         keepends=False
     )
@@ -704,6 +728,14 @@ def batch(
     jobs: int = typer.Option(
         1, "--jobs", min=1, help="Number of worker threads to use for parallel processing"
     ),
+    pattern: List[str] = typer.Option(
+        None,
+        "--pattern",
+        help="Glob pattern(s) for input files (repeatable). Defaults to *.txt",
+    ),
+    recursive: bool = typer.Option(
+        False, "--recursive", help="Recurse into subdirectories when matching patterns"
+    ),
     jsonl: Path = typer.Option(
         None,
         "--jsonl",
@@ -727,7 +759,18 @@ def batch(
     # Suppress per-file saved logs for cleaner output
     setattr(_write_output, "_suppress_log", True)  # type: ignore
     try:
-        files = sorted([p for p in in_dir.glob("*.txt") if p.is_file()])
+        pats = pattern or ["*.txt"]
+        file_set = set()
+        for pat in pats:
+            if recursive:
+                for p in in_dir.rglob(pat):
+                    if p.is_file():
+                        file_set.add(p)
+            else:
+                for p in in_dir.glob(pat):
+                    if p.is_file():
+                        file_set.add(p)
+        files = sorted(file_set)
         start = time.perf_counter()
         jsonl_file = None
         if jsonl:

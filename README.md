@@ -277,12 +277,15 @@ promptc validate --v1 .\outputs\ir_v1.json
 promptc diff .\runs\a.json .\runs\b.json
 promptc diff .\runs\a.json .\runs\b.json --color
 promptc diff .\runs\a.json .\runs\b.json --sort-keys --color  # reduce noise from unordered object keys
+promptc diff .\runs\a.json .\runs\b.json --brief              # exit code 1 if differ, no output
 
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
 promptc batch .\inputs --out-dir .\outputs --format md --render-v2
 promptc batch .\inputs --out-dir .\outputs --format json --jobs 4
 promptc batch .\inputs --out-dir .\outputs --format json --jobs 4 --jsonl .\outputs\all_ir.jsonl
+promptc batch .\inputs --out-dir .\outputs --format json --pattern "*.md" --pattern "*.txt"
+promptc batch .\inputs --out-dir .\outputs --format json --pattern "**/*.txt" --recursive
 promptc batch .\inputs --out-dir .\outputs --format json --stdout   # emit JSONL to STDOUT
 promptc batch .\inputs --out-dir .\outputs --format yaml --stdout   # emit multi-document YAML to STDOUT
 promptc batch .\inputs --out-dir .\outputs --format md --stdout     # emit per-file markdown sections
@@ -292,6 +295,7 @@ promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-
 
 # json-path raw output (no surrounding quotes for simple scalars)
 promptc json-path .\outputs\file.json metadata.ir_signature --raw
+promptc json-path .\outputs\file.json metadata.missing --default "n/a"
 promptc json-path .\outputs\file.json steps[0]          # list index access
 promptc json-path .\outputs\file.json metadata.domain_candidates[1]
 ```
