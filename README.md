@@ -211,6 +211,9 @@ promptc rag index .\docs .\examples --ext .txt --ext .md
 promptc rag query "gradient descent learning rate" --k 5
 promptc rag query "gradient descent" --k 5 --format yaml
 promptc rag query "gradient descent" --k 5 --format md --out .\out\query.md
+promptc rag query "gradient descent" --k 10 --method fts --min-score 10.0 --json
+promptc rag query "gradient descent" --k 10 --method embed --min-sim 0.35 --json
+promptc rag query "gradient descent optimization" --method hybrid --alpha 0.4 --k 12 --min-hybrid 0.25 --json
 
 # Custom database path and JSON output
 promptc rag query "teaching persona" --db-path .\myindex.db --json
@@ -278,6 +281,7 @@ promptc diff .\runs\a.json .\runs\b.json
 promptc diff .\runs\a.json .\runs\b.json --color
 promptc diff .\runs\a.json .\runs\b.json --sort-keys --color  # reduce noise from unordered object keys
 promptc diff .\runs\a.json .\runs\b.json --brief              # exit code 1 if differ, no output
+promptc diff .\runs\a.json .\runs\b.json --ignore-path metadata.ir_signature --ignore-path steps[0]
 
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
@@ -286,6 +290,7 @@ promptc batch .\inputs --out-dir .\outputs --format json --jobs 4
 promptc batch .\inputs --out-dir .\outputs --format json --jobs 4 --jsonl .\outputs\all_ir.jsonl
 promptc batch .\inputs --out-dir .\outputs --format json --pattern "*.md" --pattern "*.txt"
 promptc batch .\inputs --out-dir .\outputs --format json --pattern "**/*.txt" --recursive
+promptc batch .\inputs --out-dir .\outputs --format json --jobs 8 --fail-fast
 promptc batch .\inputs --out-dir .\outputs --format json --stdout   # emit JSONL to STDOUT
 promptc batch .\inputs --out-dir .\outputs --format yaml --stdout   # emit multi-document YAML to STDOUT
 promptc batch .\inputs --out-dir .\outputs --format md --stdout     # emit per-file markdown sections
@@ -298,6 +303,7 @@ promptc json-path .\outputs\file.json metadata.ir_signature --raw
 promptc json-path .\outputs\file.json metadata.missing --default "n/a"
 promptc json-path .\outputs\file.json steps[0]          # list index access
 promptc json-path .\outputs\file.json metadata.domain_candidates[1]
+promptc json-path .\outputs\file.json steps[0] --type   # prints the JSON type
 ```
 
 Batch concurrency output example:

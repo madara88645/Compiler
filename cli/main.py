@@ -344,6 +344,13 @@ def rag_query(
     method: str = typer.Option("fts", "--method", help="fts|embed|hybrid"),
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
     alpha: float = typer.Option(0.5, "--alpha", help="Hybrid weighting factor"),
+    min_score: Optional[float] = typer.Option(None, "--min-score", help="Minimum BM25 score (fts)"),
+    min_sim: Optional[float] = typer.Option(
+        None, "--min-sim", help="Minimum similarity (embed/hybrid)"
+    ),
+    min_hybrid: Optional[float] = typer.Option(
+        None, "--min-hybrid", help="Minimum hybrid score (hybrid)"
+    ),
     json_out: bool = typer.Option(False, "--json", help="Print JSON output"),
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: md|yaml|json (default json)"
@@ -361,6 +368,17 @@ def rag_query(
         )
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
+    # Apply optional filters
+    if min_score is not None:
+        res = [r for r in res if r.get("score") is not None and r.get("score") >= min_score]
+    if min_sim is not None:
+        res = [r for r in res if r.get("similarity") is not None and r.get("similarity") >= min_sim]
+    if min_hybrid is not None:
+        res = [
+            r
+            for r in res
+            if r.get("hybrid_score") is not None and r.get("hybrid_score") >= min_hybrid
+        ]
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
         # Decide serialization
@@ -555,6 +573,11 @@ def json_path(
         "--default",
         help="Fallback value to print when path is not found (exits 0 instead of 1)",
     ),
+    show_type: bool = typer.Option(
+        False,
+        "--type",
+        help="Print JSON type of the value (object|array|string|number|bool|null)",
+    ),
 ):
     """Navigate JSON with simple path syntax including list indexes.
 
@@ -607,6 +630,25 @@ def json_path(
                     raise typer.Exit(code=0)
                 typer.secho("<not-found>", fg=typer.colors.YELLOW)
                 raise typer.Exit(code=1)
+    if show_type:
+
+        def _jtype(v: Any) -> str:
+            if v is None:
+                return "null"
+            if isinstance(v, bool):
+                return "bool"
+            if isinstance(v, (int, float)):
+                return "number"
+            if isinstance(v, str):
+                return "string"
+            if isinstance(v, list):
+                return "array"
+            if isinstance(v, dict):
+                return "object"
+            return type(v).__name__
+
+        typer.echo(_jtype(cur))
+        return
     if raw and isinstance(cur, (int, float)):
         typer.echo(str(cur))
     elif raw and isinstance(cur, str):
@@ -634,6 +676,11 @@ def json_diff(
         "--brief",
         help="Exit with status 1 if files differ, print nothing (good for CI)",
     ),
+    ignore_path: List[str] = typer.Option(
+        None,
+        "--ignore-path",
+        help="Dot/list paths to ignore (repeatable), e.g. metadata.ir_signature or steps[0]",
+    ),
 ):
     try:
         ja = _json.loads(a.read_text(encoding="utf-8"))
@@ -641,6 +688,53 @@ def json_diff(
     except Exception as e:
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
+    # Optionally delete ignored paths
+    if ignore_path:
+
+        def _delete_path(root: Any, pth: str) -> None:
+            token_re = re.compile(r"([A-Za-z0-9_\-]+)|\[(\d+)\]")
+            parts: list[Any] = []
+            for part in [p for p in pth.split(".") if p]:
+                idx = 0
+                while idx < len(part):
+                    m = token_re.match(part, idx)
+                    if not m:
+                        return
+                    if m.group(1):
+                        parts.append(m.group(1))
+                    else:
+                        parts.append(int(m.group(2)))
+                    idx = m.end()
+            cur = root
+            for i, seg in enumerate(parts):
+                last = i == len(parts) - 1
+                if isinstance(seg, str):
+                    if not isinstance(cur, dict) or seg not in cur:
+                        return
+                    if last:
+                        try:
+                            del cur[seg]
+                        except Exception:
+                            pass
+                        return
+                    cur = cur[seg]
+                else:
+                    if not isinstance(cur, list) or not (0 <= seg < len(cur)):
+                        return
+                    if last:
+                        try:
+                            del cur[seg]
+                        except Exception:
+                            pass
+                        return
+                    cur = cur[seg]
+
+        # Deep copy and mutate
+        ja = _json.loads(_json.dumps(ja))
+        jb = _json.loads(_json.dumps(jb))
+        for pth in ignore_path:
+            _delete_path(ja, pth)
+            _delete_path(jb, pth)
     if brief:
         # Dict/list equality ignores key order; suitable for structural equality
         if ja == jb:
@@ -746,6 +840,7 @@ def batch(
         "--stdout",
         help="Stream outputs to STDOUT (JSONL for json, multi-doc for yaml, sections for md) instead of per-file logs",
     ),
+    fail_fast: bool = typer.Option(False, "--fail-fast", help="Stop on first failure and exit 1"),
 ):
     if not in_dir.exists() or not in_dir.is_dir():
         raise typer.BadParameter(f"Input dir not found: {in_dir}")
@@ -778,50 +873,63 @@ def batch(
             jsonl_file = jsonl.open("w", encoding="utf-8")
 
         stdout_chunks: list[str] = []
+        errors: list[tuple[Path, str]] = []
 
         def process_file(src: Path):
-            text = src.read_text(encoding="utf-8")
-            target_name = name_template.format(stem=src.stem, ext=out_ext)
-            target_path = out_dir / target_name
-            _run_compile(
-                full_text=text,
-                diagnostics=diagnostics,
-                json_only=True if fmt in {"json", "yaml", "yml"} else False,
-                quiet=False,
-                persona=None,
-                trace=False,
-                v1=False,
-                render_v2=(fmt == "md"),
-                out=target_path,
-                out_dir=None,
-                fmt=fmt,
-            )
-            # For JSONL / STDOUT capture
-            if fmt == "json" and (jsonl_file or stdout):
-                try:
-                    obj = _json.loads(target_path.read_text(encoding="utf-8"))
-                    line = _json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
-                    if jsonl_file:
-                        jsonl_file.write(line + "\n")
-                    if stdout:
-                        stdout_chunks.append(line)
-                except Exception:
-                    pass
-            elif stdout and fmt in {"yaml", "yml"}:
-                stdout_chunks.append(target_path.read_text(encoding="utf-8"))
-            elif stdout and fmt == "md":
-                content = target_path.read_text(encoding="utf-8")
-                stdout_chunks.append(f"\n---\n# {src.name}\n\n{content}")
-            return src
+            try:
+                text = src.read_text(encoding="utf-8")
+                target_name = name_template.format(stem=src.stem, ext=out_ext)
+                target_path = out_dir / target_name
+                _run_compile(
+                    full_text=text,
+                    diagnostics=diagnostics,
+                    json_only=True if fmt in {"json", "yaml", "yml"} else False,
+                    quiet=False,
+                    persona=None,
+                    trace=False,
+                    v1=False,
+                    render_v2=(fmt == "md"),
+                    out=target_path,
+                    out_dir=None,
+                    fmt=fmt,
+                )
+                # For JSONL / STDOUT capture
+                if fmt == "json" and (jsonl_file or stdout):
+                    try:
+                        obj = _json.loads(target_path.read_text(encoding="utf-8"))
+                        line = _json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+                        if jsonl_file:
+                            jsonl_file.write(line + "\n")
+                        if stdout:
+                            stdout_chunks.append(line)
+                    except Exception:
+                        pass
+                elif stdout and fmt in {"yaml", "yml"}:
+                    stdout_chunks.append(target_path.read_text(encoding="utf-8"))
+                elif stdout and fmt == "md":
+                    content = target_path.read_text(encoding="utf-8")
+                    stdout_chunks.append(f"\n---\n# {src.name}\n\n{content}")
+                return src
+            except Exception as e:
+                errors.append((src, str(e)))
+                if fail_fast:
+                    raise
+                return src
 
         if jobs == 1 or len(files) <= 1:
             for src in files:
-                process_file(src)
+                try:
+                    process_file(src)
+                except Exception:
+                    break
         else:
             with ThreadPoolExecutor(max_workers=jobs) as ex:
                 futures = {ex.submit(process_file, src): src for src in files}
-                for _ in as_completed(futures):
-                    pass
+                for fut in as_completed(futures):
+                    if fail_fast and fut.exception() is not None:
+                        for other in futures:
+                            other.cancel()
+                        break
 
         if jsonl and jsonl_file:
             jsonl_file.close()
@@ -839,6 +947,10 @@ def batch(
                 typer.echo("\n---\n".join(chunk.strip() for chunk in stdout_chunks))
             else:  # md
                 typer.echo("\n".join(stdout_chunks))
+        if errors:
+            for p, msg in errors[:5]:
+                typer.secho(f"[error] {p}: {msg}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
     finally:
         # Re-enable logging for other commands
         setattr(_write_output, "_suppress_log", False)  # type: ignore
