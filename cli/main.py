@@ -446,6 +446,11 @@ def rag_pack(
     format: Optional[str] = typer.Option(
         None, "--format", help="Output format: md|yaml|json (default json)"
     ),
+    sources: str = typer.Option(
+        "list",
+        "--sources",
+        help="In md format: none|list|full; list shows filenames, full shows chunk labels",
+    ),
     out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
     out_dir: Optional[Path] = typer.Option(None, "--out-dir", help="Write output into directory"),
 ):
@@ -473,11 +478,17 @@ def rag_pack(
                 f"**budget:** {'%d chars'%max_chars if not max_tokens else '%d tokens'%max_tokens}\n",
                 "\n## Packed Context\n",
                 "```\n" + (packed.get("packed", "") or "") + "\n```\n",
-                "\n## Sources\n",
             ]
-            for i, r in enumerate(res, 1):
-                label = f"{Path(r['path']).name}#{r.get('chunk_index', 0)}"
-                lines.append(f"- {i}. {label}")
+            if sources != "none":
+                lines.append("\n## Sources\n")
+                if sources == "full":
+                    for i, r in enumerate(res, 1):
+                        label = f"{r['path']}#chunk={r.get('chunk_index', 0)}"
+                        lines.append(f"- {i}. {label}")
+                else:  # list
+                    for i, r in enumerate(res, 1):
+                        label = f"{Path(r['path']).name}#{r.get('chunk_index', 0)}"
+                        lines.append(f"- {i}. {label}")
             payload = "\n".join(lines)
             ext = "md"
         else:
@@ -681,6 +692,7 @@ def json_diff(
         "--ignore-path",
         help="Dot/list paths to ignore (repeatable), e.g. metadata.ir_signature or steps[0]",
     ),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write diff to a file"),
 ):
     try:
         ja = _json.loads(a.read_text(encoding="utf-8"))
@@ -748,21 +760,32 @@ def json_diff(
     )
     diff = difflib.unified_diff(sa, sb, fromfile=str(a), tofile=str(b), n=context)
     if not color:
-        out = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
-        typer.echo(out)
+        txt = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(txt, encoding="utf-8")
+        else:
+            typer.echo(txt)
     else:
+        colored_lines: list[str] = []
         for line in diff:
             ln = line if line.endswith("\n") else line + "\n"
             if line.startswith("+++") or line.startswith("---"):
-                print(f"[bold]{ln.rstrip()}[/bold]")
+                colored_lines.append(f"[bold]{ln.rstrip()}[/bold]")
             elif line.startswith("@@"):
-                print(f"[cyan]{ln.rstrip()}[/cyan]")
+                colored_lines.append(f"[cyan]{ln.rstrip()}[/cyan]")
             elif line.startswith("+") and not line.startswith("+++"):
-                print(f"[green]{ln.rstrip()}[/green]")
+                colored_lines.append(f"[green]{ln.rstrip()}[/green]")
             elif line.startswith("-") and not line.startswith("---"):
-                print(f"[red]{ln.rstrip()}[/red]")
+                colored_lines.append(f"[red]{ln.rstrip()}[/red]")
             else:
-                print(ln.rstrip())
+                colored_lines.append(ln.rstrip())
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text("\n".join(colored_lines) + "\n", encoding="utf-8")
+        else:
+            for cl in colored_lines:
+                print(cl)
 
 
 # -----------------
@@ -841,6 +864,11 @@ def batch(
         help="Stream outputs to STDOUT (JSONL for json, multi-doc for yaml, sections for md) instead of per-file logs",
     ),
     fail_fast: bool = typer.Option(False, "--fail-fast", help="Stop on first failure and exit 1"),
+    summary_json: Optional[Path] = typer.Option(
+        None,
+        "--summary-json",
+        help="Write a JSON summary with counts, durations, and error samples",
+    ),
 ):
     if not in_dir.exists() or not in_dir.is_dir():
         raise typer.BadParameter(f"Input dir not found: {in_dir}")
@@ -938,6 +966,18 @@ def batch(
         print(
             f"[done] {len(files)} files -> outputs in {int(elapsed_ms)} ms (avg {avg_ms:.1f} ms) jobs={jobs}"
         )
+        if summary_json:
+            summary = {
+                "files": len(files),
+                "elapsed_ms": int(elapsed_ms),
+                "avg_ms": float(f"{avg_ms:.3f}"),
+                "jobs": jobs,
+                "errors": [{"path": str(p), "error": msg} for p, msg in errors],
+            }
+            summary_json.parent.mkdir(parents=True, exist_ok=True)
+            summary_json.write_text(
+                _json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         if stdout and stdout_chunks:
             if fmt == "json":
                 # Print JSONL

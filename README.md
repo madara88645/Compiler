@@ -118,6 +118,11 @@ promptc rag pack "gradient descent optimization" --k 12 --max-chars 3500 --metho
 # Save packed context as Markdown
 promptc rag pack "gradient descent optimization" --k 8 --format md --out .\out\pack.md
 
+# Control sources section in Markdown output (none | list | full)
+promptc rag pack "gradient descent optimization" --k 8 --format md --sources none   # no sources section
+promptc rag pack "gradient descent optimization" --k 8 --format md --sources list   # default: filenames
+promptc rag pack "gradient descent optimization" --k 8 --format md --sources full   # full path + chunk labels
+
 # Approximate token budget (4 chars ≈ 1 token by default)
 promptc rag pack "gradient descent optimization" --k 12 --max-tokens 1200 --token-ratio 4.0 --method hybrid
 
@@ -282,6 +287,11 @@ promptc diff .\runs\a.json .\runs\b.json --color
 promptc diff .\runs\a.json .\runs\b.json --sort-keys --color  # reduce noise from unordered object keys
 promptc diff .\runs\a.json .\runs\b.json --brief              # exit code 1 if differ, no output
 promptc diff .\runs\a.json .\runs\b.json --ignore-path metadata.ir_signature --ignore-path steps[0]
+promptc diff .\runs\a.json .\runs\b.json --out .\diffs\a_vs_b.diff  # write diff to file
+
+Notes:
+- When using `--out` without `--color`, the saved file contains a plain unified diff.
+- When combined with `--color`, the saved file contains Rich markup tags (e.g., `[red]...[/red]`).
 
 # Batch-compile all .txt prompts in a folder
 promptc batch .\inputs --out-dir .\outputs --format json
@@ -297,6 +307,9 @@ promptc batch .\inputs --out-dir .\outputs --format md --stdout     # emit per-f
 
 # Batch with custom naming (tokens: {stem} original filename stem, {ext} chosen format ext, {ts} timestamp)
 promptc batch .\inputs --out-dir .\outputs --format json --name-template {stem}-{ts}.{ext}
+
+# Batch summary JSON with timing and error samples
+promptc batch .\inputs --out-dir .\outputs --format json --jobs 8 --summary-json .\outputs\summary.json
 
 # json-path raw output (no surrounding quotes for simple scalars)
 promptc json-path .\outputs\file.json metadata.ir_signature --raw
@@ -331,6 +344,19 @@ Notes:
 - When using `--stdout`, per-file save logs are suppressed; summary line still prints to stderr-friendly stream.
 - JSONL lines are compact (no indentation) to reduce size.
 - YAML multi-doc output trims surrounding whitespace per document.
+- `--summary-json` writes a machine-readable summary, for example:
+
+  ```jsonc
+  {
+    "files": 12,
+    "elapsed_ms": 420,
+    "avg_ms": 34.9,
+    "jobs": 4,
+    "errors": [
+      { "path": "inputs/bad.txt", "error": "Cannot read file" }
+    ]
+  }
+  ```
 ```
 
 ```
