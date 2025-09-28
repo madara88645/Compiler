@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.8] - 2025-09-28
+### Added
+- CLI (RAG): `promptc rag pack` gains `--sources {none|list|full}` to control the sources section in Markdown output
+- CLI (diff): `promptc diff` gains `--out <file>` to write the diff to a file (plain unified diff; with `--color` uses Rich markup)
+- CLI (batch): `promptc batch` gains `--summary-json <path>` to write a machine-readable summary with counts, timings, and error samples
+### Docs
+- README updated with usage examples for `rag pack --sources`, `diff --out`, and `batch --summary-json`
+
 ## [2.0.7] - 2025-09-08
 ### Changed
 - Migrated codebase to Pydantic v2 (use `@field_validator`, `ConfigDict`, and `.model_dump()`)
