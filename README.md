@@ -349,6 +349,10 @@ Notes:
   ```jsonc
   {
     "files": 12,
+    "processed": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "skipped": 0,
     "elapsed_ms": 420,
     "avg_ms": 34.9,
     "jobs": 4,
@@ -357,6 +361,8 @@ Notes:
     ]
   }
   ```
+
+  `processed` counts files that actually ran (useful when `--fail-fast` cancels the rest), `succeeded` and `failed` split the outcomes, and `skipped` reflects any files that were never attempted.
 ```
 
 ```

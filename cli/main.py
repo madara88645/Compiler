@@ -902,8 +902,11 @@ def batch(
 
         stdout_chunks: list[str] = []
         errors: list[tuple[Path, str]] = []
+        success_count = 0
+        processed_count = 0
 
         def process_file(src: Path):
+            nonlocal success_count, processed_count
             try:
                 text = src.read_text(encoding="utf-8")
                 target_name = name_template.format(stem=src.stem, ext=out_ext)
@@ -937,12 +940,15 @@ def batch(
                 elif stdout and fmt == "md":
                     content = target_path.read_text(encoding="utf-8")
                     stdout_chunks.append(f"\n---\n# {src.name}\n\n{content}")
+                success_count += 1
                 return src
             except Exception as e:
                 errors.append((src, str(e)))
                 if fail_fast:
                     raise
                 return src
+            finally:
+                processed_count += 1
 
         if jobs == 1 or len(files) <= 1:
             for src in files:
@@ -969,6 +975,10 @@ def batch(
         if summary_json:
             summary = {
                 "files": len(files),
+                "processed": processed_count,
+                "succeeded": success_count,
+                "failed": len(errors),
+                "skipped": max(0, len(files) - processed_count),
                 "elapsed_ms": int(elapsed_ms),
                 "avg_ms": float(f"{avg_ms:.3f}"),
                 "jobs": jobs,

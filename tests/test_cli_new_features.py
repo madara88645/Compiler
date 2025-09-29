@@ -1,3 +1,4 @@
+import json
 import sys
 import subprocess
 from pathlib import Path
@@ -68,3 +69,34 @@ def test_validate_summary_and_api_schemas(tmp_path: Path):
             with urllib.request.urlopen(f"http://127.0.0.1:8000{p}") as resp:
                 data = _j.loads(resp.read().decode("utf-8"))
                 assert "schema" in data and isinstance(data["schema"], str)
+
+
+def test_batch_summary_json_reports_counts(tmp_path: Path):
+    inp = tmp_path / "inputs"
+    out_dir = tmp_path / "outs"
+    summary = tmp_path / "summary.json"
+    inp.mkdir()
+    (inp / "one.txt").write_text("teach me sorting algorithms", encoding="utf-8")
+    (inp / "two.txt").write_text("compare llms table", encoding="utf-8")
+
+    code, out, err = run_cli(
+        [
+            "batch",
+            str(inp),
+            "--out-dir",
+            str(out_dir),
+            "--format",
+            "json",
+            "--summary-json",
+            str(summary),
+        ],
+        Path.cwd(),
+    )
+    assert code == 0, err
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert payload["files"] == 2
+    assert payload["processed"] == 2
+    assert payload["succeeded"] == 2
+    assert payload["failed"] == 0
+    assert payload["skipped"] == 0
+    assert "errors" in payload and isinstance(payload["errors"], list)
