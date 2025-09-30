@@ -121,9 +121,7 @@ def _load_from_env() -> List[PromptcPlugin]:
         if attr:
             obj = getattr(module, attr, None)
             if obj is None:
-                logger.warning(
-                    "Plugin module %s missing attribute %s", module_name, attr
-                )
+                logger.warning("Plugin module %s missing attribute %s", module_name, attr)
                 continue
         else:
             obj = None
