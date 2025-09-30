@@ -36,6 +36,7 @@ from app.emitters import (
     emit_expanded_prompt_v2,
 )
 from app import get_version
+from app.plugins import describe_plugins
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -49,7 +50,9 @@ from app.rag.simple_index import (
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
+plugins_app = typer.Typer(help="Plugin utilities")
 app.add_typer(rag_app, name="rag")
+app.add_typer(plugins_app, name="plugins")
 
 
 def _run_compile(
@@ -215,6 +218,35 @@ def _write_output(
     # Quiet for internal batch metrics; still show path when invoked directly
     if not getattr(_write_output, "_suppress_log", False):  # type: ignore
         print(f"[saved] {target}")
+
+
+@plugins_app.command("list")
+def plugins_list(
+    refresh: bool = typer.Option(False, "--refresh", help="Reload plugin entry points"),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
+):
+    """List installed Prompt Compiler plugins."""
+
+    info = describe_plugins(refresh=refresh)
+    if json_out:
+        typer.echo(json.dumps(info, ensure_ascii=False, indent=2))
+        return
+    if not info:
+        typer.echo(
+            "No plugins discovered. Install packages exposing the 'promptc.plugins' entry point"
+            " or set PROMPTC_PLUGIN_PATH."
+        )
+        return
+    for item in info:
+        line = item["name"]
+        if item.get("version"):
+            line += f" v{item['version']}"
+        if item.get("description"):
+            line += f" - {item['description']}"
+        provides = item.get("provides") or []
+        if provides:
+            line += " (" + ", ".join(provides) + ")"
+        typer.echo(line)
 
 
 @app.callback(invoke_without_command=True)

@@ -51,6 +51,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
+* **Plugin architecture (new)**: Load external heuristic packs via Python entry points or `PROMPTC_PLUGIN_PATH`; audit them with `promptc plugins list`
 * **New CLI Flags**: `--from-file`, `--stdin`, `--fail-on-empty`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **CLI Batch Concurrency (new)**: `batch --jobs N` to compile multiple prompt files in parallel with total & average timing metrics
 * **CLI Utilities Enhancements (new)**: `json-path` now supports list indices (`items[0].field`), `diff` supports `--color` & `--sort-keys`, `batch` supports `--jsonl` aggregated IR export and `--stdout` streaming (JSONL / YAML multi-doc / Markdown sections)
@@ -777,6 +778,49 @@ Extracts items heuristicly ("python vs go", "python vs go vs rust").
 Adds:
 - Constraint: `Present a structured comparison`
 - `output_format` auto `table` (targets a markdown table)
+
+### Plugin System (Experimental)
+
+You can extend Prompt Compiler heuristics without forking the core project. Plugins are regular
+Python packages that expose a factory under the `promptc.plugins` entry point (or any callable
+referenced through the `PROMPTC_PLUGIN_PATH` environment variable). At runtime the compiler loads
+all discovered plugins, passes the original prompt context, and lets them mutate the IR before it
+is returned.
+
+Key affordances:
+
+- **Entry points** – distribute a wheel that declares
+  ```toml
+  [project.entry-points."promptc.plugins"]
+  my_pack = "my_pack.plugin:get_plugin"
+  ```
+- **Environment override** – for local experiments set
+  `PROMPTC_PLUGIN_PATH=package.module:get_plugin` (multiple entries separated by `,` or `;`).
+- **CLI visibility** – inspect the registry with `promptc plugins list` or JSON output using
+  `promptc plugins list --json`.
+
+Plugin factories must return a `PromptcPlugin` object. Minimal example:
+
+```python
+from app.plugins import PromptcPlugin, PluginContext
+
+
+def _process_ir(ir, ctx: PluginContext) -> None:
+    if "haiku" in ctx.text.lower():
+        ir.constraints.append("Ensure the answer is a haiku")
+
+
+def get_plugin() -> PromptcPlugin:
+    return PromptcPlugin(
+        name="haiku-helper",
+        version="0.1.0",
+        description="Adds a poetic constraint when users ask for haiku",
+        process_ir=_process_ir,
+    )
+```
+
+All plugin actions are recorded under `metadata.plugins` together with new constraint origins such as
+`plugin:haiku-helper`, enabling downstream tooling to audit or disable specific packs.
 Metadata:
 - `comparison_items`: list of extracted items
 

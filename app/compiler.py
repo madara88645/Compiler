@@ -2,10 +2,11 @@ from __future__ import annotations
 import json
 import hashlib
 import re
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
 from .models_v2 import IRv2, ConstraintV2, StepV2
 from app import get_version
+from .plugins import PluginContext, apply_plugins_ir, apply_plugins_ir_v2
 from .heuristics import (
     detect_language,
     detect_domain,
@@ -78,6 +79,16 @@ def build_steps(tasks: List[str]) -> List[str]:
 
 HEURISTIC_VERSION = "2025.09.05-0"
 HEURISTIC2_VERSION = "2025.09.05-0"
+
+
+def _ensure_plugin_metadata(md: Dict[str, Any]) -> Dict[str, Any]:
+    entry = md.get("plugins")
+    if not isinstance(entry, dict):
+        entry = {"applied": [], "errors": []}
+        md["plugins"] = entry
+    entry.setdefault("applied", [])
+    entry.setdefault("errors", [])
+    return entry
 
 
 def _canonical_constraints(items: List[str]) -> List[str]:
@@ -192,6 +203,24 @@ def compile_text_v2(text: str) -> IRv2:
             "package_version": get_version(),
         },
     )
+
+    plugin_ctx = PluginContext(
+        text=text,
+        language=ir2.language,
+        domain=ir2.domain,
+        heuristics={
+            "intents": intents,
+            "ir_v1_metadata": ir1.metadata,
+        },
+        ir_metadata=ir2.metadata,
+        extra={"ir_v1": ir1},
+    )
+
+    plugin_results_v2 = apply_plugins_ir_v2(ir2, plugin_ctx)
+    if plugin_results_v2["applied"] or plugin_results_v2["errors"]:
+        plugin_meta = _ensure_plugin_metadata(ir2.metadata)
+        plugin_meta["applied"].extend(plugin_results_v2["applied"])
+        plugin_meta["errors"].extend(plugin_results_v2["errors"])
     return ir2
 
 
@@ -435,8 +464,80 @@ def compile_text(text: str) -> IR:
             "quantities": quantities,
         },
     )
+    base_constraint_origins = {c: constraint_origins.get(c, "") for c in ir.constraints}
+    ir.metadata["constraint_origins"] = dict(base_constraint_origins)
 
-    ir.metadata["constraint_origins"] = {c: constraint_origins.get(c, "") for c in ir.constraints}
+    heuristic_state: Dict[str, Any] = {
+        "summary": {"enabled": is_summary, "limit": summary_count},
+        "comparison_items": comparison_items,
+        "variant_count": variant_count,
+        "risk_flags": risk_flags,
+        "ambiguous_terms": ambiguous,
+        "clarify_questions": clarify_qs,
+        "clarify_questions_struct": clarify_struct,
+        "temporal_flags": temporal_flags,
+        "quantities": quantities,
+        "code_request": code_req,
+        "pii_flags": pii_flags,
+        "entities": entities,
+        "complexity": complexity,
+        "domain_candidates": domain_candidates,
+        "domain_scores": domain_scores,
+        "domain_confidence": domain_confidence,
+        "persona_evidence": persona_info,
+        "detected_domain_evidence": evidence,
+        "conflicts": conflicts,
+    }
+
+    plugin_ctx = PluginContext(
+        text=text,
+        language=lang,
+        domain=domain,
+        heuristics=heuristic_state,
+        ir_metadata=ir.metadata,
+        extra={
+            "inputs": inputs,
+            "style": style,
+            "tone": tone,
+            "tools": tools,
+        },
+    )
+
+    plugin_results = apply_plugins_ir(ir, plugin_ctx)
+    if plugin_results["applied"] or plugin_results["errors"]:
+        plugin_meta = _ensure_plugin_metadata(ir.metadata)
+        plugin_meta["applied"].extend(plugin_results["applied"])
+        plugin_meta["errors"].extend(plugin_results["errors"])
+
+    ir.constraints = _canonical_constraints(ir.constraints)
+
+    final_origins = dict(ir.metadata.get("constraint_origins") or {})
+    for constraint, origin in base_constraint_origins.items():
+        final_origins.setdefault(constraint, origin)
+
+    normalized_origins: Dict[str, str] = {}
+    for constraint in ir.constraints:
+        if constraint in final_origins and final_origins[constraint]:
+            normalized_origins[constraint] = final_origins[constraint]
+        elif constraint in base_constraint_origins:
+            normalized_origins[constraint] = base_constraint_origins[constraint]
+        else:
+            normalized_origins[constraint] = ""
+
+    for entry in plugin_results["applied"]:
+        if entry.get("stage") != "ir":
+            continue
+        for added in entry.get("added_constraints", []):
+            target = next(
+                (c for c in ir.constraints if c.strip().lower() == added.strip().lower()),
+                None,
+            )
+            if target and not normalized_origins.get(target):
+                normalized_origins[target] = f"plugin:{entry['name']}"
+
+    # Drop origins for constraints that were removed downstream
+    normalized_origins = {c: normalized_origins.get(c, "") for c in ir.constraints}
+    ir.metadata["constraint_origins"] = normalized_origins
     ir.metadata["ir_signature"] = _compute_signature(ir)
     return ir
 
