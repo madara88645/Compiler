@@ -52,6 +52,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **Plugin architecture (new)**: Load external heuristic packs via Python entry points or `PROMPTC_PLUGIN_PATH`; audit them with `promptc plugins list`
+* **Template System (new)**: Reusable prompt templates with variable substitution; built-in templates for code review, tutorials, comparisons, documentation, and debugging
 * **New CLI Flags**: `--from-file`, `--stdin`, `--fail-on-empty`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **CLI Batch Concurrency (new)**: `batch --jobs N` to compile multiple prompt files in parallel with total & average timing metrics
 * **CLI Utilities Enhancements (new)**: `json-path` now supports list indices (`items[0].field`), `diff` supports `--color` & `--sort-keys`, `batch` supports `--jsonl` aggregated IR export and `--stdout` streaming (JSONL / YAML multi-doc / Markdown sections)
@@ -272,6 +273,50 @@ curl -X POST http://127.0.0.1:8000/rag/query \
 ```
 
 Planned (future): weighted hybrid fusion (BM25 + embedding), context packing for token budgets, pluggable external embedding providers.
+
+#### Template System (new)
+
+Reusable prompt templates with variable substitution for common use cases:
+
+```powershell
+# List all available templates
+promptc template list
+
+# Filter by category
+promptc template list --category development
+
+# Show template details
+promptc template show code-review
+
+# Apply template with variables
+promptc template apply code-review -v "language=Python" -v "context=REST API authentication"
+
+# Use example values from template
+promptc template apply tutorial-creator --example
+
+# Apply without compiling (just render)
+promptc template apply bug-analyzer -v "system=FastAPI app" -v "issue=500 errors" --no-compile
+
+# Create custom template
+promptc template create my-analysis --name "My Analysis" --desc "Custom analysis template" --category analysis --interactive
+
+# Delete user template
+promptc template delete my-analysis
+```
+
+**Built-in templates:**
+- `code-review`: Comprehensive code review prompts (any language)
+- `tutorial-creator`: Structured tutorials with learning objectives
+- `tech-comparison`: Side-by-side technology/framework comparison
+- `documentation-writer`: Technical documentation (API, guides, README)
+- `bug-analyzer`: Systematic debugging and root cause analysis
+
+Templates support:
+- Variable placeholders with `{{variable_name}}`
+- Required and optional variables with defaults
+- Example values for quick testing
+- Category-based organization
+- User-defined custom templates saved in `~/.promptc/templates/`
 
 #### CLI extras (new)
 

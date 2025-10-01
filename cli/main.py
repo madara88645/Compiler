@@ -37,6 +37,7 @@ from app.emitters import (
 )
 from app import get_version
 from app.plugins import describe_plugins
+from app.templates import get_registry, PromptTemplate, TemplateVariable
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -51,8 +52,10 @@ from app.rag.simple_index import (
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
 plugins_app = typer.Typer(help="Plugin utilities")
+template_app = typer.Typer(help="Template management")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
+app.add_typer(template_app, name="template")
 
 
 def _run_compile(
@@ -1036,6 +1039,324 @@ def batch(
     finally:
         # Re-enable logging for other commands
         setattr(_write_output, "_suppress_log", False)  # type: ignore
+
+
+# --------------
+# Template subcommands
+# --------------
+
+
+@template_app.command("list")
+def template_list(
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all available prompt templates."""
+    registry = get_registry()
+    templates = registry.list_templates(category=category)
+
+    if json_out:
+        data = [t.to_dict() for t in templates]
+        typer.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+
+    if not templates:
+        typer.echo("No templates found.")
+        if category:
+            typer.echo("Try without --category filter or check available categories.")
+        return
+
+    # Group by category
+    by_category: dict[str, list] = {}
+    for t in templates:
+        by_category.setdefault(t.category, []).append(t)
+
+    for cat, tmpl_list in sorted(by_category.items()):
+        print(f"\n[bold cyan]{cat}[/bold cyan]")
+        for t in tmpl_list:
+            tags_str = f" [{', '.join(t.tags)}]" if t.tags else ""
+            print(f"  • [green]{t.id}[/green] - {t.name}{tags_str}")
+            print(f"    {t.description}")
+
+
+@template_app.command("show")
+def template_show(
+    template_id: str = typer.Argument(..., help="Template ID to display"),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+    show_example: bool = typer.Option(
+        False, "--example", "-e", help="Show example variable values"
+    ),
+):
+    """Show details of a specific template."""
+    registry = get_registry()
+    template = registry.get_template(template_id)
+
+    if not template:
+        typer.secho(f"Template '{template_id}' not found.", fg=typer.colors.RED)
+        typer.echo("Run 'promptc template list' to see available templates.")
+        raise typer.Exit(code=1)
+
+    if json_out:
+        typer.echo(json.dumps(template.to_dict(), ensure_ascii=False, indent=2))
+        return
+
+    print(f"\n[bold]{template.name}[/bold] (ID: [cyan]{template.id}[/cyan])")
+    print(f"Category: {template.category}")
+    print(f"Version: {template.version}")
+    if template.author:
+        print(f"Author: {template.author}")
+    if template.tags:
+        print(f"Tags: {', '.join(template.tags)}")
+    print(f"\n{template.description}")
+
+    print("\n[bold]Variables:[/bold]")
+    for var in template.variables:
+        req_str = " (required)" if var.required else " (optional)"
+        default_str = f" [default: {var.default}]" if var.default else ""
+        var_syntax = "{{" + var.name + "}}"
+        print(f"  • [green]{var_syntax}[/green]{req_str}{default_str}")
+        print(f"    {var.description}")
+
+    if show_example and template.example_values:
+        print("\n[bold]Example values:[/bold]")
+        for key, value in template.example_values.items():
+            val_preview = value[:60] + "..." if len(value) > 60 else value
+            print(f"  {key}: {val_preview}")
+
+    print("\n[bold]Template:[/bold]")
+    print(template.template_text[:500] + ("..." if len(template.template_text) > 500 else ""))
+
+
+@template_app.command("apply")
+def template_apply(
+    template_id: str = typer.Argument(..., help="Template ID to use"),
+    var: List[str] = typer.Option(
+        None, "--var", "-v", help="Variable in format name=value (can be used multiple times)"
+    ),
+    example: bool = typer.Option(False, "--example", "-e", help="Use example values from template"),
+    compile_now: bool = typer.Option(
+        True, "--compile/--no-compile", help="Compile the rendered prompt immediately"
+    ),
+    diagnostics: bool = typer.Option(False, "--diagnostics", help="Enable diagnostics mode"),
+    json_only: bool = typer.Option(False, "--json-only", help="Output only IR JSON"),
+    out: Optional[Path] = typer.Option(None, "--out", help="Save output to file"),
+):
+    """Apply a template with variable substitution and optionally compile it."""
+    registry = get_registry()
+    template = registry.get_template(template_id)
+
+    if not template:
+        typer.secho(f"Template '{template_id}' not found.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Parse variables
+    variables: dict[str, str] = {}
+
+    if example:
+        variables.update(template.example_values)
+
+    if var:
+        for v in var:
+            if "=" not in v:
+                typer.secho(
+                    f"Invalid variable format: {v} (expected name=value)", fg=typer.colors.RED
+                )
+                raise typer.Exit(code=1)
+            name, value = v.split("=", 1)
+            variables[name.strip()] = value.strip()
+
+    # Check if we have all required variables
+    missing = []
+    for template_var in template.variables:
+        if (
+            template_var.required
+            and template_var.name not in variables
+            and not template_var.default
+        ):
+            missing.append(template_var.name)
+
+    if missing:
+        typer.secho(f"Missing required variables: {', '.join(missing)}", fg=typer.colors.RED)
+        typer.echo(f"\nRun 'promptc template show {template_id}' to see variable details.")
+        raise typer.Exit(code=1)
+
+    # Render template
+    try:
+        rendered = template.render(variables)
+    except ValueError as e:
+        typer.secho(f"Template rendering failed: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if not compile_now:
+        typer.echo(rendered)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            print(f"[saved] {out}")
+        return
+
+    # Compile the rendered prompt
+    _run_compile(
+        rendered,
+        diagnostics=diagnostics,
+        json_only=json_only,
+        quiet=False,
+        persona=None,
+        trace=False,
+        v1=False,
+        render_v2=False,
+        out=out,
+        out_dir=None,
+        fmt=None,
+    )
+
+
+@template_app.command("create")
+def template_create(
+    template_id: str = typer.Argument(..., help="Unique ID for the template"),
+    name: str = typer.Option(..., "--name", "-n", help="Template name"),
+    description: str = typer.Option(..., "--desc", "-d", help="Template description"),
+    category: str = typer.Option(..., "--category", "-c", help="Template category"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Load template text from file"
+    ),
+    interactive: bool = typer.Option(
+        False, "--interactive", "-i", help="Interactive variable definition"
+    ),
+):
+    """Create a new user template."""
+    registry = get_registry()
+
+    # Check if template already exists
+    existing = registry.get_template(template_id)
+    if existing:
+        typer.secho(
+            f"Template '{template_id}' already exists. Choose a different ID.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    # Get template text
+    if from_file:
+        if not from_file.exists():
+            typer.secho(f"File not found: {from_file}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        template_text = from_file.read_text(encoding="utf-8")
+    else:
+        typer.echo("Enter template text (use {{variable}} for placeholders):")
+        typer.echo("Press Ctrl+D (Unix) or Ctrl+Z then Enter (Windows) when done:")
+        lines = []
+        try:
+            while True:
+                lines.append(input())
+        except EOFError:
+            pass
+        template_text = "\n".join(lines)
+
+    # Extract variables from template
+    var_pattern = re.compile(r"\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}")
+    var_names = set(var_pattern.findall(template_text))
+
+    variables: List[TemplateVariable] = []
+
+    if interactive and var_names:
+        typer.echo(f"\nFound {len(var_names)} variables. Define them:")
+        for var_name in sorted(var_names):
+            var_desc = typer.prompt(f"  Description for '{var_name}'", default="")
+            var_required = typer.confirm(f"  Is '{var_name}' required?", default=True)
+            var_default = None
+            if not var_required:
+                var_default = typer.prompt(
+                    f"  Default value for '{var_name}'", default="", show_default=False
+                )
+                var_default = var_default or None
+
+            variables.append(
+                TemplateVariable(
+                    name=var_name,
+                    description=var_desc or f"Value for {var_name}",
+                    default=var_default,
+                    required=var_required,
+                )
+            )
+    else:
+        # Auto-create basic variables
+        for var_name in sorted(var_names):
+            variables.append(
+                TemplateVariable(
+                    name=var_name,
+                    description=f"Value for {var_name}",
+                    required=True,
+                )
+            )
+
+    # Create template
+    template = PromptTemplate(
+        id=template_id,
+        name=name,
+        description=description,
+        category=category,
+        template_text=template_text,
+        variables=variables,
+    )
+
+    # Save template
+    saved_path = registry.save_template(template, user_template=True)
+    print(f"[bold green]Template created:[/bold green] {template_id}")
+    print(f"[saved] {saved_path}")
+    typer.echo(f"\nUse it with: promptc template apply {template_id}")
+
+
+@template_app.command("delete")
+def template_delete(
+    template_id: str = typer.Argument(..., help="Template ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Delete a user template."""
+    registry = get_registry()
+
+    template = registry.get_template(template_id)
+    if not template:
+        typer.secho(f"Template '{template_id}' not found.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if not force:
+        confirm = typer.confirm(f"Delete template '{template.name}' ({template_id})?")
+        if not confirm:
+            typer.echo("Cancelled.")
+            raise typer.Exit(code=0)
+
+    success = registry.delete_template(template_id, user_only=True)
+
+    if success:
+        print(f"[bold green]Deleted:[/bold green] {template_id}")
+    else:
+        typer.secho(
+            "Could not delete template (may be a built-in template).", fg=typer.colors.YELLOW
+        )
+        raise typer.Exit(code=1)
+
+
+@template_app.command("categories")
+def template_categories(
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all template categories."""
+    registry = get_registry()
+    categories = registry.get_categories()
+
+    if json_out:
+        typer.echo(json.dumps(categories, ensure_ascii=False, indent=2))
+        return
+
+    if not categories:
+        typer.echo("No categories found.")
+        return
+
+    print("[bold]Template Categories:[/bold]")
+    for cat in categories:
+        count = len(registry.list_templates(category=cat))
+        print(f"  • [cyan]{cat}[/cyan] ({count} templates)")
 
 
 # Entry point

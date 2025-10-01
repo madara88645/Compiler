@@ -1,0 +1,87 @@
+id: tech-comparison
+name: Technology Comparison
+description: Compare multiple technologies, frameworks, or tools systematically
+category: analysis
+version: 1.0.0
+author: promptc
+tags:
+  - comparison
+  - analysis
+  - decision-making
+  - evaluation
+
+template_text: |
+  Compare {{item_a}} vs {{item_b}}{{#item_c}} vs {{item_c}}{{/item_c}} for {{use_case}}.
+  
+  Comparison criteria:
+  {{criteria}}
+  
+  Target audience: {{audience}}
+  {{#constraints}}
+  
+  Provide the comparison in a {{format}} format with:
+  1. Executive summary
+  2. Feature-by-feature comparison
+  3. Pros and cons for each option
+  4. Use case recommendations
+  5. Final recommendation with reasoning
+
+variables:
+  - name: item_a
+    description: First item to compare
+    required: true
+  
+  - name: item_b
+    description: Second item to compare
+    required: true
+  
+  - name: item_c
+    description: Third item to compare (optional)
+    default: ""
+    required: false
+  
+  - name: use_case
+    description: Specific use case or context
+    required: true
+  
+  - name: criteria
+    description: Key comparison criteria
+    default: |
+      - Performance and scalability
+      - Learning curve and documentation
+      - Community support and ecosystem
+      - Cost and licensing
+      - Long-term maintenance
+    required: false
+  
+  - name: audience
+    description: Who is making the decision
+    default: development team
+    required: false
+  
+  - name: format
+    description: Output format (table/detailed/summary)
+    default: table
+    required: false
+  
+  - name: constraints
+    description: Any constraints or special considerations
+    default: ""
+    required: false
+
+example_values:
+  item_a: React
+  item_b: Vue.js
+  item_c: Svelte
+  use_case: building a medium-sized e-commerce frontend
+  criteria: |
+    - Bundle size and performance
+    - TypeScript support
+    - State management options
+    - Component ecosystem
+    - Team expertise requirements
+  audience: small startup development team
+  format: detailed comparison table
+  constraints: |
+    Must work well with existing Node.js backend
+    Budget constraints for training

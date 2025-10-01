@@ -1,0 +1,60 @@
+id: tutorial-creator
+name: Tutorial Creator
+description: Create structured tutorial content for any topic
+category: education
+version: 1.0.0
+author: promptc
+tags:
+  - tutorial
+  - teaching
+  - learning
+  - documentation
+
+template_text: |
+  Create a comprehensive tutorial on {{topic}} for {{level}} level learners.
+  
+  Duration: {{duration}}
+  Format: {{format}}
+  
+  The tutorial should include:
+  1. Clear learning objectives
+  2. Prerequisites (if any)
+  3. Step-by-step instructions with examples
+  4. Common pitfalls and how to avoid them
+  5. Practice exercises
+  6. Summary and next steps
+  {{#special_requirements}}
+
+variables:
+  - name: topic
+    description: Main topic of the tutorial
+    required: true
+  
+  - name: level
+    description: Target audience level (beginner/intermediate/advanced)
+    default: intermediate
+    required: false
+  
+  - name: duration
+    description: Expected completion time (e.g., 30 minutes, 2 hours)
+    default: 1 hour
+    required: false
+  
+  - name: format
+    description: Output format preference
+    default: markdown with code examples
+    required: false
+  
+  - name: special_requirements
+    description: Any special requirements or focus areas
+    default: ""
+    required: false
+
+example_values:
+  topic: Introduction to Docker containerization
+  level: beginner
+  duration: 45 minutes
+  format: markdown with terminal commands
+  special_requirements: |
+    7. Include troubleshooting section for common Docker errors
+    8. Add a real-world project example

@@ -1,0 +1,88 @@
+id: bug-analyzer
+name: Bug Analyzer
+description: Analyze and debug issues systematically
+category: development
+version: 1.0.0
+author: promptc
+tags:
+  - debugging
+  - troubleshooting
+  - bug-fix
+  - analysis
+
+template_text: |
+  Analyze the following bug/issue and provide debugging guidance.
+  
+  System: {{system}}
+  Issue description: {{issue}}
+  
+  {{#error_message}}Error message:
+  ```
+  {{error_message}}
+  ```
+  {{/error_message}}
+  
+  {{#reproduction_steps}}Steps to reproduce:
+  {{reproduction_steps}}
+  {{/reproduction_steps}}
+  
+  {{#environment}}Environment details:
+  {{environment}}
+  {{/environment}}
+  
+  Please provide:
+  1. Root cause analysis
+  2. Potential causes ranked by likelihood
+  3. Step-by-step debugging approach
+  4. Recommended fixes with code examples
+  5. Prevention strategies for the future
+  {{#priority}}
+  
+  Priority level: {{priority}}
+
+variables:
+  - name: system
+    description: System or component where the bug occurs
+    required: true
+  
+  - name: issue
+    description: Brief description of the issue
+    required: true
+  
+  - name: error_message
+    description: Exact error message or log output
+    default: ""
+    required: false
+  
+  - name: reproduction_steps
+    description: How to reproduce the issue
+    default: ""
+    required: false
+  
+  - name: environment
+    description: Environment details (OS, versions, configuration)
+    default: ""
+    required: false
+  
+  - name: priority
+    description: Bug priority (critical/high/medium/low)
+    default: ""
+    required: false
+
+example_values:
+  system: Python web application using FastAPI
+  issue: API endpoint returns 500 error intermittently under load
+  error_message: |
+    RuntimeError: Event loop is closed
+    File "/app/main.py", line 45, in process_request
+  reproduction_steps: |
+    1. Send 100 concurrent requests to /api/process
+    2. Error occurs on approximately 20% of requests
+    3. More frequent during peak hours
+  environment: |
+    - Python 3.11
+    - FastAPI 0.110.0
+    - uvicorn with 4 workers
+    - PostgreSQL database
+    - Running in Docker container
+  priority: high
