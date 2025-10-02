@@ -5,6 +5,7 @@ typer==0.9.0
 click==8.1.7  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
 jsonschema==4.21.1
 rich==13.7.0
+pyyaml>=6.0  # required for template system
 pytest==8.0.0
 openai>=1.30.0  # optional for examples/openai_pipe.py
 httpx<0.28  # pin: Starlette TestClient older style requires httpx<0.28
