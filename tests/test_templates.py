@@ -15,6 +15,15 @@ from app.templates import (
 
 
 @pytest.fixture
+def builtin_templates_path():
+    """Get the path to built-in templates."""
+    # Use the project root templates directory
+    test_dir = Path(__file__).parent
+    project_root = test_dir.parent
+    return project_root / "templates"
+
+
+@pytest.fixture
 def temp_template_dir(tmp_path):
     """Create temporary template directory."""
     template_dir = tmp_path / "templates"
@@ -80,10 +89,9 @@ def test_template_to_dict_and_from_dict(sample_template):
     assert restored.variables[0].name == sample_template.variables[0].name
 
 
-def test_registry_load_builtin_templates():
+def test_registry_load_builtin_templates(builtin_templates_path):
     """Test loading built-in templates."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
     templates = registry.list_templates()
 
     # Should have at least the templates we created
@@ -94,20 +102,18 @@ def test_registry_load_builtin_templates():
     assert "tech-comparison" in template_ids
 
 
-def test_registry_filter_by_category():
+def test_registry_filter_by_category(builtin_templates_path):
     """Test filtering templates by category."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     dev_templates = registry.list_templates(category="development")
     assert all(t.category == "development" for t in dev_templates)
     assert len(dev_templates) >= 2  # code-review and bug-analyzer
 
 
-def test_registry_get_template():
+def test_registry_get_template(builtin_templates_path):
     """Test retrieving specific template."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     template = registry.get_template("code-review")
     assert template is not None
@@ -116,19 +122,17 @@ def test_registry_get_template():
     assert len(template.variables) > 0
 
 
-def test_registry_get_nonexistent_template():
+def test_registry_get_nonexistent_template(builtin_templates_path):
     """Test getting template that doesn't exist."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     template = registry.get_template("nonexistent-id")
     assert template is None
 
 
-def test_registry_get_categories():
+def test_registry_get_categories(builtin_templates_path):
     """Test getting all categories."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     categories = registry.get_categories()
     assert "development" in categories
@@ -137,11 +141,10 @@ def test_registry_get_categories():
     assert "documentation" in categories
 
 
-def test_registry_save_and_load_user_template(temp_template_dir, sample_template):
+def test_registry_save_and_load_user_template(builtin_templates_path, temp_template_dir, sample_template):
     """Test saving and loading user templates."""
-    reset_registry()
     registry = TemplateRegistry(
-        builtin_path=Path(__file__).parent.parent / "templates",
+        builtin_path=builtin_templates_path,
         user_path=temp_template_dir,
     )
 
@@ -152,7 +155,7 @@ def test_registry_save_and_load_user_template(temp_template_dir, sample_template
 
     # Reload registry
     registry2 = TemplateRegistry(
-        builtin_path=Path(__file__).parent.parent / "templates",
+        builtin_path=builtin_templates_path,
         user_path=temp_template_dir,
     )
 
@@ -161,11 +164,10 @@ def test_registry_save_and_load_user_template(temp_template_dir, sample_template
     assert loaded.name == sample_template.name
 
 
-def test_registry_delete_template(temp_template_dir, sample_template):
+def test_registry_delete_template(builtin_templates_path, temp_template_dir, sample_template):
     """Test deleting user templates."""
-    reset_registry()
     registry = TemplateRegistry(
-        builtin_path=Path(__file__).parent.parent / "templates",
+        builtin_path=builtin_templates_path,
         user_path=temp_template_dir,
     )
 
@@ -178,10 +180,9 @@ def test_registry_delete_template(temp_template_dir, sample_template):
     assert registry.get_template("test-template") is None
 
 
-def test_code_review_template_render():
+def test_code_review_template_render(builtin_templates_path):
     """Test rendering the built-in code-review template."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     template = registry.get_template("code-review")
     assert template is not None
@@ -198,10 +199,9 @@ def test_code_review_template_render():
     assert "code quality" in result.lower()
 
 
-def test_tutorial_creator_template_render():
+def test_tutorial_creator_template_render(builtin_templates_path):
     """Test rendering the tutorial-creator template."""
-    reset_registry()
-    registry = get_registry()
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
 
     template = registry.get_template("tutorial-creator")
     assert template is not None

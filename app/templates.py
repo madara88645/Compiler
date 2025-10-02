@@ -131,28 +131,32 @@ class TemplateRegistry:
             for file_path in self.builtin_path.glob("*.yaml"):
                 try:
                     self._load_template_file(file_path)
-                except Exception:  # pragma: no cover
-                    pass  # Skip invalid templates
+                except Exception as e:  # pragma: no cover
+                    import warnings
+                    warnings.warn(f"Failed to load template {file_path}: {e}")
 
             for file_path in self.builtin_path.glob("*.yml"):
                 try:
                     self._load_template_file(file_path)
-                except Exception:  # pragma: no cover
-                    pass
+                except Exception as e:  # pragma: no cover
+                    import warnings
+                    warnings.warn(f"Failed to load template {file_path}: {e}")
 
         # Load user templates
         if self.user_path.exists():
             for file_path in self.user_path.glob("*.yaml"):
                 try:
                     self._load_template_file(file_path)
-                except Exception:  # pragma: no cover
-                    pass
+                except Exception as e:  # pragma: no cover
+                    import warnings
+                    warnings.warn(f"Failed to load template {file_path}: {e}")
 
             for file_path in self.user_path.glob("*.yml"):
                 try:
                     self._load_template_file(file_path)
-                except Exception:  # pragma: no cover
-                    pass
+                except Exception as e:  # pragma: no cover
+                    import warnings
+                    warnings.warn(f"Failed to load template {file_path}: {e}")
 
         self._loaded = True
 
