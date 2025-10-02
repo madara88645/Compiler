@@ -133,6 +133,7 @@ class TemplateRegistry:
                     self._load_template_file(file_path)
                 except Exception as e:  # pragma: no cover
                     import warnings
+
                     warnings.warn(f"Failed to load template {file_path}: {e}")
 
             for file_path in self.builtin_path.glob("*.yml"):
@@ -140,6 +141,7 @@ class TemplateRegistry:
                     self._load_template_file(file_path)
                 except Exception as e:  # pragma: no cover
                     import warnings
+
                     warnings.warn(f"Failed to load template {file_path}: {e}")
 
         # Load user templates
@@ -149,6 +151,7 @@ class TemplateRegistry:
                     self._load_template_file(file_path)
                 except Exception as e:  # pragma: no cover
                     import warnings
+
                     warnings.warn(f"Failed to load template {file_path}: {e}")
 
             for file_path in self.user_path.glob("*.yml"):
@@ -156,6 +159,7 @@ class TemplateRegistry:
                     self._load_template_file(file_path)
                 except Exception as e:  # pragma: no cover
                     import warnings
+
                     warnings.warn(f"Failed to load template {file_path}: {e}")
 
         self._loaded = True

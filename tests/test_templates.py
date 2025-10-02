@@ -9,8 +9,6 @@ from app.templates import (
     PromptTemplate,
     TemplateVariable,
     TemplateRegistry,
-    get_registry,
-    reset_registry,
 )
 
 
@@ -141,7 +139,9 @@ def test_registry_get_categories(builtin_templates_path):
     assert "documentation" in categories
 
 
-def test_registry_save_and_load_user_template(builtin_templates_path, temp_template_dir, sample_template):
+def test_registry_save_and_load_user_template(
+    builtin_templates_path, temp_template_dir, sample_template
+):
     """Test saving and loading user templates."""
     registry = TemplateRegistry(
         builtin_path=builtin_templates_path,
