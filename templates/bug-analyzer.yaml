@@ -12,24 +12,24 @@ tags:
 
 template_text: |
   Analyze the following bug/issue and provide debugging guidance.
-  
+
   System: {{system}}
   Issue description: {{issue}}
-  
+
   {{#error_message}}Error message:
   ```
   {{error_message}}
   ```
   {{/error_message}}
-  
+
   {{#reproduction_steps}}Steps to reproduce:
   {{reproduction_steps}}
   {{/reproduction_steps}}
-  
+
   {{#environment}}Environment details:
   {{environment}}
   {{/environment}}
-  
+
   Please provide:
   1. Root cause analysis
   2. Potential causes ranked by likelihood
@@ -37,33 +37,33 @@ template_text: |
   4. Recommended fixes with code examples
   5. Prevention strategies for the future
   {{#priority}}
-  
+
   Priority level: {{priority}}
 
 variables:
   - name: system
     description: System or component where the bug occurs
     required: true
-  
+
   - name: issue
     description: Brief description of the issue
     required: true
-  
+
   - name: error_message
     description: Exact error message or log output
     default: ""
     required: false
-  
+
   - name: reproduction_steps
     description: How to reproduce the issue
     default: ""
     required: false
-  
+
   - name: environment
     description: Environment details (OS, versions, configuration)
     default: ""
     required: false
-  
+
   - name: priority
     description: Bug priority (critical/high/medium/low)
     default: ""

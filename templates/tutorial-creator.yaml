@@ -12,10 +12,10 @@ tags:
 
 template_text: |
   Create a comprehensive tutorial on {{topic}} for {{level}} level learners.
-  
+
   Duration: {{duration}}
   Format: {{format}}
-  
+
   The tutorial should include:
   1. Clear learning objectives
   2. Prerequisites (if any)
@@ -29,22 +29,22 @@ variables:
   - name: topic
     description: Main topic of the tutorial
     required: true
-  
+
   - name: level
     description: Target audience level (beginner/intermediate/advanced)
     default: intermediate
     required: false
-  
+
   - name: duration
     description: Expected completion time (e.g., 30 minutes, 2 hours)
     default: 1 hour
     required: false
-  
+
   - name: format
     description: Output format preference
     default: markdown with code examples
     required: false
-  
+
   - name: special_requirements
     description: Any special requirements or focus areas
     default: ""

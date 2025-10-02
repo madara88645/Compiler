@@ -12,13 +12,13 @@ tags:
 
 template_text: |
   Compare {{item_a}} vs {{item_b}}{{#item_c}} vs {{item_c}}{{/item_c}} for {{use_case}}.
-  
+
   Comparison criteria:
   {{criteria}}
-  
+
   Target audience: {{audience}}
   {{#constraints}}
-  
+
   Provide the comparison in a {{format}} format with:
   1. Executive summary
   2. Feature-by-feature comparison
@@ -30,20 +30,20 @@ variables:
   - name: item_a
     description: First item to compare
     required: true
-  
+
   - name: item_b
     description: Second item to compare
     required: true
-  
+
   - name: item_c
     description: Third item to compare (optional)
     default: ""
     required: false
-  
+
   - name: use_case
     description: Specific use case or context
     required: true
-  
+
   - name: criteria
     description: Key comparison criteria
     default: |
@@ -53,17 +53,17 @@ variables:
       - Cost and licensing
       - Long-term maintenance
     required: false
-  
+
   - name: audience
     description: Who is making the decision
     default: development team
     required: false
-  
+
   - name: format
     description: Output format (table/detailed/summary)
     default: table
     required: false
-  
+
   - name: constraints
     description: Any constraints or special considerations
     default: ""

@@ -12,13 +12,13 @@ tags:
 
 template_text: |
   Create {{doc_type}} documentation for {{subject}}.
-  
+
   Target audience: {{audience}}
   Technical level: {{tech_level}}
-  
+
   Documentation should include:
   {{sections}}
-  
+
   Style guidelines:
   - Use clear, concise language
   - Include code examples where appropriate
@@ -30,22 +30,22 @@ variables:
   - name: subject
     description: What you're documenting (API, library, system, etc.)
     required: true
-  
+
   - name: doc_type
     description: Type of documentation (API reference/user guide/architecture/README)
     default: user guide
     required: false
-  
+
   - name: audience
     description: Primary audience for the documentation
     default: developers
     required: false
-  
+
   - name: tech_level
     description: Required technical knowledge level
     default: intermediate
     required: false
-  
+
   - name: sections
     description: Specific sections to include
     default: |
@@ -57,12 +57,12 @@ variables:
       6. Troubleshooting
       7. FAQ
     required: false
-  
+
   - name: style
     description: Documentation style guide to follow
     default: Microsoft
     required: false
-  
+
   - name: additional_notes
     description: Any additional requirements or notes
     default: ""

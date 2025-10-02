@@ -12,12 +12,12 @@ tags:
 
 template_text: |
   Review the following {{language}} code and provide a comprehensive analysis.
-  
+
   Focus areas:
   {{#focus_areas}}
-  
+
   Code context: {{context}}
-  
+
   Please provide:
   1. Overall code quality assessment
   2. Potential bugs or issues
@@ -30,16 +30,16 @@ variables:
   - name: language
     description: Programming language (e.g., Python, JavaScript, Java)
     required: true
-  
+
   - name: context
     description: Brief description of what the code does
     required: true
-  
+
   - name: focus_areas
     description: Specific areas to focus on
     default: "- Code structure and organization\n  - Error handling\n  - Code documentation"
     required: false
-  
+
   - name: additional_requirements
     description: Any additional requirements or constraints
     default: ""
