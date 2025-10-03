@@ -206,6 +206,63 @@ promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --form
 promptc "compare llama3 vs gpt-4o for code generation" --render-v2
 ```
 
+#### Prompt Validation (new)
+
+Validate prompt quality and get actionable suggestions before sending to LLMs:
+
+```powershell
+# Validate a prompt and get quality score
+promptc validate-prompt "Write a tutorial about Python"
+
+# Validate from file
+promptc validate-prompt --from-file prompt.txt
+
+# Get JSON output
+promptc validate-prompt "teach me gradient descent" --json
+
+# Hide suggestions/strengths
+promptc validate-prompt "code review task" --no-suggestions --no-strengths
+
+# Fail if score below threshold (useful in CI/CD)
+promptc validate-prompt --from-file prompt.txt --min-score 70
+
+# Save report to file
+promptc validate-prompt "create docs" --out validation_report.txt
+
+# Read from stdin
+cat prompt.txt | promptc validate-prompt --stdin
+```
+
+**What it checks:**
+- **Clarity**: Vague terms, ambiguous language, generic personas
+- **Specificity**: Domain detection, role definition, overly broad goals
+- **Completeness**: Missing examples, constraints, output formats
+- **Consistency**: Conflicting constraints, tone/persona mismatches
+
+**Example output:**
+```
+═══ Prompt Quality Report ═══
+
+Overall Score: 72.5/100
+
+Breakdown:
+  • Clarity:       85.0/100
+  • Specificity:   70.0/100
+  • Completeness:  65.0/100
+  • Consistency:   90.0/100
+
+Issues Found: 0 errors, 3 warnings, 2 info
+
+⚠ WARNING (completeness)
+  Complex task without examples
+  💡 Add examples to clarify expected output format
+
+✓ Strengths:
+  ✓ Well-defined persona: 'senior python developer'
+  ✓ Clear constraints (4 defined)
+  ✓ Specific output format: markdown
+```
+
 #### RAG (lightweight, local)
 
 Index local text sources and query them with a minimal SQLite FTS5-based retriever. No external dependencies.
@@ -605,6 +662,66 @@ The default response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v
 ```json
 {"status": "ok"}
 ```
+
+#### POST /validate (new)
+Validate a prompt and get quality score with improvement suggestions.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/validate \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Write a tutorial about Python","include_suggestions":true,"include_strengths":true}'
+```
+
+**Response:**
+```json
+{
+  "score": {
+    "total": 68.5,
+    "clarity": 85.0,
+    "specificity": 60.0,
+    "completeness": 55.0,
+    "consistency": 90.0
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "category": "completeness",
+      "message": "Complex task without examples",
+      "suggestion": "Add examples to clarify expected output format",
+      "field": "examples"
+    },
+    {
+      "severity": "info",
+      "category": "specificity",
+      "message": "Role is missing or too brief",
+      "suggestion": "Specify the role or context (e.g., 'as a code reviewer')",
+      "field": "role"
+    }
+  ],
+  "strengths": [
+    "Well-defined persona: 'teacher'",
+    "Includes teaching intent with structured approach"
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 3
+  }
+}
+```
+
+**Quality Score Categories:**
+- **Clarity** (25% weight): Vague terms, ambiguous language, generic personas
+- **Specificity** (25% weight): Domain clarity, role definition, goal precision
+- **Completeness** (35% weight): Missing examples, constraints, output formats
+- **Consistency** (15% weight): Conflicting constraints, tone/persona alignment
+
+**Use Cases:**
+- Pre-validate prompts before sending to expensive LLM APIs
+- Team prompt quality standards enforcement
+- Automated CI/CD prompt testing with `--min-score` threshold
+- Learning tool for prompt engineering best practices
 
 ## Examples
 

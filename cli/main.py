@@ -38,6 +38,7 @@ from app.emitters import (
 from app import get_version
 from app.plugins import describe_plugins
 from app.templates import get_registry, PromptTemplate, TemplateVariable
+from app.validator import validate_prompt
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -1357,6 +1358,118 @@ def template_categories(
     for cat in categories:
         count = len(registry.list_templates(category=cat))
         print(f"  • [cyan]{cat}[/cyan] ({count} templates)")
+
+
+@app.command("validate-prompt")
+def validate_prompt_command(
+    text: List[str] = typer.Argument(None, help="Prompt text to validate"),
+    from_file: Optional[Path] = typer.Option(None, "--from-file", "-f", help="Read prompt from file"),
+    stdin: bool = typer.Option(False, "--stdin", help="Read from stdin"),
+    show_suggestions: bool = typer.Option(True, "--suggestions/--no-suggestions", help="Show improvement suggestions"),
+    show_strengths: bool = typer.Option(True, "--strengths/--no-strengths", help="Show prompt strengths"),
+    min_score: Optional[float] = typer.Option(None, "--min-score", help="Fail if score below threshold (0-100)"),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
+):
+    """Validate a prompt and get quality score with suggestions.
+
+    Examples:
+        promptc validate-prompt "Write a tutorial about Python"
+        promptc validate-prompt --from-file prompt.txt --min-score 70
+        cat prompt.txt | promptc validate-prompt --stdin --json
+    """
+    # Get prompt text
+    if stdin:
+        full_text = sys.stdin.read()
+    elif from_file:
+        if not from_file.exists():
+            typer.echo(f"Error: File not found: {from_file}", err=True)
+            raise typer.Exit(1)
+        full_text = from_file.read_text(encoding="utf-8")
+    elif text:
+        full_text = " ".join(text)
+    else:
+        typer.echo("Error: Provide prompt text, --from-file, or --stdin", err=True)
+        raise typer.Exit(1)
+
+    if not full_text.strip():
+        typer.echo("Error: Empty prompt", err=True)
+        raise typer.Exit(1)
+
+    # Compile to IR v2
+    ir2 = compile_text_v2(full_text)
+
+    # Validate
+    result = validate_prompt(ir2, original_text=full_text)
+
+    # Prepare output
+    if json_out:
+        output = json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
+        if out:
+            out.write_text(output, encoding="utf-8")
+            typer.echo(f"Validation report saved to {out}")
+        else:
+            typer.echo(output)
+    else:
+        # Rich formatted output
+        lines = []
+        lines.append("\n[bold cyan]═══ Prompt Quality Report ═══[/bold cyan]\n")
+
+        # Score section
+        score = result.score
+        total_color = "green" if score.total >= 80 else "yellow" if score.total >= 60 else "red"
+        lines.append(f"[bold]Overall Score:[/bold] [{total_color}]{score.total:.1f}/100[/{total_color}]\n")
+        lines.append("[bold]Breakdown:[/bold]")
+        lines.append(f"  • Clarity:       {score.clarity:.1f}/100")
+        lines.append(f"  • Specificity:   {score.specificity:.1f}/100")
+        lines.append(f"  • Completeness:  {score.completeness:.1f}/100")
+        lines.append(f"  • Consistency:   {score.consistency:.1f}/100\n")
+
+        # Issues section
+        if result.issues:
+            lines.append(f"[bold]Issues Found:[/bold] {result.errors} errors, {result.warnings} warnings, {result.info} info\n")
+            for issue in result.issues:
+                severity_color = {"error": "red", "warning": "yellow", "info": "blue"}[issue.severity]
+                icon = {"error": "✗", "warning": "⚠", "info": "ℹ"}[issue.severity]
+                lines.append(f"[{severity_color}]{icon} {issue.severity.upper()}[/{severity_color}] ({issue.category})")
+                lines.append(f"  {issue.message}")
+                if show_suggestions:
+                    lines.append(f"  [dim]💡 {issue.suggestion}[/dim]")
+                if issue.field:
+                    lines.append(f"  [dim]   Field: {issue.field}[/dim]")
+                lines.append("")
+        else:
+            lines.append("[bold green]✓ No issues found![/bold green]\n")
+
+        # Strengths section
+        if show_strengths and result.strengths:
+            lines.append("[bold green]Strengths:[/bold green]")
+            for strength in result.strengths:
+                lines.append(f"  [green]✓[/green] {strength}")
+            lines.append("")
+
+        # Recommendation
+        if score.total >= 80:
+            lines.append("[bold green]✓ Excellent prompt! Ready to use.[/bold green]")
+        elif score.total >= 60:
+            lines.append("[bold yellow]⚠ Good prompt, but could be improved.[/bold yellow]")
+        else:
+            lines.append("[bold red]✗ Prompt needs significant improvement.[/bold red]")
+
+        output = "\n".join(lines)
+        if out:
+            # Remove Rich markup for file output
+            import re
+            clean_output = re.sub(r'\[/?[a-z0-9 ]+\]', '', output)
+            out.write_text(clean_output, encoding="utf-8")
+            typer.echo(f"Validation report saved to {out}")
+        else:
+            print(output)
+
+    # Exit with error code if below min_score
+    if min_score is not None and result.score.total < min_score:
+        typer.echo(f"\nValidation failed: Score {result.score.total:.1f} < {min_score}", err=True)
+        raise typer.Exit(1)
 
 
 # Entry point

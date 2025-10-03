@@ -27,6 +27,7 @@ from app.rag.simple_index import (
     stats as rag_stats,
     prune as rag_prune,
 )
+from app.validator import validate_prompt
 from typing import List, Optional
 from pydantic import Field
 
@@ -392,3 +393,47 @@ async def rag_stats_endpoint(req: RagStatsRequest):
 async def rag_prune_endpoint(req: RagPruneRequest):
     r = rag_prune(db_path=req.db_path)
     return RagPruneResponse(**r)
+
+
+# Validation endpoint
+class ValidateRequest(BaseModel):
+    text: str
+    include_suggestions: bool = Field(default=True, description="Include improvement suggestions")
+    include_strengths: bool = Field(default=True, description="Include identified strengths")
+
+
+class ValidateResponse(BaseModel):
+    score: dict
+    issues: List[dict]
+    strengths: List[str]
+    summary: dict
+
+
+@app.post("/validate", response_model=ValidateResponse)
+async def validate_endpoint(req: ValidateRequest):
+    """Validate a prompt and return quality score with suggestions.
+
+    Returns:
+        - score: Quality breakdown (total, clarity, specificity, completeness, consistency)
+        - issues: List of validation issues with suggestions
+        - strengths: Identified strong points
+        - summary: Counts by severity (errors, warnings, info)
+    """
+    # Compile to IR v2
+    ir2 = compile_text_v2(req.text)
+
+    # Validate
+    result = validate_prompt(ir2, original_text=req.text)
+
+    # Convert to response format
+    response_dict = result.to_dict()
+
+    # Filter based on request options
+    if not req.include_suggestions:
+        for issue in response_dict["issues"]:
+            issue.pop("suggestion", None)
+
+    if not req.include_strengths:
+        response_dict["strengths"] = []
+
+    return ValidateResponse(**response_dict)
