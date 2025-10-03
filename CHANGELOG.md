@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.9] - 2025-01-XX
+### Added
+- **Prompt Validation & Quality Scoring System**: New `validate-prompt` CLI command and `/validate` API endpoint
+  - Quality scoring across 4 categories: clarity (25%), specificity (25%), completeness (35%), consistency (15%)
+  - Anti-pattern detection: vague terms, conflicting constraints, missing critical elements
+  - Strengths identification and actionable improvement suggestions
+  - Rich-formatted CLI output with color-coded scores and severity indicators
+  - JSON output support for programmatic use
+  - `--min-score` threshold for CI/CD integration (exit code 1 if below threshold)
+  - Comprehensive validator test suite (15 tests covering edge cases)
+- CLI: `promptc validate-prompt <text>` with options: `--from-file`, `--stdin`, `--json`, `--out`, `--suggestions`, `--strengths`, `--min-score`
+- API: `POST /validate` endpoint accepting prompt text and returning quality scores, issues, and strengths
+- Core: `app/validator.py` module with `PromptValidator` class and `validate_prompt()` function
+
+### Changed
+- Tests: 90 total tests (75 → 90), all passing
+
+### Docs
+- README: Added "Prompt Validation" section with CLI examples and API endpoint documentation
+- README: Updated with quality score categories and use cases (pre-validation, team standards, learning)
+
 ## [2.0.8] - 2025-09-28
 ### Added
 - CLI (RAG): `promptc rag pack` gains `--sources {none|list|full}` to control the sources section in Markdown output
