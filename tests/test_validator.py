@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from app.validator import (
-    PromptValidator,
     validate_prompt,
-    ValidationIssue,
-    QualityScore,
 )
 from app.compiler import compile_text_v2
 
@@ -15,18 +11,18 @@ from app.compiler import compile_text_v2
 def test_validator_perfect_prompt():
     """Test a high-quality prompt with no issues."""
     text = """As a senior Python developer, review this authentication code.
-    
+
     Goal: Identify security vulnerabilities and suggest improvements.
-    
+
     Context: REST API endpoint for user login with JWT tokens.
-    
+
     Focus on:
     - Input validation
     - SQL injection risks
     - Token expiration handling
-    
+
     Format: Markdown with code examples
-    
+
     Example output:
     ## Security Issues
     1. Missing rate limiting
@@ -52,7 +48,7 @@ def test_validator_vague_prompt():
 
 def test_validator_missing_examples():
     """Test detection of missing examples in complex tasks."""
-    text = """Create a comprehensive multi-step algorithm for optimizing 
+    text = """Create a comprehensive multi-step algorithm for optimizing
     distributed systems with load balancing and fault tolerance"""
     ir = compile_text_v2(text)
     result = validate_prompt(ir, text)
@@ -137,15 +133,15 @@ def test_validator_issue_counts():
 def test_validator_strengths_detection():
     """Test strength detection."""
     text = """As a senior data scientist, analyze this dataset.
-    
+
     Output format: JSON with statistical summary
-    
+
     Example:
     {
       "mean": 42.5,
       "median": 40.0
     }
-    
+
     Steps:
     1. Load data
     2. Clean missing values
@@ -196,8 +192,7 @@ def test_validator_overly_broad_goals():
     """Test detection of overly broad goals."""
     text = "Create a complete comprehensive system for everything"
     ir = compile_text_v2(text)
-    result = validate_prompt(ir, text)
+    validate_prompt(ir, text)
 
-    if ir.goals:
-        # May detect "broad" or "overly" in issues
-        pass  # This is informational, not critical
+    # Just verify the IR was created with goals
+    assert len(ir.goals) > 0

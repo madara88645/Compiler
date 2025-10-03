@@ -255,11 +255,20 @@ class PromptValidator:
         issues = []
 
         # Check for missing examples when task seems complex (multi-step, algorithm, etc.)
-        complexity = ir.metadata.get("complexity_score", 0.0) if isinstance(ir.metadata, dict) else 0.0
+        complexity = (
+            ir.metadata.get("complexity_score", 0.0) if isinstance(ir.metadata, dict) else 0.0
+        )
         task_text = " ".join(ir.goals + ir.tasks).lower()
-        complex_keywords = ["multi-step", "algorithm", "comprehensive", "complex", "advanced", "distributed"]
+        complex_keywords = [
+            "multi-step",
+            "algorithm",
+            "comprehensive",
+            "complex",
+            "advanced",
+            "distributed",
+        ]
         is_complex = complexity > 0.6 or any(kw in task_text for kw in complex_keywords)
-        
+
         if not ir.examples and is_complex:
             issues.append(
                 ValidationIssue(
@@ -275,7 +284,7 @@ class PromptValidator:
         # Check for missing constraints in risky domains
         risk_flags = ir.metadata.get("risk_flags", []) if isinstance(ir.metadata, dict) else []
         has_risk_intent = "risk" in ir.intents if ir.intents else False
-        
+
         if (risk_flags or has_risk_intent) and len(ir.constraints) < 2:
             issues.append(
                 ValidationIssue(
@@ -429,7 +438,9 @@ class PromptValidator:
         if ir.steps and len(ir.steps) > 0:
             strengths.append(f"Structured approach with {len(ir.steps)} steps")
 
-        domain_conf = ir.metadata.get("domain_confidence", {}) if isinstance(ir.metadata, dict) else {}
+        domain_conf = (
+            ir.metadata.get("domain_confidence", {}) if isinstance(ir.metadata, dict) else {}
+        )
         if isinstance(domain_conf, dict) and domain_conf.get("ratio", 0.0) > 0.7:
             strengths.append(f"Strong domain clarity: {ir.domain}")
 
@@ -462,9 +473,7 @@ class PromptValidator:
         consistency = max(0.0, consistency)
 
         # Calculate total (weighted average)
-        total = (
-            clarity * 0.25 + specificity * 0.25 + completeness * 0.35 + consistency * 0.15
-        )
+        total = clarity * 0.25 + specificity * 0.25 + completeness * 0.35 + consistency * 0.15
 
         return QualityScore(
             total=total,

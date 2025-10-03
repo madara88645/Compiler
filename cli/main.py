@@ -1363,11 +1363,19 @@ def template_categories(
 @app.command("validate-prompt")
 def validate_prompt_command(
     text: List[str] = typer.Argument(None, help="Prompt text to validate"),
-    from_file: Optional[Path] = typer.Option(None, "--from-file", "-f", help="Read prompt from file"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read prompt from file"
+    ),
     stdin: bool = typer.Option(False, "--stdin", help="Read from stdin"),
-    show_suggestions: bool = typer.Option(True, "--suggestions/--no-suggestions", help="Show improvement suggestions"),
-    show_strengths: bool = typer.Option(True, "--strengths/--no-strengths", help="Show prompt strengths"),
-    min_score: Optional[float] = typer.Option(None, "--min-score", help="Fail if score below threshold (0-100)"),
+    show_suggestions: bool = typer.Option(
+        True, "--suggestions/--no-suggestions", help="Show improvement suggestions"
+    ),
+    show_strengths: bool = typer.Option(
+        True, "--strengths/--no-strengths", help="Show prompt strengths"
+    ),
+    min_score: Optional[float] = typer.Option(
+        None, "--min-score", help="Fail if score below threshold (0-100)"
+    ),
     json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
     out: Optional[Path] = typer.Option(None, "--out", help="Write output to file"),
 ):
@@ -1418,7 +1426,9 @@ def validate_prompt_command(
         # Score section
         score = result.score
         total_color = "green" if score.total >= 80 else "yellow" if score.total >= 60 else "red"
-        lines.append(f"[bold]Overall Score:[/bold] [{total_color}]{score.total:.1f}/100[/{total_color}]\n")
+        lines.append(
+            f"[bold]Overall Score:[/bold] [{total_color}]{score.total:.1f}/100[/{total_color}]\n"
+        )
         lines.append("[bold]Breakdown:[/bold]")
         lines.append(f"  • Clarity:       {score.clarity:.1f}/100")
         lines.append(f"  • Specificity:   {score.specificity:.1f}/100")
@@ -1427,11 +1437,17 @@ def validate_prompt_command(
 
         # Issues section
         if result.issues:
-            lines.append(f"[bold]Issues Found:[/bold] {result.errors} errors, {result.warnings} warnings, {result.info} info\n")
+            lines.append(
+                f"[bold]Issues Found:[/bold] {result.errors} errors, {result.warnings} warnings, {result.info} info\n"
+            )
             for issue in result.issues:
-                severity_color = {"error": "red", "warning": "yellow", "info": "blue"}[issue.severity]
+                severity_color = {"error": "red", "warning": "yellow", "info": "blue"}[
+                    issue.severity
+                ]
                 icon = {"error": "✗", "warning": "⚠", "info": "ℹ"}[issue.severity]
-                lines.append(f"[{severity_color}]{icon} {issue.severity.upper()}[/{severity_color}] ({issue.category})")
+                lines.append(
+                    f"[{severity_color}]{icon} {issue.severity.upper()}[/{severity_color}] ({issue.category})"
+                )
                 lines.append(f"  {issue.message}")
                 if show_suggestions:
                     lines.append(f"  [dim]💡 {issue.suggestion}[/dim]")
@@ -1460,7 +1476,8 @@ def validate_prompt_command(
         if out:
             # Remove Rich markup for file output
             import re
-            clean_output = re.sub(r'\[/?[a-z0-9 ]+\]', '', output)
+
+            clean_output = re.sub(r"\[/?[a-z0-9 ]+\]", "", output)
             out.write_text(clean_output, encoding="utf-8")
             typer.echo(f"Validation report saved to {out}")
         else:
