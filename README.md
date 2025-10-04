@@ -263,6 +263,58 @@ Issues Found: 0 errors, 3 warnings, 2 info
   ✓ Specific output format: markdown
 ```
 
+#### Auto-Fix (new)
+
+Automatically improve prompts based on validation issues:
+
+```powershell
+# Fix a poor-quality prompt
+promptc fix "do something with stuff"
+# → Replaces vague terms, adds persona, improves structure
+
+# Fix from file and apply changes
+promptc fix --from-file prompt.txt --apply
+
+# Set target score and limit fixes
+promptc fix "write code" --target-score 80 --max-fixes 5
+
+# Save fixed prompt to new file
+promptc fix --stdin --out fixed_prompt.txt --no-diff
+
+# JSON output for programmatic use
+promptc fix "maybe analyze data" --json
+```
+
+**What it fixes:**
+- 🔧 **Vague terms**: Replaces "something", "stuff", "maybe" with specific alternatives
+- 👤 **Missing persona**: Adds domain-appropriate persona (e.g., "senior data scientist")
+- 📝 **Missing examples**: Adds example sections for complex tasks
+- 📋 **Output format**: Specifies clear output format expectations
+- ⚠️ **Risk mitigation**: Adds safety constraints for risky domains
+- 🎓 **Teaching specs**: Adds level specifications for educational prompts
+
+**Example:**
+```
+=== Auto-Fix Report ===
+
+Original Score: 42.0/100
+Fixed Score:    78.5/100
+Improvement:    +36.5 (86.9%)
+
+Applied 3 fix(es):
+
+1. [replace_vague] Replaced vague terms: 'something' → 'a specific component', 'stuff' → 'data'
+   Confidence: 95%
+
+2. [add_persona] Added persona: 'expert consultant'
+   Confidence: 85%
+
+3. [add_format] Added output format specification
+   Confidence: 90%
+
+✓ All issues resolved!
+```
+
 #### RAG (lightweight, local)
 
 Index local text sources and query them with a minimal SQLite FTS5-based retriever. No external dependencies.
@@ -722,6 +774,59 @@ curl -X POST http://127.0.0.1:8000/validate \
 - Team prompt quality standards enforcement
 - Automated CI/CD prompt testing with `--min-score` threshold
 - Learning tool for prompt engineering best practices
+
+#### POST /fix (new)
+Automatically fix prompt based on validation issues.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/fix \
+  -H "Content-Type: application/json" \
+  -d '{"text":"do something with stuff","max_fixes":5,"target_score":75.0}'
+```
+
+**Response:**
+```json
+{
+  "original_text": "do something with stuff",
+  "fixed_text": "As a expert consultant, do a specific component with data\n\nOutput format: Markdown with clear sections",
+  "original_score": 42.0,
+  "fixed_score": 78.5,
+  "improvement": 36.5,
+  "fixes_applied": [
+    {
+      "type": "replace_vague",
+      "description": "Replaced vague terms: 'something' → 'a specific component', 'stuff' → 'data'",
+      "confidence": 0.95
+    },
+    {
+      "type": "add_persona",
+      "description": "Added persona: 'expert consultant'",
+      "confidence": 0.85
+    },
+    {
+      "type": "add_format",
+      "description": "Added output format specification",
+      "confidence": 0.90
+    }
+  ],
+  "remaining_issues": 0
+}
+```
+
+**Parameters:**
+- `text` (required): Prompt text to fix
+- `max_fixes` (optional, default=5): Maximum number of fixes to apply
+- `target_score` (optional, default=75.0): Stop when score reaches this threshold
+
+**Fix Types:**
+- `replace_vague`: Replaces vague terms with specific alternatives
+- `add_persona`: Adds domain-appropriate persona
+- `add_examples`: Adds example sections
+- `add_format`: Specifies output format
+- `add_risk_constraint`: Adds safety constraints
+- `add_teaching_level`: Adds target audience specification
+- `add_complexity_help`: Adds complexity guidance
 
 ## Examples
 

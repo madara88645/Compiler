@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.10] - 2025-01-XX
+### Added
+- **Automatic Prompt Fixing**: New `fix` CLI command and `/fix` API endpoint
+  - Intelligently applies fixes based on validation issues
+  - Replaces vague terms ("something" → "a specific component", "stuff" → "data")
+  - Adds domain-appropriate personas when missing
+  - Adds example sections for complex tasks
+  - Specifies output format when unclear
+  - Adds safety constraints for risky domains
+  - Configurable target score and max fixes
+  - Shows before/after diff with confidence scores
+  - JSON output for programmatic use
+- CLI: `promptc fix <text>` with options: `--from-file`, `--stdin`, `--apply`, `--max-fixes`, `--target-score`, `--diff`, `--json`, `--out`
+- API: `POST /fix` endpoint accepting prompt text and returning fixed version with improvement metrics
+- Core: `app/autofix.py` module with `auto_fix_prompt()` function and fix strategies
+- Tests: 14 comprehensive autofix tests (all passing)
+
+### Changed
+- Tests: 104 total tests (90 → 104), all passing
+
+### Docs
+- README: Added "Auto-Fix" section with CLI examples, fix types, and sample output
+- README: Added API `/fix` endpoint documentation with example request/response
+
 ## [2.0.9] - 2025-01-XX
 ### Added
 - **Prompt Validation & Quality Scoring System**: New `validate-prompt` CLI command and `/validate` API endpoint

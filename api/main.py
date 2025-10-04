@@ -437,3 +437,69 @@ async def validate_endpoint(req: ValidateRequest):
         response_dict["strengths"] = []
 
     return ValidateResponse(**response_dict)
+
+
+# -------------------------
+# Auto-Fix
+# -------------------------
+
+
+class AutoFixRequest(BaseModel):
+    text: str
+    max_fixes: int = Field(default=5, description="Maximum number of fixes to apply")
+    target_score: float = Field(
+        default=75.0, ge=0, le=100, description="Stop when score reaches this threshold"
+    )
+
+
+class FixDetail(BaseModel):
+    type: str
+    description: str
+    confidence: float
+
+
+class AutoFixResponse(BaseModel):
+    original_text: str
+    fixed_text: str
+    original_score: float
+    fixed_score: float
+    improvement: float
+    fixes_applied: List[FixDetail]
+    remaining_issues: int
+
+
+@app.post("/fix", response_model=AutoFixResponse)
+async def fix_endpoint(req: AutoFixRequest):
+    """Automatically fix prompt based on validation issues.
+
+    Returns:
+        - original_text: Input prompt
+        - fixed_text: Improved prompt
+        - original_score: Score before fixes
+        - fixed_score: Score after fixes
+        - improvement: Score delta
+        - fixes_applied: List of applied fixes
+        - remaining_issues: Number of unresolved issues
+    """
+    from app.autofix import auto_fix_prompt
+
+    result = auto_fix_prompt(
+        req.text, max_fixes=req.max_fixes, min_score_target=req.target_score
+    )
+
+    return AutoFixResponse(
+        original_text=result.original_text,
+        fixed_text=result.fixed_text,
+        original_score=round(result.original_score, 1),
+        fixed_score=round(result.fixed_score, 1),
+        improvement=round(result.improvement, 1),
+        fixes_applied=[
+            FixDetail(
+                type=fix.fix_type,
+                description=fix.description,
+                confidence=round(fix.confidence, 2),
+            )
+            for fix in result.fixes_applied
+        ],
+        remaining_issues=result.remaining_issues,
+    )

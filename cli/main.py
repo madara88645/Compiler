@@ -1489,6 +1489,118 @@ def validate_prompt_command(
         raise typer.Exit(1)
 
 
+@app.command("fix")
+def fix_prompt_command(
+    text: List[str] = typer.Argument(None, help="Prompt text to fix"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read prompt from file"
+    ),
+    stdin: bool = typer.Option(False, "--stdin", help="Read from stdin"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Apply fixes automatically (overwrite file if --from-file)"
+    ),
+    max_fixes: int = typer.Option(5, "--max-fixes", help="Maximum number of fixes to apply"),
+    target_score: float = typer.Option(
+        75.0, "--target-score", help="Stop when score reaches this threshold"
+    ),
+    show_diff: bool = typer.Option(True, "--diff/--no-diff", help="Show before/after diff"),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write fixed prompt to file"),
+):
+    """Automatically fix prompt based on validation issues.
+
+    Examples:
+        promptc fix "do something with stuff"
+        promptc fix --from-file prompt.txt --apply
+        promptc fix --stdin --target-score 80 --out fixed.txt
+    """
+    from app.autofix import auto_fix_prompt, explain_fixes
+
+    # Get prompt text
+    if stdin:
+        full_text = sys.stdin.read()
+    elif from_file:
+        if not from_file.exists():
+            typer.echo(f"Error: File not found: {from_file}", err=True)
+            raise typer.Exit(1)
+        full_text = from_file.read_text(encoding="utf-8")
+    elif text:
+        full_text = " ".join(text)
+    else:
+        typer.echo("Error: Provide prompt text, --from-file, or --stdin", err=True)
+        raise typer.Exit(1)
+
+    if not full_text.strip():
+        typer.echo("Error: Empty prompt", err=True)
+        raise typer.Exit(1)
+
+    # Run auto-fix
+    result = auto_fix_prompt(full_text, max_fixes=max_fixes, min_score_target=target_score)
+
+    # Prepare output
+    if json_out:
+        output_data = {
+            "original_text": result.original_text,
+            "fixed_text": result.fixed_text,
+            "original_score": round(result.original_score, 1),
+            "fixed_score": round(result.fixed_score, 1),
+            "improvement": round(result.improvement, 1),
+            "fixes_applied": [
+                {
+                    "type": fix.fix_type,
+                    "description": fix.description,
+                    "confidence": round(fix.confidence, 2),
+                }
+                for fix in result.fixes_applied
+            ],
+            "remaining_issues": result.remaining_issues,
+        }
+        output = json.dumps(output_data, ensure_ascii=False, indent=2)
+        typer.echo(output)
+    else:
+        # Rich formatted output
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+
+        console = Console()
+
+        # Show report
+        report = explain_fixes(result)
+        console.print(Panel(report, title="[bold cyan]Auto-Fix Report[/bold cyan]", border_style="cyan"))
+
+        # Show diff if requested
+        if show_diff and result.fixes_applied:
+            console.print("\n[bold]Changes:[/bold]")
+            console.print("[dim]Original:[/dim]")
+            console.print(Panel(result.original_text, border_style="red"))
+            console.print("\n[dim]Fixed:[/dim]")
+            console.print(Panel(result.fixed_text, border_style="green"))
+
+        # Show what was fixed
+        if result.fixes_applied:
+            console.print("\n[bold]Applied Fixes:[/bold]")
+            for i, fix in enumerate(result.fixes_applied, 1):
+                color = "green" if fix.confidence > 0.7 else "yellow"
+                console.print(f"  [{color}]{i}. {fix.description}[/{color}]")
+
+    # Apply changes if requested
+    if apply and from_file:
+        from_file.write_text(result.fixed_text, encoding="utf-8")
+        typer.echo(f"\n✓ Fixed prompt saved to {from_file}")
+
+    # Save to output file
+    if out:
+        out.write_text(result.fixed_text, encoding="utf-8")
+        typer.echo(f"✓ Fixed prompt saved to {out}")
+
+    # Exit with success if improvement was made
+    if result.improvement > 0:
+        typer.echo(f"\n✓ Improvement: +{result.improvement:.1f} points")
+    else:
+        typer.echo("\n⚠ No improvements possible with current fix strategies")
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
