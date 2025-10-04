@@ -483,9 +483,7 @@ async def fix_endpoint(req: AutoFixRequest):
     """
     from app.autofix import auto_fix_prompt
 
-    result = auto_fix_prompt(
-        req.text, max_fixes=req.max_fixes, min_score_target=req.target_score
-    )
+    result = auto_fix_prompt(req.text, max_fixes=req.max_fixes, min_score_target=req.target_score)
 
     return AutoFixResponse(
         original_text=result.original_text,

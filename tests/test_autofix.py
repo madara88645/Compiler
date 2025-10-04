@@ -62,18 +62,18 @@ def test_autofix_max_fixes_limit():
 def test_autofix_no_change_perfect_prompt():
     """Test that perfect prompts are not changed."""
     text = """As a senior Python developer, review this authentication code.
-    
+
     Goal: Identify security vulnerabilities and suggest improvements.
-    
+
     Context: REST API endpoint for user login with JWT tokens.
-    
+
     Focus on:
     - Input validation
     - SQL injection risks
     - Token expiration handling
-    
+
     Output format: Markdown with code examples
-    
+
     Example output:
     ## Security Issues
     1. Missing rate limiting

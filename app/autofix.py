@@ -6,11 +6,10 @@ Applies intelligent fixes to prompts based on validator feedback.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
-from app.models_v2 import IRv2
 from app.compiler import compile_text_v2
-from app.validator import ValidationResult, validate_prompt
+from app.validator import validate_prompt
 
 
 @dataclass
@@ -191,9 +190,7 @@ def _add_constraints(text: str, constraint_type: str) -> Tuple[str, str]:
     return fixed, constraint
 
 
-def auto_fix_prompt(
-    text: str, max_fixes: int = 5, min_score_target: float = 75.0
-) -> AutoFixResult:
+def auto_fix_prompt(text: str, max_fixes: int = 5, min_score_target: float = 75.0) -> AutoFixResult:
     """Automatically fix prompt based on validation issues.
 
     Args:
@@ -264,7 +261,7 @@ def auto_fix_prompt(
                 if example:
                     fix_applied = True
                     fix_type = "add_examples"
-                    fix_description = f"Added example section"
+                    fix_description = "Added example section"
 
             # Add output format
             elif "output format" in issue.message.lower():
@@ -272,7 +269,7 @@ def auto_fix_prompt(
                 if format_spec:
                     fix_applied = True
                     fix_type = "add_format"
-                    fix_description = f"Added output format specification"
+                    fix_description = "Added output format specification"
 
             # Add constraints for risky domains
             elif "risk" in issue.message.lower():

@@ -1561,13 +1561,14 @@ def fix_prompt_command(
         # Rich formatted output
         from rich.console import Console
         from rich.panel import Panel
-        from rich.syntax import Syntax
 
         console = Console()
 
         # Show report
         report = explain_fixes(result)
-        console.print(Panel(report, title="[bold cyan]Auto-Fix Report[/bold cyan]", border_style="cyan"))
+        console.print(
+            Panel(report, title="[bold cyan]Auto-Fix Report[/bold cyan]", border_style="cyan")
+        )
 
         # Show diff if requested
         if show_diff and result.fixes_applied:
