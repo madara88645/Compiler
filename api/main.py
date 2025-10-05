@@ -553,13 +553,17 @@ async def compare_endpoint(req: CompareRequest):
         prompt_b=result.prompt_b,
         validation_a={
             "score": round(result.validation_a.score, 1),
-            "category_scores": {k: round(v, 1) for k, v in result.validation_a.category_scores.items()},
+            "category_scores": {
+                k: round(v, 1) for k, v in result.validation_a.category_scores.items()
+            },
             "issues": [issue.to_dict() for issue in result.validation_a.issues],
             "strengths": result.validation_a.strengths,
         },
         validation_b={
             "score": round(result.validation_b.score, 1),
-            "category_scores": {k: round(v, 1) for k, v in result.validation_b.category_scores.items()},
+            "category_scores": {
+                k: round(v, 1) for k, v in result.validation_b.category_scores.items()
+            },
             "issues": [issue.to_dict() for issue in result.validation_b.issues],
             "strengths": result.validation_b.strengths,
         },

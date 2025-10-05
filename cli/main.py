@@ -1614,10 +1614,10 @@ def compare_command(
 ):
     """
     Compare two prompts side by side.
-    
+
     Shows validation scores, strengths/weaknesses, IR differences,
     and recommendation on which prompt is better.
-    
+
     Examples:
         promptc compare "Write a story" "Write a creative story about dragons"
         promptc compare prompt1.txt prompt2.txt --label-a "Version 1" --label-b "Version 2"
@@ -1629,27 +1629,27 @@ def compare_command(
     from rich.columns import Columns
     from rich.markdown import Markdown
     from app.compare import compare_prompts
-    
+
     console = Console()
-    
+
     # Load prompts (file or direct text)
     def load_prompt(text_or_file: str) -> str:
         p = Path(text_or_file)
         if p.exists() and p.is_file():
             return p.read_text(encoding="utf-8")
         return text_or_file
-    
+
     try:
         prompt_a_text = load_prompt(prompt_a)
         prompt_b_text = load_prompt(prompt_b)
     except Exception as e:
         typer.secho(f"Error loading prompts: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
-    
+
     # Compare
     with console.status(f"[bold blue]Comparing {label_a} vs {label_b}..."):
         result = compare_prompts(prompt_a_text, prompt_b_text, label_a, label_b)
-    
+
     # JSON output
     if json_output:
         output = json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
@@ -1659,10 +1659,10 @@ def compare_command(
         else:
             typer.echo(output)
         return
-    
+
     # Rich formatted output
     console.print(f"\n[bold cyan]Prompt Comparison: {label_a} vs {label_b}[/bold cyan]\n")
-    
+
     # Score comparison table
     score_table = Table(title="📊 Validation Scores", show_header=True, header_style="bold magenta")
     score_table.add_column("Category", style="cyan", width=15)
@@ -1670,20 +1670,20 @@ def compare_command(
     score_table.add_column(label_b, justify="center", style="blue", width=12)
     score_table.add_column("Difference", justify="center", style="yellow", width=12)
     score_table.add_column("Winner", justify="center", width=8)
-    
+
     # Overall scores
     score_table.add_row(
         "Overall",
-        f"{result.validation_a.score:.1f}",
-        f"{result.validation_b.score:.1f}",
+        f"{result.validation_a.score.total:.1f}",
+        f"{result.validation_b.score.total:.1f}",
         f"{result.score_difference:+.1f}",
-        "[green]●[/green]" if result.better_prompt == "B" else (
-            "[red]●[/red]" if result.better_prompt == "A" else "[yellow]●[/yellow]"
-        )
+        "[green]●[/green]"
+        if result.better_prompt == "B"
+        else ("[red]●[/red]" if result.better_prompt == "A" else "[yellow]●[/yellow]"),
     )
-    
+
     score_table.add_section()
-    
+
     # Category scores
     for category, data in result.category_comparison.items():
         winner_symbol = ""
@@ -1693,65 +1693,63 @@ def compare_command(
             winner_symbol = "[green]►[/green]"
         else:
             winner_symbol = "[yellow]=[/yellow]"
-        
+
         score_table.add_row(
             category.title(),
             f"{data['score_a']:.1f}",
             f"{data['score_b']:.1f}",
             f"{data['difference']:+.1f}",
-            winner_symbol
+            winner_symbol,
         )
-    
+
     console.print(score_table)
-    
+
     # Strengths/Issues comparison
-    columns_data = []
-    
     # Prompt A panel
     a_content = []
     if result.validation_a.strengths:
         a_content.append("[bold green]✓ Strengths:[/bold green]")
         for strength in result.validation_a.strengths[:3]:
             a_content.append(f"  • {strength}")
-    
+
     if result.validation_a.issues:
         high_issues = [i for i in result.validation_a.issues if i.severity == "high"]
         if high_issues:
             a_content.append("\n[bold red]✗ Issues:[/bold red]")
             for issue in high_issues[:3]:
                 a_content.append(f"  • {issue.message}")
-    
+
     panel_a = Panel(
         "\n".join(a_content) if a_content else "[dim]No notable findings[/dim]",
         title=f"[bold]{label_a}[/bold]",
         border_style="blue",
-        padding=(1, 2)
+        padding=(1, 2),
     )
-    
+
     # Prompt B panel
     b_content = []
     if result.validation_b.strengths:
         b_content.append("[bold green]✓ Strengths:[/bold green]")
         for strength in result.validation_b.strengths[:3]:
             b_content.append(f"  • {strength}")
-    
+
     if result.validation_b.issues:
         high_issues = [i for i in result.validation_b.issues if i.severity == "high"]
         if high_issues:
             b_content.append("\n[bold red]✗ Issues:[/bold red]")
             for issue in high_issues[:3]:
                 b_content.append(f"  • {issue.message}")
-    
+
     panel_b = Panel(
         "\n".join(b_content) if b_content else "[dim]No notable findings[/dim]",
         title=f"[bold]{label_b}[/bold]",
         border_style="blue",
-        padding=(1, 2)
+        padding=(1, 2),
     )
-    
+
     console.print("\n")
     console.print(Columns([panel_a, panel_b], equal=True, expand=True))
-    
+
     # IR Changes
     if result.ir_changes:
         console.print("\n[bold magenta]🔄 IR Changes:[/bold magenta]")
@@ -1759,11 +1757,11 @@ def compare_command(
         changes_table.add_column("Field", style="cyan", width=20)
         changes_table.add_column("Change Type", style="yellow", width=15)
         changes_table.add_column("Details", style="white")
-        
+
         for change in result.ir_changes:
             field = change["field"]
             change_type = change["change_type"]
-            
+
             if change_type == "modified":
                 details = f"'{change.get('from', '')}' → '{change.get('to', '')}'"
             elif change_type == "added":
@@ -1774,13 +1772,13 @@ def compare_command(
                 details = f"Count: {change.get('from_count', 0)} → {change.get('to_count', 0)}"
             else:
                 details = str(change)
-            
+
             changes_table.add_row(field, change_type, details)
-        
+
         console.print(changes_table)
     else:
         console.print("\n[dim]No significant IR changes detected[/dim]")
-    
+
     # IR Diff (if requested)
     if show_diff and result.ir_diff:
         console.print("\n[bold magenta]📝 Full IR Diff:[/bold magenta]")
@@ -1795,19 +1793,21 @@ def compare_command(
                 console.print(f"[cyan]{line}[/cyan]")
             else:
                 console.print(f"[dim]{line}[/dim]")
-        
+
         if len(diff_lines) > 50:
             console.print(f"[dim]... ({len(diff_lines) - 50} more lines)[/dim]")
-    
+
     # Recommendation
     console.print("\n" + "=" * 80)
-    console.print(Panel(
-        Markdown(result.recommendation),
-        title="[bold green]💡 Recommendation[/bold green]",
-        border_style="green",
-        padding=(1, 2)
-    ))
-    
+    console.print(
+        Panel(
+            Markdown(result.recommendation),
+            title="[bold green]💡 Recommendation[/bold green]",
+            border_style="green",
+            padding=(1, 2),
+        )
+    )
+
     # Save to file
     if out:
         output_data = result.to_dict()
@@ -1819,7 +1819,7 @@ def compare_command(
                 output_text = json.dumps(output_data, ensure_ascii=False, indent=2)
         else:
             output_text = json.dumps(output_data, ensure_ascii=False, indent=2)
-        
+
         out.write_text(output_text, encoding="utf-8")
         typer.echo(f"\n✓ Comparison saved to {out}")
 
