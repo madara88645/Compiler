@@ -501,3 +501,82 @@ async def fix_endpoint(req: AutoFixRequest):
         ],
         remaining_issues=result.remaining_issues,
     )
+
+
+# ===== Compare Endpoint =====
+
+
+class CompareRequest(BaseModel):
+    """Request model for prompt comparison"""
+
+    prompt_a: str = Field(..., description="First prompt text")
+    prompt_b: str = Field(..., description="Second prompt text")
+    label_a: str = Field("Prompt A", description="Label for first prompt")
+    label_b: str = Field("Prompt B", description="Label for second prompt")
+
+
+class CompareResponse(BaseModel):
+    """Response model for prompt comparison"""
+
+    prompt_a: str
+    prompt_b: str
+    validation_a: dict
+    validation_b: dict
+    ir_diff: str
+    ir_changes: List[dict]
+    score_difference: float
+    better_prompt: Optional[str]
+    recommendation: str
+    category_comparison: dict
+
+
+@app.post("/compare", response_model=CompareResponse)
+async def compare_endpoint(req: CompareRequest):
+    """Compare two prompts side by side.
+
+    Returns:
+        - prompt_a, prompt_b: Input prompts
+        - validation_a, validation_b: Validation results with scores and issues
+        - ir_diff: Unified diff between IRs
+        - ir_changes: List of significant changes (field, type, details)
+        - score_difference: B - A score delta
+        - better_prompt: "A", "B", or null if equal
+        - recommendation: Text recommendation
+        - category_comparison: Per-category score comparison
+    """
+    from app.compare import compare_prompts
+
+    result = compare_prompts(req.prompt_a, req.prompt_b, req.label_a, req.label_b)
+
+    return CompareResponse(
+        prompt_a=result.prompt_a,
+        prompt_b=result.prompt_b,
+        validation_a={
+            "score": round(result.validation_a.score, 1),
+            "category_scores": {k: round(v, 1) for k, v in result.validation_a.category_scores.items()},
+            "issues": [issue.to_dict() for issue in result.validation_a.issues],
+            "strengths": result.validation_a.strengths,
+        },
+        validation_b={
+            "score": round(result.validation_b.score, 1),
+            "category_scores": {k: round(v, 1) for k, v in result.validation_b.category_scores.items()},
+            "issues": [issue.to_dict() for issue in result.validation_b.issues],
+            "strengths": result.validation_b.strengths,
+        },
+        ir_diff=result.ir_diff,
+        ir_changes=result.ir_changes,
+        score_difference=round(result.score_difference, 1),
+        better_prompt=result.better_prompt,
+        recommendation=result.recommendation,
+        category_comparison={
+            k: {
+                "score_a": round(v["score_a"], 1),
+                "score_b": round(v["score_b"], 1),
+                "difference": round(v["difference"], 1),
+                "better": v["better"],
+                "issues_a_count": v["issues_a_count"],
+                "issues_b_count": v["issues_b_count"],
+            }
+            for k, v in result.category_comparison.items()
+        },
+    )
