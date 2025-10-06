@@ -1912,9 +1912,7 @@ def analytics_summary(
         return
 
     # Display rich formatted summary
-    console.print(
-        f"\n[bold cyan]Analytics Summary[/bold cyan] [dim](Last {days} days)[/dim]\n"
-    )
+    console.print(f"\n[bold cyan]Analytics Summary[/bold cyan] [dim](Last {days} days)[/dim]\n")
 
     # Overview table
     overview = Table(show_header=False, box=None, padding=(0, 2))
@@ -1925,9 +1923,7 @@ def analytics_summary(
     overview.add_row(
         "Avg Score", f"[yellow]{summary.avg_score:.1f}[/yellow] ± {summary.score_std:.1f}"
     )
-    overview.add_row(
-        "Score Range", f"{summary.min_score:.1f} → {summary.max_score:.1f}"
-    )
+    overview.add_row("Score Range", f"{summary.min_score:.1f} → {summary.max_score:.1f}")
     overview.add_row("Avg Issues", f"{summary.avg_issues:.1f}")
     overview.add_row("Avg Length", f"{summary.avg_prompt_length} chars")
 
@@ -1951,9 +1947,7 @@ def analytics_summary(
         console.print(domains_table)
 
         if summary.most_improved_domain:
-            console.print(
-                f"  [green]Most Improved:[/green] {summary.most_improved_domain}"
-            )
+            console.print(f"  [green]Most Improved:[/green] {summary.most_improved_domain}")
 
     # Top personas
     if summary.top_personas:
@@ -2072,9 +2066,7 @@ def analytics_domains(
         return
 
     # Display table
-    console.print(
-        f"\n[bold cyan]Domain Breakdown[/bold cyan] [dim](Last {days} days)[/dim]\n"
-    )
+    console.print(f"\n[bold cyan]Domain Breakdown[/bold cyan] [dim](Last {days} days)[/dim]\n")
 
     table = Table(show_header=True)
     table.add_column("Domain", style="cyan")
@@ -2084,9 +2076,7 @@ def analytics_domains(
     table.add_column("Avg Issues", justify="right", style="red")
 
     # Sort by count
-    sorted_domains = sorted(
-        domain_stats.items(), key=lambda x: x[1]["count"], reverse=True
-    )
+    sorted_domains = sorted(domain_stats.items(), key=lambda x: x[1]["count"], reverse=True)
 
     for domain, stats in sorted_domains:
         table.add_row(

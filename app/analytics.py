@@ -96,9 +96,7 @@ class AnalyticsManager:
         """)
 
         # Indexes for common queries
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_timestamp ON prompt_records(timestamp)"
-        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON prompt_records(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_domain ON prompt_records(domain)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_persona ON prompt_records(persona)")
         cursor.execute(
@@ -308,9 +306,7 @@ class AnalyticsManager:
                 domain_improvements[domain_name] = domain_second_half - domain_first_half
 
         most_improved = (
-            max(domain_improvements, key=domain_improvements.get)
-            if domain_improvements
-            else None
+            max(domain_improvements, key=domain_improvements.get) if domain_improvements else None
         )
 
         return AnalyticsSummary(
@@ -329,9 +325,7 @@ class AnalyticsManager:
             most_improved_domain=most_improved,
         )
 
-    def get_score_trends(
-        self, days: int = 30, bucket_size: int = 1
-    ) -> List[Dict[str, Any]]:
+    def get_score_trends(self, days: int = 30, bucket_size: int = 1) -> List[Dict[str, Any]]:
         """
         Get score trends over time
 
@@ -484,7 +478,11 @@ def create_record_from_ir(
         # Handle ValidationResult object
         if hasattr(validation_result, "score"):
             # It's a ValidationResult object
-            score = validation_result.score.total if hasattr(validation_result.score, "total") else validation_result.score
+            score = (
+                validation_result.score.total
+                if hasattr(validation_result.score, "total")
+                else validation_result.score
+            )
             issues = validation_result.issues
             issues_count = len(issues)
             warnings_count = validation_result.warnings

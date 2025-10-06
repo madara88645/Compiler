@@ -8,7 +8,6 @@ import tempfile
 from app.analytics import (
     AnalyticsManager,
     PromptRecord,
-    AnalyticsSummary,
     create_record_from_ir,
 )
 from datetime import datetime, timedelta
