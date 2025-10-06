@@ -58,7 +58,6 @@ def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
             continue
         if len(goals) < 3:
             goals.append(s)
-        if len(tasks) < 5:
             tasks.append(s)
     if not goals:
         goals = [GENERIC_GOAL[lang]]

@@ -28,6 +28,7 @@ from app.rag.simple_index import (
     prune as rag_prune,
 )
 from app.validator import validate_prompt
+from app.analytics import AnalyticsManager, create_record_from_ir
 from typing import List, Optional
 from pydantic import Field
 
@@ -583,4 +584,163 @@ async def compare_endpoint(req: CompareRequest):
             }
             for k, v in result.category_comparison.items()
         },
+    )
+
+
+# ============================================================================
+# Analytics Endpoints
+# ============================================================================
+
+
+class AnalyticsRecordRequest(BaseModel):
+    prompt_text: str
+    run_validation: bool = True
+
+
+class AnalyticsRecordResponse(BaseModel):
+    record_id: int
+    validation_score: float
+    domain: str
+    language: str
+    issues_count: int
+
+
+class AnalyticsSummaryRequest(BaseModel):
+    days: int = 30
+    domain: Optional[str] = None
+    persona: Optional[str] = None
+
+
+class AnalyticsSummaryResponse(BaseModel):
+    total_prompts: int
+    avg_score: float
+    min_score: float
+    max_score: float
+    score_std: float
+    top_domains: List[tuple]
+    top_personas: List[tuple]
+    top_intents: List[tuple]
+    language_distribution: dict
+    avg_issues: float
+    avg_prompt_length: int
+    improvement_rate: float
+    most_improved_domain: Optional[str]
+
+
+class AnalyticsTrendsRequest(BaseModel):
+    days: int = 30
+
+
+class AnalyticsTrendsResponse(BaseModel):
+    trends: List[dict]
+
+
+class AnalyticsDomainsRequest(BaseModel):
+    days: int = 30
+
+
+class AnalyticsDomainsResponse(BaseModel):
+    domains: dict
+
+
+class AnalyticsStatsResponse(BaseModel):
+    total_records: int
+    overall_avg_score: float
+    first_record: Optional[str]
+    last_record: Optional[str]
+    database_path: str
+
+
+@app.post("/analytics/record", response_model=AnalyticsRecordResponse)
+async def analytics_record(req: AnalyticsRecordRequest):
+    """
+    Record a prompt compilation in analytics database
+    """
+    from app.compiler import compile_text_v2
+
+    # Compile prompt
+    ir = compile_text_v2(req.prompt_text)
+
+    # Validate if requested
+    validation_result = None
+    if req.run_validation:
+        validation_result = validate_prompt(ir, req.prompt_text)
+
+    # Create record
+    record = create_record_from_ir(req.prompt_text, ir.model_dump(), validation_result)
+
+    # Save
+    manager = AnalyticsManager()
+    record_id = manager.record_prompt(record)
+
+    return AnalyticsRecordResponse(
+        record_id=record_id,
+        validation_score=record.validation_score,
+        domain=record.domain,
+        language=record.language,
+        issues_count=record.issues_count,
+    )
+
+
+@app.post("/analytics/summary", response_model=AnalyticsSummaryResponse)
+async def analytics_summary(req: AnalyticsSummaryRequest):
+    """
+    Get analytics summary for a time period
+    """
+    manager = AnalyticsManager()
+    summary = manager.get_summary(days=req.days, domain=req.domain, persona=req.persona)
+
+    return AnalyticsSummaryResponse(
+        total_prompts=summary.total_prompts,
+        avg_score=summary.avg_score,
+        min_score=summary.min_score,
+        max_score=summary.max_score,
+        score_std=summary.score_std,
+        top_domains=summary.top_domains,
+        top_personas=summary.top_personas,
+        top_intents=summary.top_intents,
+        language_distribution=summary.language_distribution,
+        avg_issues=summary.avg_issues,
+        avg_prompt_length=summary.avg_prompt_length,
+        improvement_rate=summary.improvement_rate,
+        most_improved_domain=summary.most_improved_domain,
+    )
+
+
+@app.post("/analytics/trends", response_model=AnalyticsTrendsResponse)
+async def analytics_trends(req: AnalyticsTrendsRequest):
+    """
+    Get score trends over time
+    """
+    manager = AnalyticsManager()
+    trends = manager.get_score_trends(days=req.days)
+
+    return AnalyticsTrendsResponse(trends=trends)
+
+
+@app.post("/analytics/domains", response_model=AnalyticsDomainsResponse)
+async def analytics_domains(req: AnalyticsDomainsRequest):
+    """
+    Get domain breakdown and statistics
+    """
+    manager = AnalyticsManager()
+    domains = manager.get_domain_breakdown(days=req.days)
+
+    return AnalyticsDomainsResponse(domains=domains)
+
+
+@app.get("/analytics/stats", response_model=AnalyticsStatsResponse)
+async def analytics_stats():
+    """
+    Get overall database statistics
+    """
+    manager = AnalyticsManager()
+    stats = manager.get_stats()
+
+    return AnalyticsStatsResponse(
+        total_records=stats["total_records"],
+        overall_avg_score=stats["overall_avg_score"],
+        first_record=stats["first_record"],
+        last_record=stats["last_record"],
+        database_path=stats["database_path"],
     )

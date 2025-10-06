@@ -39,6 +39,7 @@ from app import get_version
 from app.plugins import describe_plugins
 from app.templates import get_registry, PromptTemplate, TemplateVariable
 from app.validator import validate_prompt
+from app.analytics import AnalyticsManager, create_record_from_ir
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -54,9 +55,11 @@ app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
 plugins_app = typer.Typer(help="Plugin utilities")
 template_app = typer.Typer(help="Template management")
+analytics_app = typer.Typer(help="Prompt analytics and metrics")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
+app.add_typer(analytics_app, name="analytics")
 
 
 def _run_compile(
@@ -1822,6 +1825,401 @@ def compare_command(
 
         out.write_text(output_text, encoding="utf-8")
         typer.echo(f"\n✓ Comparison saved to {out}")
+
+
+# ============================================================================
+# Analytics Commands
+# ============================================================================
+
+
+@analytics_app.command("record")
+def analytics_record(
+    prompt: Path = typer.Argument(..., help="Path to prompt file"),
+    validate: bool = typer.Option(
+        True, "--validate/--no-validate", help="Run validation and include scores"
+    ),
+):
+    """
+    Record a prompt compilation in analytics database
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+
+    if not prompt.exists():
+        typer.secho(f"Error: File not found: {prompt}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+
+    prompt_text = prompt.read_text(encoding="utf-8")
+
+    with console.status("[cyan]Compiling prompt..."):
+        ir = compile_text_v2(prompt_text)
+
+    validation_result = None
+    if validate:
+        with console.status("[cyan]Validating prompt..."):
+            from app.validator import validate_prompt as validator
+
+            validation_result = validator(ir, prompt_text)
+
+    # Create record
+    record = create_record_from_ir(prompt_text, ir.model_dump(), validation_result)
+
+    # Save to analytics
+    manager = AnalyticsManager()
+    record_id = manager.record_prompt(record)
+
+    console.print(
+        Panel(
+            f"[green]✓ Recorded successfully[/green]\n\n"
+            f"Record ID: [cyan]{record_id}[/cyan]\n"
+            f"Score: [yellow]{record.validation_score:.1f}[/yellow]\n"
+            f"Domain: {record.domain}\n"
+            f"Language: {record.language}\n"
+            f"Issues: {record.issues_count}",
+            title="[bold]Analytics Record[/bold]",
+            border_style="green",
+        )
+    )
+
+
+@analytics_app.command("summary")
+def analytics_summary(
+    days: int = typer.Option(30, help="Number of days to analyze"),
+    domain: Optional[str] = typer.Option(None, help="Filter by domain"),
+    persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Show analytics summary for a time period
+    """
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console = Console()
+
+    manager = AnalyticsManager()
+
+    with console.status("[cyan]Analyzing data..."):
+        summary = manager.get_summary(days=days, domain=domain, persona=persona)
+
+    if json_output:
+        from dataclasses import asdict
+
+        print(json.dumps(asdict(summary), ensure_ascii=False, indent=2))
+        return
+
+    # Display rich formatted summary
+    console.print(
+        f"\n[bold cyan]Analytics Summary[/bold cyan] [dim](Last {days} days)[/dim]\n"
+    )
+
+    # Overview table
+    overview = Table(show_header=False, box=None, padding=(0, 2))
+    overview.add_column("Metric", style="bold")
+    overview.add_column("Value")
+
+    overview.add_row("Total Prompts", str(summary.total_prompts))
+    overview.add_row(
+        "Avg Score", f"[yellow]{summary.avg_score:.1f}[/yellow] ± {summary.score_std:.1f}"
+    )
+    overview.add_row(
+        "Score Range", f"{summary.min_score:.1f} → {summary.max_score:.1f}"
+    )
+    overview.add_row("Avg Issues", f"{summary.avg_issues:.1f}")
+    overview.add_row("Avg Length", f"{summary.avg_prompt_length} chars")
+
+    if summary.improvement_rate != 0:
+        color = "green" if summary.improvement_rate > 0 else "red"
+        arrow = "↑" if summary.improvement_rate > 0 else "↓"
+        overview.add_row(
+            "Improvement", f"[{color}]{arrow} {abs(summary.improvement_rate):.1f}%[/{color}]"
+        )
+
+    console.print(Panel(overview, title="[bold]Overview[/bold]", border_style="cyan"))
+
+    # Top domains
+    if summary.top_domains:
+        console.print("\n[bold]Top Domains:[/bold]")
+        domains_table = Table(show_header=True, box=None, padding=(0, 2))
+        domains_table.add_column("Domain", style="cyan")
+        domains_table.add_column("Count", justify="right")
+        for domain, count in summary.top_domains:
+            domains_table.add_row(domain, str(count))
+        console.print(domains_table)
+
+        if summary.most_improved_domain:
+            console.print(
+                f"  [green]Most Improved:[/green] {summary.most_improved_domain}"
+            )
+
+    # Top personas
+    if summary.top_personas:
+        console.print("\n[bold]Top Personas:[/bold]")
+        personas_table = Table(show_header=True, box=None, padding=(0, 2))
+        personas_table.add_column("Persona", style="magenta")
+        personas_table.add_column("Count", justify="right")
+        for persona, count in summary.top_personas:
+            personas_table.add_row(persona, str(count))
+        console.print(personas_table)
+
+    # Language distribution
+    if summary.language_distribution:
+        console.print("\n[bold]Languages:[/bold]")
+        for lang, count in summary.language_distribution.items():
+            console.print(f"  {lang}: {count}")
+
+    # Top intents
+    if summary.top_intents:
+        console.print("\n[bold]Top Intents:[/bold]")
+        intents_table = Table(show_header=True, box=None, padding=(0, 2))
+        intents_table.add_column("Intent", style="yellow")
+        intents_table.add_column("Count", justify="right")
+        for intent, count in summary.top_intents[:5]:
+            intents_table.add_row(intent, str(count))
+        console.print(intents_table)
+
+
+@analytics_app.command("trends")
+def analytics_trends(
+    days: int = typer.Option(30, help="Number of days to analyze"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Show score trends over time
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    manager = AnalyticsManager()
+
+    with console.status("[cyan]Analyzing trends..."):
+        trends = manager.get_score_trends(days=days)
+
+    if not trends:
+        console.print("[yellow]No data available for the specified period[/yellow]")
+        return
+
+    if json_output:
+        print(json.dumps(trends, ensure_ascii=False, indent=2))
+        return
+
+    # Display table
+    console.print(f"\n[bold cyan]Score Trends[/bold cyan] [dim](Last {days} days)[/dim]\n")
+
+    table = Table(show_header=True)
+    table.add_column("Date", style="cyan")
+    table.add_column("Avg Score", justify="right", style="yellow")
+    table.add_column("Range", justify="right")
+    table.add_column("Count", justify="right", style="dim")
+    table.add_column("Trend", justify="center")
+
+    prev_score = None
+    for entry in trends:
+        # Trend indicator
+        if prev_score is not None:
+            diff = entry["avg_score"] - prev_score
+            if diff > 0:
+                trend = f"[green]↑ +{diff:.1f}[/green]"
+            elif diff < 0:
+                trend = f"[red]↓ {diff:.1f}[/red]"
+            else:
+                trend = "[dim]→ 0.0[/dim]"
+        else:
+            trend = "[dim]—[/dim]"
+
+        table.add_row(
+            entry["date"],
+            f"{entry['avg_score']:.1f}",
+            f"{entry['min_score']:.1f}–{entry['max_score']:.1f}",
+            str(entry["count"]),
+            trend,
+        )
+
+        prev_score = entry["avg_score"]
+
+    console.print(table)
+
+
+@analytics_app.command("domains")
+def analytics_domains(
+    days: int = typer.Option(30, help="Number of days to analyze"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Show domain breakdown and statistics
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    manager = AnalyticsManager()
+
+    with console.status("[cyan]Analyzing domains..."):
+        domain_stats = manager.get_domain_breakdown(days=days)
+
+    if not domain_stats:
+        console.print("[yellow]No data available[/yellow]")
+        return
+
+    if json_output:
+        print(json.dumps(domain_stats, ensure_ascii=False, indent=2))
+        return
+
+    # Display table
+    console.print(
+        f"\n[bold cyan]Domain Breakdown[/bold cyan] [dim](Last {days} days)[/dim]\n"
+    )
+
+    table = Table(show_header=True)
+    table.add_column("Domain", style="cyan")
+    table.add_column("Count", justify="right")
+    table.add_column("Avg Score", justify="right", style="yellow")
+    table.add_column("Score Range", justify="right")
+    table.add_column("Avg Issues", justify="right", style="red")
+
+    # Sort by count
+    sorted_domains = sorted(
+        domain_stats.items(), key=lambda x: x[1]["count"], reverse=True
+    )
+
+    for domain, stats in sorted_domains:
+        table.add_row(
+            domain,
+            str(stats["count"]),
+            f"{stats['avg_score']:.1f}",
+            f"{stats['min_score']:.1f}–{stats['max_score']:.1f}",
+            f"{stats['avg_issues']:.1f}",
+        )
+
+    console.print(table)
+
+
+@analytics_app.command("list")
+def analytics_list(
+    limit: int = typer.Option(20, help="Number of records to show"),
+    domain: Optional[str] = typer.Option(None, help="Filter by domain"),
+    persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    min_score: Optional[float] = typer.Option(None, help="Minimum score"),
+    max_score: Optional[float] = typer.Option(None, help="Maximum score"),
+):
+    """
+    List recent prompt records
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    manager = AnalyticsManager()
+
+    records = manager.get_records(
+        limit=limit, domain=domain, persona=persona, min_score=min_score, max_score=max_score
+    )
+
+    if not records:
+        console.print("[yellow]No records found[/yellow]")
+        return
+
+    console.print(f"\n[bold cyan]Recent Prompts[/bold cyan] [dim](Last {limit})[/dim]\n")
+
+    table = Table(show_header=True)
+    table.add_column("ID", style="dim", width=5)
+    table.add_column("Date", style="cyan", width=10)
+    table.add_column("Score", justify="right", style="yellow", width=6)
+    table.add_column("Domain", style="magenta", width=12)
+    table.add_column("Language", width=4)
+    table.add_column("Issues", justify="right", style="red", width=6)
+    table.add_column("Preview", style="dim", width=40)
+
+    for record in records:
+        # Format date
+        date_str = record.timestamp[:10]  # YYYY-MM-DD
+
+        # Truncate preview
+        preview = record.prompt_text.replace("\n", " ")[:50]
+        if len(record.prompt_text) > 50:
+            preview += "..."
+
+        # Color code score
+        score_str = f"{record.validation_score:.1f}"
+        if record.validation_score >= 80:
+            score_style = "green"
+        elif record.validation_score >= 60:
+            score_style = "yellow"
+        else:
+            score_style = "red"
+
+        table.add_row(
+            str(record.id),
+            date_str,
+            f"[{score_style}]{score_str}[/{score_style}]",
+            record.domain,
+            record.language.upper(),
+            str(record.issues_count),
+            preview,
+        )
+
+    console.print(table)
+
+
+@analytics_app.command("stats")
+def analytics_stats():
+    """
+    Show overall database statistics
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+
+    manager = AnalyticsManager()
+    stats = manager.get_stats()
+
+    info = (
+        f"Total Records: [cyan]{stats['total_records']}[/cyan]\n"
+        f"Overall Avg Score: [yellow]{stats['overall_avg_score']:.1f}[/yellow]\n"
+        f"First Record: [dim]{stats['first_record'] or 'N/A'}[/dim]\n"
+        f"Last Record: [dim]{stats['last_record'] or 'N/A'}[/dim]\n"
+        f"Database: [dim]{stats['database_path']}[/dim]"
+    )
+
+    console.print(
+        Panel(
+            info, title="[bold cyan]Analytics Database Statistics[/bold cyan]", border_style="cyan"
+        )
+    )
+
+
+@analytics_app.command("clean")
+def analytics_clean(
+    days: int = typer.Option(90, help="Delete records older than N days"),
+    force: bool = typer.Option(False, "--force", help="Skip confirmation"),
+):
+    """
+    Delete old analytics records
+    """
+    from rich.console import Console
+
+    console = Console()
+
+    if not force:
+        confirm = typer.confirm(f"Delete all records older than {days} days?")
+        if not confirm:
+            typer.echo("Cancelled")
+            raise typer.Exit()
+
+    manager = AnalyticsManager()
+
+    with console.status("[cyan]Cleaning old records..."):
+        deleted = manager.clear_old_records(days=days)
+
+    console.print(f"[green]✓ Deleted {deleted} old records[/green]")
 
 
 # Entry point

@@ -65,6 +65,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Structured Clarification Objects (new)**: Rich clarify entries with category + question -> `metadata.clarify_questions_struct`
 * **Constraint Origins (new)**: Maps each constraint to its heuristic source -> `metadata.constraint_origins`
 * **External Config Overrides (new)**: Optional YAML/JSON patterns file to extend domains, ambiguity, risk keywords without code changes
+* **Prompt Analytics & Metrics (new)**: Track prompt compilation history with validation scores, trends over time, domain/persona statistics, and quality improvements; SQLite storage with rich CLI reporting and REST API
 
 ## Installation
 
@@ -346,6 +347,80 @@ promptc rag prune --db-path .\myindex.db --json
 Notes:
  - `rag stats` summarizes docs, chunks, total/avg bytes, and largest sources.
  - `rag prune` removes entries whose source files disappeared.
+
+#### Analytics (new)
+
+Track prompt compilation history, validation scores, quality trends, and domain/persona statistics:
+
+```powershell
+# Record a prompt with automatic validation
+promptc analytics record prompt.txt
+
+# Record without validation
+promptc analytics record prompt.txt --no-validate
+
+# View summary for last 30 days
+promptc analytics summary
+
+# Custom time period and filters
+promptc analytics summary --days 7 --domain education
+promptc analytics summary --days 90 --persona teacher --json
+
+# Score trends over time
+promptc analytics trends --days 30
+
+# Domain-specific statistics
+promptc analytics domains --days 30 --json
+
+# List recent prompts
+promptc analytics list --limit 20
+promptc analytics list --domain tech --min-score 80
+
+# Overall database statistics
+promptc analytics stats
+
+# Clean old records (keep last 90 days)
+promptc analytics clean --days 90 --force
+```
+
+**Example Output:**
+```
+Analytics Summary (Last 30 days)
+
+Overview
+────────────────────────────────────
+Total Prompts      42
+Avg Score          78.5 ± 8.3
+Score Range        58.0 → 95.0
+Avg Issues         2.3
+Avg Length         284 chars
+Improvement        ↑ 12.5%
+
+Top Domains:
+  education      18
+  tech          12
+  creative       8
+  general        4
+
+  Most Improved: education
+
+Top Personas:
+  teacher       15
+  assistant     14
+  expert         8
+  coach          5
+
+Languages:
+  en: 28
+  tr: 14
+
+Top Intents:
+  teach         22
+  explain       18
+  answer        15
+  create        12
+  debug          8
+```
 
 ##### Embedding Retrieval (minimal, optional)
 
@@ -827,6 +902,139 @@ curl -X POST http://127.0.0.1:8000/fix \
 - `add_risk_constraint`: Adds safety constraints
 - `add_teaching_level`: Adds target audience specification
 - `add_complexity_help`: Adds complexity guidance
+
+#### POST /analytics/record (new)
+Record a prompt compilation in analytics database.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/analytics/record \
+  -H "Content-Type: application/json" \
+  -d '{"prompt_text":"Teach me Python in 30 minutes","run_validation":true}'
+```
+
+**Response:**
+```json
+{
+  "record_id": 42,
+  "validation_score": 82.5,
+  "domain": "education",
+  "language": "en",
+  "issues_count": 2
+}
+```
+
+#### POST /analytics/summary (new)
+Get analytics summary for a time period.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/analytics/summary \
+  -H "Content-Type: application/json" \
+  -d '{"days":30,"domain":"education"}'
+```
+
+**Response:**
+```json
+{
+  "total_prompts": 42,
+  "avg_score": 78.5,
+  "min_score": 58.0,
+  "max_score": 95.0,
+  "score_std": 8.3,
+  "top_domains": [["education", 18], ["tech", 12]],
+  "top_personas": [["teacher", 15], ["assistant", 14]],
+  "top_intents": [["teach", 22], ["explain", 18]],
+  "language_distribution": {"en": 28, "tr": 14},
+  "avg_issues": 2.3,
+  "avg_prompt_length": 284,
+  "improvement_rate": 12.5,
+  "most_improved_domain": "education"
+}
+```
+
+#### POST /analytics/trends (new)
+Get score trends over time.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/analytics/trends \
+  -H "Content-Type: application/json" \
+  -d '{"days":30}'
+```
+
+**Response:**
+```json
+{
+  "trends": [
+    {
+      "date": "2025-10-05",
+      "avg_score": 76.8,
+      "min_score": 62.0,
+      "max_score": 92.0,
+      "count": 5
+    },
+    {
+      "date": "2025-10-06",
+      "avg_score": 81.2,
+      "min_score": 68.0,
+      "max_score": 95.0,
+      "count": 8
+    }
+  ]
+}
+```
+
+#### POST /analytics/domains (new)
+Get domain breakdown and statistics.
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/analytics/domains \
+  -H "Content-Type: application/json" \
+  -d '{"days":30}'
+```
+
+**Response:**
+```json
+{
+  "domains": {
+    "education": {
+      "count": 18,
+      "avg_score": 82.3,
+      "min_score": 65.0,
+      "max_score": 95.0,
+      "avg_issues": 1.8
+    },
+    "tech": {
+      "count": 12,
+      "avg_score": 76.5,
+      "min_score": 58.0,
+      "max_score": 90.0,
+      "avg_issues": 2.5
+    }
+  }
+}
+```
+
+#### GET /analytics/stats (new)
+Get overall database statistics.
+
+**Request:**
+```bash
+curl http://127.0.0.1:8000/analytics/stats
+```
+
+**Response:**
+```json
+{
+  "total_records": 127,
+  "overall_avg_score": 78.2,
+  "first_record": "2025-09-01T10:23:45",
+  "last_record": "2025-10-06T15:42:18",
+  "database_path": "/home/user/.promptc/analytics.db"
+}
+```
 
 ## Examples
 
