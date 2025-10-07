@@ -210,7 +210,7 @@ def _run_compile(
         print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
         print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
         print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
-    
+
     # Save to history
     try:
         history_mgr = get_history_manager()
@@ -2321,9 +2321,7 @@ def history_search(
         console.print(f"[yellow]No matches found for '{query}'[/yellow]")
         return
 
-    console.print(
-        f"\n[bold cyan]Search Results[/bold cyan] [dim]({len(entries)} matches)[/dim]\n"
-    )
+    console.print(f"\n[bold cyan]Search Results[/bold cyan] [dim]({len(entries)} matches)[/dim]\n")
 
     table = Table(show_header=True)
     table.add_column("ID", style="dim", width=12)
@@ -2359,7 +2357,6 @@ def history_show(entry_id: str = typer.Argument(..., help="Entry ID")):
     """
     from rich.console import Console
     from rich.panel import Panel
-    from rich.syntax import Syntax
 
     console = Console()
     history_mgr = get_history_manager()
@@ -2421,7 +2418,9 @@ def history_stats():
     for lang, count in stats["languages"].items():
         info += f"  {lang.upper()}: {count}\n"
 
-    console.print(Panel(info, title="[bold cyan]History Statistics[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel(info, title="[bold cyan]History Statistics[/bold cyan]", border_style="cyan")
+    )
 
 
 @history_app.command("clear")
