@@ -40,6 +40,7 @@ from app.plugins import describe_plugins
 from app.templates import get_registry, PromptTemplate, TemplateVariable
 from app.validator import validate_prompt
 from app.analytics import AnalyticsManager, create_record_from_ir
+from app.history import get_history_manager
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -56,10 +57,12 @@ rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
 plugins_app = typer.Typer(help="Plugin utilities")
 template_app = typer.Typer(help="Template management")
 analytics_app = typer.Typer(help="Prompt analytics and metrics")
+history_app = typer.Typer(help="Prompt history and quick access")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
 app.add_typer(analytics_app, name="analytics")
+app.add_typer(history_app, name="history")
 
 
 def _run_compile(
@@ -207,6 +210,14 @@ def _run_compile(
         print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
         print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
         print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
+    
+    # Save to history
+    try:
+        history_mgr = get_history_manager()
+        history_mgr.add(full_text, ir_json, score=0.0)
+    except Exception:
+        # Silently fail if history fails
+        pass
 
 
 def _write_output(
@@ -2210,6 +2221,228 @@ def analytics_clean(
         deleted = manager.clear_old_records(days=days)
 
     console.print(f"[green]✓ Deleted {deleted} old records[/green]")
+
+
+# ============================================================================
+# History Commands
+# ============================================================================
+
+
+@history_app.command("list")
+def history_list(
+    limit: int = typer.Option(10, help="Number of entries to show"),
+    domain: Optional[str] = typer.Option(None, help="Filter by domain"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    List recent prompt history
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    history_mgr = get_history_manager()
+
+    # Get entries
+    if domain:
+        entries = history_mgr.get_by_domain(domain, limit=limit)
+    else:
+        entries = history_mgr.get_recent(limit=limit)
+
+    if not entries:
+        console.print("[yellow]No history entries found[/yellow]")
+        return
+
+    if json_output:
+        import json as _json
+
+        print(_json.dumps([e.to_dict() for e in entries], ensure_ascii=False, indent=2))
+        return
+
+    # Display table
+    console.print(f"\n[bold cyan]Prompt History[/bold cyan] [dim](Last {limit})[/dim]\n")
+
+    table = Table(show_header=True)
+    table.add_column("ID", style="dim", width=12)
+    table.add_column("Date", style="cyan", width=10)
+    table.add_column("Score", justify="right", style="yellow", width=6)
+    table.add_column("Domain", style="magenta", width=12)
+    table.add_column("Lang", width=4)
+    table.add_column("Prompt", style="dim", width=50)
+
+    for entry in entries:
+        # Format date
+        date_str = entry.timestamp[:10]
+
+        # Truncate prompt
+        prompt_preview = entry.prompt_text.replace("\n", " ")[:50]
+        if len(entry.prompt_text) > 50:
+            prompt_preview += "..."
+
+        # Score color
+        if entry.score >= 80:
+            score_style = "green"
+        elif entry.score >= 60:
+            score_style = "yellow"
+        else:
+            score_style = "red" if entry.score > 0 else "dim"
+
+        score_str = f"{entry.score:.1f}" if entry.score > 0 else "—"
+
+        table.add_row(
+            entry.id[:8],
+            date_str,
+            f"[{score_style}]{score_str}[/{score_style}]",
+            entry.domain,
+            entry.language.upper(),
+            prompt_preview,
+        )
+
+    console.print(table)
+
+
+@history_app.command("search")
+def history_search(
+    query: str = typer.Argument(..., help="Search query"),
+    limit: int = typer.Option(10, help="Maximum results"),
+):
+    """
+    Search prompt history
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    history_mgr = get_history_manager()
+
+    entries = history_mgr.search(query, limit=limit)
+
+    if not entries:
+        console.print(f"[yellow]No matches found for '{query}'[/yellow]")
+        return
+
+    console.print(
+        f"\n[bold cyan]Search Results[/bold cyan] [dim]({len(entries)} matches)[/dim]\n"
+    )
+
+    table = Table(show_header=True)
+    table.add_column("ID", style="dim", width=12)
+    table.add_column("Date", style="cyan", width=10)
+    table.add_column("Domain", style="magenta", width=12)
+    table.add_column("Prompt", style="white", width=60)
+
+    for entry in entries:
+        date_str = entry.timestamp[:10]
+        prompt_preview = entry.prompt_text.replace("\n", " ")[:60]
+        if len(entry.prompt_text) > 60:
+            prompt_preview += "..."
+
+        # Highlight query in preview
+        import re
+
+        highlighted = re.sub(
+            f"({re.escape(query)})",
+            r"[bold yellow]\1[/bold yellow]",
+            prompt_preview,
+            flags=re.IGNORECASE,
+        )
+
+        table.add_row(entry.id[:8], date_str, entry.domain, highlighted)
+
+    console.print(table)
+
+
+@history_app.command("show")
+def history_show(entry_id: str = typer.Argument(..., help="Entry ID")):
+    """
+    Show full details of a history entry
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+
+    console = Console()
+    history_mgr = get_history_manager()
+
+    entry = history_mgr.get_by_id(entry_id)
+
+    if not entry:
+        console.print(f"[red]Entry '{entry_id}' not found[/red]")
+        raise typer.Exit(1)
+
+    # Display details
+    console.print(f"\n[bold]Entry {entry.id}[/bold]\n")
+
+    info = (
+        f"[cyan]Date:[/cyan] {entry.timestamp}\n"
+        f"[cyan]Domain:[/cyan] {entry.domain}\n"
+        f"[cyan]Language:[/cyan] {entry.language}\n"
+        f"[cyan]IR Version:[/cyan] {entry.ir_version}\n"
+    )
+
+    if entry.score > 0:
+        score_color = "green" if entry.score >= 80 else "yellow"
+        info += f"[cyan]Score:[/cyan] [{score_color}]{entry.score:.1f}[/{score_color}]\n"
+
+    console.print(Panel(info, title="[bold]Info[/bold]", border_style="blue"))
+
+    # Prompt text
+    console.print("\n[bold]Prompt:[/bold]")
+    console.print(Panel(entry.prompt_text, border_style="green"))
+
+
+@history_app.command("stats")
+def history_stats():
+    """
+    Show history statistics
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    history_mgr = get_history_manager()
+
+    stats = history_mgr.get_stats()
+
+    if stats["total"] == 0:
+        console.print("[yellow]No history entries[/yellow]")
+        return
+
+    info = f"[cyan]Total Entries:[/cyan] {stats['total']}\n"
+    info += f"[cyan]Avg Score:[/cyan] [yellow]{stats['avg_score']:.1f}[/yellow]\n"
+    info += f"[cyan]Oldest:[/cyan] {stats['oldest'][:10] if stats['oldest'] else 'N/A'}\n"
+    info += f"[cyan]Newest:[/cyan] {stats['newest'][:10] if stats['newest'] else 'N/A'}\n\n"
+
+    info += "[bold]Domains:[/bold]\n"
+    for domain, count in stats["domains"].items():
+        info += f"  {domain}: {count}\n"
+
+    info += "\n[bold]Languages:[/bold]\n"
+    for lang, count in stats["languages"].items():
+        info += f"  {lang.upper()}: {count}\n"
+
+    console.print(Panel(info, title="[bold cyan]History Statistics[/bold cyan]", border_style="cyan"))
+
+
+@history_app.command("clear")
+def history_clear(force: bool = typer.Option(False, "--force", help="Skip confirmation")):
+    """
+    Clear all history
+    """
+    from rich.console import Console
+
+    console = Console()
+
+    if not force:
+        confirm = typer.confirm("Clear all history?")
+        if not confirm:
+            typer.echo("Cancelled")
+            raise typer.Exit()
+
+    history_mgr = get_history_manager()
+    history_mgr.clear()
+
+    console.print("[green]✓ History cleared[/green]")
 
 
 # Entry point

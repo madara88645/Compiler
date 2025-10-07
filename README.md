@@ -66,6 +66,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Constraint Origins (new)**: Maps each constraint to its heuristic source -> `metadata.constraint_origins`
 * **External Config Overrides (new)**: Optional YAML/JSON patterns file to extend domains, ambiguity, risk keywords without code changes
 * **Prompt Analytics & Metrics (new)**: Track prompt compilation history with validation scores, trends over time, domain/persona statistics, and quality improvements; SQLite storage with rich CLI reporting and REST API
+* **Prompt History (new)**: Automatic tracking of recent prompt compilations with quick search, domain filtering, and statistics; stored locally in JSON format
 
 ## Installation
 
@@ -382,6 +383,53 @@ promptc analytics stats
 # Clean old records (keep last 90 days)
 promptc analytics clean --days 90 --force
 ```
+
+#### History (new)
+
+Track recent prompt compilations with automatic history logging:
+
+```powershell
+# List recent prompts (automatically saved during compilation)
+promptc history list --limit 20
+
+# Filter by domain
+promptc history list --domain education
+
+# Search history
+promptc history search "Python tutorial"
+
+# Show full details of a specific entry
+promptc history show abc12345
+
+# View history statistics
+promptc history stats
+
+# Clear all history
+promptc history clear --force
+
+# JSON output
+promptc history list --json
+```
+
+**Example Output:**
+```
+Prompt History (Last 10)
+
+ID          Date        Score  Domain        Lang  Prompt
+──────────  ──────────  ─────  ────────────  ────  ──────────────────────────────────
+c99c6aa4    2025-10-07   97.5  ai/ml         EN    Generate a concise JSON summary...
+8f2d1bc3    2025-10-07   82.3  education     EN    Teach me Python basics in 30 min...
+a5b9e7f1    2025-10-06   78.0  tech          TR    Web uygulaması nasıl yapılır...
+d3c8a2e9    2025-10-06   91.2  creative      EN    Write a short story about AI...
+```
+
+**Features:**
+- Automatic tracking of all compilations
+- Max 100 entries (configurable)
+- Search by text, filter by domain
+- Stores domain, language, score, timestamp
+- Local JSON storage (~/.promptc/history.json)
+- No external dependencies
 
 **Example Output:**
 ```
