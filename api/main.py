@@ -744,3 +744,134 @@ async def analytics_stats():
         last_record=stats["last_record"],
         database_path=stats["database_path"],
     )
+
+
+# ============================================================================
+# Export/Import Endpoints
+# ============================================================================
+
+
+class ExportRequest(BaseModel):
+    data_type: str = Field(default="both", description="Data to export: analytics, history, or both")
+    format: str = Field(default="json", description="Export format: json, csv, or yaml")
+    start_date: Optional[str] = Field(default=None, description="Start date filter (ISO format)")
+    end_date: Optional[str] = Field(default=None, description="End date filter (ISO format)")
+
+
+class ExportResponse(BaseModel):
+    success: bool
+    format: str
+    data_type: str
+    analytics_count: int
+    history_count: int
+    export_date: str
+    data: dict
+
+
+class ImportRequest(BaseModel):
+    data: dict
+    data_type: str = Field(default="both", description="Data to import: analytics, history, or both")
+    merge: bool = Field(default=True, description="Merge with existing data or replace")
+
+
+class ImportResponse(BaseModel):
+    success: bool
+    format: str
+    merge_mode: bool
+    analytics_imported: int
+    history_imported: int
+
+
+@app.post("/export", response_model=ExportResponse)
+async def export_data(req: ExportRequest):
+    """
+    Export analytics and/or history data
+
+    This endpoint generates export data in memory and returns it.
+    For file exports, use the CLI commands.
+    """
+    from app.export_import import get_export_import_manager
+    import tempfile
+
+    manager = get_export_import_manager()
+
+    # Create temporary file for export
+    with tempfile.NamedTemporaryFile(mode="w", suffix=f".{req.format}", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = manager.export_data(
+            output_file=tmp_path,
+            data_type=req.data_type,  # type: ignore
+            format=req.format,  # type: ignore
+            start_date=req.start_date,
+            end_date=req.end_date,
+        )
+
+        # Read the exported data
+        import json
+
+        if req.format == "json":
+            with open(tmp_path) as f:
+                export_data = json.load(f)
+        elif req.format == "yaml":
+            import yaml
+
+            with open(tmp_path) as f:
+                export_data = yaml.safe_load(f)
+        else:
+            # For CSV, return metadata only
+            export_data = {"note": "CSV format not supported for API export, use CLI"}
+
+        return ExportResponse(
+            success=True,
+            format=result["format"],
+            data_type=result["data_type"],
+            analytics_count=result["analytics_count"],
+            history_count=result["history_count"],
+            export_date=result["export_date"],
+            data=export_data,
+        )
+    finally:
+        # Cleanup temp file
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+@app.post("/import", response_model=ImportResponse)
+async def import_data(req: ImportRequest):
+    """
+    Import analytics and/or history data
+
+    Send exported data structure to import it into the system.
+    """
+    from app.export_import import get_export_import_manager
+    import tempfile
+    import json
+
+    manager = get_export_import_manager()
+
+    # Detect format from data structure
+    format_type = "json"  # API only supports JSON for now
+
+    # Create temporary file for import
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump(req.data, tmp)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = manager.import_data(
+            input_file=tmp_path, data_type=req.data_type, merge=req.merge  # type: ignore
+        )
+
+        return ImportResponse(
+            success=True,
+            format=result["format"],
+            merge_mode=result["merge_mode"],
+            analytics_imported=result["analytics_imported"],
+            history_imported=result["history_imported"],
+        )
+    finally:
+        # Cleanup temp file
+        if tmp_path.exists():
+            tmp_path.unlink()

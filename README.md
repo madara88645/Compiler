@@ -67,6 +67,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **External Config Overrides (new)**: Optional YAML/JSON patterns file to extend domains, ambiguity, risk keywords without code changes
 * **Prompt Analytics & Metrics (new)**: Track prompt compilation history with validation scores, trends over time, domain/persona statistics, and quality improvements; SQLite storage with rich CLI reporting and REST API
 * **Prompt History (new)**: Automatic tracking of recent prompt compilations with quick search, domain filtering, and statistics; stored locally in JSON format
+* **Export/Import (new)**: Export and import analytics and history data in JSON, CSV, or YAML formats for backup, sharing, and migration; supports date filtering and merge/replace modes
 
 ## Installation
 
@@ -430,6 +431,74 @@ d3c8a2e9    2025-10-06   91.2  creative      EN    Write a short story about AI.
 - Stores domain, language, score, timestamp
 - Local JSON storage (~/.promptc/history.json)
 - No external dependencies
+
+#### Export/Import (new)
+
+Export and import your analytics and history data for backup, sharing, or migration:
+
+```powershell
+# Export all data to JSON (default)
+promptc export data backup.json
+
+# Export only analytics to CSV
+promptc export data analytics.csv --type analytics --format csv
+
+# Export only history to YAML
+promptc export data history.yaml --type history --format yaml
+
+# Export with date filtering
+promptc export data recent.json --start 2025-10-01 --end 2025-10-07
+
+# Import data (merge with existing)
+promptc export import backup.json
+
+# Import and replace existing data
+promptc export import backup.json --replace
+
+# Import only analytics
+promptc export import analytics.csv --type analytics
+
+# Create timestamped backup
+promptc export backup
+promptc export backup --dir ./my-backups --format yaml
+
+# JSON output for scripting
+promptc export data export.json --json
+```
+
+**Supported Formats:**
+- **JSON**: Full structure with metadata (recommended for complete backups)
+- **CSV**: Flat format, creates separate files for analytics and history when exporting both
+- **YAML**: Human-readable format (requires `pyyaml`)
+
+**Features:**
+- Export/import analytics and history separately or together
+- Date range filtering for exports
+- Merge or replace modes for imports
+- Automatic deduplication by prompt hash
+- Preserves all metadata and timestamps
+- Cross-platform compatible
+
+**Use Cases:**
+- 🔄 Backup before system changes
+- 📤 Share prompt libraries with team
+- 🔀 Migrate between machines
+- 📊 Analyze data in external tools (Excel, Python)
+- 🗄️ Archive old data
+
+**Example Output:**
+```
+╭─────────── Export Complete ───────────╮
+│ ✓ Export successful                   │
+│                                        │
+│ File: backup.json                      │
+│ Format: json                           │
+│ Type: both                             │
+│ Analytics: 42 records                  │
+│ History: 87 entries                    │
+│ Export Date: 2025-10-08T10:30:00      │
+╰────────────────────────────────────────╯
+```
 
 **Example Output:**
 ```
