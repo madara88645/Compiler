@@ -298,7 +298,17 @@ def test_import_csv(temp_dir):
     with open(import_file, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["id", "timestamp", "prompt_text", "prompt_hash", "domain", "language", "score", "ir_version", "tags"],
+            fieldnames=[
+                "id",
+                "timestamp",
+                "prompt_text",
+                "prompt_hash",
+                "domain",
+                "language",
+                "score",
+                "ir_version",
+                "tags",
+            ],
         )
         writer.writeheader()
         writer.writerow(
@@ -361,7 +371,6 @@ def test_export_both_csv_creates_separate_files(temp_dir, sample_history_data):
     assert result["success"] is True
 
     # Check for separate files
-    analytics_file = temp_dir / "export_analytics.csv"
     history_csv = temp_dir / "export_history.csv"
 
     # Only history file should exist (no analytics data)

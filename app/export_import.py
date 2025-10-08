@@ -267,9 +267,9 @@ class ExportImportManager:
             try:
                 cursor.execute(
                     """
-                    INSERT OR REPLACE INTO prompts 
-                    (timestamp, prompt_text, prompt_hash, validation_score, domain, 
-                     persona, language, intents, issues_count, warnings_count, 
+                    INSERT OR REPLACE INTO prompts
+                    (timestamp, prompt_text, prompt_hash, validation_score, domain,
+                     persona, language, intents, issues_count, warnings_count,
                      prompt_length, ir_version, tags)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -343,9 +343,7 @@ class ExportImportManager:
 
             if "analytics" in data:
                 analytics_file = parent / f"{base}_analytics.csv"
-                self._write_csv_records(
-                    analytics_file, data["analytics"]["records"], "analytics"
-                )
+                self._write_csv_records(analytics_file, data["analytics"]["records"], "analytics")
 
             if "history" in data:
                 history_file = parent / f"{base}_history.csv"

@@ -752,7 +752,9 @@ async def analytics_stats():
 
 
 class ExportRequest(BaseModel):
-    data_type: str = Field(default="both", description="Data to export: analytics, history, or both")
+    data_type: str = Field(
+        default="both", description="Data to export: analytics, history, or both"
+    )
     format: str = Field(default="json", description="Export format: json, csv, or yaml")
     start_date: Optional[str] = Field(default=None, description="Start date filter (ISO format)")
     end_date: Optional[str] = Field(default=None, description="End date filter (ISO format)")
@@ -770,7 +772,9 @@ class ExportResponse(BaseModel):
 
 class ImportRequest(BaseModel):
     data: dict
-    data_type: str = Field(default="both", description="Data to import: analytics, history, or both")
+    data_type: str = Field(
+        default="both", description="Data to import: analytics, history, or both"
+    )
     merge: bool = Field(default=True, description="Merge with existing data or replace")
 
 
@@ -851,9 +855,6 @@ async def import_data(req: ImportRequest):
 
     manager = get_export_import_manager()
 
-    # Detect format from data structure
-    format_type = "json"  # API only supports JSON for now
-
     # Create temporary file for import
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
         json.dump(req.data, tmp)
@@ -861,7 +862,9 @@ async def import_data(req: ImportRequest):
 
     try:
         result = manager.import_data(
-            input_file=tmp_path, data_type=req.data_type, merge=req.merge  # type: ignore
+            input_file=tmp_path,
+            data_type=req.data_type,
+            merge=req.merge,  # type: ignore
         )
 
         return ImportResponse(

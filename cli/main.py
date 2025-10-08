@@ -2455,9 +2455,13 @@ def history_clear(force: bool = typer.Option(False, "--force", help="Skip confir
 @export_app.command("data")
 def export_data(
     output: Path = typer.Argument(..., help="Output file path"),
-    data_type: str = typer.Option("both", "--type", help="Data to export: analytics, history, or both"),
+    data_type: str = typer.Option(
+        "both", "--type", help="Data to export: analytics, history, or both"
+    ),
     format: str = typer.Option("json", "--format", "-f", help="Export format: json, csv, or yaml"),
-    start_date: Optional[str] = typer.Option(None, "--start", help="Start date filter (ISO format)"),
+    start_date: Optional[str] = typer.Option(
+        None, "--start", help="Start date filter (ISO format)"
+    ),
     end_date: Optional[str] = typer.Option(None, "--end", help="End date filter (ISO format)"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
@@ -2499,7 +2503,9 @@ Export Date: {result['export_date']}"""
             if format == "csv" and data_type == "both":
                 info += "\n\n[yellow]Note: CSV export created separate files for analytics and history[/yellow]"
 
-            console.print(Panel(info, title="[bold cyan]Export Complete[/bold cyan]", border_style="cyan"))
+            console.print(
+                Panel(info, title="[bold cyan]Export Complete[/bold cyan]", border_style="cyan")
+            )
 
     except Exception as e:
         console.print(f"[bold red]✗ Export failed:[/bold red] {e}")
@@ -2509,8 +2515,12 @@ Export Date: {result['export_date']}"""
 @export_app.command("import")
 def import_data(
     input_file: Path = typer.Argument(..., help="Input file path"),
-    data_type: str = typer.Option("both", "--type", help="Data to import: analytics, history, or both"),
-    merge: bool = typer.Option(True, "--merge/--replace", help="Merge with existing data or replace"),
+    data_type: str = typer.Option(
+        "both", "--type", help="Data to import: analytics, history, or both"
+    ),
+    merge: bool = typer.Option(
+        True, "--merge/--replace", help="Merge with existing data or replace"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -2550,7 +2560,9 @@ Mode: {mode}
 Analytics: {result['analytics_imported']} records imported
 History: {result['history_imported']} entries imported"""
 
-            console.print(Panel(info, title="[bold cyan]Import Complete[/bold cyan]", border_style="cyan"))
+            console.print(
+                Panel(info, title="[bold cyan]Import Complete[/bold cyan]", border_style="cyan")
+            )
 
     except Exception as e:
         console.print(f"[bold red]✗ Import failed:[/bold red] {e}")
@@ -2559,7 +2571,9 @@ History: {result['history_imported']} entries imported"""
 
 @export_app.command("backup")
 def backup_all(
-    output_dir: Path = typer.Option(Path.home() / ".promptc" / "backups", "--dir", help="Backup directory"),
+    output_dir: Path = typer.Option(
+        Path.home() / ".promptc" / "backups", "--dir", help="Backup directory"
+    ),
     format: str = typer.Option("json", "--format", "-f", help="Backup format: json, csv, or yaml"),
 ):
     """
@@ -2599,7 +2613,9 @@ Analytics: {result['analytics_count']} records
 History: {result['history_count']} entries
 Backup Date: {result['export_date']}"""
 
-        console.print(Panel(info, title="[bold cyan]Backup Complete[/bold cyan]", border_style="cyan"))
+        console.print(
+            Panel(info, title="[bold cyan]Backup Complete[/bold cyan]", border_style="cyan")
+        )
 
     except Exception as e:
         console.print(f"[bold red]✗ Backup failed:[/bold red] {e}")
