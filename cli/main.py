@@ -42,6 +42,7 @@ from app.validator import validate_prompt
 from app.analytics import AnalyticsManager, create_record_from_ir
 from app.history import get_history_manager
 from app.export_import import get_export_import_manager
+from app.favorites import get_favorites_manager
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -60,12 +61,14 @@ template_app = typer.Typer(help="Template management")
 analytics_app = typer.Typer(help="Prompt analytics and metrics")
 history_app = typer.Typer(help="Prompt history and quick access")
 export_app = typer.Typer(help="Export and import data")
+favorites_app = typer.Typer(help="Favorite prompts and bookmarks")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
 app.add_typer(analytics_app, name="analytics")
 app.add_typer(history_app, name="history")
 app.add_typer(export_app, name="export")
+app.add_typer(favorites_app, name="favorites")
 
 
 def _run_compile(
@@ -2620,6 +2623,458 @@ Backup Date: {result['export_date']}"""
     except Exception as e:
         console.print(f"[bold red]✗ Backup failed:[/bold red] {e}")
         raise typer.Exit(code=1)
+
+
+# ============================================================================
+# Favorites/Bookmarks Commands
+# ============================================================================
+
+
+@favorites_app.command("add")
+def favorites_add(
+    prompt_id: str = typer.Argument(..., help="Prompt ID from history"),
+    tags: Optional[str] = typer.Option(None, "--tags", "-t", help="Comma-separated tags"),
+    notes: Optional[str] = typer.Option(None, "--notes", "-n", help="Notes about this favorite"),
+):
+    """
+    Add a prompt to favorites from history
+
+    Example:
+        promptc favorites add abc123 --tags "python,tutorial" --notes "Great example"
+    """
+    from rich.console import Console
+
+    console = Console()
+
+    # Get prompt from history
+    history_mgr = get_history_manager()
+    history_entry = history_mgr.get_by_id(prompt_id)
+
+    if not history_entry:
+        console.print(f"[yellow]Prompt ID '{prompt_id}' not found in history[/yellow]")
+        raise typer.Exit(code=1)
+
+    # Parse tags
+    tag_list = [t.strip() for t in tags.split(",")] if tags else []
+
+    # Add to favorites
+    favorites_mgr = get_favorites_manager()
+    entry = favorites_mgr.add(
+        prompt_id=history_entry.id,
+        prompt_text=history_entry.prompt_text,
+        domain=history_entry.domain,
+        language=history_entry.language,
+        score=history_entry.score,
+        tags=tag_list,
+        notes=notes or "",
+    )
+
+    console.print(
+        f"[green]✓ Added to favorites:[/green] {entry.id}\n"
+        f"  Prompt: {entry.prompt_text[:50]}...\n"
+        f"  Tags: {', '.join(entry.tags) if entry.tags else 'none'}"
+    )
+
+
+@favorites_app.command("list")
+def favorites_list(
+    tags: Optional[str] = typer.Option(
+        None, "--tags", "-t", help="Filter by tags (comma-separated)"
+    ),
+    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Filter by domain"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    List all favorite prompts
+
+    Example:
+        promptc favorites list
+        promptc favorites list --tags python
+        promptc favorites list --domain education
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    # Parse tags
+    tag_list = [t.strip() for t in tags.split(",")] if tags else None
+
+    # Get favorites
+    favorites = favorites_mgr.get_all(tags=tag_list, domain=domain)
+
+    if json_output:
+        import json
+
+        output = [f.to_dict() for f in favorites]
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return
+
+    if not favorites:
+        console.print("[yellow]No favorites found[/yellow]")
+        return
+
+    console.print(f"\n[bold cyan]Favorites[/bold cyan] [dim]({len(favorites)} total)[/dim]\n")
+
+    table = Table(show_header=True)
+    table.add_column("ID", style="dim", width=12)
+    table.add_column("Score", justify="right", width=6)
+    table.add_column("Domain", width=12)
+    table.add_column("Tags", width=20)
+    table.add_column("Uses", justify="right", width=6)
+    table.add_column("Prompt", width=40)
+
+    for fav in favorites:
+        tags_str = ", ".join(fav.tags[:3]) if fav.tags else "-"
+        if len(fav.tags) > 3:
+            tags_str += "..."
+
+        table.add_row(
+            fav.id,
+            f"{fav.score:.1f}",
+            fav.domain,
+            tags_str,
+            str(fav.use_count),
+            fav.prompt_text[:37] + "..." if len(fav.prompt_text) > 40 else fav.prompt_text,
+        )
+
+    console.print(table)
+
+
+@favorites_app.command("show")
+def favorites_show(favorite_id: str = typer.Argument(..., help="Favorite ID")):
+    """
+    Show full details of a favorite
+
+    Example:
+        promptc favorites show abc123
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    entry = favorites_mgr.get_by_id(favorite_id)
+
+    if not entry:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+    info = f"""[bold]ID:[/bold] {entry.id}
+[bold]Prompt ID:[/bold] {entry.prompt_id}
+[bold]Domain:[/bold] {entry.domain}
+[bold]Language:[/bold] {entry.language.upper()}
+[bold]Score:[/bold] {entry.score:.1f}
+[bold]Use Count:[/bold] {entry.use_count}
+[bold]Tags:[/bold] {', '.join(entry.tags) if entry.tags else 'none'}
+[bold]Added:[/bold] {entry.timestamp}
+
+[bold]Prompt:[/bold]
+{entry.prompt_text}
+
+[bold]Notes:[/bold]
+{entry.notes if entry.notes else '(no notes)'}"""
+
+    console.print(
+        Panel(info, title=f"[bold cyan]Favorite: {entry.id}[/bold cyan]", border_style="cyan")
+    )
+
+
+@favorites_app.command("remove")
+def favorites_remove(favorite_id: str = typer.Argument(..., help="Favorite ID to remove")):
+    """
+    Remove a favorite
+
+    Example:
+        promptc favorites remove abc123
+    """
+    from rich.console import Console
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    if favorites_mgr.remove(favorite_id):
+        console.print(f"[green]✓ Removed favorite: {favorite_id}[/green]")
+    else:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+
+@favorites_app.command("search")
+def favorites_search(
+    query: str = typer.Argument(..., help="Search query"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Search favorites by text
+
+    Example:
+        promptc favorites search "python tutorial"
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    results = favorites_mgr.search(query)
+
+    if json_output:
+        import json
+
+        output = [f.to_dict() for f in results]
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        return
+
+    if not results:
+        console.print(f"[yellow]No favorites found for '{query}'[/yellow]")
+        return
+
+    console.print(f"\n[bold cyan]Search Results[/bold cyan] [dim]({len(results)} matches)[/dim]\n")
+
+    table = Table(show_header=True)
+    table.add_column("ID", style="dim", width=12)
+    table.add_column("Score", justify="right", width=6)
+    table.add_column("Domain", width=12)
+    table.add_column("Prompt", width=50)
+
+    for fav in results:
+        # Highlight query in text
+        prompt_display = (
+            fav.prompt_text[:47] + "..." if len(fav.prompt_text) > 50 else fav.prompt_text
+        )
+        table.add_row(fav.id, f"{fav.score:.1f}", fav.domain, prompt_display)
+
+    console.print(table)
+
+
+@favorites_app.command("tag")
+def favorites_tag(
+    favorite_id: str = typer.Argument(..., help="Favorite ID"),
+    tag: str = typer.Argument(..., help="Tag to add"),
+):
+    """
+    Add a tag to a favorite
+
+    Example:
+        promptc favorites tag abc123 important
+    """
+    from rich.console import Console
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    if favorites_mgr.add_tag(favorite_id, tag):
+        console.print(f"[green]✓ Added tag '{tag}' to favorite {favorite_id}[/green]")
+    else:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+
+@favorites_app.command("untag")
+def favorites_untag(
+    favorite_id: str = typer.Argument(..., help="Favorite ID"),
+    tag: str = typer.Argument(..., help="Tag to remove"),
+):
+    """
+    Remove a tag from a favorite
+
+    Example:
+        promptc favorites untag abc123 important
+    """
+    from rich.console import Console
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    if favorites_mgr.remove_tag(favorite_id, tag):
+        console.print(f"[green]✓ Removed tag '{tag}' from favorite {favorite_id}[/green]")
+    else:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+
+@favorites_app.command("note")
+def favorites_note(
+    favorite_id: str = typer.Argument(..., help="Favorite ID"),
+    notes: str = typer.Argument(..., help="Notes text"),
+):
+    """
+    Update notes for a favorite
+
+    Example:
+        promptc favorites note abc123 "This is my best prompt for tutorials"
+    """
+    from rich.console import Console
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    if favorites_mgr.update_notes(favorite_id, notes):
+        console.print(f"[green]✓ Updated notes for favorite {favorite_id}[/green]")
+    else:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+
+@favorites_app.command("stats")
+def favorites_stats():
+    """
+    Show favorites statistics
+
+    Example:
+        promptc favorites stats
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    stats = favorites_mgr.get_stats()
+
+    if stats["total"] == 0:
+        console.print("[yellow]No favorites yet[/yellow]")
+        return
+
+    info = f"""[bold]Total Favorites:[/bold] {stats['total']}
+[bold]Total Uses:[/bold] {stats['total_uses']}
+[bold]Avg Score:[/bold] {stats['avg_score']:.1f}
+
+[bold]Top Domains:[/bold]"""
+
+    for domain, count in list(stats["domains"].items())[:5]:
+        info += f"\n  {domain}: {count}"
+
+    if stats["tags"]:
+        info += "\n\n[bold]Top Tags:[/bold]"
+        for tag, count in list(stats["tags"].items())[:10]:
+            info += f"\n  {tag}: {count}"
+
+    info += "\n\n[bold]Languages:[/bold]"
+    for lang, count in stats["languages"].items():
+        info += f"\n  {lang.upper()}: {count}"
+
+    console.print(
+        Panel(info, title="[bold cyan]Favorites Statistics[/bold cyan]", border_style="cyan")
+    )
+
+
+@favorites_app.command("most-used")
+def favorites_most_used(
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of favorites to show"),
+):
+    """
+    Show most frequently used favorites
+
+    Example:
+        promptc favorites most-used --limit 5
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    favorites = favorites_mgr.get_most_used(limit=limit)
+
+    if not favorites:
+        console.print("[yellow]No favorites found[/yellow]")
+        return
+
+    console.print(
+        f"\n[bold cyan]Most Used Favorites[/bold cyan] [dim](Top {len(favorites)})[/dim]\n"
+    )
+
+    table = Table(show_header=True)
+    table.add_column("Rank", justify="right", width=6)
+    table.add_column("ID", style="dim", width=12)
+    table.add_column("Uses", justify="right", width=6)
+    table.add_column("Score", justify="right", width=6)
+    table.add_column("Domain", width=12)
+    table.add_column("Prompt", width=40)
+
+    for i, fav in enumerate(favorites, 1):
+        table.add_row(
+            str(i),
+            fav.id,
+            str(fav.use_count),
+            f"{fav.score:.1f}",
+            fav.domain,
+            fav.prompt_text[:37] + "..." if len(fav.prompt_text) > 40 else fav.prompt_text,
+        )
+
+    console.print(table)
+
+
+@favorites_app.command("use")
+def favorites_use(favorite_id: str = typer.Argument(..., help="Favorite ID to use")):
+    """
+    Use a favorite (increments use count and shows the prompt)
+
+    Example:
+        promptc favorites use abc123
+    """
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    favorites_mgr = get_favorites_manager()
+
+    entry = favorites_mgr.get_by_id(favorite_id)
+
+    if not entry:
+        console.print(f"[yellow]Favorite '{favorite_id}' not found[/yellow]")
+        raise typer.Exit(code=1)
+
+    # Increment use count
+    favorites_mgr.increment_use_count(favorite_id)
+
+    # Show the prompt
+    info = f"""[bold]{entry.prompt_text}[/bold]
+
+[dim]Domain: {entry.domain} | Score: {entry.score:.1f} | Uses: {entry.use_count + 1}[/dim]"""
+
+    console.print(
+        Panel(info, title=f"[bold cyan]Favorite: {entry.id}[/bold cyan]", border_style="cyan")
+    )
+
+    # Copy to clipboard if possible
+    try:
+        import pyperclip
+
+        pyperclip.copy(entry.prompt_text)
+        console.print("\n[green]✓ Copied to clipboard[/green]")
+    except ImportError:
+        console.print(
+            "\n[dim]Tip: Install pyperclip for clipboard support (pip install pyperclip)[/dim]"
+        )
+
+
+@favorites_app.command("clear")
+def favorites_clear(force: bool = typer.Option(False, "--force", help="Skip confirmation")):
+    """
+    Clear all favorites
+
+    Example:
+        promptc favorites clear --force
+    """
+    from rich.console import Console
+
+    console = Console()
+
+    if not force:
+        confirm = typer.confirm("Clear all favorites?")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    favorites_mgr = get_favorites_manager()
+    favorites_mgr.clear()
+
+    console.print("[green]✓ All favorites cleared[/green]")
 
 
 # Entry point

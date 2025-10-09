@@ -68,6 +68,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Prompt Analytics & Metrics (new)**: Track prompt compilation history with validation scores, trends over time, domain/persona statistics, and quality improvements; SQLite storage with rich CLI reporting and REST API
 * **Prompt History (new)**: Automatic tracking of recent prompt compilations with quick search, domain filtering, and statistics; stored locally in JSON format
 * **Export/Import (new)**: Export and import analytics and history data in JSON, CSV, or YAML formats for backup, sharing, and migration; supports date filtering and merge/replace modes
+* **Favorites/Bookmarks (new)**: Save your best prompts for quick access with custom tags, notes, use count tracking, and search functionality; local JSON storage with optional clipboard support
 
 ## Installation
 
@@ -498,6 +499,97 @@ promptc export data export.json --json
 │ History: 87 entries                    │
 │ Export Date: 2025-10-08T10:30:00      │
 ╰────────────────────────────────────────╯
+```
+
+#### Favorites/Bookmarks (new)
+
+Save your best prompts for quick access with favorites:
+
+```powershell
+# Add a prompt to favorites from history
+promptc favorites add abc123 --tags "python,tutorial" --notes "Best tutorial prompt"
+
+# List all favorites
+promptc favorites list
+
+# Filter by tags or domain
+promptc favorites list --tags python
+promptc favorites list --domain education
+
+# Search favorites
+promptc favorites search "tutorial"
+
+# Show full details
+promptc favorites show abc123
+
+# Use a favorite (increments count, shows prompt, copies to clipboard)
+promptc favorites use abc123
+
+# Add/remove tags
+promptc favorites tag abc123 important
+promptc favorites untag abc123 old
+
+# Update notes
+promptc favorites note abc123 "Updated description"
+
+# Show statistics
+promptc favorites stats
+
+# Show most used favorites
+promptc favorites most-used --limit 5
+
+# Remove a favorite
+promptc favorites remove abc123
+
+# Clear all favorites
+promptc favorites clear --force
+
+# JSON output
+promptc favorites list --json
+```
+
+**Features:**
+- Bookmark best prompts from history
+- Custom tags and notes for organization
+- Use count tracking
+- Search by text, tags, or notes
+- Filter by domain or tags
+- Most-used favorites ranking
+- Local JSON storage (~/.promptc/favorites.json)
+- Optional clipboard support (pip install pyperclip)
+
+**Example Output:**
+```
+Favorites (12 total)
+
+ID          Score  Domain      Tags                 Uses  Prompt
+──────────  ─────  ──────────  ───────────────────  ────  ────────────────────────────────
+f8a9c2b1     97.5  education   python, tutorial       15  Teach me Python basics in 30 min
+d3e4f5a6     92.0  tech        comparison, ML          8  Compare scikit-learn vs PyTorch
+a1b2c3d4     88.5  creative    writing, story          5  Write a short story about AI
+```
+
+**Statistics:**
+```
+╭──────── Favorites Statistics ────────╮
+│ Total Favorites: 12                  │
+│ Total Uses: 45                       │
+│ Avg Score: 89.2                      │
+│                                      │
+│ Top Domains:                         │
+│   education: 5                       │
+│   tech: 4                            │
+│   creative: 3                        │
+│                                      │
+│ Top Tags:                            │
+│   python: 6                          │
+│   tutorial: 4                        │
+│   comparison: 3                      │
+│                                      │
+│ Languages:                           │
+│   EN: 10                             │
+│   TR: 2                              │
+╰──────────────────────────────────────╯
 ```
 
 **Example Output:**
