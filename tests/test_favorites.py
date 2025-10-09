@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -151,7 +150,9 @@ def test_search_favorites(temp_favorites_file):
 
     manager.add(prompt_id="test1", prompt_text="Python programming tutorial", domain="education")
     manager.add(prompt_id="test2", prompt_text="JavaScript guide", domain="tech")
-    manager.add(prompt_id="test3", prompt_text="Python data science", domain="tech", notes="ML focus")
+    manager.add(
+        prompt_id="test3", prompt_text="Python data science", domain="tech", notes="ML focus"
+    )
 
     # Search in prompt text
     results = manager.search("Python")
@@ -260,9 +261,25 @@ def test_get_stats(temp_favorites_file):
     """Test getting statistics"""
     manager = FavoritesManager(favorites_file=temp_favorites_file)
 
-    manager.add(prompt_id="test1", prompt_text="Prompt 1", domain="education", language="en", score=85.0, tags=["python"])
-    manager.add(prompt_id="test2", prompt_text="Prompt 2", domain="tech", language="en", score=90.0, tags=["python", "tutorial"])
-    manager.add(prompt_id="test3", prompt_text="Prompt 3", domain="education", language="tr", score=75.0)
+    manager.add(
+        prompt_id="test1",
+        prompt_text="Prompt 1",
+        domain="education",
+        language="en",
+        score=85.0,
+        tags=["python"],
+    )
+    manager.add(
+        prompt_id="test2",
+        prompt_text="Prompt 2",
+        domain="tech",
+        language="en",
+        score=90.0,
+        tags=["python", "tutorial"],
+    )
+    manager.add(
+        prompt_id="test3", prompt_text="Prompt 3", domain="education", language="tr", score=75.0
+    )
 
     stats = manager.get_stats()
 

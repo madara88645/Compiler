@@ -150,7 +150,9 @@ class FavoritesManager:
                 return True
         return False
 
-    def get_all(self, tags: Optional[List[str]] = None, domain: Optional[str] = None) -> List[FavoriteEntry]:
+    def get_all(
+        self, tags: Optional[List[str]] = None, domain: Optional[str] = None
+    ) -> List[FavoriteEntry]:
         """
         Get all favorites with optional filtering
 
