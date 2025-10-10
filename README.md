@@ -53,6 +53,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages
 * **Plugin architecture (new)**: Load external heuristic packs via Python entry points or `PROMPTC_PLUGIN_PATH`; audit them with `promptc plugins list`
 * **Template System (new)**: Reusable prompt templates with variable substitution; built-in templates for code review, tutorials, comparisons, documentation, and debugging
+* **Template Management (new)**: Full CRUD operations for custom templates with usage statistics, validation, import/export, and interactive variable input; stored in `~/.promptc/templates/`
 * **New CLI Flags**: `--from-file`, `--stdin`, `--fail-on-empty`, `--json-only`, `--quiet`, `--persona`, `--trace`, `--v1`, `--out`, `--out-dir`, `--format`
 * **CLI Batch Concurrency (new)**: `batch --jobs N` to compile multiple prompt files in parallel with total & average timing metrics
 * **CLI Utilities Enhancements (new)**: `json-path` now supports list indices (`items[0].field`), `diff` supports `--color` & `--sort-keys`, `batch` supports `--jsonl` aggregated IR export and `--stdout` streaming (JSONL / YAML multi-doc / Markdown sections)
@@ -500,6 +501,129 @@ promptc export data export.json --json
 │ Export Date: 2025-10-08T10:30:00      │
 ╰────────────────────────────────────────╯
 ```
+
+#### Template Management (new)
+
+Manage reusable prompt templates with variables:
+
+```powershell
+# List all available templates
+promptc template list
+
+# List with details
+promptc template list --details
+
+# Filter by category or tag
+promptc template list --category coding
+promptc template list --tag python
+
+# Search templates
+promptc template list --search "code review"
+
+# Show template details
+promptc template show code-review
+
+# Show with preview and validation
+promptc template show code-review --preview --validate
+
+# Create a new custom template
+promptc template create my-template \
+  --name "My Custom Template" \
+  --description "A custom template for my use case" \
+  --category custom \
+  --text "Hello {{name}}, your {{item}} is ready!" \
+  --tags "greeting,custom" \
+  --author "Your Name"
+
+# Create template from file
+promptc template create my-template \
+  --name "File Template" \
+  --description "Template from file" \
+  --category custom \
+  --from-file template.txt
+
+# Use a template (provide variables)
+promptc template use code-review --var language=Python --var file=app.py
+
+# Interactive mode (prompts for each variable)
+promptc template use tutorial --interactive
+
+# Use with compilation
+promptc template use tutorial --var topic=Python --compile
+
+# Copy result to clipboard
+promptc template use code-review --var language=JavaScript --copy
+
+# Edit a template
+promptc template edit my-template --name "Updated Name" --tags "new,tags"
+
+# Update template text from file
+promptc template edit my-template --from-file new_template.txt
+
+# Delete a template (user templates only)
+promptc template delete my-template
+
+# Delete with force (skip confirmation)
+promptc template delete my-template --force
+
+# List all categories
+promptc template categories
+
+# Show usage statistics
+promptc template stats
+
+# Show stats for specific template
+promptc template stats code-review
+
+# Export a template to YAML
+promptc template export my-template --output my-template.yaml
+
+# Import a template from YAML
+promptc template import my-template.yaml
+
+# Validate a template
+promptc template validate my-template
+
+# JSON output
+promptc template list --json
+```
+
+**Example Template Usage:**
+
+```powershell
+# Create a code review template
+promptc template create code-review-detailed \
+  --name "Detailed Code Review" \
+  --description "In-depth code review with best practices" \
+  --category coding \
+  --text "Review this {{language}} code in file {{file}}. Focus on: security, performance, readability, and {{focus}}. Provide specific recommendations." \
+  --tags "code,review,quality"
+
+# Use it
+promptc template use code-review-detailed \
+  --var language=Python \
+  --var file=main.py \
+  --var focus="error handling" \
+  --compile
+
+# View statistics
+promptc template stats code-review-detailed
+```
+
+**Template Features:**
+- **Variable Substitution**: Use `{{variable}}` placeholders in template text
+- **Required/Optional Variables**: Mark variables as required or provide defaults
+- **Categories & Tags**: Organize templates for easy discovery
+- **Usage Tracking**: Track how many times each template is used
+- **Import/Export**: Share templates with your team via YAML files
+- **Validation**: Automatically detect undefined variables or issues
+- **Interactive Mode**: Prompt for variable values interactively
+- **Compile Integration**: Directly compile rendered templates
+
+**Storage Location:**
+- Built-in templates: `templates/` directory in the project
+- Custom templates: `~/.promptc/templates/`
+- Usage statistics: `~/.promptc/template_stats.json`
 
 #### Favorites/Bookmarks (new)
 

@@ -37,7 +37,8 @@ from app.emitters import (
 )
 from app import get_version
 from app.plugins import describe_plugins
-from app.templates import get_registry, PromptTemplate, TemplateVariable
+from app.templates import get_registry
+from app.templates_manager import get_templates_manager
 from app.validator import validate_prompt
 from app.analytics import AnalyticsManager, create_record_from_ir
 from app.history import get_history_manager
@@ -1063,89 +1064,8 @@ def batch(
 
 
 # --------------
-# Template subcommands
+# Template subcommands (Legacy - kept for backward compatibility)
 # --------------
-
-
-@template_app.command("list")
-def template_list(
-    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
-    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
-):
-    """List all available prompt templates."""
-    registry = get_registry()
-    templates = registry.list_templates(category=category)
-
-    if json_out:
-        data = [t.to_dict() for t in templates]
-        typer.echo(json.dumps(data, ensure_ascii=False, indent=2))
-        return
-
-    if not templates:
-        typer.echo("No templates found.")
-        if category:
-            typer.echo("Try without --category filter or check available categories.")
-        return
-
-    # Group by category
-    by_category: dict[str, list] = {}
-    for t in templates:
-        by_category.setdefault(t.category, []).append(t)
-
-    for cat, tmpl_list in sorted(by_category.items()):
-        print(f"\n[bold cyan]{cat}[/bold cyan]")
-        for t in tmpl_list:
-            tags_str = f" [{', '.join(t.tags)}]" if t.tags else ""
-            print(f"  • [green]{t.id}[/green] - {t.name}{tags_str}")
-            print(f"    {t.description}")
-
-
-@template_app.command("show")
-def template_show(
-    template_id: str = typer.Argument(..., help="Template ID to display"),
-    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
-    show_example: bool = typer.Option(
-        False, "--example", "-e", help="Show example variable values"
-    ),
-):
-    """Show details of a specific template."""
-    registry = get_registry()
-    template = registry.get_template(template_id)
-
-    if not template:
-        typer.secho(f"Template '{template_id}' not found.", fg=typer.colors.RED)
-        typer.echo("Run 'promptc template list' to see available templates.")
-        raise typer.Exit(code=1)
-
-    if json_out:
-        typer.echo(json.dumps(template.to_dict(), ensure_ascii=False, indent=2))
-        return
-
-    print(f"\n[bold]{template.name}[/bold] (ID: [cyan]{template.id}[/cyan])")
-    print(f"Category: {template.category}")
-    print(f"Version: {template.version}")
-    if template.author:
-        print(f"Author: {template.author}")
-    if template.tags:
-        print(f"Tags: {', '.join(template.tags)}")
-    print(f"\n{template.description}")
-
-    print("\n[bold]Variables:[/bold]")
-    for var in template.variables:
-        req_str = " (required)" if var.required else " (optional)"
-        default_str = f" [default: {var.default}]" if var.default else ""
-        var_syntax = "{{" + var.name + "}}"
-        print(f"  • [green]{var_syntax}[/green]{req_str}{default_str}")
-        print(f"    {var.description}")
-
-    if show_example and template.example_values:
-        print("\n[bold]Example values:[/bold]")
-        for key, value in template.example_values.items():
-            val_preview = value[:60] + "..." if len(value) > 60 else value
-            print(f"  {key}: {val_preview}")
-
-    print("\n[bold]Template:[/bold]")
-    print(template.template_text[:500] + ("..." if len(template.template_text) > 500 else ""))
 
 
 @template_app.command("apply")
@@ -1230,154 +1150,6 @@ def template_apply(
         out_dir=None,
         fmt=None,
     )
-
-
-@template_app.command("create")
-def template_create(
-    template_id: str = typer.Argument(..., help="Unique ID for the template"),
-    name: str = typer.Option(..., "--name", "-n", help="Template name"),
-    description: str = typer.Option(..., "--desc", "-d", help="Template description"),
-    category: str = typer.Option(..., "--category", "-c", help="Template category"),
-    from_file: Optional[Path] = typer.Option(
-        None, "--from-file", "-f", help="Load template text from file"
-    ),
-    interactive: bool = typer.Option(
-        False, "--interactive", "-i", help="Interactive variable definition"
-    ),
-):
-    """Create a new user template."""
-    registry = get_registry()
-
-    # Check if template already exists
-    existing = registry.get_template(template_id)
-    if existing:
-        typer.secho(
-            f"Template '{template_id}' already exists. Choose a different ID.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
-
-    # Get template text
-    if from_file:
-        if not from_file.exists():
-            typer.secho(f"File not found: {from_file}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-        template_text = from_file.read_text(encoding="utf-8")
-    else:
-        typer.echo("Enter template text (use {{variable}} for placeholders):")
-        typer.echo("Press Ctrl+D (Unix) or Ctrl+Z then Enter (Windows) when done:")
-        lines = []
-        try:
-            while True:
-                lines.append(input())
-        except EOFError:
-            pass
-        template_text = "\n".join(lines)
-
-    # Extract variables from template
-    var_pattern = re.compile(r"\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}")
-    var_names = set(var_pattern.findall(template_text))
-
-    variables: List[TemplateVariable] = []
-
-    if interactive and var_names:
-        typer.echo(f"\nFound {len(var_names)} variables. Define them:")
-        for var_name in sorted(var_names):
-            var_desc = typer.prompt(f"  Description for '{var_name}'", default="")
-            var_required = typer.confirm(f"  Is '{var_name}' required?", default=True)
-            var_default = None
-            if not var_required:
-                var_default = typer.prompt(
-                    f"  Default value for '{var_name}'", default="", show_default=False
-                )
-                var_default = var_default or None
-
-            variables.append(
-                TemplateVariable(
-                    name=var_name,
-                    description=var_desc or f"Value for {var_name}",
-                    default=var_default,
-                    required=var_required,
-                )
-            )
-    else:
-        # Auto-create basic variables
-        for var_name in sorted(var_names):
-            variables.append(
-                TemplateVariable(
-                    name=var_name,
-                    description=f"Value for {var_name}",
-                    required=True,
-                )
-            )
-
-    # Create template
-    template = PromptTemplate(
-        id=template_id,
-        name=name,
-        description=description,
-        category=category,
-        template_text=template_text,
-        variables=variables,
-    )
-
-    # Save template
-    saved_path = registry.save_template(template, user_template=True)
-    print(f"[bold green]Template created:[/bold green] {template_id}")
-    print(f"[saved] {saved_path}")
-    typer.echo(f"\nUse it with: promptc template apply {template_id}")
-
-
-@template_app.command("delete")
-def template_delete(
-    template_id: str = typer.Argument(..., help="Template ID to delete"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-):
-    """Delete a user template."""
-    registry = get_registry()
-
-    template = registry.get_template(template_id)
-    if not template:
-        typer.secho(f"Template '{template_id}' not found.", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-
-    if not force:
-        confirm = typer.confirm(f"Delete template '{template.name}' ({template_id})?")
-        if not confirm:
-            typer.echo("Cancelled.")
-            raise typer.Exit(code=0)
-
-    success = registry.delete_template(template_id, user_only=True)
-
-    if success:
-        print(f"[bold green]Deleted:[/bold green] {template_id}")
-    else:
-        typer.secho(
-            "Could not delete template (may be a built-in template).", fg=typer.colors.YELLOW
-        )
-        raise typer.Exit(code=1)
-
-
-@template_app.command("categories")
-def template_categories(
-    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
-):
-    """List all template categories."""
-    registry = get_registry()
-    categories = registry.get_categories()
-
-    if json_out:
-        typer.echo(json.dumps(categories, ensure_ascii=False, indent=2))
-        return
-
-    if not categories:
-        typer.echo("No categories found.")
-        return
-
-    print("[bold]Template Categories:[/bold]")
-    for cat in categories:
-        count = len(registry.list_templates(category=cat))
-        print(f"  • [cyan]{cat}[/cyan] ({count} templates)")
 
 
 @app.command("validate-prompt")
@@ -2622,6 +2394,644 @@ Backup Date: {result['export_date']}"""
 
     except Exception as e:
         console.print(f"[bold red]✗ Backup failed:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+# ============================================================================
+# Template Management Commands
+# ============================================================================
+
+
+@template_app.command("list")
+def template_list(
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filter by tag"),
+    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search in name/description"),
+    show_details: bool = typer.Option(False, "--details", "-d", help="Show detailed information"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all available templates."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_templates_manager()
+
+    try:
+        templates = manager.list_templates(category=category, tag=tag, search=search)
+
+        if not templates:
+            console.print("[yellow]No templates found matching criteria[/yellow]")
+            return
+
+        if json_output:
+            output = [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "category": t.category,
+                    "tags": t.tags,
+                    "variables": [v.name for v in t.variables],
+                    "author": t.author,
+                }
+                for t in templates
+            ]
+            print(json.dumps(output, indent=2, ensure_ascii=False))
+            return
+
+        if show_details:
+            for template in templates:
+                stats = manager.get_stats(template.id)
+                var_info = ", ".join(
+                    [f"{v.name}{'*' if v.required else ''}" for v in template.variables]
+                )
+
+                info = f"""[bold]ID:[/bold] {template.id}
+[bold]Category:[/bold] {template.category}
+[bold]Variables:[/bold] {var_info or 'None'}
+[bold]Tags:[/bold] {', '.join(template.tags) or 'None'}
+[bold]Author:[/bold] {template.author or 'Unknown'}
+[bold]Uses:[/bold] {stats['use_count']}
+[bold]Description:[/bold] {template.description}"""
+
+                console.print(
+                    Panel(info, title=f"[cyan]{template.name}[/cyan]", border_style="cyan")
+                )
+                console.print()
+        else:
+            table = Table(title="Available Templates", show_header=True, header_style="bold cyan")
+            table.add_column("ID", style="cyan", width=20)
+            table.add_column("Name", style="green", width=30)
+            table.add_column("Category", style="yellow", width=15)
+            table.add_column("Variables", style="magenta", width=10)
+            table.add_column("Tags", style="blue", width=20)
+
+            for template in templates:
+                var_count = len(template.variables)
+                tags_str = ", ".join(template.tags[:3])
+                if len(template.tags) > 3:
+                    tags_str += "..."
+
+                table.add_row(
+                    template.id,
+                    template.name[:28] + "..." if len(template.name) > 28 else template.name,
+                    template.category,
+                    str(var_count),
+                    tags_str,
+                )
+
+            console.print(table)
+            console.print(f"\n[dim]Total: {len(templates)} templates[/dim]")
+            console.print("[dim]Use --details to see full information[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]✗ Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("show")
+def template_show(
+    template_id: str = typer.Argument(..., help="Template ID to show"),
+    preview: bool = typer.Option(False, "--preview", "-p", help="Show template text preview"),
+    validate: bool = typer.Option(False, "--validate", "-v", help="Validate template"),
+):
+    """Show detailed information about a template."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+    from rich.table import Table
+
+    console = Console()
+    manager = get_templates_manager()
+
+    template = manager.get_template(template_id)
+    if not template:
+        console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    # Basic info
+    stats = manager.get_stats(template_id)
+    info = f"""[bold]ID:[/bold] {template.id}
+[bold]Name:[/bold] {template.name}
+[bold]Category:[/bold] {template.category}
+[bold]Description:[/bold] {template.description}
+[bold]Tags:[/bold] {', '.join(template.tags) or 'None'}
+[bold]Author:[/bold] {template.author or 'Unknown'}
+[bold]Version:[/bold] {template.version}
+[bold]Uses:[/bold] {stats['use_count']}
+[bold]Last Used:[/bold] {stats.get('last_used', 'Never')}"""
+
+    console.print(
+        Panel(info, title="[bold cyan]Template Information[/bold cyan]", border_style="cyan")
+    )
+
+    # Variables
+    if template.variables:
+        var_table = Table(title="Variables", show_header=True, header_style="bold yellow")
+        var_table.add_column("Name", style="cyan")
+        var_table.add_column("Required", style="magenta")
+        var_table.add_column("Default", style="green")
+        var_table.add_column("Description", style="white")
+
+        for var in template.variables:
+            var_table.add_row(
+                var.name,
+                "✓" if var.required else "✗",
+                var.default or "-",
+                var.description,
+            )
+
+        console.print(var_table)
+
+    # Example values
+    if template.example_values:
+        console.print("\n[bold yellow]Example Values:[/bold yellow]")
+        for key, value in template.example_values.items():
+            console.print(f"  [cyan]{key}:[/cyan] {value}")
+
+    # Preview
+    if preview:
+        console.print("\n[bold yellow]Template Text:[/bold yellow]")
+        syntax = Syntax(template.template_text, "markdown", theme="monokai", line_numbers=False)
+        console.print(Panel(syntax, border_style="yellow"))
+
+    # Validation
+    if validate:
+        validation = manager.validate_template(template_id)
+        console.print("\n[bold yellow]Validation Results:[/bold yellow]")
+
+        if validation["valid"]:
+            console.print("[green]✓ Template is valid[/green]")
+        else:
+            console.print("[red]✗ Template has issues:[/red]")
+            for issue in validation["issues"]:
+                console.print(f"  • {issue}")
+
+        if validation.get("required_variables"):
+            console.print(
+                f"\n[dim]Required variables: {', '.join(validation['required_variables'])}[/dim]"
+            )
+
+
+@template_app.command("create")
+def template_create(
+    template_id: str = typer.Argument(..., help="Unique template ID"),
+    name: str = typer.Option(..., "--name", "-n", help="Template name"),
+    description: str = typer.Option(..., "--description", "-d", help="Template description"),
+    category: str = typer.Option(..., "--category", "-c", help="Template category"),
+    template_text: str = typer.Option(..., "--text", "-t", help="Template text with {{variables}}"),
+    tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated tags"),
+    author: Optional[str] = typer.Option(None, "--author", "-a", help="Author name"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read template text from file"
+    ),
+):
+    """Create a new custom template."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_templates_manager()
+
+    try:
+        # Read template text from file if provided
+        if from_file:
+            if not from_file.exists():
+                console.print(f"[bold red]✗ File not found:[/bold red] {from_file}")
+                raise typer.Exit(code=1)
+            template_text = from_file.read_text(encoding="utf-8")
+
+        # Parse tags
+        tag_list = [t.strip() for t in tags.split(",")] if tags else []
+
+        # Extract variables from template text
+        import re
+
+        placeholders = set(re.findall(r"\{\{(\w+)\}\}", template_text))
+
+        if not placeholders:
+            console.print("[yellow]⚠ Warning: No {{variables}} found in template text[/yellow]")
+
+        # Create variable definitions
+        variables = []
+        for var_name in sorted(placeholders):
+            variables.append(
+                {
+                    "name": var_name,
+                    "description": f"Value for {var_name}",
+                    "required": True,
+                }
+            )
+
+        # Create template
+        template = manager.create_template(
+            template_id=template_id,
+            name=name,
+            description=description,
+            category=category,
+            template_text=template_text,
+            variables=variables,
+            tags=tag_list,
+            author=author,
+        )
+
+        info = f"""[bold]ID:[/bold] {template.id}
+[bold]Name:[/bold] {template.name}
+[bold]Category:[/bold] {template.category}
+[bold]Variables:[/bold] {', '.join([v.name for v in template.variables])}
+[bold]Tags:[/bold] {', '.join(template.tags) or 'None'}"""
+
+        console.print(
+            Panel(info, title="[bold green]✓ Template Created[/bold green]", border_style="green")
+        )
+        console.print(f"\n[dim]Use 'promptc template show {template_id}' to view details[/dim]")
+
+    except ValueError as e:
+        console.print(f"[bold red]✗ Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[bold red]✗ Error creating template:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("use")
+def template_use(
+    template_id: str = typer.Argument(..., help="Template ID to use"),
+    variables: Optional[List[str]] = typer.Option(
+        None, "--var", "-v", help="Variable in key=value format"
+    ),
+    interactive: bool = typer.Option(
+        False, "--interactive", "-i", help="Interactive variable input"
+    ),
+    compile_result: bool = typer.Option(
+        False, "--compile", "-c", help="Compile the rendered template"
+    ),
+    copy: bool = typer.Option(False, "--copy", help="Copy result to clipboard"),
+):
+    """Use a template by providing variable values."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+
+    console = Console()
+    manager = get_templates_manager()
+
+    template = manager.get_template(template_id)
+    if not template:
+        console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    try:
+        # Parse variables
+        var_dict = {}
+        if variables:
+            for var_str in variables:
+                if "=" not in var_str:
+                    console.print(f"[bold red]✗ Invalid variable format:[/bold red] {var_str}")
+                    console.print("[dim]Use: --var key=value[/dim]")
+                    raise typer.Exit(code=1)
+                key, value = var_str.split("=", 1)
+                var_dict[key.strip()] = value.strip()
+
+        # Interactive mode
+        if interactive:
+            console.print(f"[bold cyan]Template:[/bold cyan] {template.name}\n")
+            for var in template.variables:
+                default = var_dict.get(var.name) or var.default
+                prompt_text = f"{var.name}"
+                if var.description:
+                    prompt_text += f" ({var.description})"
+                if default:
+                    prompt_text += f" [{default}]"
+
+                value = Prompt.ask(prompt_text, default=default or "")
+                if value:
+                    var_dict[var.name] = value
+
+        # Use example values for missing non-required variables
+        for var in template.variables:
+            if var.name not in var_dict and not var.required:
+                if var.name in template.example_values:
+                    var_dict[var.name] = template.example_values[var.name]
+
+        # Render template
+        rendered = manager.use_template(template_id, var_dict)
+        if rendered is None:
+            console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+            raise typer.Exit(code=1)
+
+        # Show result
+        console.print(
+            Panel(
+                rendered, title="[bold green]Rendered Template[/bold green]", border_style="green"
+            )
+        )
+
+        # Copy to clipboard
+        if copy:
+            try:
+                import pyperclip
+
+                pyperclip.copy(rendered)
+                console.print("\n[green]✓ Copied to clipboard[/green]")
+            except ImportError:
+                console.print(
+                    "\n[yellow]⚠ pyperclip not installed - cannot copy to clipboard[/yellow]"
+                )
+
+        # Compile result
+        if compile_result:
+            console.print("\n[bold cyan]Compiling rendered template...[/bold cyan]")
+            ir2 = compile_text_v2(rendered)
+            console.print("\n[bold yellow]Compiled IR:[/bold yellow]")
+            print(json.dumps(ir2.model_dump(), indent=2, ensure_ascii=False))
+
+    except ValueError as e:
+        console.print(f"[bold red]✗ Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[bold red]✗ Error using template:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("delete")
+def template_delete(
+    template_id: str = typer.Argument(..., help="Template ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Delete a custom template."""
+    from rich.console import Console
+    from rich.prompt import Confirm
+
+    console = Console()
+    manager = get_templates_manager()
+
+    template = manager.get_template(template_id)
+    if not template:
+        console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    if not force:
+        confirm = Confirm.ask(f"Delete template '{template.name}' ({template_id})?")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    success = manager.delete_template(template_id, user_only=True)
+    if success:
+        console.print(f"[green]✓ Template '{template_id}' deleted[/green]")
+    else:
+        console.print("[bold red]✗ Failed to delete template (may be built-in)[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("edit")
+def template_edit(
+    template_id: str = typer.Argument(..., help="Template ID to edit"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="New description"),
+    tags: Optional[str] = typer.Option(None, "--tags", "-t", help="New comma-separated tags"),
+    template_text: Optional[str] = typer.Option(None, "--text", help="New template text"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read template text from file"
+    ),
+):
+    """Edit an existing template."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_templates_manager()
+
+    template = manager.get_template(template_id)
+    if not template:
+        console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    try:
+        # Read template text from file if provided
+        if from_file:
+            if not from_file.exists():
+                console.print(f"[bold red]✗ File not found:[/bold red] {from_file}")
+                raise typer.Exit(code=1)
+            template_text = from_file.read_text(encoding="utf-8")
+
+        # Parse tags
+        tag_list = None
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",")]
+
+        # Update template
+        updated = manager.update_template(
+            template_id=template_id,
+            name=name,
+            description=description,
+            template_text=template_text,
+            tags=tag_list,
+        )
+
+        if updated:
+            info = f"""[bold]ID:[/bold] {updated.id}
+[bold]Name:[/bold] {updated.name}
+[bold]Description:[/bold] {updated.description}
+[bold]Tags:[/bold] {', '.join(updated.tags) or 'None'}"""
+
+            console.print(
+                Panel(
+                    info, title="[bold green]✓ Template Updated[/bold green]", border_style="green"
+                )
+            )
+        else:
+            console.print("[bold red]✗ Failed to update template[/bold red]")
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        console.print(f"[bold red]✗ Error updating template:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("categories")
+def template_categories():
+    """List all template categories."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    manager = get_templates_manager()
+
+    categories = manager.get_categories()
+
+    if not categories:
+        console.print("[yellow]No categories found[/yellow]")
+        return
+
+    table = Table(title="Template Categories", show_header=True, header_style="bold cyan")
+    table.add_column("Category", style="cyan")
+    table.add_column("Templates", style="green")
+
+    for category in categories:
+        templates = manager.list_templates(category=category)
+        table.add_row(category, str(len(templates)))
+
+    console.print(table)
+
+
+@template_app.command("stats")
+def template_stats(
+    template_id: Optional[str] = typer.Argument(None, help="Template ID for specific stats"),
+):
+    """Show template usage statistics."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+    manager = get_templates_manager()
+
+    if template_id:
+        # Specific template stats
+        template = manager.get_template(template_id)
+        if not template:
+            console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+            raise typer.Exit(code=1)
+
+        stats = manager.get_stats(template_id)
+        info = f"""[bold]Template:[/bold] {template.name}
+[bold]ID:[/bold] {template_id}
+[bold]Category:[/bold] {template.category}
+[bold]Uses:[/bold] {stats['use_count']}
+[bold]Last Used:[/bold] {stats.get('last_used', 'Never')}"""
+
+        console.print(
+            Panel(info, title="[bold cyan]Template Statistics[/bold cyan]", border_style="cyan")
+        )
+    else:
+        # Overall stats
+        stats = manager.get_stats()
+
+        info = f"""[bold]Total Templates:[/bold] {stats['total_templates']}
+[bold]Templates Used:[/bold] {stats['templates_used']}
+[bold]Total Uses:[/bold] {stats['total_uses']}"""
+
+        console.print(
+            Panel(info, title="[bold cyan]Overall Statistics[/bold cyan]", border_style="cyan")
+        )
+
+        if stats["most_used"]:
+            table = Table(title="Most Used Templates", show_header=True, header_style="bold yellow")
+            table.add_column("Template ID", style="cyan")
+            table.add_column("Uses", style="green")
+            table.add_column("Last Used", style="magenta")
+
+            for item in stats["most_used"]:
+                template = manager.get_template(item["template_id"])
+                name = (
+                    f"{template.name} ({item['template_id']})" if template else item["template_id"]
+                )
+                last_used = item.get("last_used", "Never")
+                if last_used != "Never":
+                    last_used = last_used.split("T")[0]  # Show only date
+
+                table.add_row(name, str(item["use_count"]), last_used)
+
+            console.print("\n")
+            console.print(table)
+
+
+@template_app.command("export")
+def template_export(
+    template_id: str = typer.Argument(..., help="Template ID to export"),
+    output: Path = typer.Option(..., "--output", "-o", help="Output file path"),
+):
+    """Export a template to a YAML file."""
+    from rich.console import Console
+
+    console = Console()
+    manager = get_templates_manager()
+
+    template = manager.get_template(template_id)
+    if not template:
+        console.print(f"[bold red]✗ Template '{template_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    success = manager.export_template(template_id, output)
+    if success:
+        console.print(f"[green]✓ Template exported to:[/green] {output}")
+    else:
+        console.print("[bold red]✗ Failed to export template[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("import")
+def template_import(
+    input_file: Path = typer.Argument(..., help="YAML file to import"),
+):
+    """Import a template from a YAML file."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_templates_manager()
+
+    if not input_file.exists():
+        console.print(f"[bold red]✗ File not found:[/bold red] {input_file}")
+        raise typer.Exit(code=1)
+
+    template = manager.import_template(input_file)
+    if template:
+        info = f"""[bold]ID:[/bold] {template.id}
+[bold]Name:[/bold] {template.name}
+[bold]Category:[/bold] {template.category}"""
+
+        console.print(
+            Panel(info, title="[bold green]✓ Template Imported[/bold green]", border_style="green")
+        )
+    else:
+        console.print("[bold red]✗ Failed to import template[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("validate")
+def template_validate(
+    template_id: str = typer.Argument(..., help="Template ID to validate"),
+):
+    """Validate a template for errors."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_templates_manager()
+
+    validation = manager.validate_template(template_id)
+
+    if validation.get("error"):
+        console.print(f"[bold red]✗ {validation['error']}[/bold red]")
+        raise typer.Exit(code=1)
+
+    if validation["valid"]:
+        info = f"""[bold green]✓ Template is valid[/bold green]
+
+[bold]Placeholders:[/bold] {', '.join(validation['placeholders']) or 'None'}
+[bold]Defined Variables:[/bold] {', '.join(validation['defined_variables']) or 'None'}
+[bold]Required Variables:[/bold] {', '.join(validation['required_variables']) or 'None'}"""
+
+        console.print(
+            Panel(info, title="[bold green]Validation Success[/bold green]", border_style="green")
+        )
+    else:
+        issues_text = "\n".join([f"• {issue}" for issue in validation["issues"]])
+        info = f"""[bold red]✗ Template has issues:[/bold red]
+
+{issues_text}
+
+[bold]Placeholders:[/bold] {', '.join(validation['placeholders']) or 'None'}
+[bold]Defined Variables:[/bold] {', '.join(validation['defined_variables']) or 'None'}"""
+
+        console.print(
+            Panel(info, title="[bold red]Validation Failed[/bold red]", border_style="red")
+        )
         raise typer.Exit(code=1)
 
 
