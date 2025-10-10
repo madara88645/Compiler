@@ -43,9 +43,7 @@ class TemplatesManager:
         try:
             with open(self.stats_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                self._stats = {
-                    tid: TemplateUsageStats(**stats) for tid, stats in data.items()
-                }
+                self._stats = {tid: TemplateUsageStats(**stats) for tid, stats in data.items()}
         except Exception:
             self._stats = {}
 
@@ -221,9 +219,7 @@ class TemplatesManager:
         """
         return self.registry.delete_template(template_id, user_only=user_only)
 
-    def use_template(
-        self, template_id: str, variables: Dict[str, str]
-    ) -> Optional[str]:
+    def use_template(self, template_id: str, variables: Dict[str, str]) -> Optional[str]:
         """
         Use a template by rendering it with provided variables.
 
@@ -294,9 +290,7 @@ class TemplatesManager:
 
         most_used = []
         if self._stats:
-            sorted_stats = sorted(
-                self._stats.values(), key=lambda s: s.use_count, reverse=True
-            )
+            sorted_stats = sorted(self._stats.values(), key=lambda s: s.use_count, reverse=True)
             most_used = [
                 {
                     "template_id": s.template_id,
@@ -333,9 +327,7 @@ class TemplatesManager:
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as f:
-                yaml.safe_dump(
-                    template.to_dict(), f, sort_keys=False, allow_unicode=True
-                )
+                yaml.safe_dump(template.to_dict(), f, sort_keys=False, allow_unicode=True)
             return True
         except Exception:
             return False

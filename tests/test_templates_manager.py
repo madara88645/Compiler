@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from app.templates import PromptTemplate, TemplateRegistry, TemplateVariable
-from app.templates_manager import TemplatesManager, TemplateUsageStats
+from app.templates import TemplateRegistry
+from app.templates_manager import TemplatesManager
 
 
 @pytest.fixture
