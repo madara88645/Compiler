@@ -44,6 +44,7 @@ from app.analytics import AnalyticsManager, create_record_from_ir
 from app.history import get_history_manager
 from app.export_import import get_export_import_manager
 from app.favorites import get_favorites_manager
+from app.snippets import get_snippets_manager
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -63,6 +64,7 @@ analytics_app = typer.Typer(help="Prompt analytics and metrics")
 history_app = typer.Typer(help="Prompt history and quick access")
 export_app = typer.Typer(help="Export and import data")
 favorites_app = typer.Typer(help="Favorite prompts and bookmarks")
+snippets_app = typer.Typer(help="Quick reusable prompt snippets")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
@@ -70,6 +72,7 @@ app.add_typer(analytics_app, name="analytics")
 app.add_typer(history_app, name="history")
 app.add_typer(export_app, name="export")
 app.add_typer(favorites_app, name="favorites")
+app.add_typer(snippets_app, name="snippets")
 
 
 def _run_compile(
@@ -3033,6 +3036,515 @@ def template_validate(
             Panel(info, title="[bold red]Validation Failed[/bold red]", border_style="red")
         )
         raise typer.Exit(code=1)
+
+
+# ============================================================================
+# Quick Snippets Commands
+# ============================================================================
+
+
+@snippets_app.command("add")
+def snippets_add(
+    snippet_id: str = typer.Argument(..., help="Unique snippet ID"),
+    title: str = typer.Option(..., "--title", "-t", help="Snippet title"),
+    content: str = typer.Option(None, "--content", "-c", help="Snippet content"),
+    category: str = typer.Option(
+        "general", "--category", help="Category (constraint, example, context, etc.)"
+    ),
+    description: str = typer.Option("", "--description", "-d", help="Optional description"),
+    tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated tags"),
+    language: str = typer.Option("en", "--language", "-l", help="Content language"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read content from file"
+    ),
+):
+    """Add a new snippet."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    try:
+        # Get content
+        if from_file:
+            if not from_file.exists():
+                console.print(f"[bold red]✗ File not found:[/bold red] {from_file}")
+                raise typer.Exit(code=1)
+            content = from_file.read_text(encoding="utf-8")
+        elif not content:
+            console.print("[bold red]✗ Content is required[/bold red]")
+            console.print("[dim]Use --content or --from-file[/dim]")
+            raise typer.Exit(code=1)
+
+        # Parse tags
+        tag_list = [t.strip() for t in tags.split(",")] if tags else []
+
+        # Add snippet
+        snippet = manager.add(
+            snippet_id=snippet_id,
+            title=title,
+            content=content,
+            category=category,
+            description=description,
+            tags=tag_list,
+            language=language,
+        )
+
+        content_preview = content[:100] + "..." if len(content) > 100 else content
+
+        info = f"""[bold]ID:[/bold] {snippet.id}
+[bold]Title:[/bold] {snippet.title}
+[bold]Category:[/bold] {snippet.category}
+[bold]Tags:[/bold] {', '.join(snippet.tags) or 'None'}
+[bold]Language:[/bold] {snippet.language}
+
+[bold]Content:[/bold]
+{content_preview}"""
+
+        console.print(
+            Panel(info, title="[bold green]✓ Snippet Added[/bold green]", border_style="green")
+        )
+
+    except ValueError as e:
+        console.print(f"[bold red]✗ Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[bold red]✗ Error adding snippet:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@snippets_app.command("list")
+def snippets_list(
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    tags: Optional[str] = typer.Option(
+        None, "--tags", "-t", help="Filter by tags (comma-separated)"
+    ),
+    language: Optional[str] = typer.Option(None, "--language", "-l", help="Filter by language"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all snippets."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    tag_list = [t.strip() for t in tags.split(",")] if tags else None
+    snippets = manager.get_all(category=category, tags=tag_list, language=language)
+
+    if not snippets:
+        console.print("[yellow]No snippets found[/yellow]")
+        return
+
+    if json_output:
+        output = [s.to_dict() for s in snippets]
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return
+
+    table = Table(title="Snippets", show_header=True, header_style="bold cyan")
+    table.add_column("ID", style="cyan", width=20)
+    table.add_column("Title", style="green", width=30)
+    table.add_column("Category", style="yellow", width=15)
+    table.add_column("Tags", style="blue", width=20)
+    table.add_column("Uses", style="magenta", width=8)
+
+    for snippet in snippets:
+        tags_str = ", ".join(snippet.tags[:2])
+        if len(snippet.tags) > 2:
+            tags_str += "..."
+
+        table.add_row(
+            snippet.id,
+            snippet.title[:28] + "..." if len(snippet.title) > 28 else snippet.title,
+            snippet.category,
+            tags_str,
+            str(snippet.use_count),
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Total: {len(snippets)} snippets[/dim]")
+
+
+@snippets_app.command("show")
+def snippets_show(
+    snippet_id: str = typer.Argument(..., help="Snippet ID to show"),
+):
+    """Show full snippet details."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    snippet = manager.get(snippet_id)
+    if not snippet:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    info = f"""[bold]ID:[/bold] {snippet.id}
+[bold]Title:[/bold] {snippet.title}
+[bold]Category:[/bold] {snippet.category}
+[bold]Description:[/bold] {snippet.description or 'None'}
+[bold]Tags:[/bold] {', '.join(snippet.tags) or 'None'}
+[bold]Language:[/bold] {snippet.language}
+[bold]Use Count:[/bold] {snippet.use_count}
+[bold]Created:[/bold] {snippet.created_at.split('T')[0]}
+[bold]Last Used:[/bold] {snippet.last_used.split('T')[0] if snippet.last_used else 'Never'}"""
+
+    console.print(
+        Panel(info, title="[bold cyan]Snippet Information[/bold cyan]", border_style="cyan")
+    )
+
+    console.print("\n[bold yellow]Content:[/bold yellow]")
+    syntax = Syntax(snippet.content, "markdown", theme="monokai", line_numbers=False)
+    console.print(Panel(syntax, border_style="yellow"))
+
+
+@snippets_app.command("use")
+def snippets_use(
+    snippet_id: str = typer.Argument(..., help="Snippet ID to use"),
+    copy: bool = typer.Option(False, "--copy", help="Copy to clipboard"),
+):
+    """Use a snippet (shows content and increments use count)."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    content = manager.use(snippet_id)
+    if content is None:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    console.print(
+        Panel(content, title="[bold green]Snippet Content[/bold green]", border_style="green")
+    )
+
+    if copy:
+        try:
+            import pyperclip
+
+            pyperclip.copy(content)
+            console.print("\n[green]✓ Copied to clipboard[/green]")
+        except ImportError:
+            console.print("\n[yellow]⚠ pyperclip not installed - cannot copy to clipboard[/yellow]")
+
+
+@snippets_app.command("delete")
+def snippets_delete(
+    snippet_id: str = typer.Argument(..., help="Snippet ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Delete a snippet."""
+    from rich.console import Console
+    from rich.prompt import Confirm
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    snippet = manager.get(snippet_id)
+    if not snippet:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    if not force:
+        confirm = Confirm.ask(f"Delete snippet '{snippet.title}' ({snippet_id})?")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    success = manager.delete(snippet_id)
+    if success:
+        console.print(f"[green]✓ Snippet '{snippet_id}' deleted[/green]")
+    else:
+        console.print("[bold red]✗ Failed to delete snippet[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@snippets_app.command("edit")
+def snippets_edit(
+    snippet_id: str = typer.Argument(..., help="Snippet ID to edit"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="New title"),
+    content: Optional[str] = typer.Option(None, "--content", "-c", help="New content"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="New description"),
+    category: Optional[str] = typer.Option(None, "--category", help="New category"),
+    tags: Optional[str] = typer.Option(None, "--tags", help="New comma-separated tags"),
+    from_file: Optional[Path] = typer.Option(
+        None, "--from-file", "-f", help="Read content from file"
+    ),
+):
+    """Edit a snippet."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    snippet = manager.get(snippet_id)
+    if not snippet:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+    try:
+        # Get content from file if provided
+        if from_file:
+            if not from_file.exists():
+                console.print(f"[bold red]✗ File not found:[/bold red] {from_file}")
+                raise typer.Exit(code=1)
+            content = from_file.read_text(encoding="utf-8")
+
+        # Parse tags
+        tag_list = None
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",")]
+
+        # Update snippet
+        updated = manager.update(
+            snippet_id=snippet_id,
+            title=title,
+            content=content,
+            description=description,
+            category=category,
+            tags=tag_list,
+        )
+
+        if updated:
+            info = f"""[bold]ID:[/bold] {updated.id}
+[bold]Title:[/bold] {updated.title}
+[bold]Category:[/bold] {updated.category}
+[bold]Tags:[/bold] {', '.join(updated.tags) or 'None'}"""
+
+            console.print(
+                Panel(
+                    info, title="[bold green]✓ Snippet Updated[/bold green]", border_style="green"
+                )
+            )
+        else:
+            console.print("[bold red]✗ Failed to update snippet[/bold red]")
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        console.print(f"[bold red]✗ Error updating snippet:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@snippets_app.command("search")
+def snippets_search(
+    query: str = typer.Argument(..., help="Search query"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Search snippets by query."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    results = manager.search(query)
+
+    if not results:
+        console.print(f"[yellow]No snippets found matching '{query}'[/yellow]")
+        return
+
+    if json_output:
+        output = [s.to_dict() for s in results]
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return
+
+    table = Table(title=f"Search Results for '{query}'", show_header=True, header_style="bold cyan")
+    table.add_column("ID", style="cyan", width=20)
+    table.add_column("Title", style="green", width=30)
+    table.add_column("Category", style="yellow", width=15)
+    table.add_column("Uses", style="magenta", width=8)
+
+    for snippet in results:
+        table.add_row(
+            snippet.id,
+            snippet.title[:28] + "..." if len(snippet.title) > 28 else snippet.title,
+            snippet.category,
+            str(snippet.use_count),
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Found: {len(results)} snippets[/dim]")
+
+
+@snippets_app.command("categories")
+def snippets_categories():
+    """List all snippet categories."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    categories = manager.get_categories()
+
+    if not categories:
+        console.print("[yellow]No categories found[/yellow]")
+        return
+
+    table = Table(title="Snippet Categories", show_header=True, header_style="bold cyan")
+    table.add_column("Category", style="cyan")
+    table.add_column("Snippets", style="green")
+
+    for category in categories:
+        snippets = manager.get_all(category=category)
+        table.add_row(category, str(len(snippets)))
+
+    console.print(table)
+
+
+@snippets_app.command("tag")
+def snippets_tag(
+    snippet_id: str = typer.Argument(..., help="Snippet ID"),
+    tag: str = typer.Argument(..., help="Tag to add"),
+):
+    """Add a tag to a snippet."""
+    from rich.console import Console
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    success = manager.add_tag(snippet_id, tag)
+    if success:
+        console.print(f"[green]✓ Tag '{tag}' added to snippet '{snippet_id}'[/green]")
+    else:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@snippets_app.command("untag")
+def snippets_untag(
+    snippet_id: str = typer.Argument(..., help="Snippet ID"),
+    tag: str = typer.Argument(..., help="Tag to remove"),
+):
+    """Remove a tag from a snippet."""
+    from rich.console import Console
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    success = manager.remove_tag(snippet_id, tag)
+    if success:
+        console.print(f"[green]✓ Tag '{tag}' removed from snippet '{snippet_id}'[/green]")
+    else:
+        console.print(f"[bold red]✗ Snippet '{snippet_id}' not found or tag not present[/bold red]")
+        raise typer.Exit(code=1)
+
+
+@snippets_app.command("stats")
+def snippets_stats():
+    """Show snippet statistics."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    stats = manager.get_stats()
+
+    info = f"""[bold]Total Snippets:[/bold] {stats['total_snippets']}
+[bold]Total Uses:[/bold] {stats['total_uses']}"""
+
+    console.print(
+        Panel(info, title="[bold cyan]Snippet Statistics[/bold cyan]", border_style="cyan")
+    )
+
+    # Categories
+    if stats["categories"]:
+        console.print("\n[bold yellow]By Category:[/bold yellow]")
+        for category, count in sorted(stats["categories"].items()):
+            console.print(f"  [cyan]{category}:[/cyan] {count}")
+
+    # Languages
+    if stats["languages"]:
+        console.print("\n[bold yellow]By Language:[/bold yellow]")
+        for language, count in sorted(stats["languages"].items()):
+            console.print(f"  [cyan]{language}:[/cyan] {count}")
+
+    # Most used
+    if stats["most_used"]:
+        table = Table(title="Most Used Snippets", show_header=True, header_style="bold yellow")
+        table.add_column("ID", style="cyan")
+        table.add_column("Title", style="green")
+        table.add_column("Category", style="yellow")
+        table.add_column("Uses", style="magenta")
+
+        for item in stats["most_used"]:
+            table.add_row(
+                item["id"],
+                item["title"],
+                item["category"],
+                str(item["use_count"]),
+            )
+
+        console.print("\n")
+        console.print(table)
+
+
+@snippets_app.command("most-used")
+def snippets_most_used(
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of snippets to show"),
+):
+    """Show most used snippets."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    manager = get_snippets_manager()
+
+    most_used = manager.get_most_used(limit=limit)
+
+    if not most_used:
+        console.print("[yellow]No snippets found[/yellow]")
+        return
+
+    table = Table(
+        title=f"Top {limit} Most Used Snippets", show_header=True, header_style="bold cyan"
+    )
+    table.add_column("Rank", style="magenta", width=6)
+    table.add_column("ID", style="cyan", width=20)
+    table.add_column("Title", style="green", width=30)
+    table.add_column("Category", style="yellow", width=15)
+    table.add_column("Uses", style="magenta", width=8)
+
+    for rank, snippet in enumerate(most_used, 1):
+        table.add_row(
+            str(rank),
+            snippet.id,
+            snippet.title[:28] + "..." if len(snippet.title) > 28 else snippet.title,
+            snippet.category,
+            str(snippet.use_count),
+        )
+
+    console.print(table)
+
+
+@snippets_app.command("clear")
+def snippets_clear(
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Clear all snippets."""
+    from rich.console import Console
+    from rich.prompt import Confirm
+
+    console = Console()
+
+    if not force:
+        confirm = Confirm.ask("Clear ALL snippets? This cannot be undone!")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    manager = get_snippets_manager()
+    manager.clear()
+
+    console.print("[green]✓ All snippets cleared[/green]")
 
 
 # ============================================================================

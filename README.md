@@ -70,6 +70,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Prompt History (new)**: Automatic tracking of recent prompt compilations with quick search, domain filtering, and statistics; stored locally in JSON format
 * **Export/Import (new)**: Export and import analytics and history data in JSON, CSV, or YAML formats for backup, sharing, and migration; supports date filtering and merge/replace modes
 * **Favorites/Bookmarks (new)**: Save your best prompts for quick access with custom tags, notes, use count tracking, and search functionality; local JSON storage with optional clipboard support
+* **Quick Snippets (new)**: Reusable prompt fragments for constraints, examples, and context pieces; category-based organization, tag support, usage tracking, and quick insertion into prompts
 
 ## Installation
 
@@ -624,6 +625,118 @@ promptc template stats code-review-detailed
 - Built-in templates: `templates/` directory in the project
 - Custom templates: `~/.promptc/templates/`
 - Usage statistics: `~/.promptc/template_stats.json`
+
+#### Quick Snippets (new)
+
+Manage reusable prompt fragments for quick insertion:
+
+```powershell
+# Add a new snippet
+promptc snippets add my-constraint \
+  --title "Security Constraint" \
+  --content "Ensure code follows OWASP security guidelines" \
+  --category constraint \
+  --tags "security,owasp"
+
+# Add from file
+promptc snippets add example-snippet \
+  --title "API Example" \
+  --from-file examples/api_usage.txt \
+  --category example \
+  --tags "api,rest"
+
+# List all snippets
+promptc snippets list
+
+# Filter by category or tags
+promptc snippets list --category constraint
+promptc snippets list --tags security
+
+# Search snippets
+promptc snippets search "OWASP"
+
+# Show full snippet details
+promptc snippets show my-constraint
+
+# Use a snippet (increments count, shows content)
+promptc snippets use my-constraint
+
+# Use and copy to clipboard
+promptc snippets use my-constraint --copy
+
+# Edit a snippet
+promptc snippets edit my-constraint \
+  --title "Updated Security Constraint" \
+  --tags "security,owasp,updated"
+
+# Add/remove tags
+promptc snippets tag my-constraint critical
+promptc snippets untag my-constraint old
+
+# Delete a snippet
+promptc snippets delete my-constraint
+
+# Show statistics
+promptc snippets stats
+
+# Show most used snippets
+promptc snippets most-used --limit 10
+
+# List categories
+promptc snippets categories
+
+# Clear all snippets
+promptc snippets clear --force
+
+# JSON output
+promptc snippets list --json
+```
+
+**Common Categories:**
+- `constraint`: Requirements, rules, guidelines
+- `example`: Code examples, sample outputs
+- `context`: Background information, domain knowledge
+- `persona`: Role definitions, expertise descriptions
+- `style`: Tone, format, writing style instructions
+
+**Example Usage:**
+
+```powershell
+# Create a set of common constraints
+promptc snippets add security-basics \
+  --title "Security Basics" \
+  --content "Follow OWASP Top 10, validate all inputs, use parameterized queries" \
+  --category constraint \
+  --tags "security,basics"
+
+promptc snippets add code-quality \
+  --title "Code Quality Standards" \
+  --content "Use meaningful names, keep functions small (<20 lines), write tests" \
+  --category constraint \
+  --tags "quality,best-practices"
+
+# Create helpful examples
+promptc snippets add rest-api-example \
+  --title "REST API Example" \
+  --content "GET /api/users/{id} - Returns user by ID, POST /api/users - Creates new user" \
+  --category example \
+  --tags "api,rest,http"
+
+# Use snippets in your prompts
+promptc snippets use security-basics --copy
+# Then paste into your prompt compilation
+```
+
+**Features:**
+- Quick access to reusable prompt fragments
+- Category-based organization
+- Tag support for flexible filtering
+- Usage tracking and statistics
+- Search across title, content, and tags
+- Multi-language support
+
+**Storage Location:**
+- Snippets: `~/.promptc/snippets.json`
 
 #### Favorites/Bookmarks (new)
 
