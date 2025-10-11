@@ -65,9 +65,7 @@ class SnippetsManager:
     """Manage quick snippets for reusable prompt fragments."""
 
     def __init__(self, snippets_file: Optional[Path] = None):
-        self.snippets_file = snippets_file or (
-            Path.home() / ".promptc" / "snippets.json"
-        )
+        self.snippets_file = snippets_file or (Path.home() / ".promptc" / "snippets.json")
         self.snippets_file.parent.mkdir(parents=True, exist_ok=True)
         self._snippets: Dict[str, Snippet] = {}
         self._load_snippets()
@@ -82,8 +80,7 @@ class SnippetsManager:
             with open(self.snippets_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self._snippets = {
-                    sid: Snippet.from_dict(snippet_data)
-                    for sid, snippet_data in data.items()
+                    sid: Snippet.from_dict(snippet_data) for sid, snippet_data in data.items()
                 }
         except Exception:
             self._snippets = {}
