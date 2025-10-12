@@ -45,6 +45,7 @@ from app.history import get_history_manager
 from app.export_import import get_export_import_manager
 from app.favorites import get_favorites_manager
 from app.snippets import get_snippets_manager
+from app.collections import get_collections_manager
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -65,6 +66,7 @@ history_app = typer.Typer(help="Prompt history and quick access")
 export_app = typer.Typer(help="Export and import data")
 favorites_app = typer.Typer(help="Favorite prompts and bookmarks")
 snippets_app = typer.Typer(help="Quick reusable prompt snippets")
+collections_app = typer.Typer(help="Collections/workspaces for organizing prompts")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
@@ -73,6 +75,7 @@ app.add_typer(history_app, name="history")
 app.add_typer(export_app, name="export")
 app.add_typer(favorites_app, name="favorites")
 app.add_typer(snippets_app, name="snippets")
+app.add_typer(collections_app, name="collections")
 
 
 def _run_compile(
@@ -3997,6 +4000,575 @@ def favorites_clear(force: bool = typer.Option(False, "--force", help="Skip conf
     favorites_mgr.clear()
 
     console.print("[green]✓ All favorites cleared[/green]")
+
+
+# ============================================================
+# COLLECTIONS/WORKSPACES COMMANDS
+# ============================================================
+
+
+@collections_app.command("create")
+def collections_create(
+    collection_id: str = typer.Argument(..., help="Unique collection ID"),
+    name: str = typer.Option(..., "--name", "-n", help="Display name"),
+    description: str = typer.Option("", "--description", "-d", help="Description"),
+    tags: List[str] = typer.Option(
+        None, "--tag", "-t", help="Tags (can be specified multiple times)"
+    ),
+    color: str = typer.Option("blue", "--color", "-c", help="Color for UI display"),
+    set_active: bool = typer.Option(
+        False, "--active", "-a", help="Set as active collection"
+    ),
+):
+    """Create a new collection/workspace."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.create(
+            collection_id=collection_id,
+            name=name,
+            description=description,
+            tags=tags or [],
+            color=color,
+        )
+
+        if set_active:
+            collections_mgr.set_active_collection(collection_id)
+
+        console.print(
+            Panel(
+                f"[bold green]Collection Created[/bold green]\n\n"
+                f"[cyan]ID:[/cyan] {collection.id}\n"
+                f"[cyan]Name:[/cyan] {collection.name}\n"
+                f"[cyan]Description:[/cyan] {collection.description or '(none)'}\n"
+                f"[cyan]Tags:[/cyan] {', '.join(collection.tags) if collection.tags else '(none)'}\n"
+                f"[cyan]Color:[/cyan] {collection.color}\n"
+                f"[cyan]Active:[/cyan] {'Yes' if set_active else 'No'}",
+                title="✓ Success",
+                border_style="green",
+            )
+        )
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("list")
+def collections_list(
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filter by tag"),
+    archived: Optional[bool] = typer.Option(
+        None, "--archived", "-a", help="Filter by archived status"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """List all collections."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    collections = collections_mgr.get_all(tag=tag, archived=archived)
+
+    if json_output:
+        data = [c.to_dict() for c in collections]
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    if not collections:
+        console.print("[yellow]No collections found[/yellow]")
+        return
+
+    active_id = collections_mgr.get_active_collection()
+
+    table = Table(title="Collections", show_header=True, header_style="bold cyan")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name", style="green")
+    table.add_column("Items", justify="right")
+    table.add_column("Tags")
+    table.add_column("Status")
+    table.add_column("Used", justify="right")
+
+    for collection in collections:
+        total_items = (
+            len(collection.prompts)
+            + len(collection.templates)
+            + len(collection.snippets)
+        )
+
+        status_parts = []
+        if collection.id == active_id:
+            status_parts.append("[bold green]●Active[/bold green]")
+        if collection.is_archived:
+            status_parts.append("[dim]Archived[/dim]")
+
+        status = " ".join(status_parts) if status_parts else ""
+
+        table.add_row(
+            collection.id,
+            collection.name,
+            str(total_items),
+            ", ".join(collection.tags) if collection.tags else "",
+            status,
+            str(collection.use_count),
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Total: {len(collections)} collections[/dim]")
+
+
+@collections_app.command("show")
+def collections_show(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show details of a collection."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    collection = collections_mgr.get(collection_id)
+    if not collection:
+        console.print(f"[red]Collection '{collection_id}' not found[/red]")
+        raise typer.Exit(code=1)
+
+    if json_output:
+        print(json.dumps(collection.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    active_id = collections_mgr.get_active_collection()
+    is_active = collection.id == active_id
+
+    # Overview panel
+    overview = (
+        f"[cyan]Name:[/cyan] {collection.name}\n"
+        f"[cyan]ID:[/cyan] {collection.id}\n"
+        f"[cyan]Description:[/cyan] {collection.description or '(none)'}\n"
+        f"[cyan]Tags:[/cyan] {', '.join(collection.tags) if collection.tags else '(none)'}\n"
+        f"[cyan]Color:[/cyan] {collection.color}\n"
+        f"[cyan]Created:[/cyan] {collection.created_at}\n"
+        f"[cyan]Updated:[/cyan] {collection.updated_at}\n"
+        f"[cyan]Use Count:[/cyan] {collection.use_count}\n"
+        f"[cyan]Active:[/cyan] {'[bold green]Yes[/bold green]' if is_active else 'No'}\n"
+        f"[cyan]Archived:[/cyan] {'Yes' if collection.is_archived else 'No'}"
+    )
+
+    console.print(Panel(overview, title=f"Collection: {collection.name}", border_style="cyan"))
+
+    # Items table
+    table = Table(title="Items", show_header=True, header_style="bold cyan")
+    table.add_column("Type", style="yellow")
+    table.add_column("Count", justify="right", style="green")
+    table.add_column("IDs", style="dim")
+
+    table.add_row(
+        "Prompts",
+        str(len(collection.prompts)),
+        ", ".join(collection.prompts[:3]) + ("..." if len(collection.prompts) > 3 else ""),
+    )
+    table.add_row(
+        "Templates",
+        str(len(collection.templates)),
+        ", ".join(collection.templates[:3])
+        + ("..." if len(collection.templates) > 3 else ""),
+    )
+    table.add_row(
+        "Snippets",
+        str(len(collection.snippets)),
+        ", ".join(collection.snippets[:3]) + ("..." if len(collection.snippets) > 3 else ""),
+    )
+
+    console.print(table)
+
+
+@collections_app.command("switch")
+def collections_switch(
+    collection_id: Optional[str] = typer.Argument(
+        None, help="Collection ID (omit to clear active)"
+    ),
+):
+    """Switch to a collection (set as active)."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        if collection_id is None:
+            collections_mgr.set_active_collection(None)
+            console.print("[green]✓ Active collection cleared[/green]")
+        else:
+            collections_mgr.set_active_collection(collection_id)
+            collection = collections_mgr.get(collection_id)
+            console.print(
+                f"[green]✓ Switched to collection:[/green] [cyan]{collection.name}[/cyan] ({collection_id})"
+            )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("add-prompt")
+def collections_add_prompt(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    prompt_id: str = typer.Argument(..., help="Prompt ID/hash to add"),
+):
+    """Add a prompt to a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.add_prompt(collection_id, prompt_id)
+        console.print(
+            f"[green]✓ Added prompt[/green] [yellow]{prompt_id}[/yellow] "
+            f"[green]to[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("add-template")
+def collections_add_template(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    template_id: str = typer.Argument(..., help="Template ID to add"),
+):
+    """Add a template to a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.add_template(collection_id, template_id)
+        console.print(
+            f"[green]✓ Added template[/green] [yellow]{template_id}[/yellow] "
+            f"[green]to[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("add-snippet")
+def collections_add_snippet(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    snippet_id: str = typer.Argument(..., help="Snippet ID to add"),
+):
+    """Add a snippet to a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.add_snippet(collection_id, snippet_id)
+        console.print(
+            f"[green]✓ Added snippet[/green] [yellow]{snippet_id}[/yellow] "
+            f"[green]to[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("remove-prompt")
+def collections_remove_prompt(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    prompt_id: str = typer.Argument(..., help="Prompt ID to remove"),
+):
+    """Remove a prompt from a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.remove_prompt(collection_id, prompt_id)
+        console.print(
+            f"[green]✓ Removed prompt[/green] [yellow]{prompt_id}[/yellow] "
+            f"[green]from[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("remove-template")
+def collections_remove_template(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    template_id: str = typer.Argument(..., help="Template ID to remove"),
+):
+    """Remove a template from a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.remove_template(collection_id, template_id)
+        console.print(
+            f"[green]✓ Removed template[/green] [yellow]{template_id}[/yellow] "
+            f"[green]from[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("remove-snippet")
+def collections_remove_snippet(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    snippet_id: str = typer.Argument(..., help="Snippet ID to remove"),
+):
+    """Remove a snippet from a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.remove_snippet(collection_id, snippet_id)
+        console.print(
+            f"[green]✓ Removed snippet[/green] [yellow]{snippet_id}[/yellow] "
+            f"[green]from[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("update")
+def collections_update(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="New description"),
+    tags: Optional[List[str]] = typer.Option(
+        None, "--tag", "-t", help="New tags (replaces existing)"
+    ),
+    color: Optional[str] = typer.Option(None, "--color", "-c", help="New color"),
+):
+    """Update a collection's metadata."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.update(
+            collection_id=collection_id,
+            name=name,
+            description=description,
+            tags=tags,
+            color=color,
+        )
+        console.print(
+            f"[green]✓ Updated collection:[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("delete")
+def collections_delete(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Delete a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    collection = collections_mgr.get(collection_id)
+    if not collection:
+        console.print(f"[red]Collection '{collection_id}' not found[/red]")
+        raise typer.Exit(code=1)
+
+    if not force:
+        console.print(
+            f"[yellow]Delete collection '{collection.name}' ({collection_id})?[/yellow]"
+        )
+        confirm = typer.confirm("This cannot be undone.")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    collections_mgr.delete(collection_id)
+    console.print(f"[green]✓ Deleted collection:[/green] {collection.name}")
+
+
+@collections_app.command("archive")
+def collections_archive(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+):
+    """Archive a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.archive(collection_id)
+        console.print(
+            f"[green]✓ Archived collection:[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("unarchive")
+def collections_unarchive(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+):
+    """Unarchive a collection."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        collection = collections_mgr.unarchive(collection_id)
+        console.print(
+            f"[green]✓ Unarchived collection:[/green] [cyan]{collection.name}[/cyan]"
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("stats")
+def collections_stats():
+    """Show collection statistics."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    stats = collections_mgr.get_stats()
+
+    # Overview panel
+    overview = (
+        f"[cyan]Total Collections:[/cyan] {stats['total_collections']}\n"
+        f"[cyan]Active Collections:[/cyan] {stats['active_collections']}\n"
+        f"[cyan]Archived Collections:[/cyan] {stats['archived_collections']}\n\n"
+        f"[cyan]Total Prompts:[/cyan] {stats['total_prompts']}\n"
+        f"[cyan]Total Templates:[/cyan] {stats['total_templates']}\n"
+        f"[cyan]Total Snippets:[/cyan] {stats['total_snippets']}\n\n"
+        f"[cyan]Active Collection:[/cyan] {stats['active_collection'] or '(none)'}"
+    )
+
+    console.print(Panel(overview, title="Collection Statistics", border_style="cyan"))
+
+    # Most used table
+    if stats["most_used"]:
+        table = Table(title="Most Used Collections", show_header=True, header_style="bold cyan")
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("Uses", justify="right", style="yellow")
+        table.add_column("Items", justify="right", style="magenta")
+
+        for item in stats["most_used"]:
+            table.add_row(
+                item["id"], item["name"], str(item["use_count"]), str(item["items"])
+            )
+
+        console.print(table)
+
+
+@collections_app.command("export")
+def collections_export(
+    collection_id: str = typer.Argument(..., help="Collection ID"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Output file (default: stdout)"
+    ),
+):
+    """Export a collection to JSON."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    try:
+        data = collections_mgr.export_collection(collection_id)
+
+        if output:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            console.print(f"[green]✓ Exported to:[/green] {output}")
+        else:
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("import")
+def collections_import(
+    input_file: Path = typer.Argument(..., help="Input JSON file"),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", "-o", help="Overwrite if collection exists"
+    ),
+):
+    """Import a collection from JSON."""
+    from rich.console import Console
+
+    console = Console()
+    collections_mgr = get_collections_manager()
+
+    if not input_file.exists():
+        console.print(f"[red]File not found: {input_file}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        with open(input_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        collection = collections_mgr.import_collection(data, overwrite=overwrite)
+        console.print(
+            f"[green]✓ Imported collection:[/green] [cyan]{collection.name}[/cyan] ({collection.id})"
+        )
+
+    except (ValueError, json.JSONDecodeError) as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@collections_app.command("clear")
+def collections_clear(
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Clear all collections."""
+    from rich.console import Console
+
+    console = Console()
+
+    if not force:
+        confirm = typer.confirm("Clear all collections?")
+        if not confirm:
+            console.print("Cancelled")
+            raise typer.Exit()
+
+    collections_mgr = get_collections_manager()
+    collections_mgr.clear()
+
+    console.print("[green]✓ All collections cleared[/green]")
 
 
 # Entry point

@@ -71,6 +71,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Export/Import (new)**: Export and import analytics and history data in JSON, CSV, or YAML formats for backup, sharing, and migration; supports date filtering and merge/replace modes
 * **Favorites/Bookmarks (new)**: Save your best prompts for quick access with custom tags, notes, use count tracking, and search functionality; local JSON storage with optional clipboard support
 * **Quick Snippets (new)**: Reusable prompt fragments for constraints, examples, and context pieces; category-based organization, tag support, usage tracking, and quick insertion into prompts
+* **Collections/Workspaces (new)**: Organize related prompts, templates, and snippets into project-based collections with active workspace switching, archiving, and export/import for collaboration; local JSON storage with usage statistics
 
 ## Installation
 
@@ -502,6 +503,162 @@ promptc export data export.json --json
 │ Export Date: 2025-10-08T10:30:00      │
 ╰────────────────────────────────────────╯
 ```
+
+#### Collections/Workspaces (new)
+
+Organize related prompts, templates, and snippets into project-based collections:
+
+```powershell
+# Create a new collection
+promptc collections create ml-project \
+  --name "Machine Learning Project" \
+  --description "Resources for ML tutorial series" \
+  --tag "ml" --tag "python" \
+  --color "green" \
+  --active
+
+# List all collections
+promptc collections list
+
+# Filter by tag
+promptc collections list --tag ml
+
+# Show only active (non-archived) collections
+promptc collections list --archived false
+
+# Show collection details
+promptc collections show ml-project
+
+# Switch to a collection (set as active workspace)
+promptc collections switch ml-project
+
+# Add items to collection
+promptc collections add-prompt ml-project abc123
+promptc collections add-template ml-project tutorial_creator
+promptc collections add-snippet ml-project ml-basics
+
+# Remove items from collection
+promptc collections remove-prompt ml-project abc123
+promptc collections remove-template ml-project old-template
+promptc collections remove-snippet ml-project outdated-snippet
+
+# Update collection metadata
+promptc collections update ml-project \
+  --name "Advanced ML Project" \
+  --description "Updated description" \
+  --tag "advanced" --tag "pytorch" \
+  --color "purple"
+
+# Archive/unarchive collections
+promptc collections archive old-project
+promptc collections unarchive ml-project
+
+# Show statistics
+promptc collections stats
+
+# Export collection
+promptc collections export ml-project --output ml-project.json
+
+# Import collection
+promptc collections import ml-project.json
+
+# Import with overwrite
+promptc collections import shared-project.json --overwrite
+
+# Delete collection
+promptc collections delete old-project
+
+# Clear all collections
+promptc collections clear --force
+
+# JSON output
+promptc collections list --json
+promptc collections show ml-project --json
+```
+
+**Features:**
+- Project-based organization for prompts, templates, and snippets
+- Active workspace concept (switch between projects)
+- Archive inactive collections
+- Export/import for collaboration and backup
+- Usage statistics and tracking
+- Tag-based filtering
+- Color coding for UI display
+- Automatic timestamp tracking
+- Local JSON storage (~/.promptc/collections.json)
+
+**Example List Output:**
+```
+Collections (5 total)
+
+ID            Name                    Items  Tags            Status    Used
+────────────  ──────────────────────  ─────  ──────────────  ────────  ────
+ml-project    Machine Learning        12     ml, python      ●Active     25
+web-dev       Web Development         8      web, js         
+tutorial      Tutorial Series         15     education                    8
+archive-2024  Archive 2024            45     archive         Archived     
+research      Research Project        6      research, ai                 3
+```
+
+**Example Show Output:**
+```
+╭────────── Collection: Machine Learning Project ──────────╮
+│ Name: Machine Learning Project                          │
+│ ID: ml-project                                           │
+│ Description: Resources for ML tutorial series           │
+│ Tags: ml, python, advanced                               │
+│ Color: green                                             │
+│ Created: 2024-10-12T10:30:00                            │
+│ Updated: 2024-10-12T15:45:00                            │
+│ Use Count: 25                                            │
+│ Active: Yes                                              │
+│ Archived: No                                             │
+╰──────────────────────────────────────────────────────────╯
+
+Items
+──────────  ─────  ─────────────────────────────────────
+Type        Count  IDs
+──────────  ─────  ─────────────────────────────────────
+Prompts         5  abc123, def456, ghi789...
+Templates       4  tutorial_creator, code_review...
+Snippets        3  ml-basics, pytorch-example...
+──────────  ─────  ─────────────────────────────────────
+```
+
+**Statistics Output:**
+```
+╭────────── Collection Statistics ──────────╮
+│ Total Collections: 5                      │
+│ Active Collections: 4                     │
+│ Archived Collections: 1                   │
+│                                           │
+│ Total Prompts: 35                         │
+│ Total Templates: 12                       │
+│ Total Snippets: 18                        │
+│                                           │
+│ Active Collection: ml-project             │
+╰───────────────────────────────────────────╯
+
+Most Used Collections
+────  ─────────────────  ─────  ─────
+ID    Name              Uses   Items
+────  ─────────────────  ─────  ─────
+ml-…  Machine Learning    25     12
+tut…  Tutorial Series      8     15
+res…  Research Project     3      6
+────  ─────────────────  ─────  ─────
+```
+
+**Use Cases:**
+- **Project Organization**: Group all ML tutorial prompts, templates, and snippets together
+- **Team Collaboration**: Export collections and share with team members
+- **Context Switching**: Quickly switch between work, personal, and research projects
+- **Archive Management**: Archive old projects while keeping them accessible
+- **Workflow Tracking**: Monitor which collections you use most frequently
+
+**Storage Location:**
+- Collections: `~/.promptc/collections.json`
+- Active workspace: `~/.promptc/active_collection.txt`
 
 #### Template Management (new)
 
