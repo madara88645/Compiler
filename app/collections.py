@@ -10,7 +10,6 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-import shutil
 
 
 @dataclass
@@ -22,12 +21,12 @@ class Collection:
     description: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     # Associated items
     prompts: List[str] = field(default_factory=list)  # List of prompt IDs/hashes
     templates: List[str] = field(default_factory=list)  # List of template IDs
     snippets: List[str] = field(default_factory=list)  # List of snippet IDs
-    
+
     # Metadata
     tags: List[str] = field(default_factory=list)
     color: str = "blue"  # For UI display
@@ -66,17 +65,13 @@ class CollectionsManager:
                          Defaults to ~/.promptc/collections.json
         """
         if storage_path is None:
-            storage_path = (
-                Path.home() / ".promptc" / "collections.json"
-            )
+            storage_path = Path.home() / ".promptc" / "collections.json"
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Active collection tracking
-        self.active_collection_path = (
-            Path.home() / ".promptc" / "active_collection.txt"
-        )
-        
+        self.active_collection_path = Path.home() / ".promptc" / "active_collection.txt"
+
         self.collections: Dict[str, Collection] = self._load_collections()
 
     def _load_collections(self) -> Dict[str, Collection]:
@@ -87,10 +82,7 @@ class CollectionsManager:
         try:
             with open(self.storage_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {
-                    cid: Collection.from_dict(cdata)
-                    for cid, cdata in data.items()
-                }
+                return {cid: Collection.from_dict(cdata) for cid, cdata in data.items()}
         except (json.JSONDecodeError, KeyError):
             return {}
 
@@ -224,11 +216,11 @@ class CollectionsManager:
         if collection_id in self.collections:
             del self.collections[collection_id]
             self._save_collections()
-            
+
             # Clear active collection if it was deleted
             if self.get_active_collection() == collection_id:
                 self.set_active_collection(None)
-            
+
             return True
         return False
 
@@ -372,9 +364,7 @@ class CollectionsManager:
 
         return collection
 
-    def remove_template(
-        self, collection_id: str, template_id: str
-    ) -> Collection:
+    def remove_template(self, collection_id: str, template_id: str) -> Collection:
         """Remove a template from a collection.
 
         Args:
@@ -424,9 +414,7 @@ class CollectionsManager:
 
     # Active collection management
 
-    def set_active_collection(
-        self, collection_id: Optional[str]
-    ) -> Optional[str]:
+    def set_active_collection(self, collection_id: Optional[str]) -> Optional[str]:
         """Set the active collection.
 
         Args:
@@ -442,7 +430,7 @@ class CollectionsManager:
             collection = self.get(collection_id)
             if not collection:
                 raise ValueError(f"Collection '{collection_id}' not found")
-            
+
             collection.increment_use()
             self._save_collections()
 
@@ -494,9 +482,7 @@ class CollectionsManager:
         total_templates = sum(len(c.templates) for c in collections)
         total_snippets = sum(len(c.snippets) for c in collections)
 
-        most_used = sorted(
-            collections, key=lambda c: c.use_count, reverse=True
-        )[:5]
+        most_used = sorted(collections, key=lambda c: c.use_count, reverse=True)[:5]
 
         return {
             "total_collections": len(collections),
@@ -510,9 +496,7 @@ class CollectionsManager:
                     "id": c.id,
                     "name": c.name,
                     "use_count": c.use_count,
-                    "items": len(c.prompts)
-                    + len(c.templates)
-                    + len(c.snippets),
+                    "items": len(c.prompts) + len(c.templates) + len(c.snippets),
                 }
                 for c in most_used
             ],
@@ -555,9 +539,7 @@ class CollectionsManager:
 
         return export_data
 
-    def import_collection(
-        self, data: Dict[str, Any], overwrite: bool = False
-    ) -> Collection:
+    def import_collection(self, data: Dict[str, Any], overwrite: bool = False) -> Collection:
         """Import a collection from a dictionary.
 
         Args:
@@ -576,8 +558,7 @@ class CollectionsManager:
 
         if collection_id in self.collections and not overwrite:
             raise ValueError(
-                f"Collection '{collection_id}' already exists. "
-                f"Use overwrite=True to replace."
+                f"Collection '{collection_id}' already exists. " f"Use overwrite=True to replace."
             )
 
         # Remove export metadata

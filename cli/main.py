@@ -4016,9 +4016,7 @@ def collections_create(
         None, "--tag", "-t", help="Tags (can be specified multiple times)"
     ),
     color: str = typer.Option("blue", "--color", "-c", help="Color for UI display"),
-    set_active: bool = typer.Option(
-        False, "--active", "-a", help="Set as active collection"
-    ),
+    set_active: bool = typer.Option(False, "--active", "-a", help="Set as active collection"),
 ):
     """Create a new collection/workspace."""
     from rich.console import Console
@@ -4095,11 +4093,7 @@ def collections_list(
     table.add_column("Used", justify="right")
 
     for collection in collections:
-        total_items = (
-            len(collection.prompts)
-            + len(collection.templates)
-            + len(collection.snippets)
-        )
+        total_items = len(collection.prompts) + len(collection.templates) + len(collection.snippets)
 
         status_parts = []
         if collection.id == active_id:
@@ -4177,8 +4171,7 @@ def collections_show(
     table.add_row(
         "Templates",
         str(len(collection.templates)),
-        ", ".join(collection.templates[:3])
-        + ("..." if len(collection.templates) > 3 else ""),
+        ", ".join(collection.templates[:3]) + ("..." if len(collection.templates) > 3 else ""),
     )
     table.add_row(
         "Snippets",
@@ -4372,9 +4365,7 @@ def collections_update(
             tags=tags,
             color=color,
         )
-        console.print(
-            f"[green]✓ Updated collection:[/green] [cyan]{collection.name}[/cyan]"
-        )
+        console.print(f"[green]✓ Updated collection:[/green] [cyan]{collection.name}[/cyan]")
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(code=1)
@@ -4397,9 +4388,7 @@ def collections_delete(
         raise typer.Exit(code=1)
 
     if not force:
-        console.print(
-            f"[yellow]Delete collection '{collection.name}' ({collection_id})?[/yellow]"
-        )
+        console.print(f"[yellow]Delete collection '{collection.name}' ({collection_id})?[/yellow]")
         confirm = typer.confirm("This cannot be undone.")
         if not confirm:
             console.print("Cancelled")
@@ -4421,9 +4410,7 @@ def collections_archive(
 
     try:
         collection = collections_mgr.archive(collection_id)
-        console.print(
-            f"[green]✓ Archived collection:[/green] [cyan]{collection.name}[/cyan]"
-        )
+        console.print(f"[green]✓ Archived collection:[/green] [cyan]{collection.name}[/cyan]")
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(code=1)
@@ -4441,9 +4428,7 @@ def collections_unarchive(
 
     try:
         collection = collections_mgr.unarchive(collection_id)
-        console.print(
-            f"[green]✓ Unarchived collection:[/green] [cyan]{collection.name}[/cyan]"
-        )
+        console.print(f"[green]✓ Unarchived collection:[/green] [cyan]{collection.name}[/cyan]")
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(code=1)
@@ -4483,9 +4468,7 @@ def collections_stats():
         table.add_column("Items", justify="right", style="magenta")
 
         for item in stats["most_used"]:
-            table.add_row(
-                item["id"], item["name"], str(item["use_count"]), str(item["items"])
-            )
+            table.add_row(item["id"], item["name"], str(item["use_count"]), str(item["items"]))
 
         console.print(table)
 

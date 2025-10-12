@@ -1,8 +1,6 @@
 """Tests for collections/workspaces module."""
 
 import pytest
-import json
-from pathlib import Path
 from app.collections import (
     Collection,
     CollectionsManager,
@@ -563,11 +561,7 @@ def test_collection_items_summary(manager):
     manager.add_snippet("proj1", "s3")
 
     collection = manager.get("proj1")
-    total_items = (
-        len(collection.prompts)
-        + len(collection.templates)
-        + len(collection.snippets)
-    )
+    total_items = len(collection.prompts) + len(collection.templates) + len(collection.snippets)
 
     assert total_items == 6
     assert len(collection.prompts) == 2

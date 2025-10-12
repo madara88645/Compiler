@@ -594,9 +594,9 @@ Collections (5 total)
 ID            Name                    Items  Tags            Status    Used
 ────────────  ──────────────────────  ─────  ──────────────  ────────  ────
 ml-project    Machine Learning        12     ml, python      ●Active     25
-web-dev       Web Development         8      web, js         
+web-dev       Web Development         8      web, js
 tutorial      Tutorial Series         15     education                    8
-archive-2024  Archive 2024            45     archive         Archived     
+archive-2024  Archive 2024            45     archive         Archived
 research      Research Project        6      research, ai                 3
 ```
 
