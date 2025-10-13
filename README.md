@@ -72,6 +72,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Favorites/Bookmarks (new)**: Save your best prompts for quick access with custom tags, notes, use count tracking, and search functionality; local JSON storage with optional clipboard support
 * **Quick Snippets (new)**: Reusable prompt fragments for constraints, examples, and context pieces; category-based organization, tag support, usage tracking, and quick insertion into prompts
 * **Collections/Workspaces (new)**: Organize related prompts, templates, and snippets into project-based collections with active workspace switching, archiving, and export/import for collaboration; local JSON storage with usage statistics
+* **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports JSON export and search statistics
 
 ## Installation
 
@@ -659,6 +660,88 @@ res…  Research Project     3      6
 **Storage Location:**
 - Collections: `~/.promptc/collections.json`
 - Active workspace: `~/.promptc/active_collection.txt`
+
+#### Smart Search (new)
+
+Unified search across all your PromptC data sources with relevance scoring:
+
+```powershell
+# Search across all data sources
+promptc search "machine learning tutorial"
+
+# Search specific types
+promptc search "classification" --type history
+promptc search "review" --type template
+promptc search "pytorch" --type snippet
+promptc search "ml" --type collection
+
+# Search multiple types
+promptc search "python" --type history --type snippet
+
+# Limit results
+promptc search "optimization" --limit 5
+
+# Set minimum score threshold (0-100)
+promptc search "api" --min-score 60
+
+# Get JSON output
+promptc search "neural network" --json
+
+# Show search statistics
+promptc search --stats
+```
+
+**Search Features:**
+- **Unified Search**: Search across history, favorites, templates, snippets, and collections
+- **Relevance Scoring**: Smart scoring algorithm (exact match=100, all words=80, partial=60)
+- **Favorites Boost**: Favorite items get 1.1x score boost
+- **Type Filtering**: Search specific data sources or all at once
+- **Rich Output**: Beautiful table output with emoji icons per type (📝📄📋⭐🗂️)
+- **JSON Export**: Machine-readable output for automation
+- **Statistics**: View searchable item counts across all sources
+- **Case Insensitive**: Searches work regardless of letter case
+- **Multi-word Search**: Finds items matching all or some words
+- **Tag Search**: Searches through item tags
+
+**Example Search Output:**
+```
+Search Results (5 matches)
+
+Type        Score  Title                                     Content Preview
+──────────  ─────  ────────────────────────────────────────  ─────────────────────────────────────────
+⭐Favorite     95  Create a neural network tutorial...       Create a neural network tutorial for...
+📝History      85  Explain backpropagation algorithm         Explain backpropagation algorithm in...
+📋Template     80  tutorial_creator                          Create a comprehensive tutorial on...
+📄Snippet      75  ml-basics                                 Basic machine learning concepts and...
+🗂️Collection  70  ml-project                                Machine Learning Project resources...
+```
+
+**Statistics Output:**
+```
+╭────────── Search Statistics ──────────╮
+│ Total Searchable Items: 247           │
+│                                       │
+│ History Entries: 87                   │
+│ Favorites: 23                         │
+│ Templates: 45                         │
+│ Snippets: 67                          │
+│ Collections: 25                       │
+╰───────────────────────────────────────╯
+```
+
+**Use Cases:**
+- **Quick Retrieval**: Find that perfect prompt you used last week
+- **Discovery**: Discover related templates and snippets across projects
+- **Quality Check**: Find your best prompts (high scores in favorites)
+- **Cross-Reference**: See all resources related to a topic
+- **Automation**: Export search results as JSON for scripts
+
+**Search Algorithm:**
+- **Exact Match**: Full query matches content → Score 100
+- **All Words**: All query words present → Score 80
+- **Partial Match**: Some query words present → Score 60
+- **Favorites Boost**: Favorite items get 10% score increase
+- **Multi-field**: Searches titles, content, tags, notes, descriptions
 
 #### Template Management (new)
 

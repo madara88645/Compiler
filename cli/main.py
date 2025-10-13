@@ -46,6 +46,7 @@ from app.export_import import get_export_import_manager
 from app.favorites import get_favorites_manager
 from app.snippets import get_snippets_manager
 from app.collections import get_collections_manager
+from app.search import get_search_engine, SearchResultType
 from app.rag.simple_index import (
     ingest_paths,
     search,
@@ -4552,6 +4553,130 @@ def collections_clear(
     collections_mgr.clear()
 
     console.print("[green]✓ All collections cleared[/green]")
+
+
+# ============================================================
+# SMART SEARCH COMMAND
+# ============================================================
+
+
+@app.command("search")
+def search_command(
+    query: str = typer.Argument(..., help="Search query"),
+    result_type: Optional[List[str]] = typer.Option(
+        None,
+        "--type",
+        "-t",
+        help="Filter by type: history, favorite, template, snippet, collection",
+    ),
+    limit: int = typer.Option(20, "--limit", "-l", help="Maximum number of results"),
+    min_score: float = typer.Option(
+        0.0, "--min-score", "-s", help="Minimum relevance score (0-100)"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    show_stats: bool = typer.Option(
+        False, "--stats", help="Show search statistics before results"
+    ),
+):
+    """Search across all PromptC data (history, favorites, templates, snippets, collections)."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    import json
+
+    console = Console()
+    search_engine = get_search_engine()
+
+    # Show stats if requested
+    if show_stats:
+        stats = search_engine.get_stats()
+        stats_text = (
+            f"[cyan]Searchable Items:[/cyan]\n"
+            f"  • History: {stats['history']}\n"
+            f"  • Favorites: {stats['favorites']}\n"
+            f"  • Templates: {stats['templates']}\n"
+            f"  • Snippets: {stats['snippets']}\n"
+            f"  • Collections: {stats['collections']}\n"
+            f"  [bold]Total: {sum(stats.values())}[/bold]"
+        )
+        console.print(Panel(stats_text, title="Search Index", border_style="cyan"))
+        console.print()
+
+    # Parse result types
+    types_filter = None
+    if result_type:
+        try:
+            types_filter = [SearchResultType(t.lower()) for t in result_type]
+        except ValueError as e:
+            console.print(
+                f"[red]Invalid type. Valid types: history, favorite, template, snippet, collection[/red]"
+            )
+            raise typer.Exit(code=1)
+
+    # Perform search
+    results = search_engine.search(
+        query=query, result_types=types_filter, limit=limit, min_score=min_score
+    )
+
+    # JSON output
+    if json_output:
+        output_data = {
+            "query": query,
+            "total_results": len(results),
+            "results": [r.to_dict() for r in results],
+        }
+        print(json.dumps(output_data, indent=2, ensure_ascii=False))
+        return
+
+    # No results
+    if not results:
+        console.print(f"[yellow]No results found for:[/yellow] [bold]{query}[/bold]")
+        console.print("[dim]Try a different query or lower --min-score[/dim]")
+        return
+
+    # Display results in a table
+    table = Table(
+        title=f"Search Results for '{query}' ({len(results)} found)",
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column("Type", style="yellow", width=10)
+    table.add_column("Score", justify="right", style="green", width=6)
+    table.add_column("Title", style="cyan")
+    table.add_column("Preview", style="dim")
+
+    for result in results:
+        # Type icon
+        type_icons = {
+            "history": "📝",
+            "favorite": "⭐",
+            "template": "📄",
+            "snippet": "📋",
+            "collection": "🗂️",
+        }
+        type_str = f"{type_icons.get(result.result_type.value, '•')} {result.result_type.value}"
+
+        # Score
+        score_str = f"{result.score:.1f}"
+
+        # Title (truncate if too long)
+        title = result.title[:50] + ("..." if len(result.title) > 50 else "")
+
+        # Preview (truncate content)
+        preview = result.content[:80] + ("..." if len(result.content) > 80 else "")
+        preview = preview.replace("\n", " ")
+
+        table.add_row(type_str, score_str, title, preview)
+
+    console.print(table)
+
+    # Show footer with useful info
+    console.print(
+        f"\n[dim]💡 Tip: Use --type to filter results, --min-score to set threshold[/dim]"
+    )
+    console.print(
+        f"[dim]   Example: promptc search 'python' --type snippet --min-score 50[/dim]"
+    )
 
 
 # Entry point
