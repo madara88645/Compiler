@@ -4574,9 +4574,7 @@ def search_command(
         0.0, "--min-score", "-s", help="Minimum relevance score (0-100)"
     ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    show_stats: bool = typer.Option(
-        False, "--stats", help="Show search statistics before results"
-    ),
+    show_stats: bool = typer.Option(False, "--stats", help="Show search statistics before results"),
 ):
     """Search across all PromptC data (history, favorites, templates, snippets, collections)."""
     from rich.console import Console
@@ -4607,9 +4605,9 @@ def search_command(
     if result_type:
         try:
             types_filter = [SearchResultType(t.lower()) for t in result_type]
-        except ValueError as e:
+        except ValueError:
             console.print(
-                f"[red]Invalid type. Valid types: history, favorite, template, snippet, collection[/red]"
+                "[red]Invalid type. Valid types: history, favorite, template, snippet, collection[/red]"
             )
             raise typer.Exit(code=1)
 
@@ -4671,12 +4669,8 @@ def search_command(
     console.print(table)
 
     # Show footer with useful info
-    console.print(
-        f"\n[dim]💡 Tip: Use --type to filter results, --min-score to set threshold[/dim]"
-    )
-    console.print(
-        f"[dim]   Example: promptc search 'python' --type snippet --min-score 50[/dim]"
-    )
+    console.print("\n[dim]💡 Tip: Use --type to filter results, --min-score to set threshold[/dim]")
+    console.print("[dim]   Example: promptc search 'python' --type snippet --min-score 50[/dim]")
 
 
 # Entry point

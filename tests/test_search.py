@@ -20,7 +20,6 @@ def search_engine(tmp_path, monkeypatch):
     # Create temporary managers
     history_mgr = get_history_manager()
     favorites_mgr = get_favorites_manager()
-    templates_mgr = get_templates_manager()
     snippets_mgr = get_snippets_manager()
     collections_mgr = get_collections_manager()
 
@@ -214,9 +213,7 @@ def test_calculate_score_exact_match(search_engine):
 
 def test_calculate_score_partial_match(search_engine):
     """Test score calculation for partial matches."""
-    score = search_engine._calculate_score(
-        "python programming", ["Learn Python basics"]
-    )
+    score = search_engine._calculate_score("python programming", ["Learn Python basics"])
     assert 0 < score < 100  # Partial match
 
 
@@ -379,7 +376,5 @@ def test_search_by_domain(populated_search):
     results = populated_search.search("education")
 
     # Should find history entry with education domain
-    education_results = [
-        r for r in results if r.metadata.get("domain") == "education"
-    ]
+    education_results = [r for r in results if r.metadata.get("domain") == "education"]
     assert len(education_results) > 0
