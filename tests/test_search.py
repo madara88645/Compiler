@@ -9,7 +9,6 @@ from app.search import (
 )
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
-from app.templates_manager import get_templates_manager
 from app.snippets import get_snippets_manager
 from app.collections import get_collections_manager
 
