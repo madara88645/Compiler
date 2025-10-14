@@ -45,9 +45,7 @@ class SearchHistoryManager:
             try:
                 with open(self.storage_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self._entries = [
-                        SearchHistoryEntry.from_dict(entry) for entry in data
-                    ]
+                    self._entries = [SearchHistoryEntry.from_dict(entry) for entry in data]
             except Exception:
                 self._entries = []
 

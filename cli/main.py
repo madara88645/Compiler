@@ -4695,7 +4695,9 @@ def search_command(
                                 result.id,
                             ]
                         )
-                console.print(f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]")
+                console.print(
+                    f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]"
+                )
             else:
                 # Export as JSON (default)
                 export_data = {
@@ -4721,7 +4723,9 @@ def search_command(
                 }
                 with open(export_path, "w", encoding="utf-8") as f:
                     json.dump(export_data, f, indent=2, ensure_ascii=False)
-                console.print(f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]")
+                console.print(
+                    f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]"
+                )
         except Exception as e:
             console.print(f"\n❌ [red]Export failed: {e}[/red]")
 
@@ -4732,7 +4736,9 @@ def search_command(
 
     # Show footer with useful info
     console.print("\n[dim]💡 Tip: Use --type to filter results, --min-score to set threshold[/dim]")
-    console.print("[dim]   Use --export results.json to save results, 'promptc search-history' to see recent searches[/dim]")
+    console.print(
+        "[dim]   Use --export results.json to save results, 'promptc search-history' to see recent searches[/dim]"
+    )
 
 
 @app.command("search-history")
@@ -4767,8 +4773,6 @@ def search_history_command(
         console.print(f"🔄 [cyan]Rerunning search: '{entry.query}'[/cyan]\n")
 
         # Build command arguments
-        import sys
-        from typer.testing import CliRunner
 
         args = ["search", entry.query]
         if entry.types_filter:
@@ -4843,12 +4847,12 @@ def search_history_command(
         # Truncate query if too long
         query_display = entry.query[:28] + ("..." if len(entry.query) > 28 else "")
 
-        table.add_row(
-            str(i), query_display, str(entry.result_count), filter_str, when
-        )
+        table.add_row(str(i), query_display, str(entry.result_count), filter_str, when)
 
     console.print(table)
-    console.print("\n[dim]💡 Tip: Use --rerun N to repeat a search (e.g., 'promptc search-history --rerun 0')[/dim]")
+    console.print(
+        "\n[dim]💡 Tip: Use --rerun N to repeat a search (e.g., 'promptc search-history --rerun 0')[/dim]"
+    )
     console.print("[dim]   Use --clear to delete all search history[/dim]")
 
 
