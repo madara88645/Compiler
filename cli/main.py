@@ -4575,15 +4575,23 @@ def search_command(
     ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
     show_stats: bool = typer.Option(False, "--stats", help="Show search statistics before results"),
+    export: Optional[str] = typer.Option(
+        None, "--export", "-e", help="Export results to file (CSV or JSON based on extension)"
+    ),
 ):
     """Search across all PromptC data (history, favorites, templates, snippets, collections)."""
     from rich.console import Console
     from rich.table import Table
     from rich.panel import Panel
+    from app.search_history import get_search_history_manager
+    from datetime import datetime
+    from pathlib import Path
     import json
+    import csv
 
     console = Console()
     search_engine = get_search_engine()
+    history_mgr = get_search_history_manager()
 
     # Show stats if requested
     if show_stats:
@@ -4668,9 +4676,180 @@ def search_command(
 
     console.print(table)
 
+    # Export results if requested
+    if export:
+        try:
+            export_path = Path(export)
+            if export_path.suffix.lower() == ".csv":
+                # Export as CSV
+                with open(export_path, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Type", "Score", "Title", "Content", "ID"])
+                    for result in results:
+                        writer.writerow(
+                            [
+                                result.result_type.value,
+                                f"{result.score:.2f}",
+                                result.title,
+                                result.content,
+                                result.id,
+                            ]
+                        )
+                console.print(f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]")
+            else:
+                # Export as JSON (default)
+                export_data = {
+                    "query": query,
+                    "timestamp": datetime.now().isoformat(),
+                    "result_count": len(results),
+                    "filters": {
+                        "types": result_type,
+                        "min_score": min_score,
+                        "limit": limit,
+                    },
+                    "results": [
+                        {
+                            "type": r.result_type.value,
+                            "score": r.score,
+                            "id": r.id,
+                            "title": r.title,
+                            "content": r.content,
+                            "metadata": r.metadata,
+                        }
+                        for r in results
+                    ],
+                }
+                with open(export_path, "w", encoding="utf-8") as f:
+                    json.dump(export_data, f, indent=2, ensure_ascii=False)
+                console.print(f"\n✅ [green]Exported {len(results)} results to {export_path}[/green]")
+        except Exception as e:
+            console.print(f"\n❌ [red]Export failed: {e}[/red]")
+
+    # Add to search history
+    history_mgr.add(
+        query=query, result_count=len(results), types_filter=result_type, min_score=min_score
+    )
+
     # Show footer with useful info
     console.print("\n[dim]💡 Tip: Use --type to filter results, --min-score to set threshold[/dim]")
-    console.print("[dim]   Example: promptc search 'python' --type snippet --min-score 50[/dim]")
+    console.print("[dim]   Use --export results.json to save results, 'promptc search-history' to see recent searches[/dim]")
+
+
+@app.command("search-history")
+def search_history_command(
+    clear: bool = typer.Option(False, "--clear", help="Clear search history"),
+    rerun: Optional[int] = typer.Option(None, "--rerun", "-r", help="Rerun search by index (0-9)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """View and manage recent search queries."""
+    from rich.console import Console
+    from rich.table import Table
+    from app.search_history import get_search_history_manager
+    from datetime import datetime
+    import json
+
+    console = Console()
+    history_mgr = get_search_history_manager()
+
+    # Clear history if requested
+    if clear:
+        history_mgr.clear()
+        console.print("✅ [green]Search history cleared[/green]")
+        return
+
+    # Rerun a search if requested
+    if rerun is not None:
+        entry = history_mgr.get_by_index(rerun)
+        if entry is None:
+            console.print(f"❌ [red]Invalid index: {rerun}[/red]")
+            raise typer.Exit(code=1)
+
+        console.print(f"🔄 [cyan]Rerunning search: '{entry.query}'[/cyan]\n")
+
+        # Build command arguments
+        import sys
+        from typer.testing import CliRunner
+
+        args = ["search", entry.query]
+        if entry.types_filter:
+            for t in entry.types_filter:
+                args.extend(["--type", t])
+        if entry.min_score > 0:
+            args.extend(["--min-score", str(entry.min_score)])
+
+        # Rerun the search
+        search_command(
+            query=entry.query,
+            result_type=entry.types_filter,
+            limit=20,
+            min_score=entry.min_score,
+            json_output=False,
+            show_stats=False,
+            export=None,
+        )
+        return
+
+    # Show history
+    recent = history_mgr.get_recent()
+
+    if not recent:
+        console.print("[yellow]No search history yet[/yellow]")
+        console.print("\n[dim]💡 Tip: Your searches will be automatically tracked here[/dim]")
+        return
+
+    if json_output:
+        output = [
+            {
+                "index": i,
+                "query": entry.query,
+                "result_count": entry.result_count,
+                "timestamp": entry.timestamp,
+                "types_filter": entry.types_filter,
+                "min_score": entry.min_score,
+            }
+            for i, entry in enumerate(recent)
+        ]
+        console.print(json.dumps(output, indent=2, ensure_ascii=False))
+        return
+
+    # Display as table
+    table = Table(
+        title="Recent Searches (Last 10)",
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column("#", style="yellow", width=3)
+    table.add_column("Query", style="cyan", width=30)
+    table.add_column("Results", justify="right", style="green", width=8)
+    table.add_column("Filters", style="dim", width=20)
+    table.add_column("When", style="magenta", width=20)
+
+    for i, entry in enumerate(recent):
+        # Parse timestamp
+        try:
+            dt = datetime.fromisoformat(entry.timestamp)
+            when = dt.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            when = entry.timestamp[:16]
+
+        # Format filters
+        filters = []
+        if entry.types_filter:
+            filters.append(f"types: {','.join(entry.types_filter)}")
+        if entry.min_score > 0:
+            filters.append(f"score≥{entry.min_score}")
+        filter_str = "; ".join(filters) if filters else "-"
+
+        # Truncate query if too long
+        query_display = entry.query[:28] + ("..." if len(entry.query) > 28 else "")
+
+        table.add_row(
+            str(i), query_display, str(entry.result_count), filter_str, when
+        )
+
+    console.print(table)
+    console.print("\n[dim]💡 Tip: Use --rerun N to repeat a search (e.g., 'promptc search-history --rerun 0')[/dim]")
+    console.print("[dim]   Use --clear to delete all search history[/dim]")
 
 
 # Entry point

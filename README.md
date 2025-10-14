@@ -72,7 +72,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Favorites/Bookmarks (new)**: Save your best prompts for quick access with custom tags, notes, use count tracking, and search functionality; local JSON storage with optional clipboard support
 * **Quick Snippets (new)**: Reusable prompt fragments for constraints, examples, and context pieces; category-based organization, tag support, usage tracking, and quick insertion into prompts
 * **Collections/Workspaces (new)**: Organize related prompts, templates, and snippets into project-based collections with active workspace switching, archiving, and export/import for collaboration; local JSON storage with usage statistics
-* **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports JSON export and search statistics
+* **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports CSV/JSON export and search statistics
+* **Search History & Export (new)**: Automatic tracking of last 10 searches with timestamp and filters; rerun previous searches instantly; export search results to CSV or JSON for reporting and analysis
 
 ## Installation
 
@@ -729,12 +730,40 @@ Type        Score  Title                                     Content Preview
 ╰───────────────────────────────────────╯
 ```
 
+**Export Results:**
+```powershell
+# Export as JSON
+promptc search "machine learning" --export results.json
+
+# Export as CSV
+promptc search "python tutorial" --export results.csv
+
+# Export with filters
+promptc search "api" --type snippet --min-score 70 --export filtered.json
+```
+
+**Search History (new):**
+```powershell
+# View recent searches (last 10)
+promptc search-history
+
+# Rerun a previous search
+promptc search-history --rerun 0
+
+# Clear search history
+promptc search-history --clear
+
+# Get history as JSON
+promptc search-history --json
+```
+
 **Use Cases:**
 - **Quick Retrieval**: Find that perfect prompt you used last week
 - **Discovery**: Discover related templates and snippets across projects
 - **Quality Check**: Find your best prompts (high scores in favorites)
 - **Cross-Reference**: See all resources related to a topic
-- **Automation**: Export search results as JSON for scripts
+- **Automation**: Export search results as JSON/CSV for scripts
+- **Efficiency**: Quickly rerun previous searches without retyping
 
 **Search Algorithm:**
 - **Exact Match**: Full query matches content → Score 100
@@ -742,6 +771,9 @@ Type        Score  Title                                     Content Preview
 - **Partial Match**: Some query words present → Score 60
 - **Favorites Boost**: Favorite items get 10% score increase
 - **Multi-field**: Searches titles, content, tags, notes, descriptions
+
+**Storage:**
+- Search history: `~/.promptc/search_history.json` (last 10 searches)
 
 #### Template Management (new)
 
