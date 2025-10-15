@@ -4860,11 +4860,12 @@ def search_history_command(
 def tui_command():
     """Launch the Terminal UI (TUI) for interactive searching and browsing."""
     from rich.console import Console
-    
+
     try:
         from app.tui import run_tui
+
         run_tui()
-    except ImportError as e:
+    except ImportError:
         console = Console()
         console.print("[red]❌ Error: 'textual' library not installed[/red]")
         console.print("\n[yellow]To use the TUI, install textual:[/yellow]")

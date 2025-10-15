@@ -13,11 +13,7 @@ from textual.widgets import (
     Label,
 )
 from textual.binding import Binding
-from textual.message import Message
 from rich.text import Text
-from rich.panel import Panel
-from rich.syntax import Syntax
-from datetime import datetime
 from typing import Optional, List
 
 from app.search import get_search_engine, SearchResult, SearchResultType
@@ -42,7 +38,7 @@ class SearchResultItem(ListItem):
         icon = icons.get(self.result.result_type, "•")
         score = f"{self.result.score:5.1f}"
         title = self.result.title[:50]
-        
+
         text = Text()
         text.append(f"{icon} ", style="bold yellow")
         text.append(f"[{score}] ", style="green")
@@ -63,26 +59,26 @@ class PreviewPane(Static):
 
         # Build rich panel
         content = []
-        
+
         # Header info
         content.append(f"[bold cyan]Type:[/] {result.result_type.value}")
         content.append(f"[bold green]Score:[/] {result.score:.2f}")
         content.append(f"[bold yellow]ID:[/] {result.id}")
         content.append("")
-        
+
         # Title
-        content.append(f"[bold white]Title:[/]")
+        content.append("[bold white]Title:[/]")
         content.append(result.title)
         content.append("")
-        
+
         # Content
-        content.append(f"[bold white]Content:[/]")
+        content.append("[bold white]Content:[/]")
         content.append(result.content[:500] + ("..." if len(result.content) > 500 else ""))
         content.append("")
-        
+
         # Metadata
         if result.metadata:
-            content.append(f"[bold white]Metadata:[/]")
+            content.append("[bold white]Metadata:[/]")
             for key, value in list(result.metadata.items())[:5]:
                 content.append(f"  {key}: {value}")
 
@@ -173,36 +169,35 @@ class SearchApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header(show_clock=True)
-        
+
         # Search bar
         with Container(id="search-container"):
             with Horizontal():
-                yield Input(
-                    placeholder="Search prompts, templates, snippets...",
-                    id="search-input"
-                )
+                yield Input(placeholder="Search prompts, templates, snippets...", id="search-input")
                 yield Button("Search", variant="primary", id="search-button")
-        
+
         # Main content area
         with Horizontal(id="main-container"):
             # Results list
             with Vertical(id="results-container"):
                 yield Label("Results (0)", id="results-label")
                 yield ListView(id="results-list")
-            
+
             # Preview pane
             with ScrollableContainer(id="preview-container"):
                 yield PreviewPane(id="preview-pane")
-        
+
         # Status bar
-        yield Static("Ready | Press F1 for Search, F2-F4 for filters, Ctrl+C to quit", id="status-bar")
+        yield Static(
+            "Ready | Press F1 for Search, F2-F4 for filters, Ctrl+C to quit", id="status-bar"
+        )
         yield Footer()
 
     def on_mount(self) -> None:
         """Called when app is mounted."""
         self.title = "PromptC Terminal UI"
         self.sub_title = "Modern Search Interface"
-        
+
         # Initial stats load
         stats = self.search_engine.get_stats()
         total = stats.get("total", 0)
@@ -225,37 +220,37 @@ class SearchApp(App):
         if query is None:
             search_input = self.query_one("#search-input", Input)
             query = search_input.value.strip()
-        
+
         if not query:
             self.query_one("#status-bar", Static).update("⚠️ Please enter a search query")
             return
-        
+
         # Update status
         self.query_one("#status-bar", Static).update(f"🔍 Searching for '{query}'...")
-        
+
         # Perform search
         result_types = None
         if types_filter:
             result_types = [SearchResultType(t) for t in types_filter]
-        
+
         results = self.search_engine.search(query, result_types=result_types, limit=50)
         self.current_results = results
-        
+
         # Update results list
         results_list = self.query_one("#results-list", ListView)
         results_list.clear()
-        
+
         for result in results:
             results_list.append(SearchResultItem(result))
-        
+
         # Update label
         self.query_one("#results-label", Label).update(f"Results ({len(results)})")
-        
+
         # Update status
         self.query_one("#status-bar", Static).update(
             f"✅ Found {len(results)} results for '{query}'"
         )
-        
+
         # Focus on results
         if results:
             results_list.focus()
