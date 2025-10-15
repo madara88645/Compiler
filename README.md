@@ -74,6 +74,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Collections/Workspaces (new)**: Organize related prompts, templates, and snippets into project-based collections with active workspace switching, archiving, and export/import for collaboration; local JSON storage with usage statistics
 * **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports CSV/JSON export and search statistics
 * **Search History & Export (new)**: Automatic tracking of last 10 searches with timestamp and filters; rerun previous searches instantly; export search results to CSV or JSON for reporting and analysis
+* **Terminal UI (TUI) (new)**: Modern, interactive full-screen terminal interface built with Textual; features split-pane layout, keyboard navigation (F1-F4), live search, mouse support, and beautiful syntax highlighting for browsing all your prompts
 
 ## Installation
 
@@ -177,6 +178,39 @@ uvicorn api.main:app --reload
 Health: http://127.0.0.1:8000/health (alias: `/healthz`)  •  Version: http://127.0.0.1:8000/version
 
 ## Usage
+
+### Terminal User Interface (TUI) - NEW! 🎨
+
+**Modern, interactive terminal UI** for searching and browsing your prompts:
+
+```bash
+# Launch the TUI
+promptc tui
+```
+
+**Features:**
+- 🔍 **Live Search**: Real-time search across all data sources
+- ⌨️ **Keyboard Navigation**: Full keyboard support (Arrow keys, Tab, Enter)
+- 📋 **Split View**: Results list + detailed preview pane
+- 🎯 **Quick Filters**: F2=History, F3=Favorites, F4=Collections
+- 🎨 **Modern UI**: Beautiful terminal interface with rich colors
+- 🖱️ **Mouse Support**: Click to select and navigate
+- ⚡ **Fast**: Instant results with relevance scoring
+
+**Keyboard Shortcuts:**
+- `F1` - Focus on search
+- `F2` - Show only history
+- `F3` - Show only favorites
+- `F4` - Show only collections
+- `Ctrl+C` - Quit
+- `Tab` / `Shift+Tab` - Navigate between panels
+- `↑` / `↓` - Navigate results
+- `Enter` - Select result
+
+**Requirements:**
+```bash
+pip install textual  # Auto-installed with requirements.txt
+```
 
 ### Command Line Interface (CLI)
 

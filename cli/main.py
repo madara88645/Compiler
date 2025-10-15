@@ -4856,6 +4856,28 @@ def search_history_command(
     console.print("[dim]   Use --clear to delete all search history[/dim]")
 
 
+@app.command("tui")
+def tui_command():
+    """Launch the Terminal UI (TUI) for interactive searching and browsing."""
+    from rich.console import Console
+    
+    try:
+        from app.tui import run_tui
+        run_tui()
+    except ImportError as e:
+        console = Console()
+        console.print("[red]❌ Error: 'textual' library not installed[/red]")
+        console.print("\n[yellow]To use the TUI, install textual:[/yellow]")
+        console.print("  [cyan]pip install textual[/cyan]")
+        console.print("\n[dim]Or install all requirements:[/dim]")
+        console.print("  [cyan]pip install -r requirements.txt[/cyan]")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console = Console()
+        console.print(f"[red]❌ Error launching TUI: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
