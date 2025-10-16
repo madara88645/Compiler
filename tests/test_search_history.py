@@ -82,9 +82,7 @@ def test_add_entry(history_manager):
 
 def test_add_entry_with_filters(history_manager):
     """Test adding entry with type filters."""
-    history_manager.add(
-        "filtered search", 3, types_filter=["template", "snippet"], min_score=0.8
-    )
+    history_manager.add("filtered search", 3, types_filter=["template", "snippet"], min_score=0.8)
     entries = history_manager.get_recent()
     assert len(entries) == 1
     assert entries[0].types_filter == ["template", "snippet"]
@@ -241,7 +239,7 @@ def test_none_types_filter(history_manager):
 def test_storage_path_creation(tmp_path):
     """Test that storage directory is created if it doesn't exist."""
     nested_path = tmp_path / "nested" / "dirs" / "history.json"
-    manager = SearchHistoryManager(storage_path=nested_path)
+    SearchHistoryManager(storage_path=nested_path)
     assert nested_path.parent.exists()
 
 

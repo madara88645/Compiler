@@ -1,7 +1,5 @@
 """Tests for Terminal UI components."""
 
-import pytest
-from rich.text import Text
 from app.search import SearchResult, SearchResultType
 
 
