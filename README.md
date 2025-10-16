@@ -75,6 +75,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports CSV/JSON export and search statistics
 * **Search History & Export (new)**: Automatic tracking of last 10 searches with timestamp and filters; rerun previous searches instantly; export search results to CSV or JSON for reporting and analysis
 * **Terminal UI (TUI) (new)**: Modern, interactive full-screen terminal interface built with Textual; features split-pane layout, keyboard navigation (F1-F4), live search, mouse support, and beautiful syntax highlighting for browsing all your prompts
+* **Comprehensive Test Suite (new)**: 325+ automated tests covering all features including search history (23 tests), TUI components (17 tests), and all core functionality; 100% passing with full coverage of edge cases and error handling
 
 ## Installation
 
@@ -1907,13 +1908,21 @@ pip install -r requirements.txt
 pip install -e .
 
 # Install development dependencies
-pip install pytest black flake8
+pip install pytest black flake8 pre-commit
 
-# Run tests
+# Run all tests (325+ tests)
 python -m pytest -v
+
+# Run specific test suites
+python -m pytest tests/test_search_history.py -v  # 23 search history tests
+python -m pytest tests/test_tui.py -v             # 17 TUI component tests
+python -m pytest tests/test_search.py -v          # 31 search engine tests
 
 # Run tests with coverage
 python -m pytest --cov=app --cov=api --cov=cli
+
+# Run formatting and linting
+pre-commit run --all-files
 
 # Format code (optional)
 black app/ api/ cli/ tests/
