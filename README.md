@@ -75,7 +75,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Smart Search (new)**: Unified search engine across all data sources (history, favorites, templates, snippets, collections) with relevance scoring, type filtering, favorites boost, and rich CLI output; supports CSV/JSON export and search statistics
 * **Search History & Export (new)**: Automatic tracking of last 10 searches with timestamp and filters; rerun previous searches instantly; export search results to CSV or JSON for reporting and analysis
 * **Terminal UI (TUI) (new)**: Modern, interactive full-screen terminal interface built with Textual; features split-pane layout, keyboard navigation (F1-F4), live search, mouse support, and beautiful syntax highlighting for browsing all your prompts
-* **Comprehensive Test Suite (new)**: 325+ automated tests covering all features including search history (23 tests), TUI components (17 tests), and all core functionality; 100% passing with full coverage of edge cases and error handling
+* **Quick Actions & Hotkeys (new)**: Convenient shortcuts for common tasks - `promptc last` to re-run last search, `promptc top` to show highest scored favorites, `promptc random` for inspiration from templates/snippets; all with JSON output support
+* **Comprehensive Test Suite (new)**: 346+ automated tests covering all features including search history (23 tests), TUI components (17 tests), quick actions (21 tests), and all core functionality; 100% passing with full coverage of edge cases and error handling
 
 ## Installation
 
@@ -792,6 +793,26 @@ promptc search-history --clear
 promptc search-history --json
 ```
 
+**Quick Actions & Hotkeys (new):** ⚡
+```powershell
+# Show and re-run last search
+promptc last
+
+# Show top favorites by score
+promptc top
+promptc top --limit 5
+
+# Get random template or snippet for inspiration
+promptc random
+promptc random --type template
+promptc random --type snippet
+
+# All support JSON output
+promptc last --json
+promptc top --json
+promptc random --json
+```
+
 **Use Cases:**
 - **Quick Retrieval**: Find that perfect prompt you used last week
 - **Discovery**: Discover related templates and snippets across projects
@@ -799,6 +820,7 @@ promptc search-history --json
 - **Cross-Reference**: See all resources related to a topic
 - **Automation**: Export search results as JSON/CSV for scripts
 - **Efficiency**: Quickly rerun previous searches without retyping
+- **Inspiration**: Get random suggestions to spark creativity
 
 **Search Algorithm:**
 - **Exact Match**: Full query matches content → Score 100

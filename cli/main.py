@@ -4879,6 +4879,215 @@ def tui_command():
         raise typer.Exit(code=1)
 
 
+@app.command("last")
+def last_command(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show the last search query and re-run it."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from app.quick_actions import get_quick_actions
+    import json
+
+    console = Console()
+    qa = get_quick_actions()
+
+    last_search = qa.get_last_search()
+
+    if not last_search:
+        console.print("[yellow]No search history found[/yellow]")
+        console.print("\n[dim]💡 Tip: Use 'promptc search' to perform searches[/dim]")
+        raise typer.Exit(code=0)
+
+    if json_output:
+        console.print(json.dumps(last_search, indent=2, ensure_ascii=False))
+        return
+
+    # Display last search info
+    query = last_search["query"]
+    result_count = last_search["result_count"]
+    timestamp = last_search["timestamp"][:19].replace("T", " ")
+    types_filter = last_search.get("types_filter") or []
+    min_score = last_search.get("min_score", 0.0)
+
+    info_text = f"[bold cyan]Query:[/bold cyan] {query}\n"
+    info_text += f"[bold green]Results:[/bold green] {result_count}\n"
+    info_text += f"[bold yellow]When:[/bold yellow] {timestamp}\n"
+    if types_filter:
+        info_text += f"[bold magenta]Filters:[/bold magenta] {', '.join(types_filter)}\n"
+    if min_score > 0:
+        info_text += f"[bold blue]Min Score:[/bold blue] {min_score}"
+
+    panel = Panel(
+        info_text,
+        title="[bold white]Last Search[/bold white]",
+        border_style="cyan",
+    )
+    console.print(panel)
+
+    # Ask to re-run
+    console.print("\n[dim]Re-running search...[/dim]\n")
+
+    # Re-run the search
+    search_command(
+        query=query,
+        result_type=types_filter if types_filter else None,
+        limit=20,
+        min_score=min_score,
+        json_output=False,
+        show_stats=False,
+        export=None,
+    )
+
+
+@app.command("top")
+def top_command(
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of top favorites to show"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show top favorites sorted by score."""
+    from rich.console import Console
+    from rich.table import Table
+    from app.quick_actions import get_quick_actions
+    import json
+
+    console = Console()
+    qa = get_quick_actions()
+
+    top_favs = qa.get_top_favorites(limit=limit)
+
+    if not top_favs:
+        console.print("[yellow]No favorites found[/yellow]")
+        console.print("\n[dim]💡 Tip: Use 'promptc favorites add' to save your best prompts[/dim]")
+        raise typer.Exit(code=0)
+
+    if json_output:
+        console.print(json.dumps(top_favs, indent=2, ensure_ascii=False))
+        return
+
+    # Display as table
+    table = Table(
+        title=f"[bold cyan]Top {len(top_favs)} Favorites[/bold cyan]",
+        show_header=True,
+        header_style="bold magenta",
+    )
+
+    table.add_column("#", style="yellow", width=3)
+    table.add_column("Score", style="green", width=6)
+    table.add_column("Domain", style="cyan", width=12)
+    table.add_column("Prompt", style="white", width=50)
+    table.add_column("Uses", style="blue", width=5)
+
+    for i, fav in enumerate(top_favs, 1):
+        score_str = f"{fav['score']:.1f}" if fav["score"] else "N/A"
+        domain_str = fav["domain"] or "general"
+        prompt_preview = fav["prompt_text"][:50]
+        if len(fav["prompt_text"]) > 50:
+            prompt_preview += "..."
+        uses = str(fav["use_count"])
+
+        table.add_row(str(i), score_str, domain_str, prompt_preview, uses)
+
+    console.print(table)
+    console.print(f"\n[dim]💡 Showing top {len(top_favs)} of all favorites sorted by score[/dim]")
+
+
+@app.command("random")
+def random_command(
+    item_type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Item type: 'template' or 'snippet'"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Get a random template or snippet for inspiration."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from app.quick_actions import get_quick_actions
+    import json
+
+    console = Console()
+    qa = get_quick_actions()
+
+    # Validate type if provided
+    if item_type and item_type not in ["template", "snippet"]:
+        console.print(f"[red]❌ Invalid type: {item_type}[/red]")
+        console.print("[yellow]Valid types: 'template', 'snippet'[/yellow]")
+        raise typer.Exit(code=1)
+
+    result = qa.get_random_item(item_type=item_type)
+
+    if not result:
+        console.print("[yellow]No items found[/yellow]")
+        if item_type:
+            console.print(f"\n[dim]💡 Tip: Add {item_type}s using 'promptc {item_type}s add'[/dim]")
+        else:
+            console.print(
+                "\n[dim]💡 Tip: Add templates or snippets to get random suggestions[/dim]"
+            )
+        raise typer.Exit(code=0)
+
+    result_type = result["type"]
+    data = result["data"]
+
+    if json_output:
+        console.print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    # Display based on type
+    if result_type == "template":
+        name = data["name"]
+        description = data.get("description", "No description")
+        template_text = data["template_text"]
+        variables = data.get("variables", [])
+        category = data.get("category", "general")
+        tags = data.get("tags", [])
+
+        content = f"[bold yellow]Name:[/bold yellow] {name}\n"
+        content += f"[bold cyan]Category:[/bold cyan] {category}\n"
+        content += f"[bold green]Description:[/bold green] {description}\n"
+        if variables:
+            content += f"[bold magenta]Variables:[/bold magenta] {', '.join(variables)}\n"
+        if tags:
+            content += f"[bold blue]Tags:[/bold blue] {', '.join(tags)}\n"
+        content += "\n[bold white]Template:[/bold white]\n"
+        content += f"[dim]{template_text}[/dim]"
+
+        panel = Panel(
+            content,
+            title="[bold white]📄 Random Template[/bold white]",
+            border_style="yellow",
+        )
+        console.print(panel)
+
+    elif result_type == "snippet":
+        title = data["title"]
+        description = data.get("description", "No description")
+        content_text = data["content"]
+        category = data.get("category", "general")
+        tags = data.get("tags", [])
+        use_count = data.get("use_count", 0)
+
+        content = f"[bold yellow]Title:[/bold yellow] {title}\n"
+        content += f"[bold cyan]Category:[/bold cyan] {category}\n"
+        content += f"[bold green]Description:[/bold green] {description}\n"
+        if tags:
+            content += f"[bold blue]Tags:[/bold blue] {', '.join(tags)}\n"
+        content += f"[bold white]Uses:[/bold white] {use_count}\n\n"
+        content += "[bold white]Content:[/bold white]\n"
+        content += f"[dim]{content_text}[/dim]"
+
+        panel = Panel(
+            content,
+            title="[bold white]📋 Random Snippet[/bold white]",
+            border_style="cyan",
+        )
+        console.print(panel)
+
+    console.print(
+        f"\n[dim]💡 Tip: Run 'promptc random' again for another random {result_type}[/dim]"
+    )
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
