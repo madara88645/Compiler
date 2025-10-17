@@ -2,7 +2,6 @@
 
 import random
 from typing import Optional, List
-from pathlib import Path
 
 from app.search_history import get_search_history_manager
 from app.favorites import get_favorites_manager
