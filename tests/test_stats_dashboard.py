@@ -1,7 +1,7 @@
 """Tests for stats dashboard module."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from app.stats_dashboard import (
     StatsCalculator,
     get_stats_calculator,
@@ -326,10 +326,10 @@ def test_daily_trend_date_format(stats_calc):
 def test_generate_sparkline_width():
     """Test sparkline respects width parameter."""
     data = [1, 2, 3, 4, 5]
-    
+
     sparkline_10 = generate_sparkline(data, width=10)
     sparkline_30 = generate_sparkline(data, width=30)
-    
+
     assert len(sparkline_10) == 10
     assert len(sparkline_30) == 30
 

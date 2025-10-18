@@ -5090,9 +5090,7 @@ def random_command(
 
 @app.command("stats")
 def stats_command(
-    period: Optional[str] = typer.Option(
-        "7d", "--period", "-p", help="Time period: 7d, 30d, all"
-    ),
+    period: Optional[str] = typer.Option("7d", "--period", "-p", help="Time period: 7d, 30d, all"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
     detailed: bool = typer.Option(False, "--detailed", "-d", help="Show detailed statistics"),
 ):
@@ -5103,7 +5101,6 @@ def stats_command(
     from rich.columns import Columns
     from app.stats_dashboard import (
         get_stats_calculator,
-        generate_ascii_bar_chart,
         generate_sparkline,
     )
     import json
@@ -5131,9 +5128,15 @@ def stats_command(
     quality = stats_calc.get_quality_metrics()
 
     # Create summary boxes
-    total_items = sum([overall["total_prompts"], overall["total_favorites"], 
-                       overall["total_templates"], overall["total_snippets"]])
-    
+    total_items = sum(
+        [
+            overall["total_prompts"],
+            overall["total_favorites"],
+            overall["total_templates"],
+            overall["total_snippets"],
+        ]
+    )
+
     summary_text = f"[bold white]Total Items:[/bold white] {total_items}\n"
     summary_text += f"[cyan]Prompts:[/cyan] {overall['total_prompts']}\n"
     summary_text += f"[yellow]Favorites:[/yellow] {overall['total_favorites']}\n"
@@ -5146,7 +5149,7 @@ def stats_command(
     recent_text += f"[yellow]Favorites:[/yellow] {recent['favorites_added']}\n"
     recent_text += f"[green]Searches:[/green] {recent['searches_performed']}"
 
-    quality_text = f"[bold white]Quality Metrics:[/bold white]\n"
+    quality_text = "[bold white]Quality Metrics:[/bold white]\n"
     quality_text += f"[green]Avg Score:[/green] {quality['average_score']}\n"
     quality_text += f"[yellow]High Quality:[/yellow] {quality['high_quality_count']}\n"
     quality_text += f"[cyan]HQ %:[/cyan] {quality['high_quality_percentage']}%"
@@ -5178,7 +5181,9 @@ def stats_command(
         domain_table = Table(show_header=False, box=None, padding=(0, 2))
         for domain, count in top_domains:
             bar = "█" * min(count, 20)
-            domain_table.add_row(f"[cyan]{domain:15}[/cyan]", f"[green]{bar}[/green]", f"[yellow]{count}[/yellow]")
+            domain_table.add_row(
+                f"[cyan]{domain:15}[/cyan]", f"[green]{bar}[/green]", f"[yellow]{count}[/yellow]"
+            )
         console.print(domain_table)
         console.print()
 
@@ -5190,7 +5195,11 @@ def stats_command(
             tag_table = Table(show_header=False, box=None, padding=(0, 2))
             for tag, count in top_tags:
                 bar = "█" * min(count // 2, 15)
-                tag_table.add_row(f"[magenta]{tag:15}[/magenta]", f"[blue]{bar}[/blue]", f"[yellow]{count}[/yellow]")
+                tag_table.add_row(
+                    f"[magenta]{tag:15}[/magenta]",
+                    f"[blue]{bar}[/blue]",
+                    f"[yellow]{count}[/yellow]",
+                )
             console.print(tag_table)
             console.print()
 
@@ -5200,25 +5209,33 @@ def stats_command(
 
     if top_templates or top_snippets:
         console.print("[bold cyan]⭐ Most Used Resources[/bold cyan]")
-        
+
         if top_templates:
             console.print("[green]Templates:[/green]")
             for i, t in enumerate(top_templates, 1):
-                console.print(f"  {i}. [cyan]{t['name']:25}[/cyan] [dim]({t['use_count']} uses)[/dim]")
-        
+                console.print(
+                    f"  {i}. [cyan]{t['name']:25}[/cyan] [dim]({t['use_count']} uses)[/dim]"
+                )
+
         if top_snippets:
             console.print("[magenta]Snippets:[/magenta]")
             for i, s in enumerate(top_snippets, 1):
-                console.print(f"  {i}. [cyan]{s['title']:25}[/cyan] [dim]({s['use_count']} uses)[/dim]")
+                console.print(
+                    f"  {i}. [cyan]{s['title']:25}[/cyan] [dim]({s['use_count']} uses)[/dim]"
+                )
         console.print()
 
     # Search stats
     search_stats = stats_calc.get_search_stats()
     if search_stats["total_searches"] > 0:
         console.print("[bold cyan]🔍 Search Activity[/bold cyan]")
-        console.print(f"  [white]Total Searches:[/white] [yellow]{search_stats['total_searches']}[/yellow]")
-        console.print(f"  [white]Avg Results:[/white] [green]{search_stats['average_results']}[/green]")
-        
+        console.print(
+            f"  [white]Total Searches:[/white] [yellow]{search_stats['total_searches']}[/yellow]"
+        )
+        console.print(
+            f"  [white]Avg Results:[/white] [green]{search_stats['average_results']}[/green]"
+        )
+
         if search_stats["most_common_queries"]:
             console.print("  [white]Popular Queries:[/white]")
             for query, count in search_stats["most_common_queries"][:3]:

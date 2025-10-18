@@ -2,8 +2,7 @@
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
-import json
+from typing import Dict, List, Tuple
 
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
@@ -53,17 +52,11 @@ class StatsCalculator:
         cutoff_str = cutoff_date.isoformat()
 
         recent_prompts = [
-            e
-            for e in self.history_mgr.get_recent(limit=10000)
-            if e.timestamp >= cutoff_str
+            e for e in self.history_mgr.get_recent(limit=10000) if e.timestamp >= cutoff_str
         ]
-        recent_favs = [
-            f for f in self.favorites_mgr.get_all() if f.timestamp >= cutoff_str
-        ]
+        recent_favs = [f for f in self.favorites_mgr.get_all() if f.timestamp >= cutoff_str]
         recent_searches = [
-            s
-            for s in self.search_history_mgr.get_recent(limit=100)
-            if s.timestamp >= cutoff_str
+            s for s in self.search_history_mgr.get_recent(limit=100) if s.timestamp >= cutoff_str
         ]
 
         return {
@@ -82,9 +75,7 @@ class StatsCalculator:
         Returns:
             List of (domain, count) tuples sorted by count
         """
-        domains = [
-            e.domain for e in self.history_mgr.get_recent(limit=10000) if e.domain
-        ]
+        domains = [e.domain for e in self.history_mgr.get_recent(limit=10000) if e.domain]
         counter = Counter(domains)
         return counter.most_common(limit)
 
@@ -125,7 +116,7 @@ class StatsCalculator:
         """
         templates = self.templates_mgr.list_templates()
         # Templates don't have use_count tracking yet, so just return first N
-        
+
         results = []
         for template in templates[:limit]:
             results.append(
