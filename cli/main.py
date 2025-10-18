@@ -5088,6 +5088,150 @@ def random_command(
     )
 
 
+@app.command("stats")
+def stats_command(
+    period: Optional[str] = typer.Option(
+        "7d", "--period", "-p", help="Time period: 7d, 30d, all"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    detailed: bool = typer.Option(False, "--detailed", "-d", help="Show detailed statistics"),
+):
+    """Show usage statistics and dashboard."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.columns import Columns
+    from app.stats_dashboard import (
+        get_stats_calculator,
+        generate_ascii_bar_chart,
+        generate_sparkline,
+    )
+    import json
+
+    console = Console()
+    stats_calc = get_stats_calculator()
+
+    if json_output:
+        stats = stats_calc.get_comprehensive_stats()
+        console.print(json.dumps(stats, indent=2, ensure_ascii=False))
+        return
+
+    # Parse period
+    days = 7
+    if period == "30d":
+        days = 30
+    elif period == "all":
+        days = 365  # Treat "all" as last year
+
+    console.print("\n[bold cyan]📊 PromptC Statistics Dashboard[/bold cyan]\n")
+
+    # Overall stats
+    overall = stats_calc.get_overall_stats()
+    recent = stats_calc.get_recent_activity(days)
+    quality = stats_calc.get_quality_metrics()
+
+    # Create summary boxes
+    total_items = sum([overall["total_prompts"], overall["total_favorites"], 
+                       overall["total_templates"], overall["total_snippets"]])
+    
+    summary_text = f"[bold white]Total Items:[/bold white] {total_items}\n"
+    summary_text += f"[cyan]Prompts:[/cyan] {overall['total_prompts']}\n"
+    summary_text += f"[yellow]Favorites:[/yellow] {overall['total_favorites']}\n"
+    summary_text += f"[green]Templates:[/green] {overall['total_templates']}\n"
+    summary_text += f"[magenta]Snippets:[/magenta] {overall['total_snippets']}\n"
+    summary_text += f"[blue]Collections:[/blue] {overall['total_collections']}"
+
+    recent_text = f"[bold white]Last {days} Days:[/bold white]\n"
+    recent_text += f"[cyan]Prompts:[/cyan] {recent['prompts_created']}\n"
+    recent_text += f"[yellow]Favorites:[/yellow] {recent['favorites_added']}\n"
+    recent_text += f"[green]Searches:[/green] {recent['searches_performed']}"
+
+    quality_text = f"[bold white]Quality Metrics:[/bold white]\n"
+    quality_text += f"[green]Avg Score:[/green] {quality['average_score']}\n"
+    quality_text += f"[yellow]High Quality:[/yellow] {quality['high_quality_count']}\n"
+    quality_text += f"[cyan]HQ %:[/cyan] {quality['high_quality_percentage']}%"
+
+    # Display summary panels
+    panels = [
+        Panel(summary_text, title="[bold]Overview[/bold]", border_style="cyan"),
+        Panel(recent_text, title="[bold]Recent Activity[/bold]", border_style="green"),
+        Panel(quality_text, title="[bold]Quality[/bold]", border_style="yellow"),
+    ]
+    console.print(Columns(panels, equal=True))
+    console.print()
+
+    # Activity trend
+    if detailed:
+        console.print("[bold cyan]📈 Activity Trend (Last 14 Days)[/bold cyan]")
+        daily_trend = stats_calc.get_daily_activity_trend(14)
+        values = [count for _, count in daily_trend]
+        sparkline = generate_sparkline(values, width=50)
+        console.print(f"  {sparkline}")
+        console.print(
+            f"  [dim]Min: {min(values)} | Max: {max(values)} | Avg: {sum(values)//len(values) if values else 0}[/dim]\n"
+        )
+
+    # Top domains
+    top_domains = stats_calc.get_top_domains(5)
+    if top_domains:
+        console.print("[bold cyan]🏆 Top Domains[/bold cyan]")
+        domain_table = Table(show_header=False, box=None, padding=(0, 2))
+        for domain, count in top_domains:
+            bar = "█" * min(count, 20)
+            domain_table.add_row(f"[cyan]{domain:15}[/cyan]", f"[green]{bar}[/green]", f"[yellow]{count}[/yellow]")
+        console.print(domain_table)
+        console.print()
+
+    # Top tags
+    if detailed:
+        top_tags = stats_calc.get_top_tags(8)
+        if top_tags:
+            console.print("[bold cyan]🏷️  Top Tags[/bold cyan]")
+            tag_table = Table(show_header=False, box=None, padding=(0, 2))
+            for tag, count in top_tags:
+                bar = "█" * min(count // 2, 15)
+                tag_table.add_row(f"[magenta]{tag:15}[/magenta]", f"[blue]{bar}[/blue]", f"[yellow]{count}[/yellow]")
+            console.print(tag_table)
+            console.print()
+
+    # Top templates and snippets
+    top_templates = stats_calc.get_top_templates(3)
+    top_snippets = stats_calc.get_top_snippets(3)
+
+    if top_templates or top_snippets:
+        console.print("[bold cyan]⭐ Most Used Resources[/bold cyan]")
+        
+        if top_templates:
+            console.print("[green]Templates:[/green]")
+            for i, t in enumerate(top_templates, 1):
+                console.print(f"  {i}. [cyan]{t['name']:25}[/cyan] [dim]({t['use_count']} uses)[/dim]")
+        
+        if top_snippets:
+            console.print("[magenta]Snippets:[/magenta]")
+            for i, s in enumerate(top_snippets, 1):
+                console.print(f"  {i}. [cyan]{s['title']:25}[/cyan] [dim]({s['use_count']} uses)[/dim]")
+        console.print()
+
+    # Search stats
+    search_stats = stats_calc.get_search_stats()
+    if search_stats["total_searches"] > 0:
+        console.print("[bold cyan]🔍 Search Activity[/bold cyan]")
+        console.print(f"  [white]Total Searches:[/white] [yellow]{search_stats['total_searches']}[/yellow]")
+        console.print(f"  [white]Avg Results:[/white] [green]{search_stats['average_results']}[/green]")
+        
+        if search_stats["most_common_queries"]:
+            console.print("  [white]Popular Queries:[/white]")
+            for query, count in search_stats["most_common_queries"][:3]:
+                console.print(f"    • [cyan]{query}[/cyan] [dim]({count}x)[/dim]")
+        console.print()
+
+    # Tips
+    console.print("[dim]💡 Tips:[/dim]")
+    console.print("[dim]  • Use --detailed for more statistics[/dim]")
+    console.print("[dim]  • Use --period 30d for monthly stats[/dim]")
+    console.print("[dim]  • Use --json for machine-readable output[/dim]")
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()

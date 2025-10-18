@@ -76,7 +76,8 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Search History & Export (new)**: Automatic tracking of last 10 searches with timestamp and filters; rerun previous searches instantly; export search results to CSV or JSON for reporting and analysis
 * **Terminal UI (TUI) (new)**: Modern, interactive full-screen terminal interface built with Textual; features split-pane layout, keyboard navigation (F1-F4), live search, mouse support, and beautiful syntax highlighting for browsing all your prompts
 * **Quick Actions & Hotkeys (new)**: Convenient shortcuts for common tasks - `promptc last` to re-run last search, `promptc top` to show highest scored favorites, `promptc random` for inspiration from templates/snippets; all with JSON output support
-* **Comprehensive Test Suite (new)**: 346+ automated tests covering all features including search history (23 tests), TUI components (17 tests), quick actions (21 tests), and all core functionality; 100% passing with full coverage of edge cases and error handling
+* **Stats Dashboard (new)**: Comprehensive analytics and statistics dashboard showing overall counts, recent activity (7/30 days), top domains/tags/templates/snippets, quality metrics, daily activity trends with sparklines, and search statistics; supports JSON export and detailed view with ASCII visualizations
+* **Comprehensive Test Suite (new)**: 374+ automated tests covering all features including search history (23 tests), TUI components (17 tests), quick actions (21 tests), stats dashboard (28 tests), and all core functionality; 100% passing with full coverage of edge cases and error handling
 
 ## Installation
 
@@ -813,6 +814,38 @@ promptc top --json
 promptc random --json
 ```
 
+**Stats Dashboard (new):** 📊
+```powershell
+# Show overall statistics
+promptc stats
+
+# Show detailed stats with all metrics
+promptc stats --detailed
+
+# Stats for specific time period
+promptc stats --period 7d   # Last 7 days
+promptc stats --period 30d  # Last 30 days
+promptc stats --period all  # All time
+
+# Export stats as JSON
+promptc stats --json
+promptc stats --detailed --json
+
+# Combine options
+promptc stats --period 30d --detailed --json
+```
+
+**Stats Dashboard displays:**
+- **Overview**: Total counts for prompts, favorites, templates, snippets, collections, searches
+- **Recent Activity**: Prompts created, favorites added, searches performed in selected period
+- **Quality Metrics**: Average score, high quality count (score ≥ 8.0), high quality percentage
+- **Activity Trend**: 14-day sparkline visualization of daily activity
+- **Top Domains**: Most common domains with ASCII bar chart (top 5)
+- **Top Tags**: Most frequently used tags across all items (detailed mode only)
+- **Most Used**: Top templates and snippets (top 3 each)
+- **Search Activity**: Total searches, average results per search, most common queries
+- **Helpful Tips**: Quick reminders for key commands
+
 **Use Cases:**
 - **Quick Retrieval**: Find that perfect prompt you used last week
 - **Discovery**: Discover related templates and snippets across projects
@@ -821,6 +854,9 @@ promptc random --json
 - **Automation**: Export search results as JSON/CSV for scripts
 - **Efficiency**: Quickly rerun previous searches without retyping
 - **Inspiration**: Get random suggestions to spark creativity
+- **Analytics**: Track your prompt usage patterns and quality trends over time
+- **Insights**: Identify most used domains, tags, templates, and snippets
+- **Monitoring**: Keep track of recent activity and search behavior
 
 **Search Algorithm:**
 - **Exact Match**: Full query matches content → Score 100
