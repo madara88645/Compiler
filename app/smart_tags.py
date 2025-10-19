@@ -111,7 +111,7 @@ class SmartTagger:
         # Find favorite by ID
         favorites = self.favorites_mgr.get_all()
         favorite = next((f for f in favorites if f.id == favorite_id), None)
-        
+
         if not favorite:
             return []
 
@@ -362,7 +362,7 @@ class SmartTagger:
             # Find favorite by ID
             favorites = self.favorites_mgr.get_all()
             favorite = next((f for f in favorites if f.id == item_id), None)
-            
+
             if not favorite:
                 return []
 

@@ -5253,12 +5253,14 @@ def stats_command(
 def tags_command(
     action: str = typer.Argument(..., help="Action: suggest, auto-apply, analyze, cleanup"),
     item_id: Optional[str] = typer.Option(None, "--id", help="Item ID for suggestions"),
-    source: Optional[str] = typer.Option("favorites", "--source", help="Source type: favorites, prompts"),
+    source: Optional[str] = typer.Option(
+        "favorites", "--source", help="Source type: favorites, prompts"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """Smart tags management and suggestions.
-    
+
     Actions:
     - suggest: Suggest tags for an item
     - auto-apply: Auto-tag all items
@@ -5305,7 +5307,7 @@ def tags_command(
 
         # Auto-tag favorites
         fav_suggestions = tagger.auto_tag_all_favorites(dry_run=dry_run)
-        
+
         # Auto-tag prompts
         prompt_suggestions = tagger.auto_tag_all_prompts(dry_run=dry_run)
 
@@ -5346,7 +5348,9 @@ def tags_command(
                 json.dumps(
                     {
                         "total_unique_tags": len(all_tags),
-                        "tag_statistics": [{"tag": tag, "count": count} for tag, count in tag_stats],
+                        "tag_statistics": [
+                            {"tag": tag, "count": count} for tag, count in tag_stats
+                        ],
                     },
                     indent=2,
                 )
@@ -5402,12 +5406,16 @@ def tags_command(
 
         if unused:
             console.print("\n[bold cyan]🧹 Unused Tags Found[/bold cyan]\n")
-            console.print(f"[yellow]Found {len(unused)} predefined tags that are not in use:[/yellow]\n")
+            console.print(
+                f"[yellow]Found {len(unused)} predefined tags that are not in use:[/yellow]\n"
+            )
 
             for tag in sorted(unused):
                 console.print(f"  • [dim]{tag}[/dim]")
 
-            console.print(f"\n[dim]These tags are defined in patterns but not used in any items[/dim]")
+            console.print(
+                "\n[dim]These tags are defined in patterns but not used in any items[/dim]"
+            )
         else:
             console.print("[green]✓ All predefined tags are in use![/green]")
 
