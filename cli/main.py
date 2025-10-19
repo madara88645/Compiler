@@ -5249,6 +5249,174 @@ def stats_command(
     console.print("[dim]  • Use --json for machine-readable output[/dim]")
 
 
+@app.command("tags")
+def tags_command(
+    action: str = typer.Argument(..., help="Action: suggest, auto-apply, analyze, cleanup"),
+    item_id: Optional[str] = typer.Option(None, "--id", help="Item ID for suggestions"),
+    source: Optional[str] = typer.Option("favorites", "--source", help="Source type: favorites, prompts"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Smart tags management and suggestions.
+    
+    Actions:
+    - suggest: Suggest tags for an item
+    - auto-apply: Auto-tag all items
+    - analyze: Show tag statistics
+    - cleanup: Find and remove unused tags
+    """
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from app.smart_tags import get_smart_tagger
+    import json
+
+    console = Console()
+    tagger = get_smart_tagger()
+
+    if action == "suggest":
+        if not item_id:
+            console.print("[red]Error: --id required for suggest action[/red]")
+            raise typer.Exit(1)
+
+        # Suggest tags based on source
+        if source == "favorites":
+            suggested = tagger.suggest_tags_for_favorite(item_id)
+        elif source == "prompts":
+            suggested = tagger.suggest_tags_for_prompt(item_id)
+        else:
+            console.print(f"[red]Unknown source: {source}[/red]")
+            raise typer.Exit(1)
+
+        if json_output:
+            print(json.dumps({"item_id": item_id, "suggested_tags": suggested}, indent=2))
+            return
+
+        if suggested:
+            console.print(f"\n[bold cyan]🏷️  Suggested Tags for {item_id}[/bold cyan]")
+            for tag in suggested:
+                console.print(f"  • [green]{tag}[/green]")
+            console.print()
+        else:
+            console.print(f"[yellow]No new tags to suggest for {item_id}[/yellow]")
+
+    elif action == "auto-apply":
+        console.print("\n[bold cyan]🤖 Auto-Tagging Items...[/bold cyan]\n")
+
+        # Auto-tag favorites
+        fav_suggestions = tagger.auto_tag_all_favorites(dry_run=dry_run)
+        
+        # Auto-tag prompts
+        prompt_suggestions = tagger.auto_tag_all_prompts(dry_run=dry_run)
+
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "favorites": fav_suggestions,
+                        "prompts": prompt_suggestions,
+                        "dry_run": dry_run,
+                    },
+                    indent=2,
+                )
+            )
+            return
+
+        total_items = len(fav_suggestions) + len(prompt_suggestions)
+        if total_items > 0:
+            if dry_run:
+                console.print("[yellow]DRY RUN - No changes applied[/yellow]\n")
+
+            console.print(f"[green]Tagged {len(fav_suggestions)} favorites[/green]")
+            console.print(f"[green]Tagged {len(prompt_suggestions)} prompts[/green]")
+            console.print(f"\n[bold]Total: {total_items} items updated[/bold]")
+
+            if dry_run:
+                console.print("\n[dim]Run without --dry-run to apply changes[/dim]")
+        else:
+            console.print("[yellow]All items already have appropriate tags[/yellow]")
+
+    elif action == "analyze":
+        # Get tag statistics
+        tag_stats = tagger.get_tag_statistics()
+        all_tags = tagger.get_all_tags()
+
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "total_unique_tags": len(all_tags),
+                        "tag_statistics": [{"tag": tag, "count": count} for tag, count in tag_stats],
+                    },
+                    indent=2,
+                )
+            )
+            return
+
+        console.print("\n[bold cyan]📊 Tag Analytics[/bold cyan]\n")
+
+        # Summary
+        summary = Panel(
+            f"[white]Total Unique Tags:[/white] [yellow]{len(all_tags)}[/yellow]\n"
+            f"[white]Total Tag Uses:[/white] [green]{sum(count for _, count in tag_stats)}[/green]",
+            title="Summary",
+            border_style="cyan",
+        )
+        console.print(summary)
+        console.print()
+
+        # Top tags table
+        if tag_stats:
+            console.print("[bold cyan]🏆 Most Used Tags[/bold cyan]")
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Rank", style="dim", width=6)
+            table.add_column("Tag", style="cyan")
+            table.add_column("Count", justify="right", style="green")
+            table.add_column("Bar", style="yellow")
+
+            for i, (tag, count) in enumerate(tag_stats[:15], 1):
+                bar = "█" * min(count, 30)
+                table.add_row(str(i), tag, str(count), bar)
+
+            console.print(table)
+            console.print()
+
+        # Show some co-occurrence examples for top tag
+        if tag_stats:
+            top_tag = tag_stats[0][0]
+            cooccur = tagger.get_tag_cooccurrence(top_tag, limit=5)
+
+            if cooccur:
+                console.print(f"[bold cyan]🔗 Tags Often Used with '{top_tag}'[/bold cyan]")
+                for other_tag, count in cooccur:
+                    console.print(f"  • [magenta]{other_tag}[/magenta] [dim]({count} times)[/dim]")
+                console.print()
+
+    elif action == "cleanup":
+        # Find unused tags
+        unused = tagger.find_unused_tags()
+
+        if json_output:
+            print(json.dumps({"unused_tags": sorted(list(unused))}, indent=2))
+            return
+
+        if unused:
+            console.print("\n[bold cyan]🧹 Unused Tags Found[/bold cyan]\n")
+            console.print(f"[yellow]Found {len(unused)} predefined tags that are not in use:[/yellow]\n")
+
+            for tag in sorted(unused):
+                console.print(f"  • [dim]{tag}[/dim]")
+
+            console.print(f"\n[dim]These tags are defined in patterns but not used in any items[/dim]")
+        else:
+            console.print("[green]✓ All predefined tags are in use![/green]")
+
+    else:
+        console.print(f"[red]Unknown action: {action}[/red]")
+        console.print("[yellow]Valid actions: suggest, auto-apply, analyze, cleanup[/yellow]")
+        raise typer.Exit(1)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
