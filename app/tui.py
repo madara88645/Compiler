@@ -17,6 +17,7 @@ from rich.text import Text
 from typing import Optional, List
 
 from app.search import get_search_engine, SearchResult, SearchResultType
+from app.smart_tags import get_smart_tagger
 
 
 class SearchResultItem(ListItem):
@@ -43,6 +44,23 @@ class SearchResultItem(ListItem):
         text.append(f"{icon} ", style="bold yellow")
         text.append(f"[{score}] ", style="green")
         text.append(title, style="cyan")
+        return text
+
+
+class TagItem(ListItem):
+    """Custom list item for tags."""
+
+    def __init__(self, tag: str, count: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tag = tag
+        self.count = count
+
+    def render(self) -> Text:
+        """Render the tag with usage count."""
+        text = Text()
+        text.append("🏷️  ", style="bold yellow")
+        text.append(f"{self.tag:20}", style="cyan")
+        text.append(f" [{self.count:3}]", style="green")
         return text
 
 
@@ -158,13 +176,16 @@ class SearchApp(App):
         Binding("f2", "show_history", "History", show=True),
         Binding("f3", "show_favorites", "Favorites", show=True),
         Binding("f4", "show_collections", "Collections", show=True),
+        Binding("f5", "show_tags", "Tags", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.search_engine = get_search_engine()
+        self.smart_tagger = get_smart_tagger()
         self.current_results: List[SearchResult] = []
+        self.tags_mode = False
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -286,6 +307,61 @@ class SearchApp(App):
         query = search_input.value.strip() or "*"
         self.perform_search(query, types_filter=["collection"])
         self.query_one("#status-bar", Static).update("🗂️ Filtering: Collections only")
+
+    def action_show_tags(self) -> None:
+        """Show tags panel."""
+        if self.tags_mode:
+            # Switch back to search mode
+            self.tags_mode = False
+            self.query_one("#results-label", Label).update("Results (0)")
+            self.query_one("#status-bar", Static).update("Ready | Press F1-F5 for actions")
+            results_list = self.query_one("#results-list", ListView)
+            results_list.clear()
+            return
+
+        # Switch to tags mode
+        self.tags_mode = True
+        self.query_one("#status-bar", Static).update("🏷️ Tags Panel | Loading tags...")
+
+        # Get tag statistics
+        tag_stats = self.smart_tagger.get_tag_statistics()
+
+        # Update results list with tags
+        results_list = self.query_one("#results-list", ListView)
+        results_list.clear()
+
+        for tag, count in tag_stats:
+            results_list.append(TagItem(tag, count))
+
+        # Update label
+        self.query_one("#results-label", Label).update(f"Tags ({len(tag_stats)})")
+
+        # Update status
+        total_uses = sum(count for _, count in tag_stats)
+        self.query_one("#status-bar", Static).update(
+            f"🏷️ {len(tag_stats)} unique tags, {total_uses} total uses | Press F5 again to exit"
+        )
+
+        # Update preview with tag stats
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        content = [
+            "[bold cyan]Tag Analytics[/]",
+            "",
+            f"[bold white]Total Unique Tags:[/] [yellow]{len(tag_stats)}[/]",
+            f"[bold white]Total Tag Uses:[/] [green]{total_uses}[/]",
+            "",
+            "[bold white]Top 10 Tags:[/]",
+        ]
+
+        for i, (tag, count) in enumerate(tag_stats[:10], 1):
+            bar = "█" * min(count, 30)
+            content.append(f"{i:2}. [cyan]{tag:20}[/] [{count:3}] [yellow]{bar}[/]")
+
+        preview_pane.update("\n".join(content))
+
+        # Focus on tags list
+        if tag_stats:
+            results_list.focus()
 
 
 def run_tui():

@@ -1,6 +1,7 @@
 """Tests for Terminal UI components."""
 
 from app.search import SearchResult, SearchResultType
+from app.tui import TagItem
 
 
 # Test SearchResultItem rendering without requiring full Textual app
@@ -331,10 +332,49 @@ def test_search_app_bindings_defined():
     assert hasattr(SearchApp, "BINDINGS")
     bindings = SearchApp.BINDINGS
 
-    # Should have bindings for F1-F4 and Ctrl+C
+    # Should have bindings for F1-F5 and Ctrl+C
     binding_keys = [b.key for b in bindings]
     assert "f1" in binding_keys
     assert "f2" in binding_keys
     assert "f3" in binding_keys
     assert "f4" in binding_keys
+    assert "f5" in binding_keys
     assert "ctrl+c" in binding_keys
+
+
+def test_tag_item_rendering():
+    """Test TagItem renders correctly."""
+    item = TagItem("python", 15)
+    rendered = item.render()
+
+    # Should contain tag icon, tag name, and count
+    assert "🏷️" in rendered.plain
+    assert "python" in rendered.plain
+    assert "15" in rendered.plain
+
+
+def test_tag_item_with_zero_count():
+    """Test TagItem with zero usage count."""
+    item = TagItem("unused-tag", 0)
+    rendered = item.render()
+
+    assert "unused-tag" in rendered.plain
+    assert "0" in rendered.plain
+
+
+def test_tag_item_with_large_count():
+    """Test TagItem with large usage count."""
+    item = TagItem("popular", 999)
+    rendered = item.render()
+
+    assert "popular" in rendered.plain
+    assert "999" in rendered.plain
+
+
+def test_tag_item_name_formatting():
+    """Test that tag names are formatted correctly."""
+    item = TagItem("long-tag-name", 5)
+    rendered = item.render()
+
+    # Tag name should be present
+    assert "long-tag-name" in rendered.plain
