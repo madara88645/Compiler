@@ -3144,6 +3144,7 @@ def template_fill(
     if copy:
         try:
             import pyperclip
+
             pyperclip.copy(filled_content)
             console.print("[green]✓ Copied to clipboard[/green]")
         except ImportError:

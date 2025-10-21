@@ -1,7 +1,6 @@
 """Template preview and variable filling functionality."""
 
 import re
-from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -87,8 +86,7 @@ class TemplatePreview:
         # Show template info
         self.console.print(
             Panel(
-                f"[bold cyan]{template.name}[/bold cyan]\n"
-                f"[dim]{template.description}[/dim]",
+                f"[bold cyan]{template.name}[/bold cyan]\n" f"[dim]{template.description}[/dim]",
                 title="📄 Template",
                 border_style="cyan",
             )
@@ -114,9 +112,7 @@ class TemplatePreview:
         if variables:
             is_valid, missing = self.validate_variables(content, variables)
             if not is_valid:
-                self.console.print(
-                    f"[yellow]⚠ Missing variables: {', '.join(missing)}[/yellow]\n"
-                )
+                self.console.print(f"[yellow]⚠ Missing variables: {', '.join(missing)}[/yellow]\n")
 
             filled = self.fill_template(content, variables)
             self.console.print(
@@ -154,9 +150,7 @@ class TemplatePreview:
         required_vars = self.extract_variables(content)
 
         if not required_vars:
-            self.console.print(
-                "[yellow]⚠ This template has no variables to fill[/yellow]"
-            )
+            self.console.print("[yellow]⚠ This template has no variables to fill[/yellow]")
             return True, content, {}
 
         self.console.print(

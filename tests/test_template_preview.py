@@ -1,7 +1,7 @@
 """Tests for template preview and variable filling."""
 
 import pytest
-from app.template_preview import TemplatePreview, get_template_preview
+from app.template_preview import get_template_preview
 from app.templates_manager import get_templates_manager
 
 
