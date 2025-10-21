@@ -3042,6 +3042,114 @@ def template_validate(
         raise typer.Exit(code=1)
 
 
+@template_app.command("preview")
+def template_preview(
+    template_id: str = typer.Argument(..., help="Template ID to preview"),
+    vars: Optional[str] = typer.Option(
+        None, "--vars", help="Variables as key=value pairs (comma-separated)"
+    ),
+):
+    """Preview a template with optional variable values.
+
+    Examples:
+        promptc template preview my-template
+        promptc template preview my-template --vars "name=John,age=25"
+    """
+    from app.template_preview import get_template_preview
+
+    preview = get_template_preview()
+
+    # Parse variables if provided
+    variables = {}
+    if vars:
+        for pair in vars.split(","):
+            if "=" in pair:
+                key, value = pair.split("=", 1)
+                variables[key.strip()] = value.strip()
+
+    success, message = preview.preview_template(template_id, variables if variables else None)
+
+    if not success:
+        from rich.console import Console
+
+        Console().print(f"[red]✗ {message}[/red]")
+        raise typer.Exit(code=1)
+
+
+@template_app.command("fill")
+def template_fill(
+    template_id: str = typer.Argument(..., help="Template ID to fill"),
+    interactive: bool = typer.Option(
+        True, "--interactive/--no-interactive", help="Interactive mode for variable input"
+    ),
+    vars: Optional[str] = typer.Option(
+        None, "--vars", help="Variables as key=value pairs (comma-separated)"
+    ),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save to file"),
+    copy: bool = typer.Option(False, "--copy", "-c", help="Copy result to clipboard"),
+):
+    """Fill a template with variable values.
+
+    Examples:
+        promptc template fill my-template  # Interactive mode
+        promptc template fill my-template --vars "name=John,age=25" --no-interactive
+        promptc template fill my-template --output result.txt
+    """
+    from app.template_preview import get_template_preview
+    from rich.console import Console
+
+    preview = get_template_preview()
+    console = Console()
+
+    if interactive:
+        # Interactive mode - prompt for each variable
+        success, filled_content, variables_used = preview.interactive_fill(template_id)
+
+        if not success:
+            console.print(f"[red]✗ {filled_content}[/red]")
+            raise typer.Exit(code=1)
+    else:
+        # Non-interactive mode - use provided variables
+        from app.templates_manager import get_templates_manager
+
+        manager = get_templates_manager()
+        template = manager.get_template(template_id)
+
+        if not template:
+            console.print(f"[red]✗ Template '{template_id}' not found[/red]")
+            raise typer.Exit(code=1)
+
+        # Parse variables
+        variables_used = {}
+        if vars:
+            for pair in vars.split(","):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    variables_used[key.strip()] = value.strip()
+
+        # Validate variables
+        is_valid, missing = preview.validate_variables(template.template_text, variables_used)
+        if not is_valid:
+            console.print(f"[red]✗ Missing variables: {', '.join(missing)}[/red]")
+            raise typer.Exit(code=1)
+
+        filled_content = preview.fill_template(template.template_text, variables_used)
+        console.print("[green]✓ Template filled successfully[/green]")
+
+    # Handle output
+    if output:
+        output.write_text(filled_content, encoding="utf-8")
+        console.print(f"[green]✓ Saved to {output}[/green]")
+
+    if copy:
+        try:
+            import pyperclip
+            pyperclip.copy(filled_content)
+            console.print("[green]✓ Copied to clipboard[/green]")
+        except ImportError:
+            console.print("[yellow]⚠ pyperclip not installed, skipping clipboard copy[/yellow]")
+
+
 # ============================================================================
 # Quick Snippets Commands
 # ============================================================================
