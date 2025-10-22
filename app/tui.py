@@ -399,7 +399,9 @@ class SearchApp(App):
 
         # Switch to categories mode
         self.categories_mode = True
-        self.query_one("#status-bar", Static).update("📁 Categories Browser | Loading categories...")
+        self.query_one("#status-bar", Static).update(
+            "📁 Categories Browser | Loading categories..."
+        )
 
         # Get template categories
         from app.templates_manager import get_templates_manager
@@ -487,7 +489,11 @@ class SearchApp(App):
             content.append("")
             for i, template in enumerate(category_templates, 1):
                 # Truncate description
-                desc = template.description[:60] + "..." if len(template.description) > 60 else template.description
+                desc = (
+                    template.description[:60] + "..."
+                    if len(template.description) > 60
+                    else template.description
+                )
                 content.append(f"{i:2}. [cyan bold]{template.name}[/]")
                 content.append(f"    [dim]{desc}[/dim]")
                 content.append(f"    [yellow]ID:[/] {template.id}")
