@@ -378,3 +378,75 @@ def test_tag_item_name_formatting():
 
     # Tag name should be present
     assert "long-tag-name" in rendered.plain
+
+
+def test_category_item_rendering():
+    """Test CategoryItem renders correctly."""
+    from app.tui import CategoryItem
+
+    item = CategoryItem("technology", 25)
+    rendered = item.render()
+
+    # Should contain folder icon, category name, and template count
+    assert "📁" in rendered.plain
+    assert "technology" in rendered.plain
+    assert "25" in rendered.plain
+    assert "templates" in rendered.plain
+
+
+def test_category_item_with_zero_templates():
+    """Test CategoryItem with no templates."""
+    from app.tui import CategoryItem
+
+    item = CategoryItem("empty-category", 0)
+    rendered = item.render()
+
+    assert "empty-category" in rendered.plain
+    assert "0 templates" in rendered.plain
+
+
+def test_category_item_with_single_template():
+    """Test CategoryItem with single template."""
+    from app.tui import CategoryItem
+
+    item = CategoryItem("business", 1)
+    rendered = item.render()
+
+    assert "business" in rendered.plain
+    assert "1 templates" in rendered.plain
+
+
+def test_category_item_name_formatting():
+    """Test that category names are formatted correctly."""
+    from app.tui import CategoryItem
+
+    item = CategoryItem("long-category-name", 10)
+    rendered = item.render()
+
+    # Category name should be present
+    assert "long-category-name" in rendered.plain
+    assert "10" in rendered.plain
+
+
+def test_app_has_f7_binding():
+    """Test that SearchApp has F7 binding for categories."""
+    from app.tui import SearchApp
+
+    bindings = SearchApp.BINDINGS
+    binding_keys = [b.key for b in bindings]
+
+    # Should have F7 binding
+    assert "f7" in binding_keys
+
+    # Find the F7 binding
+    f7_binding = next(b for b in bindings if b.key == "f7")
+    assert f7_binding.action == "show_categories"
+
+
+def test_app_has_categories_mode_flag():
+    """Test that SearchApp has categories_mode flag."""
+    from app.tui import SearchApp
+
+    app = SearchApp()
+    assert hasattr(app, "categories_mode")
+    assert app.categories_mode is False  # Should start as False

@@ -64,6 +64,23 @@ class TagItem(ListItem):
         return text
 
 
+class CategoryItem(ListItem):
+    """Custom list item for template categories."""
+
+    def __init__(self, category: str, count: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.category = category
+        self.count = count
+
+    def render(self) -> Text:
+        """Render the category with template count."""
+        text = Text()
+        text.append("📁 ", style="bold blue")
+        text.append(f"{self.category:20}", style="cyan bold")
+        text.append(f" ({self.count} templates)", style="green dim")
+        return text
+
+
 class PreviewPane(Static):
     """Preview pane showing detailed information about selected result."""
 
@@ -177,6 +194,7 @@ class SearchApp(App):
         Binding("f3", "show_favorites", "Favorites", show=True),
         Binding("f4", "show_collections", "Collections", show=True),
         Binding("f5", "show_tags", "Tags", show=True),
+        Binding("f7", "show_categories", "Categories", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
 
@@ -186,6 +204,7 @@ class SearchApp(App):
         self.smart_tagger = get_smart_tagger()
         self.current_results: List[SearchResult] = []
         self.tags_mode = False
+        self.categories_mode = False
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -278,10 +297,14 @@ class SearchApp(App):
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle result selection."""
-        if event.list_view.id == "results-list" and isinstance(event.item, SearchResultItem):
-            result = event.item.result
-            preview_pane = self.query_one("#preview-pane", PreviewPane)
-            preview_pane.update_preview(result)
+        if event.list_view.id == "results-list":
+            if isinstance(event.item, SearchResultItem):
+                result = event.item.result
+                preview_pane = self.query_one("#preview-pane", PreviewPane)
+                preview_pane.update_preview(result)
+            elif isinstance(event.item, CategoryItem):
+                # Show templates in selected category
+                self._show_category_templates(event.item.category)
 
     def action_search_focus(self) -> None:
         """Focus on search input."""
@@ -362,6 +385,120 @@ class SearchApp(App):
         # Focus on tags list
         if tag_stats:
             results_list.focus()
+
+    def action_show_categories(self) -> None:
+        """Show template categories browser."""
+        if self.categories_mode:
+            # Switch back to search mode
+            self.categories_mode = False
+            self.query_one("#results-label", Label).update("Results (0)")
+            self.query_one("#status-bar", Static).update("Ready | Press F1-F7 for actions")
+            results_list = self.query_one("#results-list", ListView)
+            results_list.clear()
+            return
+
+        # Switch to categories mode
+        self.categories_mode = True
+        self.query_one("#status-bar", Static).update("📁 Categories Browser | Loading categories...")
+
+        # Get template categories
+        from app.templates_manager import get_templates_manager
+
+        templates_mgr = get_templates_manager()
+        all_templates = templates_mgr.get_all()
+
+        # Count templates per category
+        category_counts = {}
+        for template in all_templates:
+            category = template.category or "uncategorized"
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+        # Sort by count (descending)
+        sorted_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)
+
+        # Update results list with categories
+        results_list = self.query_one("#results-list", ListView)
+        results_list.clear()
+
+        for category, count in sorted_categories:
+            results_list.append(CategoryItem(category, count))
+
+        # Update label
+        self.query_one("#results-label", Label).update(f"Categories ({len(sorted_categories)})")
+
+        # Update status
+        total_templates = sum(count for _, count in sorted_categories)
+        self.query_one("#status-bar", Static).update(
+            f"📁 {len(sorted_categories)} categories, {total_templates} templates | Press F7 again to exit"
+        )
+
+        # Update preview with category tree
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        content = [
+            "[bold cyan]Template Categories Overview[/]",
+            "",
+            f"[bold white]Total Categories:[/] [yellow]{len(sorted_categories)}[/]",
+            f"[bold white]Total Templates:[/] [green]{total_templates}[/]",
+            "",
+            "[bold white]Category Tree:[/]",
+            "",
+        ]
+
+        for category, count in sorted_categories:
+            percentage = (count / total_templates * 100) if total_templates > 0 else 0
+            bar_length = int(percentage / 3)  # Scale to fit
+            bar = "█" * bar_length
+            content.append(
+                f"📁 [cyan bold]{category:20}[/] [{count:3}] [yellow]{bar}[/] [dim]{percentage:.1f}%[/dim]"
+            )
+
+        preview_pane.update("\n".join(content))
+
+        # Focus on categories list
+        if sorted_categories:
+            results_list.focus()
+
+    def _show_category_templates(self, category: str) -> None:
+        """Show templates in a specific category in preview pane."""
+        from app.templates_manager import get_templates_manager
+
+        templates_mgr = get_templates_manager()
+        all_templates = templates_mgr.get_all()
+
+        # Filter templates by category
+        category_templates = [
+            t for t in all_templates if (t.category or "uncategorized") == category
+        ]
+
+        # Sort by name
+        category_templates.sort(key=lambda t: t.name)
+
+        # Build preview content
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        content = [
+            f"[bold cyan]Category: {category}[/]",
+            "",
+            f"[bold white]Templates:[/] [yellow]{len(category_templates)}[/]",
+            "",
+        ]
+
+        if category_templates:
+            content.append("[bold white]Template List:[/]")
+            content.append("")
+            for i, template in enumerate(category_templates, 1):
+                # Truncate description
+                desc = template.description[:60] + "..." if len(template.description) > 60 else template.description
+                content.append(f"{i:2}. [cyan bold]{template.name}[/]")
+                content.append(f"    [dim]{desc}[/dim]")
+                content.append(f"    [yellow]ID:[/] {template.id}")
+                if template.tags:
+                    tags_str = ", ".join(template.tags[:3])
+                    content.append(f"    [green]Tags:[/] {tags_str}")
+                content.append("")
+        else:
+            content.append("[dim]No templates in this category[/dim]")
+
+        preview_pane.update("\n".join(content))
 
 
 def run_tui():
