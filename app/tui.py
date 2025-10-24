@@ -194,6 +194,7 @@ class SearchApp(App):
         Binding("f3", "show_favorites", "Favorites", show=True),
         Binding("f4", "show_collections", "Collections", show=True),
         Binding("f5", "show_tags", "Tags", show=True),
+        Binding("f6", "show_stats", "Stats", show=True),
         Binding("f7", "show_categories", "Categories", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
@@ -205,6 +206,7 @@ class SearchApp(App):
         self.current_results: List[SearchResult] = []
         self.tags_mode = False
         self.categories_mode = False
+        self.stats_mode = False
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -503,6 +505,141 @@ class SearchApp(App):
                 content.append("")
         else:
             content.append("[dim]No templates in this category[/dim]")
+
+        preview_pane.update("\n".join(content))
+
+    def action_show_stats(self) -> None:
+        """Show statistics dashboard."""
+        if self.stats_mode:
+            # Switch back to search mode
+            self.stats_mode = False
+            self.query_one("#results-label", Label).update("Results (0)")
+            self.query_one("#status-bar", Static).update("Ready | Press F1-F7 for actions")
+            results_list = self.query_one("#results-list", ListView)
+            results_list.clear()
+            return
+
+        # Switch to stats mode
+        self.stats_mode = True
+        self.query_one("#status-bar", Static).update("📊 Statistics Dashboard | Loading stats...")
+
+        # Get statistics
+        from app.stats_dashboard import get_stats_calculator
+
+        stats_calc = get_stats_calculator()
+
+        # Overall stats
+        overall = stats_calc.get_overall_stats()
+        recent_7d = stats_calc.get_recent_activity(days=7)
+        recent_30d = stats_calc.get_recent_activity(days=30)
+        quality = stats_calc.get_quality_metrics()
+
+        # Top items
+        top_domains = stats_calc.get_top_domains(5)
+        top_tags = stats_calc.get_top_tags(5)
+        top_templates = stats_calc.get_top_templates(3)
+
+        # Update results list - show key metrics as list items
+        results_list = self.query_one("#results-list", ListView)
+        results_list.clear()
+
+        # Add metric items (using Static as simple display)
+        from textual.widgets import Static as MetricItem
+
+        metrics = [
+            f"📊 Total Prompts: {overall['total_prompts']}",
+            f"⭐ Favorites: {overall['total_favorites']}",
+            f"📄 Templates: {overall['total_templates']}",
+            f"📋 Snippets: {overall['total_snippets']}",
+            f"🗂️ Collections: {overall['total_collections']}",
+            "",
+            f"📈 Last 7 Days: {recent_7d['total_activity']} actions",
+            f"📈 Last 30 Days: {recent_30d['total_activity']} actions",
+            "",
+            f"⭐ Avg Quality: {quality['average_score']:.1f}/5.0",
+            f"🏆 High Quality: {quality['high_quality_percentage']:.1f}%",
+        ]
+
+        for metric in metrics:
+            if metric:  # Skip empty strings
+                item = ListItem()
+                item.add_class("metric-item")
+                results_list.append(item)
+
+        # Update label
+        self.query_one("#results-label", Label).update("Statistics Overview")
+
+        # Update status
+        total_items = (
+            overall["total_prompts"]
+            + overall["total_favorites"]
+            + overall["total_templates"]
+            + overall["total_snippets"]
+        )
+        self.query_one("#status-bar", Static).update(
+            f"📊 {total_items} total items | Press F6 again to exit"
+        )
+
+        # Build detailed stats for preview pane
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        content = [
+            "[bold cyan]📊 Statistics Dashboard[/]",
+            "",
+            "[bold white]Overall Counts:[/]",
+            f"  Prompts:     [yellow]{overall['total_prompts']:4}[/]",
+            f"  Favorites:   [yellow]{overall['total_favorites']:4}[/]",
+            f"  Templates:   [yellow]{overall['total_templates']:4}[/]",
+            f"  Snippets:    [yellow]{overall['total_snippets']:4}[/]",
+            f"  Collections: [yellow]{overall['total_collections']:4}[/]",
+            "",
+            "[bold white]Recent Activity:[/]",
+            f"  Last 7 days:  [green]{recent_7d['total_activity']:3}[/] actions",
+            f"  Last 30 days: [green]{recent_30d['total_activity']:3}[/] actions",
+            "",
+            "[bold white]Quality Metrics:[/]",
+            f"  Average Score: [yellow]{quality['average_score']:.2f}[/]/5.0",
+            f"  High Quality:  [green]{quality['high_quality_percentage']:.1f}%[/]",
+            f"  Total Rated:   [cyan]{quality['total_rated']}[/]",
+            "",
+        ]
+
+        # Top domains
+        if top_domains:
+            content.append("[bold white]Top Domains:[/]")
+            for i, domain_info in enumerate(top_domains, 1):
+                count = domain_info["count"]
+                bar = "█" * min(count, 20)
+                content.append(
+                    f"  {i}. [cyan]{domain_info['domain']:15}[/] [{count:3}] [yellow]{bar}[/]"
+                )
+            content.append("")
+
+        # Top tags
+        if top_tags:
+            content.append("[bold white]Top Tags:[/]")
+            for i, tag_info in enumerate(top_tags, 1):
+                count = tag_info["count"]
+                bar = "█" * min(count // 2, 20)
+                content.append(
+                    f"  {i}. [green]{tag_info['tag']:15}[/] [{count:3}] [yellow]{bar}[/]"
+                )
+            content.append("")
+
+        # Top templates
+        if top_templates:
+            content.append("[bold white]Most Used Templates:[/]")
+            for i, tmpl in enumerate(top_templates, 1):
+                content.append(
+                    f"  {i}. [cyan]{tmpl['name']:25}[/] [dim]({tmpl['use_count']} uses)[/dim]"
+                )
+            content.append("")
+
+        # Add sparkline for daily trend
+        daily_trend = stats_calc.get_daily_activity_trend(days=7)
+        if daily_trend:
+            sparkline = stats_calc.generate_sparkline(daily_trend, width=30)
+            content.append("[bold white]7-Day Activity Trend:[/]")
+            content.append(f"  [yellow]{sparkline}[/]")
 
         preview_pane.update("\n".join(content))
 

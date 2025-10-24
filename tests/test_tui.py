@@ -450,3 +450,36 @@ def test_app_has_categories_mode_flag():
     app = SearchApp()
     assert hasattr(app, "categories_mode")
     assert app.categories_mode is False  # Should start as False
+
+
+def test_app_has_f6_binding():
+    """Test that SearchApp has F6 binding for stats."""
+    from app.tui import SearchApp
+
+    bindings = SearchApp.BINDINGS
+    binding_keys = [b.key for b in bindings]
+
+    # Should have F6 binding
+    assert "f6" in binding_keys
+
+    # Find the F6 binding
+    f6_binding = next(b for b in bindings if b.key == "f6")
+    assert f6_binding.action == "show_stats"
+
+
+def test_app_has_stats_mode_flag():
+    """Test that SearchApp has stats_mode flag."""
+    from app.tui import SearchApp
+
+    app = SearchApp()
+    assert hasattr(app, "stats_mode")
+    assert app.stats_mode is False  # Should start as False
+
+
+def test_app_action_show_stats_exists():
+    """Test that SearchApp has action_show_stats method."""
+    from app.tui import SearchApp
+
+    app = SearchApp()
+    assert hasattr(app, "action_show_stats")
+    assert callable(app.action_show_stats)
