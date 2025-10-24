@@ -544,7 +544,6 @@ class SearchApp(App):
         results_list.clear()
 
         # Add metric items (using Static as simple display)
-        from textual.widgets import Static as MetricItem
 
         metrics = [
             f"📊 Total Prompts: {overall['total_prompts']}",
