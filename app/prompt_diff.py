@@ -6,7 +6,6 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
@@ -36,7 +35,7 @@ class PromptComparison:
             fav = self.favorites.get_by_id(item_id)
             if fav:
                 return True, fav.prompt_text, "favorites"
-            
+
             # Also check by prompt_id
             for entry in self.favorites.entries:
                 if entry.prompt_id == item_id:
@@ -65,9 +64,7 @@ class PromptComparison:
         ratio = matcher.ratio()
         return ratio * 100.0
 
-    def generate_diff(
-        self, text1: str, text2: str, context_lines: int = 3
-    ) -> list[str]:
+    def generate_diff(self, text1: str, text2: str, context_lines: int = 3) -> list[str]:
         """Generate unified diff between two texts.
 
         Args:
@@ -87,9 +84,7 @@ class PromptComparison:
 
         return list(diff)
 
-    def generate_side_by_side_diff(
-        self, text1: str, text2: str
-    ) -> list[tuple[str, str, str]]:
+    def generate_side_by_side_diff(self, text1: str, text2: str) -> list[tuple[str, str, str]]:
         """Generate side-by-side diff with change markers.
 
         Args:
@@ -233,9 +228,7 @@ class PromptComparison:
 
         return True
 
-    def _display_side_by_side(
-        self, text1: str, text2: str, id1: str, id2: str
-    ) -> None:
+    def _display_side_by_side(self, text1: str, text2: str, id1: str, id2: str) -> None:
         """Display side-by-side diff."""
         diff_lines = self.generate_side_by_side_diff(text1, text2)
 

@@ -1,7 +1,7 @@
 """Tests for prompt comparison and diff functionality."""
 
 import pytest
-from app.prompt_diff import PromptComparison, get_prompt_comparison
+from app.prompt_diff import get_prompt_comparison
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
@@ -28,8 +28,16 @@ def favorites():
 def sample_prompts(history, favorites):
     """Create sample prompts for testing."""
     # Add to history
-    history.add("This is the first test prompt.\nIt has multiple lines.\nLine three.", {"domain": "test"}, 0.9)
-    history.add("This is the second test prompt.\nIt has different content.\nLine three is same.", {"domain": "test"}, 0.8)
+    history.add(
+        "This is the first test prompt.\nIt has multiple lines.\nLine three.",
+        {"domain": "test"},
+        0.9,
+    )
+    history.add(
+        "This is the second test prompt.\nIt has different content.\nLine three is same.",
+        {"domain": "test"},
+        0.8,
+    )
 
     # Get the added entries (most recent first)
     recent = history.get_recent(2)
@@ -201,7 +209,7 @@ def test_get_prompt_text_from_favorites(comparison, sample_prompts):
     if not success:
         # Try with prompt_id that was passed to add()
         success, text, source = comparison.get_prompt_text("test-fav-1", "favorites")
-    
+
     assert success is True
     assert "Favorite prompt one" in text
     assert source == "favorites"
@@ -246,18 +254,14 @@ def test_display_comparison_invalid_id(comparison):
 def test_display_comparison_side_by_side(comparison, sample_prompts):
     """Test display_comparison with side-by-side view."""
     hist_ids = sample_prompts["history_ids"]
-    success = comparison.display_comparison(
-        hist_ids[0], hist_ids[1], show_side_by_side=True
-    )
+    success = comparison.display_comparison(hist_ids[0], hist_ids[1], show_side_by_side=True)
     assert success is True
 
 
 def test_display_comparison_unified(comparison, sample_prompts):
     """Test display_comparison with unified diff view."""
     hist_ids = sample_prompts["history_ids"]
-    success = comparison.display_comparison(
-        hist_ids[0], hist_ids[1], show_side_by_side=False
-    )
+    success = comparison.display_comparison(hist_ids[0], hist_ids[1], show_side_by_side=False)
     assert success is True
 
 

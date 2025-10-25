@@ -5534,20 +5534,26 @@ def tags_command(
         raise typer.Exit(1)
 
 
-@app.command("compare")
-def compare_command(
+@app.command("prompt-compare")
+def prompt_compare_command(
     id1: str = typer.Argument(..., help="First prompt ID"),
     id2: str = typer.Argument(..., help="Second prompt ID"),
-    source1: str = typer.Option("auto", "--source1", help="Source for first prompt (auto, history, favorites)"),
-    source2: str = typer.Option("auto", "--source2", help="Source for second prompt (auto, history, favorites)"),
-    unified: bool = typer.Option(False, "--unified", "-u", help="Use unified diff format instead of side-by-side"),
+    source1: str = typer.Option(
+        "auto", "--source1", help="Source for first prompt (auto, history, favorites)"
+    ),
+    source2: str = typer.Option(
+        "auto", "--source2", help="Source for second prompt (auto, history, favorites)"
+    ),
+    unified: bool = typer.Option(
+        False, "--unified", "-u", help="Use unified diff format instead of side-by-side"
+    ),
 ):
     """Compare two prompts and show differences.
 
     Examples:
-        promptc compare prompt1 prompt2
-        promptc compare fav1 fav2 --source1 favorites --source2 favorites
-        promptc compare old-version new-version --unified
+        promptc prompt-compare prompt1 prompt2
+        promptc prompt-compare fav1 fav2 --source1 favorites --source2 favorites
+        promptc prompt-compare old-version new-version --unified
     """
     from app.prompt_diff import get_prompt_comparison
 
@@ -5560,17 +5566,23 @@ def compare_command(
         raise typer.Exit(code=1)
 
 
-@app.command("diff")
-def diff_command(
+@app.command("prompt-diff")
+def prompt_diff_command(
     id1: str = typer.Argument(..., help="First prompt ID"),
     id2: str = typer.Argument(..., help="Second prompt ID"),
-    source1: str = typer.Option("auto", "--source1", help="Source for first prompt (auto, history, favorites)"),
-    source2: str = typer.Option("auto", "--source2", help="Source for second prompt (auto, history, favorites)"),
-    unified: bool = typer.Option(True, "--unified/--side-by-side", help="Use unified diff format (default)"),
+    source1: str = typer.Option(
+        "auto", "--source1", help="Source for first prompt (auto, history, favorites)"
+    ),
+    source2: str = typer.Option(
+        "auto", "--source2", help="Source for second prompt (auto, history, favorites)"
+    ),
+    unified: bool = typer.Option(
+        True, "--unified/--side-by-side", help="Use unified diff format (default)"
+    ),
 ):
     """Show unified diff between two prompts.
 
-    This is an alias for 'compare' command with unified diff as default.
+    This is an alias for 'prompt-compare' command with unified diff as default.
 
     Examples:
         promptc diff prompt1 prompt2
