@@ -5534,6 +5534,59 @@ def tags_command(
         raise typer.Exit(1)
 
 
+@app.command("compare")
+def compare_command(
+    id1: str = typer.Argument(..., help="First prompt ID"),
+    id2: str = typer.Argument(..., help="Second prompt ID"),
+    source1: str = typer.Option("auto", "--source1", help="Source for first prompt (auto, history, favorites)"),
+    source2: str = typer.Option("auto", "--source2", help="Source for second prompt (auto, history, favorites)"),
+    unified: bool = typer.Option(False, "--unified", "-u", help="Use unified diff format instead of side-by-side"),
+):
+    """Compare two prompts and show differences.
+
+    Examples:
+        promptc compare prompt1 prompt2
+        promptc compare fav1 fav2 --source1 favorites --source2 favorites
+        promptc compare old-version new-version --unified
+    """
+    from app.prompt_diff import get_prompt_comparison
+
+    comparison = get_prompt_comparison()
+    success = comparison.display_comparison(
+        id1, id2, source1=source1, source2=source2, show_side_by_side=not unified
+    )
+
+    if not success:
+        raise typer.Exit(code=1)
+
+
+@app.command("diff")
+def diff_command(
+    id1: str = typer.Argument(..., help="First prompt ID"),
+    id2: str = typer.Argument(..., help="Second prompt ID"),
+    source1: str = typer.Option("auto", "--source1", help="Source for first prompt (auto, history, favorites)"),
+    source2: str = typer.Option("auto", "--source2", help="Source for second prompt (auto, history, favorites)"),
+    unified: bool = typer.Option(True, "--unified/--side-by-side", help="Use unified diff format (default)"),
+):
+    """Show unified diff between two prompts.
+
+    This is an alias for 'compare' command with unified diff as default.
+
+    Examples:
+        promptc diff prompt1 prompt2
+        promptc diff old new --side-by-side
+    """
+    from app.prompt_diff import get_prompt_comparison
+
+    comparison = get_prompt_comparison()
+    success = comparison.display_comparison(
+        id1, id2, source1=source1, source2=source2, show_side_by_side=not unified
+    )
+
+    if not success:
+        raise typer.Exit(code=1)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
