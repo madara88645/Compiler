@@ -5599,6 +5599,102 @@ def prompt_diff_command(
         raise typer.Exit(code=1)
 
 
+@app.command("search")
+def search_command(
+    query: Optional[str] = typer.Argument(None, help="Search query text"),
+    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Filter by domain"),
+    language: Optional[str] = typer.Option(
+        None, "--language", "-l", help="Filter by language"
+    ),
+    tags: Optional[str] = typer.Option(
+        None, "--tags", "-t", help="Filter by tags (comma-separated, favorites only)"
+    ),
+    start_date: Optional[str] = typer.Option(
+        None, "--from", help="Start date (YYYY-MM-DD)"
+    ),
+    end_date: Optional[str] = typer.Option(None, "--to", help="End date (YYYY-MM-DD)"),
+    regex: bool = typer.Option(False, "--regex", "-r", help="Use regex matching"),
+    fuzzy: bool = typer.Option(False, "--fuzzy", "-f", help="Use fuzzy matching"),
+    min_score: Optional[float] = typer.Option(
+        None, "--min-score", "-s", help="Minimum score threshold"
+    ),
+    max_results: int = typer.Option(50, "--limit", "-n", help="Maximum results per source"),
+    source: str = typer.Option(
+        "all", "--source", help="Search source (all, history, favorites)"
+    ),
+    full_text: bool = typer.Option(
+        False, "--full", help="Show full prompt text instead of truncated"
+    ),
+):
+    """Advanced search for prompts with multiple filters.
+
+    Search through history and favorites with powerful filtering options.
+
+    Examples:
+        promptc search "machine learning"
+        promptc search --domain coding --language python
+        promptc search "API.*endpoint" --regex
+        promptc search "machne lerning" --fuzzy
+        promptc search --from 2025-01-01 --to 2025-12-31
+        promptc search --tags python,api --source favorites
+        promptc search "test" --min-score 0.8 --limit 10
+    """
+    from app.advanced_search import get_advanced_search
+
+    search_engine = get_advanced_search()
+
+    # Parse tags if provided
+    tag_list = tags.split(",") if tags else None
+
+    # Perform search based on source
+    if source == "history":
+        results = {
+            "history": search_engine.search_history(
+                query=query,
+                domain=domain,
+                language=language,
+                start_date=start_date,
+                end_date=end_date,
+                use_regex=regex,
+                use_fuzzy=fuzzy,
+                min_score=min_score,
+                max_results=max_results,
+            ),
+            "favorites": [],
+        }
+    elif source == "favorites":
+        results = {
+            "history": [],
+            "favorites": search_engine.search_favorites(
+                query=query,
+                domain=domain,
+                language=language,
+                tags=tag_list,
+                start_date=start_date,
+                end_date=end_date,
+                use_regex=regex,
+                use_fuzzy=fuzzy,
+                min_score=min_score,
+                max_results=max_results,
+            ),
+        }
+    else:  # all
+        results = search_engine.search_all(
+            query=query,
+            domain=domain,
+            language=language,
+            tags=tag_list,
+            start_date=start_date,
+            end_date=end_date,
+            use_regex=regex,
+            use_fuzzy=fuzzy,
+            min_score=min_score,
+            max_results=max_results,
+        )
+
+    search_engine.display_results(results, show_full_text=full_text)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()

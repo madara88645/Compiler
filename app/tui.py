@@ -196,6 +196,7 @@ class SearchApp(App):
         Binding("f5", "show_tags", "Tags", show=True),
         Binding("f6", "show_stats", "Stats", show=True),
         Binding("f7", "show_categories", "Categories", show=True),
+        Binding("f8", "show_advanced_search", "Adv.Search", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
 
@@ -207,6 +208,7 @@ class SearchApp(App):
         self.tags_mode = False
         self.categories_mode = False
         self.stats_mode = False
+        self.advanced_search_mode = False
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -641,6 +643,71 @@ class SearchApp(App):
             content.append(f"  [yellow]{sparkline}[/]")
 
         preview_pane.update("\n".join(content))
+
+    def action_show_advanced_search(self) -> None:
+        """Show advanced search with filters (F8)."""
+        from app.advanced_search import get_advanced_search
+
+        self.advanced_search_mode = True
+        self.tags_mode = False
+        self.categories_mode = False
+        self.stats_mode = False
+
+        # Get list view and preview pane
+        list_view = self.query_one("#results-list", ListView)
+        list_view.clear()
+        preview_pane = self.query_one("#preview", PreviewPane)
+
+        # Show advanced search help
+        content = [
+            "[bold cyan]🔍 Advanced Search[/bold cyan]",
+            "",
+            "[bold white]Filter Options:[/]",
+            "  • Domain filter",
+            "  • Language filter",
+            "  • Date range (from/to)",
+            "  • Tag filter (favorites)",
+            "  • Score threshold",
+            "  • Result limit",
+            "",
+            "[bold white]Search Modes:[/]",
+            "  • [cyan]Normal[/] - Exact substring match",
+            "  • [yellow]Regex[/] - Regular expression patterns",
+            "  • [green]Fuzzy[/] - Approximate matching",
+            "",
+            "[bold white]Search Sources:[/]",
+            "  • All (history + favorites)",
+            "  • History only",
+            "  • Favorites only",
+            "",
+            "[bold yellow]CLI Examples:[/]",
+            "  [dim]promptc search 'machine learning'[/]",
+            "  [dim]promptc search --domain coding --language python[/]",
+            "  [dim]promptc search 'API.*endpoint' --regex[/]",
+            "  [dim]promptc search 'machne lerning' --fuzzy[/]",
+            "  [dim]promptc search --from 2025-01-01 --to 2025-12-31[/]",
+            "  [dim]promptc search --tags python,api --source favorites[/]",
+            "  [dim]promptc search 'test' --min-score 0.8 --limit 10[/]",
+            "",
+            "[bold green]Quick Search:[/]",
+            "Type your query in the search box above and press Enter.",
+            "The advanced search engine will automatically search",
+            "through all your prompts with intelligent matching.",
+            "",
+            "[dim]Press F8 again to return to normal mode[/]",
+        ]
+
+        preview_pane.update("\n".join(content))
+
+        # Add search instruction item
+        search_item = ListItem()
+        search_item.update(
+            Text.from_markup(
+                "[bold cyan]🔍 Advanced Search Active[/]\n"
+                "[dim]Use CLI with filters for advanced features[/]"
+            )
+        )
+        list_view.append(search_item)
 
 
 def run_tui():
