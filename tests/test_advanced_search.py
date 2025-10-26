@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timedelta
-from app.advanced_search import AdvancedSearch, get_advanced_search
+from app.advanced_search import get_advanced_search
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
@@ -44,9 +44,7 @@ def sample_data(history, favorites):
         {"domain": "coding", "language": "fr"},
         0.8,
     )
-    history.add(
-        "Database optimization techniques", {"domain": "database", "language": "en"}, 0.75
-    )
+    history.add("Database optimization techniques", {"domain": "database", "language": "en"}, 0.75)
 
     # Get history entries
     recent = history.get_recent(4)

@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import Any, List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union
 
 from rich.console import Console
 from rich.panel import Panel
@@ -366,9 +366,7 @@ class AdvancedSearch:
             self.console.print(table)
 
             if len(history_results) > 20:
-                self.console.print(
-                    f"[dim]... and {len(history_results) - 20} more results[/dim]"
-                )
+                self.console.print(f"[dim]... and {len(history_results) - 20} more results[/dim]")
 
         # Display favorites results
         if favorites_results:
@@ -406,9 +404,7 @@ class AdvancedSearch:
             self.console.print(table)
 
             if len(favorites_results) > 20:
-                self.console.print(
-                    f"[dim]... and {len(favorites_results) - 20} more results[/dim]"
-                )
+                self.console.print(f"[dim]... and {len(favorites_results) - 20} more results[/dim]")
 
 
 # Singleton instance

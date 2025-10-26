@@ -646,7 +646,6 @@ class SearchApp(App):
 
     def action_show_advanced_search(self) -> None:
         """Show advanced search with filters (F8)."""
-        from app.advanced_search import get_advanced_search
 
         self.advanced_search_mode = True
         self.tags_mode = False
