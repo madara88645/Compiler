@@ -5689,6 +5689,39 @@ def advanced_search_command(
     search_engine.display_results(results, show_full_text=full_text)
 
 
+@app.command("stats")
+def stats_command(
+    detailed: bool = typer.Option(False, "--detailed", "-d", help="Show detailed statistics"),
+    compact: bool = typer.Option(False, "--compact", "-c", help="Show compact table view"),
+):
+    """Display prompt statistics and counters.
+
+    Shows quick overview of your prompt collection including counts,
+    recent activity, quality metrics, and top domains.
+
+    Examples:
+        promptc stats
+        promptc stats --detailed
+        promptc stats --compact
+    """
+    from app.quick_stats import get_quick_stats
+
+    stats = get_quick_stats()
+
+    if detailed:
+        stats.display_full_stats()
+    elif compact:
+        stats.display_compact_table()
+    else:
+        # Default: show banner
+        from rich.console import Console
+
+        console = Console()
+        banner = stats.create_banner(compact=False)
+        console.print(f"\n{banner}\n")
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
+
