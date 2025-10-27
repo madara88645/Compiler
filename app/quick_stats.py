@@ -186,7 +186,7 @@ class QuickStats:
                 f"Average Score:    [yellow]{quality['average']:.2f}[/yellow]",
             ]
 
-            if quality['total_rated'] > 0:
+            if quality["total_rated"] > 0:
                 lines.append(
                     f"High Quality:     [green]{quality['high_quality_percentage']:.1f}%[/green]"
                 )
@@ -208,28 +208,28 @@ class QuickStats:
 
         # Counts section
         content.append("Overall Counts:\n", style="bold white")
-        content.append(f"  Total Prompts:  ", style="white")
+        content.append("  Total Prompts:  ", style="white")
         content.append(f"{counts['total']:4}\n", style="cyan bold")
-        content.append(f"  History:        ", style="white")
+        content.append("  History:        ", style="white")
         content.append(f"{counts['history']:4}\n", style="green")
-        content.append(f"  Favorites:      ", style="white")
+        content.append("  Favorites:      ", style="white")
         content.append(f"{counts['favorites']:4}\n\n", style="magenta")
 
         # Recent activity section
         content.append("Recent Activity:\n", style="bold white")
-        content.append(f"  Last 7 days:    ", style="white")
+        content.append("  Last 7 days:    ", style="white")
         content.append(f"{recent_7d['total']:4}\n", style="yellow")
-        content.append(f"  Last 30 days:   ", style="white")
+        content.append("  Last 30 days:   ", style="white")
         content.append(f"{recent_30d['total']:4}\n\n", style="yellow")
 
         # Quality metrics section
         content.append("Quality Metrics:\n", style="bold white")
-        content.append(f"  Average Score:  ", style="white")
+        content.append("  Average Score:  ", style="white")
         content.append(f"{quality['average']:.2f}\n", style="yellow")
-        if quality['total_rated'] > 0:
-            content.append(f"  High Quality:   ", style="white")
+        if quality["total_rated"] > 0:
+            content.append("  High Quality:   ", style="white")
             content.append(f"{quality['high_quality_percentage']:.1f}%\n", style="green")
-            content.append(f"  Total Rated:    ", style="white")
+            content.append("  Total Rated:    ", style="white")
             content.append(f"{quality['total_rated']}\n\n", style="cyan")
 
         # Top domains section
@@ -276,7 +276,7 @@ class QuickStats:
         table.add_row("Last 7 Days", f"[yellow]{recent['total']}[/yellow]")
         table.add_row("Avg Score", f"[yellow]{quality['average']:.2f}[/yellow]")
 
-        if quality['total_rated'] > 0:
+        if quality["total_rated"] > 0:
             table.add_row(
                 "High Quality", f"[green]{quality['high_quality_percentage']:.1f}%[/green]"
             )

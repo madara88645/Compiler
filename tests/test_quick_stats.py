@@ -1,8 +1,7 @@
 """Tests for quick statistics functionality."""
 
 import pytest
-from datetime import datetime, timedelta
-from app.quick_stats import QuickStats, get_quick_stats
+from app.quick_stats import get_quick_stats
 from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
