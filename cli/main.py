@@ -5563,9 +5563,13 @@ def stats_command(
 @app.command("export-prompts")
 def export_prompts_command(
     output: str = typer.Argument(..., help="Output file path"),
-    source: str = typer.Option("all", "--source", "-s", help="Source to export: history, favorites, all"),
+    source: str = typer.Option(
+        "all", "--source", "-s", help="Source to export: history, favorites, all"
+    ),
     format: str = typer.Option("json", "--format", "-f", help="Export format: json, csv"),
-    pretty: bool = typer.Option(True, "--pretty/--compact", help="Pretty print JSON (default: pretty)"),
+    pretty: bool = typer.Option(
+        True, "--pretty/--compact", help="Pretty print JSON (default: pretty)"
+    ),
 ):
     """Export prompts to JSON or CSV format.
 
@@ -5588,7 +5592,9 @@ def export_prompts_command(
 
     # Validate source
     if source not in ["history", "favorites", "all"]:
-        console.print(f"[red]❌ Error:[/red] Invalid source '{source}'. Use: history, favorites, or all")
+        console.print(
+            f"[red]❌ Error:[/red] Invalid source '{source}'. Use: history, favorites, or all"
+        )
         raise typer.Exit(1)
 
     # Validate format
@@ -5618,7 +5624,9 @@ def export_prompts_command(
 def import_prompts_command(
     input: str = typer.Argument(..., help="Input file path"),
     target: str = typer.Option("auto", "--target", "-t", help="Target: history, favorites, auto"),
-    merge: bool = typer.Option(True, "--merge/--replace", help="Merge with existing data (default: merge)"),
+    merge: bool = typer.Option(
+        True, "--merge/--replace", help="Merge with existing data (default: merge)"
+    ),
 ):
     """Import prompts from JSON or CSV format.
 
@@ -5641,7 +5649,9 @@ def import_prompts_command(
 
     # Validate target
     if target not in ["history", "favorites", "auto"]:
-        console.print(f"[red]❌ Error:[/red] Invalid target '{target}'. Use: history, favorites, or auto")
+        console.print(
+            f"[red]❌ Error:[/red] Invalid target '{target}'. Use: history, favorites, or auto"
+        )
         raise typer.Exit(1)
 
     # Check if file exists

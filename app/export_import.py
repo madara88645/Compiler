@@ -9,7 +9,7 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -53,7 +53,7 @@ class ExportImportManager:
             "export_date": datetime.now().isoformat(),
             "version": "2.0.33",
             "source": source,
-            "data": {}
+            "data": {},
         }
 
         stats = {"history": 0, "favorites": 0, "total": 0}
@@ -351,18 +351,20 @@ class ExportImportManager:
             output_path: Path where file was saved
         """
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]✅ Export Successful[/bold green]\n\n"
-            f"[cyan]Format:[/cyan] {format_type.upper()}\n"
-            f"[cyan]Location:[/cyan] {output_path}\n"
-            f"[cyan]File Size:[/cyan] {output_path.stat().st_size:,} bytes\n\n"
-            f"[yellow]Exported Items:[/yellow]\n"
-            f"  • History: {stats['history']}\n"
-            f"  • Favorites: {stats['favorites']}\n"
-            f"  • Total: {stats['total']}",
-            border_style="green",
-            title="📦 Export Complete"
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]✅ Export Successful[/bold green]\n\n"
+                f"[cyan]Format:[/cyan] {format_type.upper()}\n"
+                f"[cyan]Location:[/cyan] {output_path}\n"
+                f"[cyan]File Size:[/cyan] {output_path.stat().st_size:,} bytes\n\n"
+                f"[yellow]Exported Items:[/yellow]\n"
+                f"  • History: {stats['history']}\n"
+                f"  • Favorites: {stats['favorites']}\n"
+                f"  • Total: {stats['total']}",
+                border_style="green",
+                title="📦 Export Complete",
+            )
+        )
 
     def display_import_summary(self, stats: Dict[str, Any], format_type: str, merge: bool):
         """Display a summary of the import operation.
@@ -375,18 +377,20 @@ class ExportImportManager:
         mode = "Merged" if merge else "Replaced"
 
         console.print()
-        console.print(Panel.fit(
-            f"[bold green]✅ Import Successful[/bold green]\n\n"
-            f"[cyan]Format:[/cyan] {format_type.upper()}\n"
-            f"[cyan]Mode:[/cyan] {mode}\n\n"
-            f"[yellow]Imported Items:[/yellow]\n"
-            f"  • History: {stats['history']}\n"
-            f"  • Favorites: {stats['favorites']}\n"
-            f"  • Total: {stats['total']}\n"
-            f"  • Skipped (duplicates): {stats['skipped']}",
-            border_style="green",
-            title="📥 Import Complete"
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold green]✅ Import Successful[/bold green]\n\n"
+                f"[cyan]Format:[/cyan] {format_type.upper()}\n"
+                f"[cyan]Mode:[/cyan] {mode}\n\n"
+                f"[yellow]Imported Items:[/yellow]\n"
+                f"  • History: {stats['history']}\n"
+                f"  • Favorites: {stats['favorites']}\n"
+                f"  • Total: {stats['total']}\n"
+                f"  • Skipped (duplicates): {stats['skipped']}",
+                border_style="green",
+                title="📥 Import Complete",
+            )
+        )
 
 
 # Singleton instance
