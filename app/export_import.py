@@ -1,450 +1,405 @@
 """
 Export/Import Module
 
-Allows exporting and importing analytics and history data in various formats.
-Supports JSON, CSV, and YAML formats for data portability and backup.
+Allows exporting and importing prompts, favorites, and history data in various formats.
+Supports JSON and CSV formats for data portability, backup, and migration.
 """
 
 import csv
 import json
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-try:
-    import yaml
+from rich.console import Console
+from rich.panel import Panel
 
-    HAS_YAML = True
-except ImportError:
-    HAS_YAML = False
+from app.history import get_history_manager
+from app.favorites import get_favorites_manager
 
 
-FormatType = Literal["json", "csv", "yaml"]
-DataType = Literal["analytics", "history", "both"]
+FormatType = Literal["json", "csv"]
+DataType = Literal["history", "favorites", "all"]
+
+
+console = Console()
 
 
 class ExportImportManager:
-    """Manages export and import operations for analytics and history data"""
+    """Manages export and import operations for prompts, favorites, and history"""
 
-    def __init__(self, analytics_db: Optional[Path] = None, history_file: Optional[Path] = None):
-        """
-        Initialize export/import manager
+    def __init__(self):
+        """Initialize export/import manager with history and favorites managers"""
+        self.history_manager = get_history_manager()
+        self.favorites_manager = get_favorites_manager()
 
-        Args:
-            analytics_db: Path to analytics SQLite database
-            history_file: Path to history JSON file
-        """
-        if analytics_db is None:
-            analytics_db = Path.home() / ".promptc" / "analytics.db"
-        if history_file is None:
-            history_file = Path.home() / ".promptc" / "history.json"
-
-        self.analytics_db = analytics_db
-        self.history_file = history_file
-
-    def export_data(
+    def export_to_json(
         self,
-        output_file: Path,
-        data_type: DataType = "both",
-        format: FormatType = "json",
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        output_path: Path,
+        source: DataType = "all",
+        pretty: bool = True,
     ) -> Dict[str, Any]:
-        """
-        Export analytics and/or history data
+        """Export prompt data to JSON format.
 
         Args:
-            output_file: Output file path
-            data_type: What to export (analytics, history, or both)
-            format: Export format (json, csv, yaml)
-            start_date: Optional start date filter (ISO format)
-            end_date: Optional end date filter (ISO format)
+            output_path: Path to save the JSON file
+            source: Source to export from ("history", "favorites", "all")
+            pretty: Whether to use pretty printing (indented JSON)
 
         Returns:
-            Export summary with counts and file info
+            Dictionary with export statistics
         """
-        if format == "yaml" and not HAS_YAML:
-            raise ImportError("YAML support requires pyyaml: pip install pyyaml")
-
-        export_data: Dict[str, Any] = {
+        data = {
             "export_date": datetime.now().isoformat(),
-            "version": "2.0.13",
-            "data_type": data_type,
+            "version": "2.0.33",
+            "source": source,
+            "data": {}
         }
 
-        # Export analytics
-        if data_type in ("analytics", "both"):
-            analytics_records = self._export_analytics(start_date, end_date)
-            export_data["analytics"] = {
-                "count": len(analytics_records),
-                "records": analytics_records,
-            }
+        stats = {"history": 0, "favorites": 0, "total": 0}
 
-        # Export history
-        if data_type in ("history", "both"):
-            history_records = self._export_history(start_date, end_date)
-            export_data["history"] = {
-                "count": len(history_records),
-                "records": history_records,
-            }
+        if source in ["history", "all"]:
+            history_data = self.history_manager.load_history()
+            data["data"]["history"] = history_data
+            stats["history"] = len(history_data)
 
-        # Write to file based on format
-        if format == "json":
-            self._write_json(output_file, export_data)
-        elif format == "csv":
-            self._write_csv(output_file, export_data, data_type)
-        elif format == "yaml":
-            self._write_yaml(output_file, export_data)
+        if source in ["favorites", "all"]:
+            favorites_data = self.favorites_manager.load_favorites()
+            data["data"]["favorites"] = favorites_data
+            stats["favorites"] = len(favorites_data)
 
-        return {
-            "success": True,
-            "file": str(output_file),
-            "format": format,
-            "data_type": data_type,
-            "analytics_count": export_data.get("analytics", {}).get("count", 0),
-            "history_count": export_data.get("history", {}).get("count", 0),
-            "export_date": export_data["export_date"],
-        }
+        stats["total"] = stats["history"] + stats["favorites"]
 
-    def import_data(
-        self, input_file: Path, data_type: DataType = "both", merge: bool = True
+        # Write to file
+        with open(output_path, "w", encoding="utf-8") as f:
+            if pretty:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            else:
+                json.dump(data, f, ensure_ascii=False)
+
+        return stats
+
+    def export_to_csv(
+        self,
+        output_path: Path,
+        source: DataType = "all",
     ) -> Dict[str, Any]:
-        """
-        Import analytics and/or history data
+        """Export prompt data to CSV format.
 
         Args:
-            input_file: Input file path
-            data_type: What to import (analytics, history, or both)
-            merge: If True, merge with existing data; if False, replace
+            output_path: Path to save the CSV file
+            source: Source to export from ("history", "favorites", "all")
 
         Returns:
-            Import summary with counts
+            Dictionary with export statistics
         """
-        # Detect format from extension
-        format = self._detect_format(input_file)
+        stats = {"history": 0, "favorites": 0, "total": 0}
+        rows = []
 
-        # Read data based on format
-        if format == "json":
-            import_data = self._read_json(input_file)
-        elif format == "csv":
-            import_data = self._read_csv(input_file, data_type)
-        elif format == "yaml":
-            import_data = self._read_yaml(input_file)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        # Collect data from history
+        if source in ["history", "all"]:
+            history_data = self.history_manager.load_history()
+            for item in history_data:
+                row = self._flatten_item(item, source_type="history")
+                rows.append(row)
+            stats["history"] = len(history_data)
 
-        summary = {
-            "success": True,
-            "file": str(input_file),
-            "format": format,
-            "merge_mode": merge,
-            "analytics_imported": 0,
-            "history_imported": 0,
+        # Collect data from favorites
+        if source in ["favorites", "all"]:
+            favorites_data = self.favorites_manager.load_favorites()
+            for item in favorites_data:
+                row = self._flatten_item(item, source_type="favorites")
+                rows.append(row)
+            stats["favorites"] = len(favorites_data)
+
+        stats["total"] = len(rows)
+
+        # Write to CSV
+        if rows:
+            fieldnames = list(rows[0].keys())
+            with open(output_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+
+        return stats
+
+    def _flatten_item(self, item: Dict[str, Any], source_type: str) -> Dict[str, Any]:
+        """Flatten a prompt item for CSV export.
+
+        Args:
+            item: Prompt item dictionary
+            source_type: "history" or "favorites"
+
+        Returns:
+            Flattened dictionary suitable for CSV
+        """
+        flat = {
+            "source": source_type,
+            "id": item.get("id", ""),
+            "timestamp": item.get("timestamp", ""),
+            "input_text": item.get("input_text", ""),
+            "output_prompt": item.get("output_prompt", ""),
+            "domain": item.get("domain", ""),
+            "language": item.get("language", ""),
+            "persona": item.get("persona", ""),
+            "teaching_level": item.get("teaching_level", ""),
+            "duration": item.get("duration", ""),
+            "score": item.get("score", ""),
+            "tags": ",".join(item.get("tags", [])) if item.get("tags") else "",
+            "note": item.get("note", ""),
         }
 
-        # Import analytics
-        if data_type in ("analytics", "both") and "analytics" in import_data:
-            count = self._import_analytics(import_data["analytics"]["records"], merge)
-            summary["analytics_imported"] = count
+        # Add favorites-specific fields
+        if source_type == "favorites":
+            flat["added_date"] = item.get("added_date", "")
+            flat["use_count"] = item.get("use_count", 0)
+
+        return flat
+
+    def import_from_json(
+        self,
+        input_path: Path,
+        target: DataType = "auto",
+        merge: bool = True,
+    ) -> Dict[str, Any]:
+        """Import prompt data from JSON format.
+
+        Args:
+            input_path: Path to the JSON file
+            target: Target to import to ("history", "favorites", "auto")
+            merge: Whether to merge with existing data (True) or replace (False)
+
+        Returns:
+            Dictionary with import statistics
+        """
+        stats = {"history": 0, "favorites": 0, "total": 0, "skipped": 0}
+
+        # Load JSON data
+        with open(input_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Handle different JSON structures
+        import_data = data.get("data", data)
 
         # Import history
-        if data_type in ("history", "both") and "history" in import_data:
-            count = self._import_history(import_data["history"]["records"], merge)
-            summary["history_imported"] = count
+        if target in ["history", "auto"] and "history" in import_data:
+            history_items = import_data["history"]
+            if not merge:
+                self.history_manager.history = []
 
-        return summary
+            existing_ids = {item.get("id") for item in self.history_manager.load_history()}
 
-    def _export_analytics(
-        self, start_date: Optional[str] = None, end_date: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Export analytics records from SQLite database"""
-        if not self.analytics_db.exists():
-            return []
+            imported = 0
+            for item in history_items:
+                if item.get("id") not in existing_ids:
+                    self.history_manager.history.append(item)
+                    imported += 1
+                else:
+                    stats["skipped"] += 1
 
-        conn = sqlite3.connect(self.analytics_db)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+            self.history_manager.save_history()
+            stats["history"] = imported
 
-        # Check if table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
-        if not cursor.fetchone():
-            conn.close()
-            return []
+        # Import favorites
+        if target in ["favorites", "auto"] and "favorites" in import_data:
+            favorites_items = import_data["favorites"]
+            if not merge:
+                self.favorites_manager.favorites = []
 
-        query = "SELECT * FROM prompts"
-        params = []
+            existing_ids = {item.get("id") for item in self.favorites_manager.load_favorites()}
 
-        if start_date or end_date:
-            conditions = []
-            if start_date:
-                conditions.append("timestamp >= ?")
-                params.append(start_date)
-            if end_date:
-                conditions.append("timestamp <= ?")
-                params.append(end_date)
-            query += " WHERE " + " AND ".join(conditions)
+            imported = 0
+            for item in favorites_items:
+                if item.get("id") not in existing_ids:
+                    self.favorites_manager.favorites.append(item)
+                    imported += 1
+                else:
+                    stats["skipped"] += 1
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+            self.favorites_manager.save_favorites()
+            stats["favorites"] = imported
 
-        records = []
-        for row in rows:
-            record = dict(row)
-            # Parse JSON fields
-            if record.get("intents"):
-                record["intents"] = json.loads(record["intents"])
-            if record.get("tags"):
-                record["tags"] = json.loads(record["tags"])
-            records.append(record)
+        stats["total"] = stats["history"] + stats["favorites"]
+        return stats
 
-        return records
+    def import_from_csv(
+        self,
+        input_path: Path,
+        target: DataType = "auto",
+        merge: bool = True,
+    ) -> Dict[str, Any]:
+        """Import prompt data from CSV format.
 
-    def _export_history(
-        self, start_date: Optional[str] = None, end_date: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Export history records from JSON file"""
-        if not self.history_file.exists():
-            return []
+        Args:
+            input_path: Path to the CSV file
+            target: Target to import to ("history", "favorites", "auto")
+            merge: Whether to merge with existing data (True) or replace (False)
 
-        with open(self.history_file, "r", encoding="utf-8") as f:
-            records = json.load(f)
+        Returns:
+            Dictionary with import statistics
+        """
+        stats = {"history": 0, "favorites": 0, "total": 0, "skipped": 0}
 
-        # Filter by date if specified
-        if start_date or end_date:
-            filtered = []
-            for record in records:
-                timestamp = record.get("timestamp", "")
-                if start_date and timestamp < start_date:
-                    continue
-                if end_date and timestamp > end_date:
-                    continue
-                filtered.append(record)
-            return filtered
-
-        return records
-
-    def _import_analytics(self, records: List[Dict[str, Any]], merge: bool) -> int:
-        """Import analytics records into SQLite database"""
-        # Ensure database exists
-        self.analytics_db.parent.mkdir(parents=True, exist_ok=True)
-
-        conn = sqlite3.connect(self.analytics_db)
-        cursor = conn.cursor()
-
-        # Create table if not exists
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS prompts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                prompt_text TEXT,
-                prompt_hash TEXT UNIQUE,
-                validation_score REAL,
-                domain TEXT,
-                persona TEXT,
-                language TEXT,
-                intents TEXT,
-                issues_count INTEGER,
-                warnings_count INTEGER,
-                prompt_length INTEGER,
-                ir_version TEXT,
-                tags TEXT
-            )
-        """)
+        # Read CSV data
+        with open(input_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
 
         if not merge:
-            # Clear existing data
-            cursor.execute("DELETE FROM prompts")
+            if target in ["history", "auto"]:
+                self.history_manager.history = []
+            if target in ["favorites", "auto"]:
+                self.favorites_manager.favorites = []
 
-        # Insert records
-        imported = 0
-        for record in records:
-            # Serialize JSON fields
-            intents = json.dumps(record.get("intents", []))
-            tags = json.dumps(record.get("tags", []))
-
-            try:
-                cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO prompts
-                    (timestamp, prompt_text, prompt_hash, validation_score, domain,
-                     persona, language, intents, issues_count, warnings_count,
-                     prompt_length, ir_version, tags)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        record.get("timestamp"),
-                        record.get("prompt_text"),
-                        record.get("prompt_hash"),
-                        record.get("validation_score"),
-                        record.get("domain"),
-                        record.get("persona"),
-                        record.get("language"),
-                        intents,
-                        record.get("issues_count"),
-                        record.get("warnings_count"),
-                        record.get("prompt_length"),
-                        record.get("ir_version"),
-                        tags,
-                    ),
-                )
-                imported += 1
-            except sqlite3.IntegrityError:
-                # Duplicate entry, skip
-                pass
-
-        conn.commit()
-        conn.close()
-
-        return imported
-
-    def _import_history(self, records: List[Dict[str, Any]], merge: bool) -> int:
-        """Import history records into JSON file"""
-        self.history_file.parent.mkdir(parents=True, exist_ok=True)
-
-        existing_records = []
-        if merge and self.history_file.exists():
-            with open(self.history_file, "r", encoding="utf-8") as f:
-                existing_records = json.load(f)
-
-        # Merge or replace
-        if merge:
-            # Use dict to deduplicate by hash
-            combined = {r.get("prompt_hash"): r for r in existing_records}
-            for record in records:
-                combined[record.get("prompt_hash")] = record
-            final_records = list(combined.values())
-        else:
-            final_records = records
-
-        # Sort by timestamp
-        final_records.sort(key=lambda x: x.get("timestamp", ""))
-
-        # Keep only last 100
-        final_records = final_records[-100:]
-
-        with open(self.history_file, "w", encoding="utf-8") as f:
-            json.dump(final_records, f, ensure_ascii=False, indent=2)
-
-        return len(records)
-
-    def _write_json(self, output_file: Path, data: Dict[str, Any]):
-        """Write data as JSON"""
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    def _write_csv(self, output_file: Path, data: Dict[str, Any], data_type: DataType):
-        """Write data as CSV"""
-        if data_type == "both":
-            # Create separate CSV files for analytics and history
-            base = output_file.stem
-            parent = output_file.parent
-
-            if "analytics" in data:
-                analytics_file = parent / f"{base}_analytics.csv"
-                self._write_csv_records(analytics_file, data["analytics"]["records"], "analytics")
-
-            if "history" in data:
-                history_file = parent / f"{base}_history.csv"
-                self._write_csv_records(history_file, data["history"]["records"], "history")
-        else:
-            # Single CSV file
-            records = data.get(data_type, {}).get("records", [])
-            self._write_csv_records(output_file, records, data_type)
-
-    def _write_csv_records(self, output_file: Path, records: List[Dict], data_type: str):
-        """Write records to CSV file"""
-        if not records:
-            return
-
-        with open(output_file, "w", encoding="utf-8", newline="") as f:
-            # Flatten nested fields for CSV
-            flattened = []
-            for record in records:
-                flat = record.copy()
-                # Convert lists to comma-separated strings
-                for key, value in flat.items():
-                    if isinstance(value, list):
-                        flat[key] = ",".join(str(v) for v in value)
-                flattened.append(flat)
-
-            writer = csv.DictWriter(f, fieldnames=flattened[0].keys())
-            writer.writeheader()
-            writer.writerows(flattened)
-
-    def _write_yaml(self, output_file: Path, data: Dict[str, Any]):
-        """Write data as YAML"""
-        with open(output_file, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
-
-    def _read_json(self, input_file: Path) -> Dict[str, Any]:
-        """Read data from JSON"""
-        with open(input_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _read_csv(self, input_file: Path, data_type: DataType) -> Dict[str, Any]:
-        """Read data from CSV"""
-        result: Dict[str, Any] = {
-            "export_date": datetime.now().isoformat(),
-            "version": "2.0.13",
-            "data_type": data_type,
+        # Get existing IDs
+        existing_history_ids = {item.get("id") for item in self.history_manager.load_history()}
+        existing_favorites_ids = {
+            item.get("id") for item in self.favorites_manager.load_favorites()
         }
 
-        if data_type == "both":
-            # Look for separate CSV files
-            base = input_file.stem
-            parent = input_file.parent
+        # Process rows
+        for row in rows:
+            item = self._unflatten_item(row)
+            source_type = row.get("source", target if target != "auto" else "history")
 
-            analytics_file = parent / f"{base}_analytics.csv"
-            if analytics_file.exists():
-                records = self._read_csv_records(analytics_file)
-                result["analytics"] = {"count": len(records), "records": records}
+            # Determine target based on source field or target parameter
+            if target == "auto":
+                actual_target = source_type
+            else:
+                actual_target = target
 
-            history_file = parent / f"{base}_history.csv"
-            if history_file.exists():
-                records = self._read_csv_records(history_file)
-                result["history"] = {"count": len(records), "records": records}
-        else:
-            records = self._read_csv_records(input_file)
-            result[data_type] = {"count": len(records), "records": records}
+            # Import to history
+            if actual_target == "history":
+                if item.get("id") not in existing_history_ids:
+                    self.history_manager.history.append(item)
+                    existing_history_ids.add(item.get("id"))
+                    stats["history"] += 1
+                else:
+                    stats["skipped"] += 1
 
-        return result
+            # Import to favorites
+            elif actual_target == "favorites":
+                if item.get("id") not in existing_favorites_ids:
+                    self.favorites_manager.favorites.append(item)
+                    existing_favorites_ids.add(item.get("id"))
+                    stats["favorites"] += 1
+                else:
+                    stats["skipped"] += 1
 
-    def _read_csv_records(self, input_file: Path) -> List[Dict[str, Any]]:
-        """Read records from CSV file"""
-        records = []
-        with open(input_file, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Parse comma-separated fields back to lists
-                record = {}
-                for key, value in row.items():
-                    if key in ("intents", "tags") and value:
-                        record[key] = value.split(",")
-                    else:
-                        record[key] = value
-                records.append(record)
-        return records
+        # Save changes
+        if stats["history"] > 0:
+            self.history_manager.save_history()
+        if stats["favorites"] > 0:
+            self.favorites_manager.save_favorites()
 
-    def _read_yaml(self, input_file: Path) -> Dict[str, Any]:
-        """Read data from YAML"""
-        with open(input_file, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+        stats["total"] = stats["history"] + stats["favorites"]
+        return stats
 
-    def _detect_format(self, file_path: Path) -> FormatType:
-        """Detect file format from extension"""
-        suffix = file_path.suffix.lower()
-        if suffix == ".json":
-            return "json"
-        elif suffix == ".csv":
-            return "csv"
-        elif suffix in (".yaml", ".yml"):
-            return "yaml"
-        else:
-            raise ValueError(f"Unknown file format: {suffix}")
+    def _unflatten_item(self, row: Dict[str, str]) -> Dict[str, Any]:
+        """Unflatten a CSV row back to prompt item format.
+
+        Args:
+            row: CSV row as dictionary
+
+        Returns:
+            Prompt item dictionary
+        """
+        item = {
+            "id": row.get("id", ""),
+            "timestamp": row.get("timestamp", ""),
+            "input_text": row.get("input_text", ""),
+            "output_prompt": row.get("output_prompt", ""),
+            "domain": row.get("domain", ""),
+            "language": row.get("language", ""),
+            "persona": row.get("persona", ""),
+            "teaching_level": row.get("teaching_level", ""),
+            "duration": row.get("duration", ""),
+        }
+
+        # Handle optional fields
+        if row.get("score"):
+            try:
+                item["score"] = float(row["score"])
+            except (ValueError, TypeError):
+                pass
+
+        if row.get("tags"):
+            item["tags"] = [tag.strip() for tag in row["tags"].split(",") if tag.strip()]
+
+        if row.get("note"):
+            item["note"] = row["note"]
+
+        # Add favorites-specific fields
+        if row.get("added_date"):
+            item["added_date"] = row["added_date"]
+
+        if row.get("use_count"):
+            try:
+                item["use_count"] = int(row["use_count"])
+            except (ValueError, TypeError):
+                item["use_count"] = 0
+
+        return item
+
+    def display_export_summary(self, stats: Dict[str, Any], format_type: str, output_path: Path):
+        """Display a summary of the export operation.
+
+        Args:
+            stats: Export statistics
+            format_type: Format used ("json" or "csv")
+            output_path: Path where file was saved
+        """
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]✅ Export Successful[/bold green]\n\n"
+            f"[cyan]Format:[/cyan] {format_type.upper()}\n"
+            f"[cyan]Location:[/cyan] {output_path}\n"
+            f"[cyan]File Size:[/cyan] {output_path.stat().st_size:,} bytes\n\n"
+            f"[yellow]Exported Items:[/yellow]\n"
+            f"  • History: {stats['history']}\n"
+            f"  • Favorites: {stats['favorites']}\n"
+            f"  • Total: {stats['total']}",
+            border_style="green",
+            title="📦 Export Complete"
+        ))
+
+    def display_import_summary(self, stats: Dict[str, Any], format_type: str, merge: bool):
+        """Display a summary of the import operation.
+
+        Args:
+            stats: Import statistics
+            format_type: Format used ("json" or "csv")
+            merge: Whether data was merged or replaced
+        """
+        mode = "Merged" if merge else "Replaced"
+
+        console.print()
+        console.print(Panel.fit(
+            f"[bold green]✅ Import Successful[/bold green]\n\n"
+            f"[cyan]Format:[/cyan] {format_type.upper()}\n"
+            f"[cyan]Mode:[/cyan] {mode}\n\n"
+            f"[yellow]Imported Items:[/yellow]\n"
+            f"  • History: {stats['history']}\n"
+            f"  • Favorites: {stats['favorites']}\n"
+            f"  • Total: {stats['total']}\n"
+            f"  • Skipped (duplicates): {stats['skipped']}",
+            border_style="green",
+            title="📥 Import Complete"
+        ))
+
+
+# Singleton instance
+_export_import_manager: Optional[ExportImportManager] = None
 
 
 def get_export_import_manager() -> ExportImportManager:
-    """Get or create export/import manager instance"""
-    return ExportImportManager()
+    """Get or create the singleton ExportImportManager instance.
+
+    Returns:
+        ExportImportManager instance
+    """
+    global _export_import_manager
+    if _export_import_manager is None:
+        _export_import_manager = ExportImportManager()
+    return _export_import_manager

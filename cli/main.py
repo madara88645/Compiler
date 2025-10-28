@@ -5560,6 +5560,114 @@ def stats_command(
         console.print(f"\n{banner}\n")
 
 
+@app.command("export-prompts")
+def export_prompts_command(
+    output: str = typer.Argument(..., help="Output file path"),
+    source: str = typer.Option("all", "--source", "-s", help="Source to export: history, favorites, all"),
+    format: str = typer.Option("json", "--format", "-f", help="Export format: json, csv"),
+    pretty: bool = typer.Option(True, "--pretty/--compact", help="Pretty print JSON (default: pretty)"),
+):
+    """Export prompts to JSON or CSV format.
+
+    Export your prompt history and favorites to external files for backup,
+    sharing, or migration purposes.
+
+    Examples:
+        promptc export-prompts backup.json
+        promptc export-prompts backup.json --source favorites
+        promptc export-prompts backup.csv --format csv
+        promptc export-prompts backup.json --source history --compact
+    """
+    from pathlib import Path
+    from app.export_import import get_export_import_manager
+    from rich.console import Console
+
+    console = Console()
+    manager = get_export_import_manager()
+    output_path = Path(output).resolve()
+
+    # Validate source
+    if source not in ["history", "favorites", "all"]:
+        console.print(f"[red]❌ Error:[/red] Invalid source '{source}'. Use: history, favorites, or all")
+        raise typer.Exit(1)
+
+    # Validate format
+    if format not in ["json", "csv"]:
+        console.print(f"[red]❌ Error:[/red] Invalid format '{format}'. Use: json or csv")
+        raise typer.Exit(1)
+
+    # Ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        console.print(f"\n[cyan]📦 Exporting {source} to {format.upper()}...[/cyan]\n")
+
+        if format == "json":
+            stats = manager.export_to_json(output_path, source=source, pretty=pretty)
+        else:  # csv
+            stats = manager.export_to_csv(output_path, source=source)
+
+        manager.display_export_summary(stats, format, output_path)
+
+    except Exception as e:
+        console.print(f"\n[red]❌ Export failed:[/red] {str(e)}")
+        raise typer.Exit(1)
+
+
+@app.command("import-prompts")
+def import_prompts_command(
+    input: str = typer.Argument(..., help="Input file path"),
+    target: str = typer.Option("auto", "--target", "-t", help="Target: history, favorites, auto"),
+    merge: bool = typer.Option(True, "--merge/--replace", help="Merge with existing data (default: merge)"),
+):
+    """Import prompts from JSON or CSV format.
+
+    Import previously exported prompt data back into PromptC. Can merge with
+    existing data or replace it completely.
+
+    Examples:
+        promptc import-prompts backup.json
+        promptc import-prompts backup.json --target favorites
+        promptc import-prompts backup.csv --replace
+        promptc import-prompts data.json --target history --merge
+    """
+    from pathlib import Path
+    from app.export_import import get_export_import_manager
+    from rich.console import Console
+
+    console = Console()
+    manager = get_export_import_manager()
+    input_path = Path(input).resolve()
+
+    # Validate target
+    if target not in ["history", "favorites", "auto"]:
+        console.print(f"[red]❌ Error:[/red] Invalid target '{target}'. Use: history, favorites, or auto")
+        raise typer.Exit(1)
+
+    # Check if file exists
+    if not input_path.exists():
+        console.print(f"[red]❌ Error:[/red] File not found: {input_path}")
+        raise typer.Exit(1)
+
+    # Detect format from extension
+    format_type = "json" if input_path.suffix.lower() == ".json" else "csv"
+
+    try:
+        mode_text = "Merging" if merge else "Replacing"
+        console.print(f"\n[cyan]📥 {mode_text} data from {format_type.upper()}...[/cyan]\n")
+
+        if format_type == "json":
+            stats = manager.import_from_json(input_path, target=target, merge=merge)
+        else:  # csv
+            stats = manager.import_from_csv(input_path, target=target, merge=merge)
+
+        manager.display_import_summary(stats, format_type, merge)
+
+    except Exception as e:
+        console.print(f"\n[red]❌ Import failed:[/red] {str(e)}")
+        raise typer.Exit(1)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -1,6 +1,6 @@
 [project]
 name = "promptc"
-version = "2.0.32"
+version = "2.0.33"
 description = "Prompt Compiler App: compile free-text prompts into structured IR + prompts + plan"
 authors = [ { name = "Your Name" } ]
 requires-python = ">=3.10"
