@@ -5737,7 +5737,9 @@ def templates_command(
 
         console.print()
         console.print(table)
-        console.print(f"\n[dim]💡 Use 'promptc templates show --id <template-id>' for details[/dim]\n")
+        console.print(
+            "\n[dim]💡 Use 'promptc templates show --id <template-id>' for details[/dim]\n"
+        )
 
     elif action == "show":
         if not template_id:
@@ -5758,7 +5760,7 @@ def templates_command(
         if template.author:
             info_text += f"[bold cyan]Author:[/bold cyan] {template.author}\n"
 
-        info_text += f"\n[bold yellow]Variables:[/bold yellow]\n"
+        info_text += "\n[bold yellow]Variables:[/bold yellow]\n"
         for var in template.variables:
             required = "[red]*[/red]" if var.required else "[dim](optional)[/dim]"
             default = f" [dim](default: {var.default})[/dim]" if var.default else ""
@@ -5790,7 +5792,9 @@ def templates_command(
             for key, value in template.example_values.items():
                 console.print(f"  [cyan]{key}:[/cyan] {value}")
 
-        console.print(f"\n[dim]💡 Use 'promptc templates use --id {template_id}' to use this template[/dim]\n")
+        console.print(
+            f"\n[dim]💡 Use 'promptc templates use --id {template_id}' to use this template[/dim]\n"
+        )
 
     elif action == "use":
         if not template_id:
@@ -5836,6 +5840,7 @@ def templates_command(
             if save_choice == "compile":
                 # Use the rendered output as input for compilation
                 from app.compiler import get_compiler
+
                 compiler = get_compiler()
                 result = compiler.compile(rendered)
 
@@ -5868,7 +5873,7 @@ def templates_command(
             count = len(registry.list_templates(category=cat))
             console.print(f"  • [cyan]{cat}[/cyan] [dim]({count} templates)[/dim]")
 
-        console.print(f"\n[dim]💡 Use 'promptc templates list --category <name>' to filter[/dim]\n")
+        console.print("\n[dim]💡 Use 'promptc templates list --category <name>' to filter[/dim]\n")
 
     else:
         console.print(f"[red]❌ Unknown action:[/red] {action}")
