@@ -5678,6 +5678,204 @@ def import_prompts_command(
         raise typer.Exit(1)
 
 
+@app.command("templates")
+def templates_command(
+    action: str = typer.Argument(..., help="Action: list, show, use, categories"),
+    template_id: Optional[str] = typer.Option(None, "--id", "-i", help="Template ID"),
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+):
+    """Manage and use prompt templates.
+
+    Quick access to ready-made prompt templates for common tasks like
+    code review, brainstorming, email writing, and more.
+
+    Actions:
+        list        - List all available templates
+        show        - Show template details (requires --id)
+        use         - Use a template (requires --id)
+        categories  - List all categories
+
+    Examples:
+        promptc templates list
+        promptc templates list --category development
+        promptc templates show --id code-review
+        promptc templates use --id brainstorm
+        promptc templates categories
+    """
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+    from app.templates import get_registry
+
+    console = Console()
+    registry = get_registry()
+
+    if action == "list":
+        templates = registry.list_templates(category=category)
+
+        if not templates:
+            if category:
+                console.print(f"\n[yellow]📚 No templates found in category: {category}[/yellow]\n")
+            else:
+                console.print("\n[yellow]📚 No templates available[/yellow]\n")
+            return
+
+        table = Table(title="📚 Available Templates", show_header=True, header_style="bold cyan")
+        table.add_column("ID", style="cyan", width=20)
+        table.add_column("Name", style="green", width=25)
+        table.add_column("Category", style="magenta", width=15)
+        table.add_column("Description", style="white")
+
+        for template in templates:
+            table.add_row(
+                template.id,
+                template.name,
+                template.category,
+                template.description,
+            )
+
+        console.print()
+        console.print(table)
+        console.print(f"\n[dim]💡 Use 'promptc templates show --id <template-id>' for details[/dim]\n")
+
+    elif action == "show":
+        if not template_id:
+            console.print("[red]❌ Error:[/red] --id required for show action")
+            raise typer.Exit(1)
+
+        template = registry.get_template(template_id)
+        if not template:
+            console.print(f"\n[red]❌ Template not found:[/red] {template_id}\n")
+            return
+
+        # Create info panel
+        info_text = f"[bold cyan]Name:[/bold cyan] {template.name}\n"
+        info_text += f"[bold cyan]Category:[/bold cyan] {template.category}\n"
+        info_text += f"[bold cyan]Description:[/bold cyan] {template.description}\n"
+        info_text += f"[bold cyan]Version:[/bold cyan] {template.version}\n"
+
+        if template.author:
+            info_text += f"[bold cyan]Author:[/bold cyan] {template.author}\n"
+
+        info_text += f"\n[bold yellow]Variables:[/bold yellow]\n"
+        for var in template.variables:
+            required = "[red]*[/red]" if var.required else "[dim](optional)[/dim]"
+            default = f" [dim](default: {var.default})[/dim]" if var.default else ""
+            info_text += f"  • {{{{{var.name}}}}} {required} - {var.description}{default}\n"
+
+        if template.tags:
+            info_text += f"\n[bold magenta]Tags:[/bold magenta] {', '.join(template.tags)}"
+
+        # Template preview
+        template_preview = template.template_text
+        if len(template_preview) > 400:
+            template_preview = template_preview[:400] + "..."
+
+        console.print()
+        console.print(Panel(info_text, title=f"📝 Template: {template_id}", border_style="cyan"))
+        console.print()
+        console.print(
+            Panel(
+                template_preview,
+                title="Template Preview",
+                border_style="green",
+                subtitle="(truncated)" if len(template.template_text) > 400 else None,
+            )
+        )
+
+        if template.example_values:
+            console.print()
+            console.print("[bold]Example Values:[/bold]")
+            for key, value in template.example_values.items():
+                console.print(f"  [cyan]{key}:[/cyan] {value}")
+
+        console.print(f"\n[dim]💡 Use 'promptc templates use --id {template_id}' to use this template[/dim]\n")
+
+    elif action == "use":
+        if not template_id:
+            console.print("[red]❌ Error:[/red] --id required for use action")
+            raise typer.Exit(1)
+
+        template = registry.get_template(template_id)
+        if not template:
+            console.print(f"\n[red]❌ Template not found:[/red] {template_id}\n")
+            return
+
+        console.print(f"\n[bold cyan]📝 Using template:[/bold cyan] {template.name}\n")
+
+        # Collect variable values
+        variables = {}
+        for var in template.variables:
+            prompt_text = f"[cyan]{var.name}[/cyan]"
+            if var.description:
+                prompt_text += f" [dim]({var.description})[/dim]"
+            if var.default:
+                prompt_text += f" [dim](default: {var.default})[/dim]"
+            if not var.required:
+                prompt_text += " [dim](optional)[/dim]"
+
+            value = Prompt.ask(prompt_text, default=var.default or "")
+            if value:
+                variables[var.name] = value
+
+        # Render template
+        try:
+            rendered = template.render(variables)
+            console.print("\n[bold green]✅ Template rendered successfully![/bold green]\n")
+            console.print(Panel(rendered, title="Rendered Output", border_style="green"))
+            console.print()
+
+            # Ask if user wants to save or use it
+            save_choice = Prompt.ask(
+                "\n[cyan]What would you like to do?[/cyan]",
+                choices=["copy", "compile", "save", "cancel"],
+                default="compile",
+            )
+
+            if save_choice == "compile":
+                # Use the rendered output as input for compilation
+                from app.compiler import get_compiler
+                compiler = get_compiler()
+                result = compiler.compile(rendered)
+
+                console.print("\n[bold green]✅ Compiled successfully![/bold green]\n")
+                console.print(Panel(result.prompt, title="Compiled Prompt", border_style="green"))
+
+            elif save_choice == "save":
+                # Save to a file
+                filename = Prompt.ask("[cyan]Filename[/cyan]", default=f"{template_id}-output.txt")
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(rendered)
+                console.print(f"\n[green]✅ Saved to {filename}[/green]\n")
+
+            elif save_choice == "copy":
+                console.print("\n[yellow]📋 Copy the output above to clipboard[/yellow]\n")
+
+        except ValueError as e:
+            console.print(f"\n[red]❌ Error:[/red] {str(e)}\n")
+            raise typer.Exit(1)
+
+    elif action == "categories":
+        categories = registry.get_categories()
+
+        if not categories:
+            console.print("\n[yellow]📚 No categories available[/yellow]\n")
+            return
+
+        console.print("\n[bold cyan]📂 Template Categories:[/bold cyan]\n")
+        for cat in categories:
+            count = len(registry.list_templates(category=cat))
+            console.print(f"  • [cyan]{cat}[/cyan] [dim]({count} templates)[/dim]")
+
+        console.print(f"\n[dim]💡 Use 'promptc templates list --category <name>' to filter[/dim]\n")
+
+    else:
+        console.print(f"[red]❌ Unknown action:[/red] {action}")
+        console.print("[yellow]Valid actions:[/yellow] list, show, use, categories")
+        raise typer.Exit(1)
+
+
 # Entry point
 if __name__ == "__main__":  # pragma: no cover
     app()
