@@ -7,8 +7,6 @@ including text editing, metadata updates, and re-compilation.
 import tempfile
 import subprocess
 import os
-from datetime import datetime
-from pathlib import Path
 from typing import Optional, Dict, Any, Literal
 
 from rich.console import Console
@@ -30,7 +28,9 @@ class QuickEditor:
         self.history_manager = get_history_manager()
         self.favorites_manager = get_favorites_manager()
 
-    def find_prompt(self, prompt_id: str) -> tuple[Optional[Dict[str, Any]], Literal["history", "favorites", None]]:
+    def find_prompt(
+        self, prompt_id: str
+    ) -> tuple[Optional[Dict[str, Any]], Literal["history", "favorites", None]]:
         """Find a prompt by ID in history or favorites.
 
         Args:
@@ -59,7 +59,7 @@ class QuickEditor:
         """
         # Try environment variables
         editor = os.environ.get("EDITOR") or os.environ.get("VISUAL")
-        
+
         if editor:
             return editor
 
@@ -79,16 +79,18 @@ class QuickEditor:
             Edited text or None if cancelled
         """
         # Create temporary file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as f:
             f.write(text)
             temp_path = f.name
 
         try:
             editor = self.get_editor()
-            
+
             # Open editor
             result = subprocess.run([editor, temp_path])
-            
+
             if result.returncode != 0:
                 console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
                 return None
@@ -103,7 +105,7 @@ class QuickEditor:
             # Clean up temp file
             try:
                 os.unlink(temp_path)
-            except:
+            except Exception:
                 pass
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
@@ -148,7 +150,7 @@ class QuickEditor:
             # Edit prompt text
             current_text = prompt_dict.get("prompt_text", "")
             console.print(f"\n[dim]Current text:[/dim]\n{current_text[:200]}...\n")
-            
+
             if Confirm.ask("Edit in external editor?", default=True):
                 edited_text = self.edit_text_in_editor(current_text)
                 if edited_text and edited_text != current_text:
@@ -163,10 +165,14 @@ class QuickEditor:
         elif choice == "2":
             # Edit domain and language
             console.print("\n[bold]Edit Domain and Language:[/bold]")
-            
-            new_domain = Prompt.ask("[cyan]Domain[/cyan]", default=prompt_dict.get("domain", "general"))
-            new_language = Prompt.ask("[cyan]Language[/cyan]", default=prompt_dict.get("language", "en"))
-            
+
+            new_domain = Prompt.ask(
+                "[cyan]Domain[/cyan]", default=prompt_dict.get("domain", "general")
+            )
+            new_language = Prompt.ask(
+                "[cyan]Language[/cyan]", default=prompt_dict.get("language", "en")
+            )
+
             if new_domain != prompt_dict.get("domain", ""):
                 prompt_dict["domain"] = new_domain
                 changes_made = True
@@ -177,11 +183,11 @@ class QuickEditor:
         elif choice == "3":
             # Edit tags
             console.print("\n[bold]Edit Tags:[/bold]")
-            
+
             current_tags = ", ".join(prompt_dict.get("tags", []))
             new_tags_str = Prompt.ask("[cyan]Tags (comma-separated)[/cyan]", default=current_tags)
             new_tags = [tag.strip() for tag in new_tags_str.split(",") if tag.strip()]
-            
+
             if new_tags != prompt_dict.get("tags", []):
                 prompt_dict["tags"] = new_tags
                 changes_made = True
@@ -209,7 +215,7 @@ class QuickEditor:
                     entry.domain = prompt_dict.get("domain", entry.domain)
                     entry.language = prompt_dict.get("language", entry.language)
                     entry.tags = prompt_dict.get("tags", entry.tags)
-                    if hasattr(entry, 'notes'):
+                    if hasattr(entry, "notes"):
                         entry.notes = prompt_dict.get("notes", entry.notes)
                     break
             self.favorites_manager._save()
@@ -249,7 +255,7 @@ class QuickEditor:
             preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
             console.print()
             console.print(Panel(preview, title="Output Prompt", border_style="green"))
-        
+
         console.print()
 
 
