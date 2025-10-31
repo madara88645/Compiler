@@ -79,6 +79,46 @@ app.add_typer(snippets_app, name="snippets")
 app.add_typer(collections_app, name="collections")
 
 
+@app.command("edit")
+def edit_prompt_command(
+    prompt_id: str = typer.Argument(..., help="ID of the prompt to edit"),
+    recompile: bool = typer.Option(
+        False, "--recompile", "-r", help="Recompile after editing"
+    ),
+):
+    """
+    Edit a prompt from history or favorites by ID.
+    
+    Opens an interactive editor to modify prompt text, metadata, tags, and more.
+    Changes are saved back to history or favorites.
+    
+    Examples:
+        promptc edit abc123
+        promptc edit abc123 --recompile
+    """
+    from app.quick_edit import get_quick_editor
+    from rich.console import Console
+    
+    console = Console()
+    editor = get_quick_editor()
+    
+    # Preview the prompt first
+    prompt, source = editor.find_prompt(prompt_id)
+    
+    if not prompt or not source:
+        console.print(f"\n[red]❌ Prompt not found:[/red] {prompt_id}\n")
+        raise typer.Exit(code=1)
+    
+    # Show preview
+    editor.display_prompt_preview(prompt, source)
+    
+    # Edit the prompt
+    success = editor.edit_prompt(prompt_id, recompile=recompile)
+    
+    if not success:
+        raise typer.Exit(code=1)
+
+
 def _run_compile(
     full_text: str,
     diagnostics: bool,
