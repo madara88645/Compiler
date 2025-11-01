@@ -117,6 +117,148 @@ def edit_prompt_command(
         raise typer.Exit(code=1)
 
 
+@app.command("report")
+def validation_report_command(
+    prompts: List[str] = typer.Argument(None, help="Prompt texts or file paths to validate"),
+    ids: List[str] = typer.Option(None, "--id", help="History/favorites IDs to validate (can be used multiple times)"),
+    format: str = typer.Option("html", "--format", "-f", help="Report format: html, markdown, json"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file path"),
+    theme: str = typer.Option("light", "--theme", help="HTML theme: light or dark"),
+    title: str = typer.Option("Prompt Validation Report", "--title", help="Report title"),
+    no_charts: bool = typer.Option(False, "--no-charts", help="Disable charts in HTML"),
+    no_recommendations: bool = typer.Option(False, "--no-recommendations", help="Disable recommendations"),
+    stdin: bool = typer.Option(False, "--stdin", help="Read prompts from stdin (one per line)"),
+):
+    """
+    Generate validation report for one or multiple prompts.
+    
+    Supports HTML, Markdown, and JSON formats with detailed quality analysis,
+    issue summaries, and recommendations.
+    
+    Examples:
+        promptc report "Write a tutorial" --format html
+        promptc report --id abc123 --id def456 --format markdown -o report.md
+        promptc report prompt1.txt prompt2.txt --format json
+        cat prompts.txt | promptc report --stdin --format html -o report.html
+    """
+    from rich.console import Console
+    from app.validator import validate_prompt
+    from app.compiler import compile_text_v2
+    from app.report_generator import get_report_generator, ReportConfig
+    from app.history import get_history_manager
+    from app.favorites import get_favorites_manager
+    
+    console = Console()
+    
+    # Collect prompts
+    prompt_texts = []
+    
+    if stdin:
+        # Read from stdin
+        try:
+            prompt_texts = [line.strip() for line in sys.stdin if line.strip()]
+        except Exception as e:
+            console.print(f"[red]Error reading from stdin: {e}[/red]")
+            raise typer.Exit(code=1)
+    elif ids:
+        # Load from history/favorites by ID
+        history_mgr = get_history_manager()
+        fav_mgr = get_favorites_manager()
+        
+        for prompt_id in ids:
+            # Try history first
+            entry = history_mgr.get_by_id(prompt_id)
+            if entry:
+                prompt_texts.append(entry.prompt_text)
+                continue
+            
+            # Try favorites
+            entry = fav_mgr.get_by_id(prompt_id)
+            if entry:
+                prompt_texts.append(entry.prompt_text)
+                continue
+            
+            console.print(f"[yellow]Warning: ID not found: {prompt_id}[/yellow]")
+    elif prompts:
+        # Read from arguments (text or files)
+        for prompt_arg in prompts:
+            p = Path(prompt_arg)
+            if p.exists() and p.is_file():
+                try:
+                    prompt_texts.append(p.read_text(encoding="utf-8"))
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Could not read {p}: {e}[/yellow]")
+            else:
+                prompt_texts.append(prompt_arg)
+    else:
+        console.print("[red]Error: Provide prompts, --id, or --stdin[/red]")
+        raise typer.Exit(code=1)
+    
+    if not prompt_texts:
+        console.print("[red]No prompts to validate[/red]")
+        raise typer.Exit(code=1)
+    
+    # Validate all prompts
+    console.print(f"[cyan]Validating {len(prompt_texts)} prompt(s)...[/cyan]")
+    
+    results = []
+    for prompt_text in prompt_texts:
+        try:
+            ir2 = compile_text_v2(prompt_text)
+            result = validate_prompt(ir2, prompt_text)
+            results.append(result)
+        except Exception as e:
+            console.print(f"[red]Error validating prompt: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Generate report
+    config = ReportConfig(
+        title=title,
+        include_charts=not no_charts,
+        include_recommendations=not no_recommendations,
+        theme=theme,
+    )
+    
+    generator = get_report_generator(config)
+    
+    fmt = format.lower()
+    if fmt in {"html", "htm"}:
+        report_content = generator.generate_html_report(results, prompt_texts)
+        default_ext = "html"
+    elif fmt in {"markdown", "md"}:
+        report_content = generator.generate_markdown_report(results, prompt_texts)
+        default_ext = "md"
+    elif fmt == "json":
+        import json
+        report_dict = generator.generate_json_report(results, prompt_texts)
+        report_content = json.dumps(report_dict, indent=2, ensure_ascii=False)
+        default_ext = "json"
+    else:
+        console.print(f"[red]Unknown format: {fmt}. Use html, markdown, or json[/red]")
+        raise typer.Exit(code=1)
+    
+    # Output
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report_content, encoding="utf-8")
+        console.print(f"\n[green]✓ Report saved to {output}[/green]")
+    else:
+        # Print to console
+        typer.echo(report_content)
+    
+    # Show summary
+    avg_score = sum(r.score.total for r in results) / len(results)
+    total_issues = sum(r.errors + r.warnings for r in results)
+    
+    console.print(f"\n[bold cyan]Report Summary:[/bold cyan]")
+    console.print(f"  Prompts analyzed: {len(results)}")
+    console.print(f"  Average score: {avg_score:.1f}/100")
+    console.print(f"  Total issues: {total_issues}")
+    console.print(f"  Format: {fmt}")
+    if output:
+        console.print(f"  Saved to: {output}")
+
+
 def _run_compile(
     full_text: str,
     diagnostics: bool,
