@@ -6,7 +6,6 @@ Includes quality scores, issue summaries, recommendations, and visual charts.
 """
 
 from datetime import datetime
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -32,9 +31,7 @@ class ValidationReportGenerator:
         """Initialize report generator with configuration"""
         self.config = config or ReportConfig()
 
-    def generate_html_report(
-        self, results: List[ValidationResult], prompts: List[str]
-    ) -> str:
+    def generate_html_report(self, results: List[ValidationResult], prompts: List[str]) -> str:
         """
         Generate HTML validation report
 
@@ -51,15 +48,14 @@ class ValidationReportGenerator:
         avg_score = sum(r.score.total for r in results) / len(results) if results else 0
         total_errors = sum(r.errors for r in results)
         total_warnings = sum(r.warnings for r in results)
-        total_info = sum(r.info for r in results)
 
         # Build HTML
         html_parts = [
             self._get_html_header(),
             self._get_html_styles(),
-            '<body>',
-            f'<div class="container">',
-            f'<h1>{self.config.title}</h1>',
+            "<body>",
+            '<div class="container">',
+            f"<h1>{self.config.title}</h1>",
             f'<p class="timestamp">Generated: {timestamp}</p>',
             '<div class="summary-grid">',
             self._create_summary_card(
@@ -85,9 +81,7 @@ class ValidationReportGenerator:
 
         return "\n".join(html_parts)
 
-    def generate_markdown_report(
-        self, results: List[ValidationResult], prompts: List[str]
-    ) -> str:
+    def generate_markdown_report(self, results: List[ValidationResult], prompts: List[str]) -> str:
         """
         Generate Markdown validation report
 
@@ -119,7 +113,7 @@ class ValidationReportGenerator:
         for idx, (result, prompt) in enumerate(zip(results, prompts), 1):
             md_parts.extend(
                 [
-                    f"\n---\n",
+                    "\n---\n",
                     f"## Prompt {idx}\n",
                     "### Scores\n",
                     f"- **Overall:** {result.score.total:.1f}/100",
@@ -404,12 +398,10 @@ class ValidationReportGenerator:
             <div class="value" style="color: {color};">{value}</div>
         </div>"""
 
-    def _create_prompt_section(
-        self, idx: int, result: ValidationResult, prompt: str
-    ) -> str:
+    def _create_prompt_section(self, idx: int, result: ValidationResult, prompt: str) -> str:
         """Create HTML section for a single prompt"""
         parts = [
-            f'<div class="prompt-section">',
+            '<div class="prompt-section">',
             f"<h2>Prompt {idx}</h2>",
             '<div class="scores-grid">',
             self._create_score_item("Overall", result.score.total),
@@ -427,8 +419,8 @@ class ValidationReportGenerator:
                 parts.append(
                     f'<div class="issue {issue.severity}">'
                     f'<div class="issue-header">'
-                    f'{self._get_severity_icon(issue.severity)} '
-                    f'{issue.severity.upper()} - {issue.category}'
+                    f"{self._get_severity_icon(issue.severity)} "
+                    f"{issue.severity.upper()} - {issue.category}"
                     f"</div>"
                     f"<div>{issue.message}</div>"
                     f'<div class="issue-suggestion">💡 {issue.suggestion}</div>'
@@ -477,7 +469,7 @@ class ValidationReportGenerator:
             "<p>Based on analysis of all prompts, here are the most common issues:</p>",
         ]
 
-        for (issue_key, count) in top_issues:
+        for issue_key, count in top_issues:
             category, severity = issue_key.split(":")
             parts.append(
                 f'<div class="recommendation-item">'
