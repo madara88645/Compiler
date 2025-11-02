@@ -6,7 +6,6 @@ category, with search, preview, and quick-use functionality.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -374,9 +373,7 @@ class TemplateGallery:
             results = [t for t in results if t.difficulty == difficulty]
 
         if tags:
-            results = [
-                t for t in results if any(tag in t.tags for tag in tags)
-            ]
+            results = [t for t in results if any(tag in t.tags for tag in tags)]
 
         return sorted(results, key=lambda t: (t.category, t.name))
 
@@ -389,9 +386,7 @@ class TemplateGallery:
         Returns:
             List of matching templates
         """
-        return [
-            t for t in self.templates.values() if t.matches_search(query)
-        ]
+        return [t for t in self.templates.values() if t.matches_search(query)]
 
     def get_template(self, template_id: str) -> Optional[GalleryTemplate]:
         """Get template by ID.
@@ -502,31 +497,37 @@ class TemplateGallery:
             f"**Difficulty:** {template.difficulty}",
             f"**Tags:** {', '.join(template.tags)}",
             "",
-            f"## Description",
+            "## Description",
             template.description,
             "",
         ]
 
         if template.use_cases:
-            lines.extend([
-                "## Use Cases",
-                *[f"- {uc}" for uc in template.use_cases],
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Use Cases",
+                    *[f"- {uc}" for uc in template.use_cases],
+                    "",
+                ]
+            )
 
         if template.examples:
-            lines.extend([
-                "## Examples",
-                *[f"- {ex}" for ex in template.examples],
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Examples",
+                    *[f"- {ex}" for ex in template.examples],
+                    "",
+                ]
+            )
 
-        lines.extend([
-            "## Template Fields",
-            "```yaml",
-            yaml.dump(template.template, default_flow_style=False).strip(),
-            "```",
-        ])
+        lines.extend(
+            [
+                "## Template Fields",
+                "```yaml",
+                yaml.dump(template.template, default_flow_style=False).strip(),
+                "```",
+            ]
+        )
 
         return "\n".join(lines)
 

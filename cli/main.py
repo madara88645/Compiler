@@ -303,9 +303,7 @@ def gallery_command(
 
     # List templates
     if action_lower == "list":
-        templates = gallery.list_templates(
-            category=category, difficulty=difficulty, tags=tags
-        )
+        templates = gallery.list_templates(category=category, difficulty=difficulty, tags=tags)
 
         if not templates:
             console.print("[yellow]No templates found matching filters[/yellow]")
