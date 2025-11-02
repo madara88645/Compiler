@@ -263,6 +263,227 @@ def validation_report_command(
         console.print(f"  Saved to: {output}")
 
 
+@app.command("gallery")
+def gallery_command(
+    action: str = typer.Argument(
+        ...,
+        help="Action: list, search, preview, use, categories, export, import",
+    ),
+    query: Optional[str] = typer.Argument(None, help="Search query or template ID"),
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    difficulty: Optional[str] = typer.Option(
+        None, "--difficulty", "-d", help="Filter by difficulty (beginner/intermediate/advanced)"
+    ),
+    tags: Optional[List[str]] = typer.Option(None, "--tag", "-t", help="Filter by tags"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file path"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table, json, yaml"),
+):
+    """Browse and use templates from the gallery.
+
+    Examples:
+        promptc gallery list
+        promptc gallery list --category tutorial
+        promptc gallery list --difficulty beginner
+        promptc gallery search "python"
+        promptc gallery preview tutorial-python
+        promptc gallery use api-documentation
+        promptc gallery categories
+        promptc gallery export tutorial-python --output my-template.yaml
+        promptc gallery import custom-template.yaml
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    from app.template_gallery import get_gallery
+
+    console = Console()
+    gallery = get_gallery()
+
+    action_lower = action.lower()
+
+    # List templates
+    if action_lower == "list":
+        templates = gallery.list_templates(
+            category=category, difficulty=difficulty, tags=tags
+        )
+
+        if not templates:
+            console.print("[yellow]No templates found matching filters[/yellow]")
+            return
+
+        if format.lower() == "json":
+            import json
+
+            data = [t.to_dict() for t in templates]
+            output_str = json.dumps(data, indent=2, ensure_ascii=False)
+            if output:
+                output.write_text(output_str, encoding="utf-8")
+                console.print(f"[green]Saved to {output}[/green]")
+            else:
+                typer.echo(output_str)
+            return
+
+        if format.lower() in {"yaml", "yml"}:
+            import yaml
+
+            data = [t.to_dict() for t in templates]
+            output_str = yaml.dump(data, default_flow_style=False)
+            if output:
+                output.write_text(output_str, encoding="utf-8")
+                console.print(f"[green]Saved to {output}[/green]")
+            else:
+                typer.echo(output_str)
+            return
+
+        # Table format
+        table = Table(title="Template Gallery")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Name", style="bold")
+        table.add_column("Category", style="magenta")
+        table.add_column("Difficulty", style="yellow")
+        table.add_column("Description")
+
+        for t in templates:
+            table.add_row(t.id, t.name, t.category, t.difficulty, t.description[:60] + "...")
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(templates)} templates[/dim]")
+
+    # Search templates
+    elif action_lower == "search":
+        if not query:
+            console.print("[red]Search query is required[/red]")
+            raise typer.Exit(1)
+
+        templates = gallery.search_templates(query)
+
+        if not templates:
+            console.print(f"[yellow]No templates found matching '{query}'[/yellow]")
+            return
+
+        table = Table(title=f"Search Results: '{query}'")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Name", style="bold")
+        table.add_column("Category", style="magenta")
+        table.add_column("Tags", style="blue")
+
+        for t in templates:
+            table.add_row(t.id, t.name, t.category, ", ".join(t.tags[:3]))
+
+        console.print(table)
+        console.print(f"\n[dim]Found {len(templates)} templates[/dim]")
+
+    # Preview template
+    elif action_lower == "preview":
+        if not query:
+            console.print("[red]Template ID is required[/red]")
+            raise typer.Exit(1)
+
+        preview = gallery.get_template_preview(query)
+        if not preview:
+            console.print(f"[red]Template '{query}' not found[/red]")
+            raise typer.Exit(1)
+
+        from rich.markdown import Markdown
+
+        console.print(Markdown(preview))
+
+    # Use template
+    elif action_lower == "use":
+        if not query:
+            console.print("[red]Template ID is required[/red]")
+            raise typer.Exit(1)
+
+        template = gallery.get_template(query)
+        if not template:
+            console.print(f"[red]Template '{query}' not found[/red]")
+            raise typer.Exit(1)
+
+        # Generate prompt text from template
+        from app.templates import apply_template
+
+        prompt_text = apply_template("", template.template)
+
+        console.print(f"[bold cyan]Using template: {template.name}[/bold cyan]\n")
+        console.print("[dim]Generated prompt:[/dim]")
+        console.print(f"[green]{prompt_text}[/green]\n")
+
+        # Offer to compile or save
+        if typer.confirm("Compile this prompt?", default=True):
+            from app.compiler import compile_text_v2
+
+            ir = compile_text_v2(prompt_text)
+            console.print("\n[bold]Compiled IR:[/bold]")
+
+            import json
+
+            typer.echo(json.dumps(ir.model_dump(), indent=2, ensure_ascii=False))
+
+            if typer.confirm("\nSave to history?", default=True):
+                from app.history import get_history_manager
+
+                hist_mgr = get_history_manager()
+                entry = hist_mgr.add_entry(prompt_text, ir.model_dump())
+                console.print(f"[green]Saved to history (ID: {entry.id})[/green]")
+
+    # List categories
+    elif action_lower == "categories":
+        categories = gallery.get_categories()
+
+        if not categories:
+            console.print("[yellow]No categories found[/yellow]")
+            return
+
+        console.print("[bold cyan]Available Categories:[/bold cyan]\n")
+        for cat in categories:
+            count = len([t for t in gallery.templates.values() if t.category == cat])
+            console.print(f"  [magenta]{cat}[/magenta] ({count} templates)")
+
+    # Export template
+    elif action_lower == "export":
+        if not query:
+            console.print("[red]Template ID is required[/red]")
+            raise typer.Exit(1)
+
+        if not output:
+            console.print("[red]Output file path is required (--output)[/red]")
+            raise typer.Exit(1)
+
+        success = gallery.export_template(query, output)
+        if success:
+            console.print(f"[green]Template exported to {output}[/green]")
+        else:
+            console.print(f"[red]Failed to export template '{query}'[/red]")
+            raise typer.Exit(1)
+
+    # Import template
+    elif action_lower == "import":
+        if not query:
+            console.print("[red]Template file path is required[/red]")
+            raise typer.Exit(1)
+
+        file_path = Path(query)
+        if not file_path.exists():
+            console.print(f"[red]File not found: {file_path}[/red]")
+            raise typer.Exit(1)
+
+        template = gallery.import_template(file_path)
+        if template:
+            console.print(f"[green]Template '{template.name}' imported successfully[/green]")
+            console.print(f"  ID: {template.id}")
+            console.print(f"  Category: {template.category}")
+        else:
+            console.print("[red]Failed to import template[/red]")
+            raise typer.Exit(1)
+
+    else:
+        console.print(f"[red]Unknown action: {action}[/red]")
+        console.print(
+            "[yellow]Available actions: list, search, preview, use, categories, export, import[/yellow]"
+        )
+        raise typer.Exit(1)
+
+
 def _run_compile(
     full_text: str,
     diagnostics: bool,
