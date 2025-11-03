@@ -15,10 +15,12 @@ Features:
 from __future__ import annotations
 import json
 import os
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import time
 from pathlib import Path
+from typing import Optional
 
 from app.compiler import (
     compile_text,
@@ -49,18 +51,32 @@ except Exception:  # pragma: no cover - optional dep
 class PromptCompilerUI:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Prompt Compiler")
+        self.root.title("✨ Prompt Compiler")
         self.root.geometry("1200x780")
         self.root.minsize(1000, 650)
         self.current_theme = "light"
         # Settings file (per-user)
         self.config_path = Path.home() / ".promptc_ui.json"
+        
+        # Progress indicator
+        self.progress_var = tk.DoubleVar(value=0)
+        self.is_generating = False
 
+        # Progress bar at the top
+        self.progress_frame = ttk.Frame(self.root)
+        self.progress_frame.pack(fill=tk.X, padx=8, pady=(4, 0))
+        self.progress_bar = ttk.Progressbar(
+            self.progress_frame,
+            mode='indeterminate',
+            variable=self.progress_var,
+            length=200
+        )
+        
         # Input area
         top = ttk.Frame(self.root, padding=8)
         top.pack(fill=tk.X)
 
-        ttk.Label(top, text="Prompt:").pack(anchor=tk.W)
+        ttk.Label(top, text="📝 Prompt:", font=("", 10, "bold")).pack(anchor=tk.W)
         self.txt_prompt = tk.Text(top, height=5, wrap=tk.WORD)
         self.txt_prompt.pack(fill=tk.X, pady=(2, 6))
         # Prompt stats (chars/words)
@@ -70,7 +86,7 @@ class PromptCompilerUI:
         # Context (optional)
         ctx_row = ttk.Frame(top)
         ctx_row.pack(fill=tk.X, pady=(8, 0))
-        ttk.Label(ctx_row, text="Context (optional):").pack(anchor=tk.W)
+        ttk.Label(ctx_row, text="📋 Context (optional):", font=("", 10, "bold")).pack(anchor=tk.W)
         self.txt_context = tk.Text(ctx_row, height=4, wrap=tk.WORD)
         self.txt_context.pack(fill=tk.X, pady=(2, 6))
         self.var_include_context = tk.BooleanVar(value=False)
@@ -96,12 +112,25 @@ class PromptCompilerUI:
             side=tk.LEFT, padx=(6, 0)
         )
 
-        ttk.Button(opts, text="Generate", command=self.on_generate).pack(side=tk.LEFT, padx=4)
-        ttk.Button(opts, text="Show Schema", command=self.on_show_schema).pack(side=tk.LEFT, padx=4)
-        ttk.Button(opts, text="Clear", command=self.on_clear).pack(side=tk.LEFT, padx=4)
-        ttk.Button(opts, text="Save...", command=self.on_save).pack(side=tk.LEFT, padx=4)
-        self.btn_theme = ttk.Button(opts, text="Dark", command=self.toggle_theme)
+        self.btn_generate = ttk.Button(opts, text="⚡ Generate", command=self.on_generate)
+        self.btn_generate.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)")
+        
+        btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
+        btn_schema.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_schema, "View IR JSON schema structure")
+        
+        btn_clear = ttk.Button(opts, text="🗑️ Clear", command=self.on_clear)
+        btn_clear.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_clear, "Clear all outputs and reset interface")
+        
+        btn_save = ttk.Button(opts, text="💾 Save", command=self.on_save)
+        btn_save.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_save, "Save outputs to file (Ctrl+S)")
+        
+        self.btn_theme = ttk.Button(opts, text="🌙 Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(self.btn_theme, "Toggle light/dark theme")
 
         # Examples dropdown
         try:
@@ -147,9 +176,9 @@ class PromptCompilerUI:
         ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(
             side=tk.LEFT, padx=(6, 0)
         )
-        ttk.Button(opts, text="Send to OpenAI", command=self.on_send_openai).pack(
-            side=tk.LEFT, padx=6
-        )
+        btn_openai = ttk.Button(opts, text="🤖 Send to OpenAI", command=self.on_send_openai)
+        btn_openai.pack(side=tk.LEFT, padx=6)
+        self._add_tooltip(btn_openai, "Send compiled prompt directly to OpenAI API")
 
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
@@ -309,9 +338,14 @@ class PromptCompilerUI:
         bar.pack(fill=tk.X)
         txt = tk.Text(frame, wrap=tk.NONE)
         txt.pack(fill=tk.BOTH, expand=True)
-        ttk.Button(bar, text="Copy", command=lambda t=txt: self._copy_text(t)).pack(
-            side=tk.LEFT, padx=2, pady=2
-        )
+        
+        # Add syntax highlighting for JSON tabs
+        if "JSON" in title:
+            self._setup_json_highlighting(txt)
+        
+        btn_copy = ttk.Button(bar, text="📋 Copy", command=lambda t=txt: self._copy_text(t))
+        btn_copy.pack(side=tk.LEFT, padx=2, pady=2)
+        self._add_tooltip(btn_copy, f"Copy {title} to clipboard")
         if title in ("System Prompt", "User Prompt", "Plan", "Expanded Prompt"):
             ttk.Button(bar, text="Copy all", command=self._copy_all_texts).pack(
                 side=tk.LEFT, padx=2, pady=2
@@ -352,31 +386,105 @@ class PromptCompilerUI:
     def apply_theme(self, theme: str):
         self.current_theme = theme
         dark = theme == "dark"
-        bg = "#1e1e1e" if dark else "#ffffff"
-        fg = "#e0e0e0" if dark else "#000000"
-        panel = "#252526" if dark else "#f5f5f5"
-        accent = "#0e639c" if dark else "#0a64a0"
+        
+        # Modern color palette
+        if dark:
+            bg = "#1a1a1a"  # Darker background
+            fg = "#e4e4e7"  # Softer white
+            panel = "#27272a"  # Modern dark panel
+            accent = "#3b82f6"  # Modern blue
+            accent_hover = "#2563eb"  # Darker blue on hover
+            border = "#3f3f46"
+            text_bg = "#18181b"
+        else:
+            bg = "#fafafa"  # Softer white
+            fg = "#18181b"  # Almost black
+            panel = "#f4f4f5"  # Light gray
+            accent = "#3b82f6"  # Vibrant blue
+            accent_hover = "#2563eb"
+            border = "#e4e4e7"
+            text_bg = "#ffffff"
+        
         self.root.configure(bg=bg)
         style = ttk.Style()
         try:
             if dark:
                 style.theme_use("clam")
+            else:
+                style.theme_use("default")
         except Exception:
             pass
+        
+        # Modern styling with better contrast
         for elem in ["TFrame", "TLabel", "TCheckbutton"]:
             style.configure(elem, background=bg, foreground=fg)
-        style.configure("TNotebook", background=bg, foreground=fg)
-        style.configure("TNotebook.Tab", background=panel, foreground=fg)
-        style.map("TNotebook.Tab", background=[("selected", accent)])
-        # Treeview (constraints)
-        style.configure("Treeview", background=panel, fieldbackground=panel, foreground=fg)
-        style.configure("Treeview.Heading", background=panel, foreground=fg)
-        # Chips label style
+        
+        # Notebook tabs with modern look
+        style.configure("TNotebook", background=bg, foreground=fg, borderwidth=0)
+        style.configure(
+            "TNotebook.Tab",
+            background=panel,
+            foreground=fg,
+            padding=(12, 8),
+            borderwidth=0
+        )
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", accent), ("active", accent_hover)],
+            foreground=[("selected", "#ffffff"), ("active", "#ffffff")]
+        )
+        
+        # Modern buttons
+        style.configure(
+            "TButton",
+            padding=(10, 6),
+            borderwidth=1,
+            relief="flat"
+        )
+        style.map(
+            "TButton",
+            background=[("active", accent_hover)],
+            foreground=[("active", "#ffffff")]
+        )
+        
+        # Progress bar styling
+        style.configure(
+            "TProgressbar",
+            background=accent,
+            troughcolor=panel,
+            borderwidth=0,
+            thickness=4
+        )
+        
+        # Treeview (constraints) with better borders
+        style.configure(
+            "Treeview",
+            background=text_bg,
+            fieldbackground=text_bg,
+            foreground=fg,
+            borderwidth=1,
+            relief="solid"
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=panel,
+            foreground=fg,
+            relief="flat",
+            borderwidth=1
+        )
+        style.map(
+            "Treeview.Heading",
+            background=[("active", accent_hover)]
+        )
+        
+        # Chips label style with gradient effect (simulated)
         style.configure(
             "Chip.TLabel",
-            background=("#2d7dd2" if not dark else "#2563eb"),
+            background=accent,
             foreground="#ffffff",
-            padding=(6, 2),
+            padding=(8, 4),
+            borderwidth=0,
+            relief="flat"
         )
         for t in [
             self.txt_prompt,
@@ -394,9 +502,27 @@ class PromptCompilerUI:
             if t is None:
                 continue
             t.configure(
-                bg=panel, fg=fg, insertbackground=fg, relief=tk.FLAT, highlightbackground=bg
+                bg=text_bg,
+                fg=fg,
+                insertbackground=accent,
+                relief=tk.SOLID,
+                borderwidth=1,
+                highlightthickness=0,
+                highlightbackground=border,
+                font=("Consolas", 10)
             )
-        self.btn_theme.config(text="Light" if dark else "Dark")
+        
+        # Update theme button
+        self.btn_theme.config(text="☀️ Light" if dark else "🌙 Dark")
+        
+        # Re-apply JSON highlighting if tabs exist
+        try:
+            if hasattr(self, 'txt_ir') and self.txt_ir.get("1.0", tk.END).strip():
+                self._apply_json_highlighting(self.txt_ir, self.txt_ir.get("1.0", tk.END))
+            if hasattr(self, 'txt_ir2') and self.txt_ir2.get("1.0", tk.END).strip():
+                self._apply_json_highlighting(self.txt_ir2, self.txt_ir2.get("1.0", tk.END))
+        except Exception:
+            pass
 
     # Settings persistence
     def _load_settings(self):  # pragma: no cover - simple IO
@@ -552,7 +678,14 @@ class PromptCompilerUI:
         if not prompt:
             messagebox.showwarning("Prompt", "Enter a prompt text first.")
             return
-        self.status_var.set("Generating...")
+        
+        # Start progress animation
+        self.is_generating = True
+        self.progress_bar.pack(fill=tk.X, pady=2)
+        self.progress_bar.start(10)
+        self.btn_generate.config(state="disabled")
+        self.status_var.set("⚡ Generating...")
+        
         self.root.after(30, lambda: self._generate_core(prompt))
 
     def on_send_openai(self):  # pragma: no cover - UI action
@@ -708,11 +841,23 @@ class PromptCompilerUI:
             self.summary_var.set(" | ".join(parts))
             suffix = " • v2 emitters" if use_v2_emitters else ""
             self.status_var.set(
-                f"Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}"
+                f"✅ Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}"
             )
+            
+            # Apply JSON syntax highlighting
+            self._apply_json_highlighting(self.txt_ir, ir_json)
+            if ir2_json:
+                self._apply_json_highlighting(self.txt_ir2, ir2_json)
+                
         except Exception as e:  # pragma: no cover
-            self.status_var.set("Error")
+            self.status_var.set("❌ Error")
             messagebox.showerror("Error", str(e))
+        finally:
+            # Stop progress animation
+            self.is_generating = False
+            self.progress_bar.stop()
+            self.progress_bar.pack_forget()
+            self.btn_generate.config(state="normal")
 
     def _copy_constraints(self):
         if not hasattr(self, "tree_constraints"):
@@ -1124,6 +1269,98 @@ class PromptCompilerUI:
                 t.configure(wrap=wrap_mode)
             except Exception:
                 pass
+
+    def _add_tooltip(self, widget, text: str):
+        """Add hover tooltip to a widget."""
+        def on_enter(event):
+            # Create tooltip window
+            tooltip = tk.Toplevel(widget)
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+            
+            dark = self.current_theme == "dark"
+            bg = "#18181b" if dark else "#fafafa"
+            fg = "#e4e4e7" if dark else "#18181b"
+            border = "#3f3f46" if dark else "#e4e4e7"
+            
+            label = tk.Label(
+                tooltip,
+                text=text,
+                background=bg,
+                foreground=fg,
+                relief="solid",
+                borderwidth=1,
+                font=("", 9),
+                padx=8,
+                pady=4
+            )
+            label.pack()
+            widget._tooltip = tooltip
+        
+        def on_leave(event):
+            if hasattr(widget, '_tooltip'):
+                try:
+                    widget._tooltip.destroy()
+                except Exception:
+                    pass
+        
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
+
+    def _setup_json_highlighting(self, text_widget: tk.Text):
+        """Setup tags for JSON syntax highlighting."""
+        dark = self.current_theme == "dark"
+        
+        # Color scheme for JSON
+        if dark:
+            text_widget.tag_configure("json_key", foreground="#a5d6ff")  # Light blue
+            text_widget.tag_configure("json_string", foreground="#7ee787")  # Green
+            text_widget.tag_configure("json_number", foreground="#79c0ff")  # Blue
+            text_widget.tag_configure("json_bool", foreground="#ffa657")  # Orange
+            text_widget.tag_configure("json_null", foreground="#ffa657")  # Orange
+            text_widget.tag_configure("json_brace", foreground="#c9d1d9")  # Gray
+        else:
+            text_widget.tag_configure("json_key", foreground="#0550ae")  # Blue
+            text_widget.tag_configure("json_string", foreground="#0a3069")  # Dark blue
+            text_widget.tag_configure("json_number", foreground="#6639ba")  # Purple
+            text_widget.tag_configure("json_bool", foreground="#bf3989")  # Magenta
+            text_widget.tag_configure("json_null", foreground="#bf3989")  # Magenta
+            text_widget.tag_configure("json_brace", foreground="#24292f")  # Dark gray
+
+    def _apply_json_highlighting(self, text_widget: tk.Text, json_text: str):
+        """Apply syntax highlighting to JSON text."""
+        try:
+            # Clear existing tags
+            for tag in ["json_key", "json_string", "json_number", "json_bool", "json_null", "json_brace"]:
+                text_widget.tag_remove(tag, "1.0", tk.END)
+            
+            # Pattern matching for JSON elements
+            patterns = [
+                (r'"([^"]+)"\s*:', "json_key"),  # Keys
+                (r':\s*"([^"]*)"', "json_string"),  # String values
+                (r':\s*(\d+\.?\d*)', "json_number"),  # Numbers
+                (r':\s*(true|false)', "json_bool"),  # Booleans
+                (r':\s*(null)', "json_null"),  # Null
+                (r'([{}\[\],])', "json_brace"),  # Braces and brackets
+            ]
+            
+            for pattern, tag in patterns:
+                for match in re.finditer(pattern, json_text):
+                    start_idx = match.start(1) if match.lastindex else match.start()
+                    end_idx = match.end(1) if match.lastindex else match.end()
+                    
+                    # Convert to tkinter text indices
+                    start_line = json_text[:start_idx].count('\n') + 1
+                    start_col = start_idx - json_text[:start_idx].rfind('\n') - 1
+                    end_line = json_text[:end_idx].count('\n') + 1
+                    end_col = end_idx - json_text[:end_idx].rfind('\n') - 1
+                    
+                    start_pos = f"{start_line}.{start_col}"
+                    end_pos = f"{end_line}.{end_col}"
+                    
+                    text_widget.tag_add(tag, start_pos, end_pos)
+        except Exception:
+            pass  # Fail silently if highlighting fails
 
 
 def main():  # pragma: no cover
