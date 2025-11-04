@@ -76,9 +76,36 @@ class PromptCompilerUI:
         top = ttk.Frame(self.root, padding=8)
         top.pack(fill=tk.X)
 
-        ttk.Label(top, text="📝 Prompt:", font=("", 10, "bold")).pack(anchor=tk.W)
+        # Drop zone indicator (shown when dragging)
+        self.drop_zone_frame = ttk.Frame(top, relief="solid", borderwidth=2)
+        self.drop_zone_var = tk.StringVar(value="")
+        self.drop_zone_label = tk.Label(
+            self.drop_zone_frame,
+            textvariable=self.drop_zone_var,
+            font=("", 12, "bold"),
+            foreground="#3b82f6",
+            padx=20,
+            pady=10
+        )
+
+        prompt_header = ttk.Frame(top)
+        prompt_header.pack(fill=tk.X)
+        ttk.Label(prompt_header, text="📝 Prompt:", font=("", 10, "bold")).pack(side=tk.LEFT)
+        btn_load_prompt = ttk.Button(
+            prompt_header,
+            text="📂 Load",
+            command=lambda: self._load_file_dialog('prompt'),
+            width=8
+        )
+        btn_load_prompt.pack(side=tk.RIGHT, padx=(4, 0))
+        self._add_tooltip(btn_load_prompt, "Load prompt from file (or drag & drop)")
+        
         self.txt_prompt = tk.Text(top, height=5, wrap=tk.WORD)
         self.txt_prompt.pack(fill=tk.X, pady=(2, 6))
+        
+        # Setup drag & drop for prompt area
+        self._setup_drag_drop(self.txt_prompt, target='prompt')
+        
         # Prompt stats (chars/words)
         self.prompt_stats_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.prompt_stats_var, foreground="#666").pack(anchor=tk.W)
@@ -86,9 +113,25 @@ class PromptCompilerUI:
         # Context (optional)
         ctx_row = ttk.Frame(top)
         ctx_row.pack(fill=tk.X, pady=(8, 0))
-        ttk.Label(ctx_row, text="📋 Context (optional):", font=("", 10, "bold")).pack(anchor=tk.W)
+        
+        ctx_header = ttk.Frame(ctx_row)
+        ctx_header.pack(fill=tk.X)
+        ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(side=tk.LEFT)
+        btn_load_context = ttk.Button(
+            ctx_header,
+            text="📂 Load",
+            command=lambda: self._load_file_dialog('context'),
+            width=8
+        )
+        btn_load_context.pack(side=tk.RIGHT, padx=(4, 0))
+        self._add_tooltip(btn_load_context, "Load context from file (or drag & drop)")
+        
         self.txt_context = tk.Text(ctx_row, height=4, wrap=tk.WORD)
         self.txt_context.pack(fill=tk.X, pady=(2, 6))
+        
+        # Setup drag & drop for context area
+        self._setup_drag_drop(self.txt_context, target='context')
+        
         self.var_include_context = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             ctx_row, text="Include context in prompts", variable=self.var_include_context
@@ -1361,6 +1404,173 @@ class PromptCompilerUI:
                     text_widget.tag_add(tag, start_pos, end_pos)
         except Exception:
             pass  # Fail silently if highlighting fails
+
+    def _setup_drag_drop(self, widget: tk.Text, target: str = 'prompt'):
+        """Setup drag and drop functionality for a text widget."""
+        # Store target info
+        widget._drop_target = target
+        
+        def on_drag_enter(event):
+            """Visual feedback when dragging over widget."""
+            dark = self.current_theme == "dark"
+            highlight_color = "#3b82f6" if dark else "#2563eb"
+            bg_color = "#18181b" if dark else "#f4f4f5"
+            
+            widget.config(highlightbackground=highlight_color, highlightthickness=3)
+            self.drop_zone_label.config(background=bg_color)
+            self.drop_zone_frame.config(background=bg_color)
+            self.drop_zone_var.set(f"📁 Drop {target} file here (.txt, .md)...")
+            self.drop_zone_label.pack(expand=True, fill=tk.BOTH, pady=8)
+            self.drop_zone_frame.pack(fill=tk.X, pady=(0, 4), padx=4)
+            return event.action
+        
+        def on_drag_leave(event):
+            """Remove visual feedback when drag leaves."""
+            widget.config(highlightthickness=0)
+            self.drop_zone_label.pack_forget()
+            self.drop_zone_frame.pack_forget()
+            self.drop_zone_var.set("")
+        
+        def on_drop(event):
+            """Handle file drop."""
+            widget.config(highlightthickness=0)
+            self.drop_zone_label.pack_forget()
+            self.drop_zone_frame.pack_forget()
+            self.drop_zone_var.set("")
+            
+            # Get dropped files
+            files = self._parse_drop_data(event.data)
+            if not files:
+                return
+            
+            # Process first file
+            file_path = Path(files[0])
+            if not file_path.exists():
+                messagebox.showerror("Error", f"File not found: {file_path}")
+                return
+            
+            # Check file extension
+            allowed_extensions = {'.txt', '.md', '.markdown', '.text'}
+            if file_path.suffix.lower() not in allowed_extensions:
+                messagebox.showwarning(
+                    "Unsupported File",
+                    f"Only text files are supported: {', '.join(allowed_extensions)}\n"
+                    f"Got: {file_path.suffix}"
+                )
+                return
+            
+            # Read and load file
+            try:
+                content = file_path.read_text(encoding='utf-8')
+                
+                # Ask before replacing if there's existing content
+                existing = widget.get("1.0", tk.END).strip()
+                if existing:
+                    if not messagebox.askyesno(
+                        "Replace Content",
+                        f"Replace existing {target} content with file:\n{file_path.name}?"
+                    ):
+                        return
+                
+                # Load content
+                widget.delete("1.0", tk.END)
+                widget.insert("1.0", content)
+                
+                # Update stats if this is the prompt area
+                if target == 'prompt':
+                    self._update_prompt_stats()
+                
+                self.status_var.set(f"📁 Loaded: {file_path.name}")
+                
+                # Show success message
+                messagebox.showinfo(
+                    "File Loaded",
+                    f"Successfully loaded:\n{file_path.name}\n\n"
+                    f"Characters: {len(content)}\n"
+                    f"Lines: {content.count(chr(10)) + 1}"
+                )
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
+        
+        # Enable drag and drop using tkinterdnd2 or built-in methods
+        try:
+            # Try using tkinterdnd2 if available
+            from tkinterdnd2 import DND_FILES
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind('<<DropEnter>>', on_drag_enter)
+            widget.dnd_bind('<<DropLeave>>', on_drag_leave)
+            widget.dnd_bind('<<Drop>>', on_drop)
+        except ImportError:
+            # Fallback to basic tk drag-drop (Windows only)
+            try:
+                widget.drop_target_register('DND_Files')
+                widget.dnd_bind('<<DropEnter>>', on_drag_enter)
+                widget.dnd_bind('<<DropLeave>>', on_drag_leave)
+                widget.dnd_bind('<<Drop>>', on_drop)
+            except Exception:
+                # If DND not available, add file open button as fallback
+                pass
+
+    def _parse_drop_data(self, data: str) -> list:
+        """Parse dropped file data into list of file paths."""
+        # Handle different formats
+        if data.startswith('{') and data.endswith('}'):
+            # Windows format: {file1} {file2}
+            files = []
+            current = ""
+            in_braces = False
+            for char in data:
+                if char == '{':
+                    in_braces = True
+                elif char == '}':
+                    in_braces = False
+                    if current:
+                        files.append(current.strip())
+                        current = ""
+                elif in_braces:
+                    current += char
+            return files
+        else:
+            # Simple space-separated or single file
+            return [f.strip('{}').strip() for f in data.split()]
+
+    def _load_file_dialog(self, target: str = 'prompt'):
+        """Fallback: Open file dialog to load content."""
+        file_path = filedialog.askopenfilename(
+            title=f"Load {target.capitalize()} from File",
+            filetypes=[
+                ("Text Files", "*.txt"),
+                ("Markdown Files", "*.md"),
+                ("All Files", "*.*")
+            ]
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            content = Path(file_path).read_text(encoding='utf-8')
+            widget = self.txt_prompt if target == 'prompt' else self.txt_context
+            
+            # Ask before replacing
+            existing = widget.get("1.0", tk.END).strip()
+            if existing:
+                if not messagebox.askyesno(
+                    "Replace Content",
+                    f"Replace existing {target} content?"
+                ):
+                    return
+            
+            widget.delete("1.0", tk.END)
+            widget.insert("1.0", content)
+            
+            if target == 'prompt':
+                self._update_prompt_stats()
+            
+            self.status_var.set(f"📁 Loaded: {Path(file_path).name}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
 
 
 def main():  # pragma: no cover
