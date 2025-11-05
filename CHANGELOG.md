@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.40] - 2025-11-05
+### Added
+- **Recent Prompts Sidebar**: Track and quickly access your prompt history
+  - Resizable sidebar with PanedWindow layout
+  - Shows 100 most recent prompts with previews
+  - Real-time search/filter functionality
+  - Favorites system with ⭐ star icons
+  - Context menu (Load, Delete, Toggle Favorite)
+  - Keyboard shortcuts: Enter (load), Delete (remove)
+  - Toggle sidebar visibility with ◀/▶ button
+  - Auto-save prompts to `~/.promptc_history.json`
+  - Double-click or Enter to load prompts
+  - Right-click context menu for quick actions
+- Documentation: `docs/SIDEBAR_GUIDE.md` with usage instructions
+
+### Changed
+- UI: Restructured layout with PanedWindow for sidebar
+- UI: Moved content area to separate frame
+- Added `datetime` import for timestamps
+
+## [2.0.39] - 2025-11-04
+### Added
+- **Drag & Drop File Loading**: Drop .txt/.md files directly into prompt/context areas
+  - Visual drop zone indicators
+  - Support for multiple file formats (.txt, .md, .markdown, .text)
+  - Confirmation dialog before replacing content
+  - "📂 Load" buttons as fallback
+  - Character and line count display on load
+- Documentation: `docs/DRAG_DROP_GUIDE.md` with usage guide
+
+## [2.0.38] - 2025-11-03
+### Added
+- **Modern UI Theme**: Enhanced visual design with colors and icons
+  - Unicode emoji icons on all buttons (📄, 🔍, ⚙️, etc.)
+  - Modern color palette for light/dark themes
+  - JSON syntax highlighting in output tabs
+  - Real-time syntax coloring (keys, strings, numbers, booleans)
+  - Progress bar animation during generation
+  - Tooltips on all interactive elements
+  - Improved button styling with hover effects
+
+## [2.0.37] - 2025-11-02
+### Added
+- **Template Gallery**: 10 built-in prompt templates with CLI integration
+  - Templates: code-review, bug-report, feature-request, refactor, test-gen, docs, security-audit, performance, api-design, data-analysis
+  - CLI commands: `promptc gallery list`, `search <keyword>`, `preview <template>`, `use <template>`
+  - Template metadata: category, description, parameters, usage examples
+  - 31 comprehensive tests (all passing)
+- Core: `app/template_gallery.py` module with template system
+- CLI: Gallery commands in `cli/main.py`
+
 ## [2.0.10] - 2025-01-XX
 ### Added
 - **Automatic Prompt Fixing**: New `fix` CLI command and `/fix` API endpoint

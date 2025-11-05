@@ -21,6 +21,7 @@ from tkinter import ttk, messagebox, filedialog
 import time
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 from app.compiler import (
     compile_text,
@@ -57,13 +58,33 @@ class PromptCompilerUI:
         self.current_theme = "light"
         # Settings file (per-user)
         self.config_path = Path.home() / ".promptc_ui.json"
+        self.history_path = Path.home() / ".promptc_history.json"
+        self.favorites_path = Path.home() / ".promptc_favorites.json"
         
         # Progress indicator
         self.progress_var = tk.DoubleVar(value=0)
         self.is_generating = False
+        
+        # History and favorites data
+        self.history_items = []
+        self.favorites_items = []
+        self.sidebar_visible = True
 
-        # Progress bar at the top
-        self.progress_frame = ttk.Frame(self.root)
+        # Main container with sidebar
+        main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        main_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Left sidebar
+        self.sidebar = ttk.Frame(main_container, width=250)
+        main_container.add(self.sidebar, weight=0)
+        self._create_sidebar()
+        
+        # Right content area
+        content = ttk.Frame(main_container)
+        main_container.add(content, weight=1)
+
+        # Progress bar at the top of content area
+        self.progress_frame = ttk.Frame(content)
         self.progress_frame.pack(fill=tk.X, padx=8, pady=(4, 0))
         self.progress_bar = ttk.Progressbar(
             self.progress_frame,
@@ -73,7 +94,7 @@ class PromptCompilerUI:
         )
         
         # Input area
-        top = ttk.Frame(self.root, padding=8)
+        top = ttk.Frame(content, padding=8)
         top.pack(fill=tk.X)
 
         # Drop zone indicator (shown when dragging)
@@ -228,16 +249,16 @@ class PromptCompilerUI:
 
         # Summary line
         self.summary_var = tk.StringVar(value="")
-        ttk.Label(self.root, textvariable=self.summary_var, padding=(8, 0)).pack(fill=tk.X)
+        ttk.Label(content, textvariable=self.summary_var, padding=(8, 0)).pack(fill=tk.X)
 
         # Intents chips (IR v2)
-        self.chips_frame = ttk.Frame(self.root, padding=(8, 2))
+        self.chips_frame = ttk.Frame(content, padding=(8, 2))
         self.chips_frame.pack(fill=tk.X)
         self.chips_container = ttk.Frame(self.chips_frame)
         self.chips_container.pack(anchor=tk.W)
 
         # Notebook outputs
-        self.nb = ttk.Notebook(self.root)
+        self.nb = ttk.Notebook(content)
         self.nb.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         self.txt_system = self._add_tab("System Prompt")
         self.txt_user = self._add_tab("User Prompt")
@@ -373,6 +394,70 @@ class PromptCompilerUI:
             self._apply_wrap()
         except Exception:
             pass
+        
+        # Load history and populate sidebar
+        self._load_history()
+        self._create_sidebar()
+
+    def _create_sidebar(self):
+        """Create the sidebar with recent prompts and favorites."""
+        # Header with title and toggle button
+        header_frame = ttk.Frame(self.sidebar)
+        header_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        title_label = ttk.Label(header_frame, text="📜 Recent", font=("Segoe UI", 10, "bold"))
+        title_label.pack(side=tk.LEFT)
+        
+        toggle_btn = ttk.Button(
+            header_frame,
+            text="◀",
+            width=3,
+            command=self._toggle_sidebar
+        )
+        toggle_btn.pack(side=tk.RIGHT)
+        self.sidebar_toggle_btn = toggle_btn
+        
+        # Search/filter box
+        search_frame = ttk.Frame(self.sidebar)
+        search_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        
+        ttk.Label(search_frame, text="🔍").pack(side=tk.LEFT, padx=(0, 3))
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", lambda *_: self._filter_history())
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Listbox with scrollbar
+        list_frame = ttk.Frame(self.sidebar)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
+        
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.history_listbox = tk.Listbox(
+            list_frame,
+            yscrollcommand=scrollbar.set,
+            selectmode=tk.SINGLE,
+            activestyle='dotbox'
+        )
+        self.history_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.history_listbox.yview)
+        
+        # Event bindings
+        self.history_listbox.bind("<Double-Button-1>", lambda e: self._load_prompt_from_history())
+        self.history_listbox.bind("<Return>", lambda e: self._load_prompt_from_history())
+        self.history_listbox.bind("<Delete>", lambda e: self._delete_history_item())
+        self.history_listbox.bind("<Button-3>", self._show_history_context_menu)
+        
+        # Action buttons
+        btn_frame = ttk.Frame(self.sidebar)
+        btn_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        
+        ttk.Button(btn_frame, text="🔄 Refresh", command=self._refresh_history).pack(fill=tk.X, pady=1)
+        ttk.Button(btn_frame, text="🗑️ Clear All", command=self._clear_history).pack(fill=tk.X, pady=1)
+        
+        # Load initial history
+        self._refresh_history()
 
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
@@ -721,6 +806,9 @@ class PromptCompilerUI:
         if not prompt:
             messagebox.showwarning("Prompt", "Enter a prompt text first.")
             return
+        
+        # Save to history
+        self._save_to_history(prompt)
         
         # Start progress animation
         self.is_generating = True
@@ -1571,6 +1659,263 @@ class PromptCompilerUI:
             self.status_var.set(f"📁 Loaded: {Path(file_path).name}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
+
+    def _load_history(self):
+        """Load history from JSON file."""
+        try:
+            if self.history_path.exists():
+                with open(self.history_path, 'r', encoding='utf-8') as f:
+                    self.history_items = json.load(f)
+            else:
+                self.history_items = []
+        except Exception as e:
+            print(f"Failed to load history: {e}")
+            self.history_items = []
+    
+    def _save_to_history(self, prompt_text: str):
+        """Save a new prompt to history."""
+        try:
+            # Create preview (first 100 chars)
+            preview = prompt_text[:100].replace('\n', ' ')
+            if len(prompt_text) > 100:
+                preview += "..."
+            
+            # Create history entry
+            entry = {
+                'timestamp': datetime.now().isoformat(),
+                'preview': preview,
+                'full_text': prompt_text,
+                'is_favorite': False
+            }
+            
+            # Add to beginning of list
+            self.history_items.insert(0, entry)
+            
+            # Keep only last 100 items
+            if len(self.history_items) > 100:
+                self.history_items = self.history_items[:100]
+            
+            # Save to file
+            with open(self.history_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+            
+            # Refresh display
+            self._refresh_history()
+            
+        except Exception as e:
+            print(f"Failed to save to history: {e}")
+    
+    def _refresh_history(self):
+        """Refresh the history listbox display."""
+        try:
+            # Clear listbox
+            self.history_listbox.delete(0, tk.END)
+            
+            # Get search filter
+            search_term = self.search_var.get().lower()
+            
+            # Add items
+            for item in self.history_items:
+                preview = item['preview']
+                
+                # Filter by search term
+                if search_term and search_term not in preview.lower():
+                    continue
+                
+                # Add favorite star
+                if item.get('is_favorite', False):
+                    preview = "⭐ " + preview
+                
+                self.history_listbox.insert(tk.END, preview)
+            
+            # Update count
+            count = self.history_listbox.size()
+            if hasattr(self, 'sidebar_toggle_btn'):
+                # Update button text to show count
+                pass
+                
+        except Exception as e:
+            print(f"Failed to refresh history: {e}")
+    
+    def _filter_history(self):
+        """Filter history based on search term."""
+        self._refresh_history()
+    
+    def _load_prompt_from_history(self):
+        """Load selected prompt from history into prompt area."""
+        try:
+            selection = self.history_listbox.curselection()
+            if not selection:
+                return
+            
+            idx = selection[0]
+            
+            # Get search filter to find correct item
+            search_term = self.search_var.get().lower()
+            filtered_items = []
+            for item in self.history_items:
+                if not search_term or search_term in item['preview'].lower():
+                    filtered_items.append(item)
+            
+            if idx >= len(filtered_items):
+                return
+            
+            item = filtered_items[idx]
+            prompt_text = item['full_text']
+            
+            # Ask before replacing
+            existing = self.txt_prompt.get("1.0", tk.END).strip()
+            if existing:
+                if not messagebox.askyesno(
+                    "Replace Prompt",
+                    "Replace current prompt with history item?"
+                ):
+                    return
+            
+            # Load prompt
+            self.txt_prompt.delete("1.0", tk.END)
+            self.txt_prompt.insert("1.0", prompt_text)
+            self._update_prompt_stats()
+            
+            self.status_var.set("📜 Loaded from history")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load prompt: {e}")
+    
+    def _delete_history_item(self):
+        """Delete selected item from history."""
+        try:
+            selection = self.history_listbox.curselection()
+            if not selection:
+                return
+            
+            idx = selection[0]
+            
+            # Get filtered items
+            search_term = self.search_var.get().lower()
+            filtered_items = []
+            filtered_indices = []
+            for i, item in enumerate(self.history_items):
+                if not search_term or search_term in item['preview'].lower():
+                    filtered_items.append(item)
+                    filtered_indices.append(i)
+            
+            if idx >= len(filtered_items):
+                return
+            
+            # Confirm deletion
+            if not messagebox.askyesno(
+                "Delete Item",
+                "Delete this item from history?"
+            ):
+                return
+            
+            # Remove from history
+            actual_idx = filtered_indices[idx]
+            del self.history_items[actual_idx]
+            
+            # Save and refresh
+            with open(self.history_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+            
+            self._refresh_history()
+            self.status_var.set("🗑️ Item deleted")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete item: {e}")
+    
+    def _clear_history(self):
+        """Clear all history items."""
+        try:
+            if not messagebox.askyesno(
+                "Clear History",
+                "Delete all history items? This cannot be undone."
+            ):
+                return
+            
+            self.history_items = []
+            
+            with open(self.history_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+            
+            self._refresh_history()
+            self.status_var.set("🗑️ History cleared")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to clear history: {e}")
+    
+    def _toggle_sidebar(self):
+        """Toggle sidebar visibility."""
+        try:
+            if self.sidebar_visible:
+                # Hide sidebar
+                self.main_container.forget(self.sidebar)
+                self.sidebar_toggle_btn.config(text="▶")
+                self.sidebar_visible = False
+            else:
+                # Show sidebar
+                self.main_container.insert(0, self.sidebar)
+                self.sidebar_toggle_btn.config(text="◀")
+                self.sidebar_visible = True
+        except Exception as e:
+            print(f"Failed to toggle sidebar: {e}")
+    
+    def _show_history_context_menu(self, event):
+        """Show context menu for history item."""
+        try:
+            # Select item under cursor
+            idx = self.history_listbox.nearest(event.y)
+            self.history_listbox.selection_clear(0, tk.END)
+            self.history_listbox.selection_set(idx)
+            
+            # Create context menu
+            menu = tk.Menu(self.root, tearoff=0)
+            menu.add_command(label="📂 Load", command=self._load_prompt_from_history)
+            menu.add_command(label="⭐ Toggle Favorite", command=self._toggle_favorite)
+            menu.add_separator()
+            menu.add_command(label="🗑️ Delete", command=self._delete_history_item)
+            
+            # Show menu
+            menu.tk_popup(event.x_root, event.y_root)
+            
+        except Exception as e:
+            print(f"Failed to show context menu: {e}")
+    
+    def _toggle_favorite(self):
+        """Toggle favorite status of selected item."""
+        try:
+            selection = self.history_listbox.curselection()
+            if not selection:
+                return
+            
+            idx = selection[0]
+            
+            # Get filtered items
+            search_term = self.search_var.get().lower()
+            filtered_indices = []
+            for i, item in enumerate(self.history_items):
+                if not search_term or search_term in item['preview'].lower():
+                    filtered_indices.append(i)
+            
+            if idx >= len(filtered_indices):
+                return
+            
+            # Toggle favorite
+            actual_idx = filtered_indices[idx]
+            self.history_items[actual_idx]['is_favorite'] = not self.history_items[actual_idx].get('is_favorite', False)
+            
+            # Save and refresh
+            with open(self.history_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+            
+            self._refresh_history()
+            
+            # Restore selection
+            if idx < self.history_listbox.size():
+                self.history_listbox.selection_set(idx)
+            
+        except Exception as e:
+            print(f"Failed to toggle favorite: {e}")
 
 
 def main():  # pragma: no cover

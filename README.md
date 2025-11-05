@@ -47,6 +47,9 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
+* **Desktop UI: Recent Prompts Sidebar (new)**: Track and access prompt history with search, favorites (⭐), double-click load, right-click menu, auto-save to `~/.promptc_history.json`
+* **Desktop UI: Drag & Drop Files (new)**: Drop .txt/.md files into prompt/context areas with visual indicators, confirmation dialogs, and "📂 Load" buttons
+* **Desktop UI: Modern Theme (new)**: Emoji icons on buttons, JSON syntax highlighting, progress bar animation, and tooltips
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
@@ -1448,6 +1451,18 @@ python ui_desktop.py
 
 Features:
 - Enter prompt text and click Generate
+- **Recent Prompts Sidebar** (new): Track and quickly access your prompt history
+  - Shows 100 most recent prompts with previews
+  - Real-time search/filter functionality
+  - Favorites system with ⭐ star icons
+  - Double-click or Enter to load prompts
+  - Right-click context menu (Load, Delete, Toggle Favorite)
+  - Toggle visibility with ◀/▶ button
+  - Auto-save to `~/.promptc_history.json`
+- **Drag & Drop File Loading** (new): Drop .txt/.md files directly into prompt/context areas
+  - Visual drop zone indicators
+  - Confirmation before replacing content
+  - "📂 Load" buttons as fallback
 - Toggle Diagnostics to include risk & ambiguity insights in the Expanded Prompt tab
 - Toggle Trace to show heuristic trace lines
 - Copy buttons per tab (System / User / Plan / Expanded / IR JSON) and a "Copy all" action on prompt tabs
@@ -1455,6 +1470,7 @@ Features:
 - Export buttons: "Export JSON" on IR v1/v2 tabs, "Export MD" on Expanded; plus a Save... dialog to export combined Markdown or IR JSON (v1/v2)
 - Summary header shows Persona, Complexity, Risk flags, Ambiguous terms (when diagnostics on)
 - Intent chips (IR v2) appear under the summary when available
+- **Modern UI Theme** (new): Enhanced visual design with emoji icons, syntax highlighting, progress bar, tooltips
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
 - Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, Only live_debug filter, window geometry)
