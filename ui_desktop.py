@@ -20,7 +20,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import time
 from pathlib import Path
-from typing import Optional
 from datetime import datetime
 
 from app.compiler import (
@@ -60,11 +59,11 @@ class PromptCompilerUI:
         self.config_path = Path.home() / ".promptc_ui.json"
         self.history_path = Path.home() / ".promptc_history.json"
         self.favorites_path = Path.home() / ".promptc_favorites.json"
-        
+
         # Progress indicator
         self.progress_var = tk.DoubleVar(value=0)
         self.is_generating = False
-        
+
         # History and favorites data
         self.history_items = []
         self.favorites_items = []
@@ -73,12 +72,12 @@ class PromptCompilerUI:
         # Main container with sidebar
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_container.pack(fill=tk.BOTH, expand=True)
-        
+
         # Left sidebar
         self.sidebar = ttk.Frame(main_container, width=250)
         main_container.add(self.sidebar, weight=0)
         self._create_sidebar()
-        
+
         # Right content area
         content = ttk.Frame(main_container)
         main_container.add(content, weight=1)
@@ -87,12 +86,9 @@ class PromptCompilerUI:
         self.progress_frame = ttk.Frame(content)
         self.progress_frame.pack(fill=tk.X, padx=8, pady=(4, 0))
         self.progress_bar = ttk.Progressbar(
-            self.progress_frame,
-            mode='indeterminate',
-            variable=self.progress_var,
-            length=200
+            self.progress_frame, mode="indeterminate", variable=self.progress_var, length=200
         )
-        
+
         # Input area
         top = ttk.Frame(content, padding=8)
         top.pack(fill=tk.X)
@@ -106,27 +102,24 @@ class PromptCompilerUI:
             font=("", 12, "bold"),
             foreground="#3b82f6",
             padx=20,
-            pady=10
+            pady=10,
         )
 
         prompt_header = ttk.Frame(top)
         prompt_header.pack(fill=tk.X)
         ttk.Label(prompt_header, text="📝 Prompt:", font=("", 10, "bold")).pack(side=tk.LEFT)
         btn_load_prompt = ttk.Button(
-            prompt_header,
-            text="📂 Load",
-            command=lambda: self._load_file_dialog('prompt'),
-            width=8
+            prompt_header, text="📂 Load", command=lambda: self._load_file_dialog("prompt"), width=8
         )
         btn_load_prompt.pack(side=tk.RIGHT, padx=(4, 0))
         self._add_tooltip(btn_load_prompt, "Load prompt from file (or drag & drop)")
-        
+
         self.txt_prompt = tk.Text(top, height=5, wrap=tk.WORD)
         self.txt_prompt.pack(fill=tk.X, pady=(2, 6))
-        
+
         # Setup drag & drop for prompt area
-        self._setup_drag_drop(self.txt_prompt, target='prompt')
-        
+        self._setup_drag_drop(self.txt_prompt, target="prompt")
+
         # Prompt stats (chars/words)
         self.prompt_stats_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.prompt_stats_var, foreground="#666").pack(anchor=tk.W)
@@ -134,25 +127,24 @@ class PromptCompilerUI:
         # Context (optional)
         ctx_row = ttk.Frame(top)
         ctx_row.pack(fill=tk.X, pady=(8, 0))
-        
+
         ctx_header = ttk.Frame(ctx_row)
         ctx_header.pack(fill=tk.X)
-        ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(side=tk.LEFT)
+        ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(
+            side=tk.LEFT
+        )
         btn_load_context = ttk.Button(
-            ctx_header,
-            text="📂 Load",
-            command=lambda: self._load_file_dialog('context'),
-            width=8
+            ctx_header, text="📂 Load", command=lambda: self._load_file_dialog("context"), width=8
         )
         btn_load_context.pack(side=tk.RIGHT, padx=(4, 0))
         self._add_tooltip(btn_load_context, "Load context from file (or drag & drop)")
-        
+
         self.txt_context = tk.Text(ctx_row, height=4, wrap=tk.WORD)
         self.txt_context.pack(fill=tk.X, pady=(2, 6))
-        
+
         # Setup drag & drop for context area
-        self._setup_drag_drop(self.txt_context, target='context')
-        
+        self._setup_drag_drop(self.txt_context, target="context")
+
         self.var_include_context = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             ctx_row, text="Include context in prompts", variable=self.var_include_context
@@ -178,20 +170,22 @@ class PromptCompilerUI:
 
         self.btn_generate = ttk.Button(opts, text="⚡ Generate", command=self.on_generate)
         self.btn_generate.pack(side=tk.LEFT, padx=4)
-        self._add_tooltip(self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)")
-        
+        self._add_tooltip(
+            self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)"
+        )
+
         btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
         btn_schema.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_schema, "View IR JSON schema structure")
-        
+
         btn_clear = ttk.Button(opts, text="🗑️ Clear", command=self.on_clear)
         btn_clear.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_clear, "Clear all outputs and reset interface")
-        
+
         btn_save = ttk.Button(opts, text="💾 Save", command=self.on_save)
         btn_save.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_save, "Save outputs to file (Ctrl+S)")
-        
+
         self.btn_theme = ttk.Button(opts, text="🌙 Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(self.btn_theme, "Toggle light/dark theme")
@@ -394,7 +388,7 @@ class PromptCompilerUI:
             self._apply_wrap()
         except Exception:
             pass
-        
+
         # Load history and populate sidebar
         self._load_history()
         self._create_sidebar()
@@ -404,58 +398,54 @@ class PromptCompilerUI:
         # Header with title and toggle button
         header_frame = ttk.Frame(self.sidebar)
         header_frame.pack(fill=tk.X, padx=5, pady=5)
-        
+
         title_label = ttk.Label(header_frame, text="📜 Recent", font=("Segoe UI", 10, "bold"))
         title_label.pack(side=tk.LEFT)
-        
-        toggle_btn = ttk.Button(
-            header_frame,
-            text="◀",
-            width=3,
-            command=self._toggle_sidebar
-        )
+
+        toggle_btn = ttk.Button(header_frame, text="◀", width=3, command=self._toggle_sidebar)
         toggle_btn.pack(side=tk.RIGHT)
         self.sidebar_toggle_btn = toggle_btn
-        
+
         # Search/filter box
         search_frame = ttk.Frame(self.sidebar)
         search_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-        
+
         ttk.Label(search_frame, text="🔍").pack(side=tk.LEFT, padx=(0, 3))
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._filter_history())
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+
         # Listbox with scrollbar
         list_frame = ttk.Frame(self.sidebar)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
-        
+
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         self.history_listbox = tk.Listbox(
-            list_frame,
-            yscrollcommand=scrollbar.set,
-            selectmode=tk.SINGLE,
-            activestyle='dotbox'
+            list_frame, yscrollcommand=scrollbar.set, selectmode=tk.SINGLE, activestyle="dotbox"
         )
         self.history_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.history_listbox.yview)
-        
+
         # Event bindings
         self.history_listbox.bind("<Double-Button-1>", lambda e: self._load_prompt_from_history())
         self.history_listbox.bind("<Return>", lambda e: self._load_prompt_from_history())
         self.history_listbox.bind("<Delete>", lambda e: self._delete_history_item())
         self.history_listbox.bind("<Button-3>", self._show_history_context_menu)
-        
+
         # Action buttons
         btn_frame = ttk.Frame(self.sidebar)
         btn_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-        
-        ttk.Button(btn_frame, text="🔄 Refresh", command=self._refresh_history).pack(fill=tk.X, pady=1)
-        ttk.Button(btn_frame, text="🗑️ Clear All", command=self._clear_history).pack(fill=tk.X, pady=1)
-        
+
+        ttk.Button(btn_frame, text="🔄 Refresh", command=self._refresh_history).pack(
+            fill=tk.X, pady=1
+        )
+        ttk.Button(btn_frame, text="🗑️ Clear All", command=self._clear_history).pack(
+            fill=tk.X, pady=1
+        )
+
         # Load initial history
         self._refresh_history()
 
@@ -466,11 +456,11 @@ class PromptCompilerUI:
         bar.pack(fill=tk.X)
         txt = tk.Text(frame, wrap=tk.NONE)
         txt.pack(fill=tk.BOTH, expand=True)
-        
+
         # Add syntax highlighting for JSON tabs
         if "JSON" in title:
             self._setup_json_highlighting(txt)
-        
+
         btn_copy = ttk.Button(bar, text="📋 Copy", command=lambda t=txt: self._copy_text(t))
         btn_copy.pack(side=tk.LEFT, padx=2, pady=2)
         self._add_tooltip(btn_copy, f"Copy {title} to clipboard")
@@ -514,7 +504,7 @@ class PromptCompilerUI:
     def apply_theme(self, theme: str):
         self.current_theme = theme
         dark = theme == "dark"
-        
+
         # Modern color palette
         if dark:
             bg = "#1a1a1a"  # Darker background
@@ -532,7 +522,7 @@ class PromptCompilerUI:
             accent_hover = "#2563eb"
             border = "#e4e4e7"
             text_bg = "#ffffff"
-        
+
         self.root.configure(bg=bg)
         style = ttk.Style()
         try:
@@ -542,48 +532,33 @@ class PromptCompilerUI:
                 style.theme_use("default")
         except Exception:
             pass
-        
+
         # Modern styling with better contrast
         for elem in ["TFrame", "TLabel", "TCheckbutton"]:
             style.configure(elem, background=bg, foreground=fg)
-        
+
         # Notebook tabs with modern look
         style.configure("TNotebook", background=bg, foreground=fg, borderwidth=0)
         style.configure(
-            "TNotebook.Tab",
-            background=panel,
-            foreground=fg,
-            padding=(12, 8),
-            borderwidth=0
+            "TNotebook.Tab", background=panel, foreground=fg, padding=(12, 8), borderwidth=0
         )
         style.map(
             "TNotebook.Tab",
             background=[("selected", accent), ("active", accent_hover)],
-            foreground=[("selected", "#ffffff"), ("active", "#ffffff")]
+            foreground=[("selected", "#ffffff"), ("active", "#ffffff")],
         )
-        
+
         # Modern buttons
-        style.configure(
-            "TButton",
-            padding=(10, 6),
-            borderwidth=1,
-            relief="flat"
-        )
+        style.configure("TButton", padding=(10, 6), borderwidth=1, relief="flat")
         style.map(
-            "TButton",
-            background=[("active", accent_hover)],
-            foreground=[("active", "#ffffff")]
+            "TButton", background=[("active", accent_hover)], foreground=[("active", "#ffffff")]
         )
-        
+
         # Progress bar styling
         style.configure(
-            "TProgressbar",
-            background=accent,
-            troughcolor=panel,
-            borderwidth=0,
-            thickness=4
+            "TProgressbar", background=accent, troughcolor=panel, borderwidth=0, thickness=4
         )
-        
+
         # Treeview (constraints) with better borders
         style.configure(
             "Treeview",
@@ -591,20 +566,13 @@ class PromptCompilerUI:
             fieldbackground=text_bg,
             foreground=fg,
             borderwidth=1,
-            relief="solid"
+            relief="solid",
         )
         style.configure(
-            "Treeview.Heading",
-            background=panel,
-            foreground=fg,
-            relief="flat",
-            borderwidth=1
+            "Treeview.Heading", background=panel, foreground=fg, relief="flat", borderwidth=1
         )
-        style.map(
-            "Treeview.Heading",
-            background=[("active", accent_hover)]
-        )
-        
+        style.map("Treeview.Heading", background=[("active", accent_hover)])
+
         # Chips label style with gradient effect (simulated)
         style.configure(
             "Chip.TLabel",
@@ -612,7 +580,7 @@ class PromptCompilerUI:
             foreground="#ffffff",
             padding=(8, 4),
             borderwidth=0,
-            relief="flat"
+            relief="flat",
         )
         for t in [
             self.txt_prompt,
@@ -637,17 +605,17 @@ class PromptCompilerUI:
                 borderwidth=1,
                 highlightthickness=0,
                 highlightbackground=border,
-                font=("Consolas", 10)
+                font=("Consolas", 10),
             )
-        
+
         # Update theme button
         self.btn_theme.config(text="☀️ Light" if dark else "🌙 Dark")
-        
+
         # Re-apply JSON highlighting if tabs exist
         try:
-            if hasattr(self, 'txt_ir') and self.txt_ir.get("1.0", tk.END).strip():
+            if hasattr(self, "txt_ir") and self.txt_ir.get("1.0", tk.END).strip():
                 self._apply_json_highlighting(self.txt_ir, self.txt_ir.get("1.0", tk.END))
-            if hasattr(self, 'txt_ir2') and self.txt_ir2.get("1.0", tk.END).strip():
+            if hasattr(self, "txt_ir2") and self.txt_ir2.get("1.0", tk.END).strip():
                 self._apply_json_highlighting(self.txt_ir2, self.txt_ir2.get("1.0", tk.END))
         except Exception:
             pass
@@ -806,17 +774,17 @@ class PromptCompilerUI:
         if not prompt:
             messagebox.showwarning("Prompt", "Enter a prompt text first.")
             return
-        
+
         # Save to history
         self._save_to_history(prompt)
-        
+
         # Start progress animation
         self.is_generating = True
         self.progress_bar.pack(fill=tk.X, pady=2)
         self.progress_bar.start(10)
         self.btn_generate.config(state="disabled")
         self.status_var.set("⚡ Generating...")
-        
+
         self.root.after(30, lambda: self._generate_core(prompt))
 
     def on_send_openai(self):  # pragma: no cover - UI action
@@ -974,12 +942,12 @@ class PromptCompilerUI:
             self.status_var.set(
                 f"✅ Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}"
             )
-            
+
             # Apply JSON syntax highlighting
             self._apply_json_highlighting(self.txt_ir, ir_json)
             if ir2_json:
                 self._apply_json_highlighting(self.txt_ir2, ir2_json)
-                
+
         except Exception as e:  # pragma: no cover
             self.status_var.set("❌ Error")
             messagebox.showerror("Error", str(e))
@@ -1403,17 +1371,17 @@ class PromptCompilerUI:
 
     def _add_tooltip(self, widget, text: str):
         """Add hover tooltip to a widget."""
+
         def on_enter(event):
             # Create tooltip window
             tooltip = tk.Toplevel(widget)
             tooltip.wm_overrideredirect(True)
             tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
-            
+
             dark = self.current_theme == "dark"
             bg = "#18181b" if dark else "#fafafa"
             fg = "#e4e4e7" if dark else "#18181b"
-            border = "#3f3f46" if dark else "#e4e4e7"
-            
+
             label = tk.Label(
                 tooltip,
                 text=text,
@@ -1423,25 +1391,25 @@ class PromptCompilerUI:
                 borderwidth=1,
                 font=("", 9),
                 padx=8,
-                pady=4
+                pady=4,
             )
             label.pack()
             widget._tooltip = tooltip
-        
+
         def on_leave(event):
-            if hasattr(widget, '_tooltip'):
+            if hasattr(widget, "_tooltip"):
                 try:
                     widget._tooltip.destroy()
                 except Exception:
                     pass
-        
+
         widget.bind("<Enter>", on_enter)
         widget.bind("<Leave>", on_leave)
 
     def _setup_json_highlighting(self, text_widget: tk.Text):
         """Setup tags for JSON syntax highlighting."""
         dark = self.current_theme == "dark"
-        
+
         # Color scheme for JSON
         if dark:
             text_widget.tag_configure("json_key", foreground="#a5d6ff")  # Light blue
@@ -1462,48 +1430,55 @@ class PromptCompilerUI:
         """Apply syntax highlighting to JSON text."""
         try:
             # Clear existing tags
-            for tag in ["json_key", "json_string", "json_number", "json_bool", "json_null", "json_brace"]:
+            for tag in [
+                "json_key",
+                "json_string",
+                "json_number",
+                "json_bool",
+                "json_null",
+                "json_brace",
+            ]:
                 text_widget.tag_remove(tag, "1.0", tk.END)
-            
+
             # Pattern matching for JSON elements
             patterns = [
                 (r'"([^"]+)"\s*:', "json_key"),  # Keys
                 (r':\s*"([^"]*)"', "json_string"),  # String values
-                (r':\s*(\d+\.?\d*)', "json_number"),  # Numbers
-                (r':\s*(true|false)', "json_bool"),  # Booleans
-                (r':\s*(null)', "json_null"),  # Null
-                (r'([{}\[\],])', "json_brace"),  # Braces and brackets
+                (r":\s*(\d+\.?\d*)", "json_number"),  # Numbers
+                (r":\s*(true|false)", "json_bool"),  # Booleans
+                (r":\s*(null)", "json_null"),  # Null
+                (r"([{}\[\],])", "json_brace"),  # Braces and brackets
             ]
-            
+
             for pattern, tag in patterns:
                 for match in re.finditer(pattern, json_text):
                     start_idx = match.start(1) if match.lastindex else match.start()
                     end_idx = match.end(1) if match.lastindex else match.end()
-                    
+
                     # Convert to tkinter text indices
-                    start_line = json_text[:start_idx].count('\n') + 1
-                    start_col = start_idx - json_text[:start_idx].rfind('\n') - 1
-                    end_line = json_text[:end_idx].count('\n') + 1
-                    end_col = end_idx - json_text[:end_idx].rfind('\n') - 1
-                    
+                    start_line = json_text[:start_idx].count("\n") + 1
+                    start_col = start_idx - json_text[:start_idx].rfind("\n") - 1
+                    end_line = json_text[:end_idx].count("\n") + 1
+                    end_col = end_idx - json_text[:end_idx].rfind("\n") - 1
+
                     start_pos = f"{start_line}.{start_col}"
                     end_pos = f"{end_line}.{end_col}"
-                    
+
                     text_widget.tag_add(tag, start_pos, end_pos)
         except Exception:
             pass  # Fail silently if highlighting fails
 
-    def _setup_drag_drop(self, widget: tk.Text, target: str = 'prompt'):
+    def _setup_drag_drop(self, widget: tk.Text, target: str = "prompt"):
         """Setup drag and drop functionality for a text widget."""
         # Store target info
         widget._drop_target = target
-        
+
         def on_drag_enter(event):
             """Visual feedback when dragging over widget."""
             dark = self.current_theme == "dark"
             highlight_color = "#3b82f6" if dark else "#2563eb"
             bg_color = "#18181b" if dark else "#f4f4f5"
-            
+
             widget.config(highlightbackground=highlight_color, highlightthickness=3)
             self.drop_zone_label.config(background=bg_color)
             self.drop_zone_frame.config(background=bg_color)
@@ -1511,91 +1486,92 @@ class PromptCompilerUI:
             self.drop_zone_label.pack(expand=True, fill=tk.BOTH, pady=8)
             self.drop_zone_frame.pack(fill=tk.X, pady=(0, 4), padx=4)
             return event.action
-        
+
         def on_drag_leave(event):
             """Remove visual feedback when drag leaves."""
             widget.config(highlightthickness=0)
             self.drop_zone_label.pack_forget()
             self.drop_zone_frame.pack_forget()
             self.drop_zone_var.set("")
-        
+
         def on_drop(event):
             """Handle file drop."""
             widget.config(highlightthickness=0)
             self.drop_zone_label.pack_forget()
             self.drop_zone_frame.pack_forget()
             self.drop_zone_var.set("")
-            
+
             # Get dropped files
             files = self._parse_drop_data(event.data)
             if not files:
                 return
-            
+
             # Process first file
             file_path = Path(files[0])
             if not file_path.exists():
                 messagebox.showerror("Error", f"File not found: {file_path}")
                 return
-            
+
             # Check file extension
-            allowed_extensions = {'.txt', '.md', '.markdown', '.text'}
+            allowed_extensions = {".txt", ".md", ".markdown", ".text"}
             if file_path.suffix.lower() not in allowed_extensions:
                 messagebox.showwarning(
                     "Unsupported File",
                     f"Only text files are supported: {', '.join(allowed_extensions)}\n"
-                    f"Got: {file_path.suffix}"
+                    f"Got: {file_path.suffix}",
                 )
                 return
-            
+
             # Read and load file
             try:
-                content = file_path.read_text(encoding='utf-8')
-                
+                content = file_path.read_text(encoding="utf-8")
+
                 # Ask before replacing if there's existing content
                 existing = widget.get("1.0", tk.END).strip()
                 if existing:
                     if not messagebox.askyesno(
                         "Replace Content",
-                        f"Replace existing {target} content with file:\n{file_path.name}?"
+                        f"Replace existing {target} content with file:\n{file_path.name}?",
                     ):
                         return
-                
+
                 # Load content
                 widget.delete("1.0", tk.END)
                 widget.insert("1.0", content)
-                
+
                 # Update stats if this is the prompt area
-                if target == 'prompt':
+                if target == "prompt":
                     self._update_prompt_stats()
-                
+
                 self.status_var.set(f"📁 Loaded: {file_path.name}")
-                
+
                 # Show success message
                 messagebox.showinfo(
                     "File Loaded",
                     f"Successfully loaded:\n{file_path.name}\n\n"
                     f"Characters: {len(content)}\n"
-                    f"Lines: {content.count(chr(10)) + 1}"
+                    f"Lines: {content.count(chr(10)) + 1}",
                 )
-                
+
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
-        
+
         # Enable drag and drop using tkinterdnd2 or built-in methods
         try:
             # Try using tkinterdnd2 if available
             from tkinterdnd2 import DND_FILES
+
             widget.drop_target_register(DND_FILES)
-            widget.dnd_bind('<<DropEnter>>', on_drag_enter)
-            widget.dnd_bind('<<DropLeave>>', on_drag_leave)
-            widget.dnd_bind('<<Drop>>', on_drop)
+            widget.dnd_bind("<<DropEnter>>", on_drag_enter)
+            widget.dnd_bind("<<DropLeave>>", on_drag_leave)
+            widget.dnd_bind("<<Drop>>", on_drop)
         except ImportError:
             # Fallback to basic tk drag-drop (Windows only)
             try:
-                widget.drop_target_register('DND_Files')
-                widget.dnd_bind('<<DropEnter>>', on_drag_enter)
-                widget.dnd_bind('<<DropLeave>>', on_drag_leave)
-                widget.dnd_bind('<<Drop>>', on_drop)
+                widget.drop_target_register("DND_Files")
+                widget.dnd_bind("<<DropEnter>>", on_drag_enter)
+                widget.dnd_bind("<<DropLeave>>", on_drag_leave)
+                widget.dnd_bind("<<Drop>>", on_drop)
             except Exception:
                 # If DND not available, add file open button as fallback
                 pass
@@ -1603,15 +1579,15 @@ class PromptCompilerUI:
     def _parse_drop_data(self, data: str) -> list:
         """Parse dropped file data into list of file paths."""
         # Handle different formats
-        if data.startswith('{') and data.endswith('}'):
+        if data.startswith("{") and data.endswith("}"):
             # Windows format: {file1} {file2}
             files = []
             current = ""
             in_braces = False
             for char in data:
-                if char == '{':
+                if char == "{":
                     in_braces = True
-                elif char == '}':
+                elif char == "}":
                     in_braces = False
                     if current:
                         files.append(current.strip())
@@ -1621,41 +1597,36 @@ class PromptCompilerUI:
             return files
         else:
             # Simple space-separated or single file
-            return [f.strip('{}').strip() for f in data.split()]
+            return [f.strip("{}").strip() for f in data.split()]
 
-    def _load_file_dialog(self, target: str = 'prompt'):
+    def _load_file_dialog(self, target: str = "prompt"):
         """Fallback: Open file dialog to load content."""
         file_path = filedialog.askopenfilename(
             title=f"Load {target.capitalize()} from File",
-            filetypes=[
-                ("Text Files", "*.txt"),
-                ("Markdown Files", "*.md"),
-                ("All Files", "*.*")
-            ]
+            filetypes=[("Text Files", "*.txt"), ("Markdown Files", "*.md"), ("All Files", "*.*")],
         )
-        
+
         if not file_path:
             return
-        
+
         try:
-            content = Path(file_path).read_text(encoding='utf-8')
-            widget = self.txt_prompt if target == 'prompt' else self.txt_context
-            
+            content = Path(file_path).read_text(encoding="utf-8")
+            widget = self.txt_prompt if target == "prompt" else self.txt_context
+
             # Ask before replacing
             existing = widget.get("1.0", tk.END).strip()
             if existing:
                 if not messagebox.askyesno(
-                    "Replace Content",
-                    f"Replace existing {target} content?"
+                    "Replace Content", f"Replace existing {target} content?"
                 ):
                     return
-            
+
             widget.delete("1.0", tk.END)
             widget.insert("1.0", content)
-            
-            if target == 'prompt':
+
+            if target == "prompt":
                 self._update_prompt_stats()
-            
+
             self.status_var.set(f"📁 Loaded: {Path(file_path).name}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")
@@ -1664,186 +1635,175 @@ class PromptCompilerUI:
         """Load history from JSON file."""
         try:
             if self.history_path.exists():
-                with open(self.history_path, 'r', encoding='utf-8') as f:
+                with open(self.history_path, "r", encoding="utf-8") as f:
                     self.history_items = json.load(f)
             else:
                 self.history_items = []
         except Exception as e:
             print(f"Failed to load history: {e}")
             self.history_items = []
-    
+
     def _save_to_history(self, prompt_text: str):
         """Save a new prompt to history."""
         try:
             # Create preview (first 100 chars)
-            preview = prompt_text[:100].replace('\n', ' ')
+            preview = prompt_text[:100].replace("\n", " ")
             if len(prompt_text) > 100:
                 preview += "..."
-            
+
             # Create history entry
             entry = {
-                'timestamp': datetime.now().isoformat(),
-                'preview': preview,
-                'full_text': prompt_text,
-                'is_favorite': False
+                "timestamp": datetime.now().isoformat(),
+                "preview": preview,
+                "full_text": prompt_text,
+                "is_favorite": False,
             }
-            
+
             # Add to beginning of list
             self.history_items.insert(0, entry)
-            
+
             # Keep only last 100 items
             if len(self.history_items) > 100:
                 self.history_items = self.history_items[:100]
-            
+
             # Save to file
-            with open(self.history_path, 'w', encoding='utf-8') as f:
+            with open(self.history_path, "w", encoding="utf-8") as f:
                 json.dump(self.history_items, f, indent=2, ensure_ascii=False)
-            
+
             # Refresh display
             self._refresh_history()
-            
+
         except Exception as e:
             print(f"Failed to save to history: {e}")
-    
+
     def _refresh_history(self):
         """Refresh the history listbox display."""
         try:
             # Clear listbox
             self.history_listbox.delete(0, tk.END)
-            
+
             # Get search filter
             search_term = self.search_var.get().lower()
-            
+
             # Add items
             for item in self.history_items:
-                preview = item['preview']
-                
+                preview = item["preview"]
+
                 # Filter by search term
                 if search_term and search_term not in preview.lower():
                     continue
-                
+
                 # Add favorite star
-                if item.get('is_favorite', False):
+                if item.get("is_favorite", False):
                     preview = "⭐ " + preview
-                
+
                 self.history_listbox.insert(tk.END, preview)
-            
-            # Update count
-            count = self.history_listbox.size()
-            if hasattr(self, 'sidebar_toggle_btn'):
-                # Update button text to show count
-                pass
-                
+
         except Exception as e:
             print(f"Failed to refresh history: {e}")
-    
+
     def _filter_history(self):
         """Filter history based on search term."""
         self._refresh_history()
-    
+
     def _load_prompt_from_history(self):
         """Load selected prompt from history into prompt area."""
         try:
             selection = self.history_listbox.curselection()
             if not selection:
                 return
-            
+
             idx = selection[0]
-            
+
             # Get search filter to find correct item
             search_term = self.search_var.get().lower()
             filtered_items = []
             for item in self.history_items:
-                if not search_term or search_term in item['preview'].lower():
+                if not search_term or search_term in item["preview"].lower():
                     filtered_items.append(item)
-            
+
             if idx >= len(filtered_items):
                 return
-            
+
             item = filtered_items[idx]
-            prompt_text = item['full_text']
-            
+            prompt_text = item["full_text"]
+
             # Ask before replacing
             existing = self.txt_prompt.get("1.0", tk.END).strip()
             if existing:
                 if not messagebox.askyesno(
-                    "Replace Prompt",
-                    "Replace current prompt with history item?"
+                    "Replace Prompt", "Replace current prompt with history item?"
                 ):
                     return
-            
+
             # Load prompt
             self.txt_prompt.delete("1.0", tk.END)
             self.txt_prompt.insert("1.0", prompt_text)
             self._update_prompt_stats()
-            
+
             self.status_var.set("📜 Loaded from history")
-            
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load prompt: {e}")
-    
+
     def _delete_history_item(self):
         """Delete selected item from history."""
         try:
             selection = self.history_listbox.curselection()
             if not selection:
                 return
-            
+
             idx = selection[0]
-            
+
             # Get filtered items
             search_term = self.search_var.get().lower()
             filtered_items = []
             filtered_indices = []
             for i, item in enumerate(self.history_items):
-                if not search_term or search_term in item['preview'].lower():
+                if not search_term or search_term in item["preview"].lower():
                     filtered_items.append(item)
                     filtered_indices.append(i)
-            
+
             if idx >= len(filtered_items):
                 return
-            
+
             # Confirm deletion
-            if not messagebox.askyesno(
-                "Delete Item",
-                "Delete this item from history?"
-            ):
+            if not messagebox.askyesno("Delete Item", "Delete this item from history?"):
                 return
-            
+
             # Remove from history
             actual_idx = filtered_indices[idx]
             del self.history_items[actual_idx]
-            
+
             # Save and refresh
-            with open(self.history_path, 'w', encoding='utf-8') as f:
+            with open(self.history_path, "w", encoding="utf-8") as f:
                 json.dump(self.history_items, f, indent=2, ensure_ascii=False)
-            
+
             self._refresh_history()
             self.status_var.set("🗑️ Item deleted")
-            
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete item: {e}")
-    
+
     def _clear_history(self):
         """Clear all history items."""
         try:
             if not messagebox.askyesno(
-                "Clear History",
-                "Delete all history items? This cannot be undone."
+                "Clear History", "Delete all history items? This cannot be undone."
             ):
                 return
-            
+
             self.history_items = []
-            
-            with open(self.history_path, 'w', encoding='utf-8') as f:
+
+            with open(self.history_path, "w", encoding="utf-8") as f:
                 json.dump(self.history_items, f, indent=2, ensure_ascii=False)
-            
+
             self._refresh_history()
             self.status_var.set("🗑️ History cleared")
-            
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to clear history: {e}")
-    
+
     def _toggle_sidebar(self):
         """Toggle sidebar visibility."""
         try:
@@ -1859,7 +1819,7 @@ class PromptCompilerUI:
                 self.sidebar_visible = True
         except Exception as e:
             print(f"Failed to toggle sidebar: {e}")
-    
+
     def _show_history_context_menu(self, event):
         """Show context menu for history item."""
         try:
@@ -1867,53 +1827,55 @@ class PromptCompilerUI:
             idx = self.history_listbox.nearest(event.y)
             self.history_listbox.selection_clear(0, tk.END)
             self.history_listbox.selection_set(idx)
-            
+
             # Create context menu
             menu = tk.Menu(self.root, tearoff=0)
             menu.add_command(label="📂 Load", command=self._load_prompt_from_history)
             menu.add_command(label="⭐ Toggle Favorite", command=self._toggle_favorite)
             menu.add_separator()
             menu.add_command(label="🗑️ Delete", command=self._delete_history_item)
-            
+
             # Show menu
             menu.tk_popup(event.x_root, event.y_root)
-            
+
         except Exception as e:
             print(f"Failed to show context menu: {e}")
-    
+
     def _toggle_favorite(self):
         """Toggle favorite status of selected item."""
         try:
             selection = self.history_listbox.curselection()
             if not selection:
                 return
-            
+
             idx = selection[0]
-            
+
             # Get filtered items
             search_term = self.search_var.get().lower()
             filtered_indices = []
             for i, item in enumerate(self.history_items):
-                if not search_term or search_term in item['preview'].lower():
+                if not search_term or search_term in item["preview"].lower():
                     filtered_indices.append(i)
-            
+
             if idx >= len(filtered_indices):
                 return
-            
+
             # Toggle favorite
             actual_idx = filtered_indices[idx]
-            self.history_items[actual_idx]['is_favorite'] = not self.history_items[actual_idx].get('is_favorite', False)
-            
+            self.history_items[actual_idx]["is_favorite"] = not self.history_items[actual_idx].get(
+                "is_favorite", False
+            )
+
             # Save and refresh
-            with open(self.history_path, 'w', encoding='utf-8') as f:
+            with open(self.history_path, "w", encoding="utf-8") as f:
                 json.dump(self.history_items, f, indent=2, ensure_ascii=False)
-            
+
             self._refresh_history()
-            
+
             # Restore selection
             if idx < self.history_listbox.size():
                 self.history_listbox.selection_set(idx)
-            
+
         except Exception as e:
             print(f"Failed to toggle favorite: {e}")
 

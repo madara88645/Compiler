@@ -19,7 +19,7 @@ The UI now supports drag and drop functionality for easily loading prompt and co
 
 ### Supported File Types
 - `.txt` - Plain text files
-- `.md` / `.markdown` - Markdown files  
+- `.md` / `.markdown` - Markdown files
 - `.text` - Text files
 
 ### Features
