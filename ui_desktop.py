@@ -59,6 +59,8 @@ class PromptCompilerUI:
         self.config_path = Path.home() / ".promptc_ui.json"
         self.history_path = Path.home() / ".promptc_history.json"
         self.favorites_path = Path.home() / ".promptc_favorites.json"
+        self.tags_path = Path.home() / ".promptc_tags.json"
+        self.snippets_path = Path.home() / ".promptc_snippets.json"
 
         # Progress indicator
         self.progress_var = tk.DoubleVar(value=0)
@@ -68,6 +70,11 @@ class PromptCompilerUI:
         self.history_items = []
         self.favorites_items = []
         self.sidebar_visible = True
+        
+        # Tags and snippets data
+        self.available_tags = []
+        self.snippets = []
+        self.active_tag_filter = []
 
         # Main container with sidebar
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -389,8 +396,10 @@ class PromptCompilerUI:
         except Exception:
             pass
 
-        # Load history and populate sidebar
+        # Load history, tags, snippets and populate sidebar
         self._load_history()
+        self._load_tags()
+        self._load_snippets()
         self._create_sidebar()
 
     def _create_sidebar(self):
@@ -415,6 +424,50 @@ class PromptCompilerUI:
         self.search_var.trace_add("write", lambda *_: self._filter_history())
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Tags filter section
+        tags_frame = ttk.Frame(self.sidebar)
+        tags_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        
+        ttk.Label(tags_frame, text="🏷️ Tags:", font=("", 9, "bold")).pack(anchor=tk.W)
+        
+        self.tags_filter_frame = ttk.Frame(tags_frame)
+        self.tags_filter_frame.pack(fill=tk.X, pady=(2, 0))
+        self._update_tag_filters()
+        
+        # Snippets section
+        snippets_label_frame = ttk.Frame(self.sidebar)
+        snippets_label_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
+        
+        ttk.Label(snippets_label_frame, text="✂️ Snippets:", font=("", 9, "bold")).pack(side=tk.LEFT)
+        ttk.Button(
+            snippets_label_frame,
+            text="+",
+            width=3,
+            command=self._add_snippet
+        ).pack(side=tk.RIGHT)
+        
+        snippets_list_frame = ttk.Frame(self.sidebar)
+        snippets_list_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        
+        snippets_scroll = ttk.Scrollbar(snippets_list_frame)
+        snippets_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.snippets_listbox = tk.Listbox(
+            snippets_list_frame,
+            yscrollcommand=snippets_scroll.set,
+            selectmode=tk.SINGLE,
+            height=4,
+            activestyle="dotbox"
+        )
+        self.snippets_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        snippets_scroll.config(command=self.snippets_listbox.yview)
+        
+        self.snippets_listbox.bind("<Double-Button-1>", lambda e: self._insert_snippet())
+        self.snippets_listbox.bind("<Return>", lambda e: self._insert_snippet())
+        self.snippets_listbox.bind("<Button-3>", self._show_snippet_context_menu)
+        
+        self._refresh_snippets()
 
         # Listbox with scrollbar
         list_frame = ttk.Frame(self.sidebar)
@@ -1657,6 +1710,7 @@ class PromptCompilerUI:
                 "preview": preview,
                 "full_text": prompt_text,
                 "is_favorite": False,
+                "tags": [],
             }
 
             # Add to beginning of list
@@ -1693,9 +1747,21 @@ class PromptCompilerUI:
                 if search_term and search_term not in preview.lower():
                     continue
 
+                # Filter by tags
+                if self.active_tag_filter:
+                    item_tags = item.get("tags", [])
+                    if not any(tag in item_tags for tag in self.active_tag_filter):
+                        continue
+
                 # Add favorite star
                 if item.get("is_favorite", False):
                     preview = "⭐ " + preview
+
+                # Add tag indicators
+                item_tags = item.get("tags", [])
+                if item_tags:
+                    tag_str = " ".join([f"[{tag}]" for tag in item_tags[:3]])
+                    preview = f"{preview} {tag_str}"
 
                 self.history_listbox.insert(tk.END, preview)
 
@@ -1832,6 +1898,7 @@ class PromptCompilerUI:
             menu = tk.Menu(self.root, tearoff=0)
             menu.add_command(label="📂 Load", command=self._load_prompt_from_history)
             menu.add_command(label="⭐ Toggle Favorite", command=self._toggle_favorite)
+            menu.add_command(label="🏷️ Manage Tags", command=self._manage_item_tags)
             menu.add_separator()
             menu.add_command(label="🗑️ Delete", command=self._delete_history_item)
 
@@ -1878,6 +1945,437 @@ class PromptCompilerUI:
 
         except Exception as e:
             print(f"Failed to toggle favorite: {e}")
+
+    def _manage_item_tags(self):
+        """Manage tags for selected history item."""
+        try:
+            selection = self.history_listbox.curselection()
+            if not selection:
+                return
+
+            idx = selection[0]
+
+            # Get actual item index
+            search_term = self.search_var.get().lower()
+            filtered_items = []
+            filtered_indices = []
+            for i, item in enumerate(self.history_items):
+                if not search_term or search_term in item["preview"].lower():
+                    # Apply tag filter
+                    if self.active_tag_filter:
+                        item_tags = item.get("tags", [])
+                        if not any(tag in item_tags for tag in self.active_tag_filter):
+                            continue
+                    filtered_items.append(item)
+                    filtered_indices.append(i)
+
+            if idx >= len(filtered_items):
+                return
+
+            actual_idx = filtered_indices[idx]
+            item = self.history_items[actual_idx]
+
+            # Create dialog
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Manage Tags")
+            dialog.geometry("400x300")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            ttk.Label(dialog, text="Select tags for this prompt:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=10
+            )
+
+            # Tag checkboxes
+            tag_vars = {}
+            current_tags = item.get("tags", [])
+
+            tags_frame = ttk.Frame(dialog)
+            tags_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            for tag_info in self.available_tags:
+                tag_name = tag_info["name"]
+                tag_color = tag_info["color"]
+
+                var = tk.BooleanVar(value=tag_name in current_tags)
+                tag_vars[tag_name] = var
+
+                check_frame = tk.Frame(tags_frame, bg=tag_color, padx=2, pady=2)
+                check_frame.pack(fill=tk.X, pady=2)
+
+                cb = ttk.Checkbutton(check_frame, text=tag_name, variable=var)
+                cb.pack(anchor=tk.W)
+
+            # Buttons
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def save_tags():
+                selected_tags = [tag for tag, var in tag_vars.items() if var.get()]
+                self.history_items[actual_idx]["tags"] = selected_tags
+
+                with open(self.history_path, "w", encoding="utf-8") as f:
+                    json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+
+                self._refresh_history()
+                dialog.destroy()
+                self.status_var.set(f"🏷️ Updated tags")
+
+            ttk.Button(btn_frame, text="💾 Save", command=save_tags).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to manage tags: {e}")
+
+    def _load_tags(self):
+        """Load available tags from JSON file."""
+        try:
+            if self.tags_path.exists():
+                with open(self.tags_path, "r", encoding="utf-8") as f:
+                    self.available_tags = json.load(f)
+            else:
+                # Default tags
+                self.available_tags = [
+                    {"name": "code", "color": "#3b82f6"},
+                    {"name": "writing", "color": "#10b981"},
+                    {"name": "analysis", "color": "#f59e0b"},
+                    {"name": "debug", "color": "#ef4444"},
+                    {"name": "review", "color": "#8b5cf6"},
+                    {"name": "tutorial", "color": "#ec4899"},
+                    {"name": "test", "color": "#06b6d4"},
+                    {"name": "docs", "color": "#84cc16"},
+                ]
+                self._save_tags()
+        except Exception as e:
+            print(f"Failed to load tags: {e}")
+            self.available_tags = []
+
+    def _save_tags(self):
+        """Save tags to JSON file."""
+        try:
+            with open(self.tags_path, "w", encoding="utf-8") as f:
+                json.dump(self.available_tags, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Failed to save tags: {e}")
+
+    def _update_tag_filters(self):
+        """Update tag filter buttons."""
+        try:
+            # Clear existing buttons
+            for widget in self.tags_filter_frame.winfo_children():
+                widget.destroy()
+
+            # Add "All" button
+            all_btn = tk.Button(
+                self.tags_filter_frame,
+                text="All",
+                command=lambda: self._toggle_tag_filter(None),
+                relief="raised" if self.active_tag_filter else "sunken",
+                padx=6,
+                pady=2,
+                font=("", 8),
+            )
+            all_btn.pack(side=tk.LEFT, padx=2, pady=2)
+
+            # Add tag buttons
+            for tag in self.available_tags:
+                tag_name = tag["name"]
+                tag_color = tag["color"]
+                is_active = tag_name in self.active_tag_filter
+
+                btn = tk.Button(
+                    self.tags_filter_frame,
+                    text=tag_name,
+                    command=lambda t=tag_name: self._toggle_tag_filter(t),
+                    bg=tag_color if is_active else "#e5e7eb",
+                    fg="white" if is_active else "black",
+                    relief="sunken" if is_active else "raised",
+                    padx=6,
+                    pady=2,
+                    font=("", 8),
+                    borderwidth=1,
+                )
+                btn.pack(side=tk.LEFT, padx=2, pady=2)
+
+        except Exception as e:
+            print(f"Failed to update tag filters: {e}")
+
+    def _toggle_tag_filter(self, tag_name):
+        """Toggle tag filter on/off."""
+        try:
+            if tag_name is None:
+                # Clear all filters
+                self.active_tag_filter = []
+            else:
+                # Toggle specific tag
+                if tag_name in self.active_tag_filter:
+                    self.active_tag_filter.remove(tag_name)
+                else:
+                    self.active_tag_filter.append(tag_name)
+
+            self._update_tag_filters()
+            self._filter_history()
+
+        except Exception as e:
+            print(f"Failed to toggle tag filter: {e}")
+
+    def _load_snippets(self):
+        """Load snippets from JSON file."""
+        try:
+            if self.snippets_path.exists():
+                with open(self.snippets_path, "r", encoding="utf-8") as f:
+                    self.snippets = json.load(f)
+            else:
+                # Default snippets
+                self.snippets = [
+                    {
+                        "name": "Code Review Template",
+                        "content": "Review this code for:\n- Best practices\n- Performance issues\n- Security vulnerabilities\n- Code quality",
+                        "category": "code",
+                    },
+                    {
+                        "name": "Bug Report",
+                        "content": "**Bug Description:**\n\n**Steps to Reproduce:**\n1. \n2. \n3. \n\n**Expected Behavior:**\n\n**Actual Behavior:**",
+                        "category": "debug",
+                    },
+                    {
+                        "name": "Explain Code",
+                        "content": "Explain this code in simple terms:\n- What it does\n- How it works\n- Key concepts used",
+                        "category": "tutorial",
+                    },
+                ]
+                self._save_snippets()
+        except Exception as e:
+            print(f"Failed to load snippets: {e}")
+            self.snippets = []
+
+    def _save_snippets(self):
+        """Save snippets to JSON file."""
+        try:
+            with open(self.snippets_path, "w", encoding="utf-8") as f:
+                json.dump(self.snippets, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Failed to save snippets: {e}")
+
+    def _refresh_snippets(self):
+        """Refresh snippets listbox."""
+        try:
+            self.snippets_listbox.delete(0, tk.END)
+            for snippet in self.snippets:
+                self.snippets_listbox.insert(tk.END, f"✂️ {snippet['name']}")
+        except Exception as e:
+            print(f"Failed to refresh snippets: {e}")
+
+    def _insert_snippet(self):
+        """Insert selected snippet into prompt area."""
+        try:
+            selection = self.snippets_listbox.curselection()
+            if not selection:
+                return
+
+            idx = selection[0]
+            if idx >= len(self.snippets):
+                return
+
+            snippet = self.snippets[idx]
+            content = snippet["content"]
+
+            # Get current cursor position
+            try:
+                cursor_pos = self.txt_prompt.index(tk.INSERT)
+            except Exception:
+                cursor_pos = "end"
+
+            # Insert snippet at cursor
+            self.txt_prompt.insert(cursor_pos, content)
+            self._update_prompt_stats()
+
+            self.status_var.set(f"✂️ Inserted: {snippet['name']}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to insert snippet: {e}")
+
+    def _add_snippet(self):
+        """Add new snippet dialog."""
+        try:
+            # Create dialog
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Add Snippet")
+            dialog.geometry("500x400")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            # Name field
+            ttk.Label(dialog, text="Name:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(10, 2)
+            )
+            name_var = tk.StringVar()
+            name_entry = ttk.Entry(dialog, textvariable=name_var)
+            name_entry.pack(fill=tk.X, padx=10, pady=(0, 10))
+            name_entry.focus()
+
+            # Category field
+            ttk.Label(dialog, text="Category:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(0, 2)
+            )
+            category_var = tk.StringVar(value="general")
+            category_combo = ttk.Combobox(
+                dialog,
+                textvariable=category_var,
+                values=["code", "writing", "debug", "review", "tutorial", "test", "docs", "general"],
+            )
+            category_combo.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            # Content field
+            ttk.Label(dialog, text="Content:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(0, 2)
+            )
+            content_text = tk.Text(dialog, height=10, wrap=tk.WORD)
+            content_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            # Buttons
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def save_snippet():
+                name = name_var.get().strip()
+                category = category_var.get().strip()
+                content = content_text.get("1.0", tk.END).strip()
+
+                if not name:
+                    messagebox.showwarning("Warning", "Please enter a name")
+                    return
+
+                if not content:
+                    messagebox.showwarning("Warning", "Please enter content")
+                    return
+
+                self.snippets.append({"name": name, "content": content, "category": category})
+                self._save_snippets()
+                self._refresh_snippets()
+                dialog.destroy()
+                self.status_var.set(f"✂️ Added snippet: {name}")
+
+            ttk.Button(btn_frame, text="💾 Save", command=save_snippet).pack(
+                side=tk.LEFT, padx=(0, 5)
+            )
+            ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add snippet: {e}")
+
+    def _show_snippet_context_menu(self, event):
+        """Show context menu for snippet."""
+        try:
+            idx = self.snippets_listbox.nearest(event.y)
+            self.snippets_listbox.selection_clear(0, tk.END)
+            self.snippets_listbox.selection_set(idx)
+
+            menu = tk.Menu(self.root, tearoff=0)
+            menu.add_command(label="✂️ Insert", command=self._insert_snippet)
+            menu.add_command(label="✏️ Edit", command=self._edit_snippet)
+            menu.add_separator()
+            menu.add_command(label="🗑️ Delete", command=self._delete_snippet)
+
+            menu.tk_popup(event.x_root, event.y_root)
+
+        except Exception as e:
+            print(f"Failed to show snippet context menu: {e}")
+
+    def _edit_snippet(self):
+        """Edit selected snippet."""
+        try:
+            selection = self.snippets_listbox.curselection()
+            if not selection:
+                return
+
+            idx = selection[0]
+            if idx >= len(self.snippets):
+                return
+
+            snippet = self.snippets[idx]
+
+            # Create dialog
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Edit Snippet")
+            dialog.geometry("500x400")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            # Name field
+            ttk.Label(dialog, text="Name:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(10, 2)
+            )
+            name_var = tk.StringVar(value=snippet["name"])
+            name_entry = ttk.Entry(dialog, textvariable=name_var)
+            name_entry.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            # Category field
+            ttk.Label(dialog, text="Category:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(0, 2)
+            )
+            category_var = tk.StringVar(value=snippet.get("category", "general"))
+            category_combo = ttk.Combobox(
+                dialog,
+                textvariable=category_var,
+                values=["code", "writing", "debug", "review", "tutorial", "test", "docs", "general"],
+            )
+            category_combo.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            # Content field
+            ttk.Label(dialog, text="Content:", font=("", 10, "bold")).pack(
+                anchor=tk.W, padx=10, pady=(0, 2)
+            )
+            content_text = tk.Text(dialog, height=10, wrap=tk.WORD)
+            content_text.insert("1.0", snippet["content"])
+            content_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            # Buttons
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def save_changes():
+                name = name_var.get().strip()
+                category = category_var.get().strip()
+                content = content_text.get("1.0", tk.END).strip()
+
+                if not name or not content:
+                    messagebox.showwarning("Warning", "Name and content are required")
+                    return
+
+                self.snippets[idx] = {"name": name, "content": content, "category": category}
+                self._save_snippets()
+                self._refresh_snippets()
+                dialog.destroy()
+                self.status_var.set(f"✏️ Updated snippet: {name}")
+
+            ttk.Button(btn_frame, text="💾 Save", command=save_changes).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to edit snippet: {e}")
+
+    def _delete_snippet(self):
+        """Delete selected snippet."""
+        try:
+            selection = self.snippets_listbox.curselection()
+            if not selection:
+                return
+
+            idx = selection[0]
+            if idx >= len(self.snippets):
+                return
+
+            snippet = self.snippets[idx]
+
+            if messagebox.askyesno("Delete Snippet", f"Delete snippet '{snippet['name']}'?"):
+                del self.snippets[idx]
+                self._save_snippets()
+                self._refresh_snippets()
+                self.status_var.set(f"🗑️ Deleted snippet: {snippet['name']}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete snippet: {e}")
 
 
 def main():  # pragma: no cover

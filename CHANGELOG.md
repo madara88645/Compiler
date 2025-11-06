@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.41] - 2025-11-06
+### Added
+- **Tags System**: Organize and filter prompts with color-coded tags
+  - 8 default tags: code, writing, analysis, debug, review, tutorial, test, docs
+  - Each tag has unique color for visual identification
+  - Tag management UI with checkboxes
+  - Add/remove tags via context menu (🏷️ Manage Tags)
+  - Tags persist in `~/.promptc_tags.json`
+  - Tag indicators shown in history list: `[code] [review]`
+- **Tag Filtering**: Multi-tag filter support in sidebar
+  - Click tag buttons to filter history
+  - Multiple tags show items with ANY selected tag
+  - "All" button clears all filters
+  - Combined search + tag filtering
+  - Active tags highlighted with their color
+- **Snippets Library**: Reusable prompt templates and fragments
+  - 3 default snippets: Code Review, Bug Report, Explain Code
+  - Quick insert with double-click or Enter
+  - Snippet categories: code, writing, debug, review, tutorial, test, docs, general
+  - Snippets panel in sidebar with scrollable list
+  - Persist in `~/.promptc_snippets.json`
+- **Snippet Management**: Full CRUD operations
+  - Create new snippets with "+" button
+  - Edit existing snippets via context menu
+  - Delete snippets with confirmation
+  - Snippets insert at cursor position
+  - Name, category, and multi-line content support
+- Documentation: `docs/TAGS_SNIPPETS_GUIDE.md` with comprehensive guide
+
+### Changed
+- History items now include "tags" field (array)
+- Sidebar expanded with tags filter section and snippets panel
+- Context menu updated with "🏷️ Manage Tags" option
+- History display shows tag indicators after preview
+
 ## [2.0.40] - 2025-11-05
 ### Added
 - **Recent Prompts Sidebar**: Track and quickly access your prompt history

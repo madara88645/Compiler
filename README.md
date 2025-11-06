@@ -48,6 +48,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
 * **Desktop UI: Recent Prompts Sidebar (new)**: Track and access prompt history with search, favorites (⭐), double-click load, right-click menu, auto-save to `~/.promptc_history.json`
+* **Desktop UI: Tags & Snippets (new)**: Organize prompts with 8 color-coded tags (code, writing, analysis, debug, review, tutorial, test, docs), multi-tag filtering, reusable snippet library with CRUD operations, quick insert at cursor
 * **Desktop UI: Drag & Drop Files (new)**: Drop .txt/.md files into prompt/context areas with visual indicators, confirmation dialogs, and "📂 Load" buttons
 * **Desktop UI: Modern Theme (new)**: Emoji icons on buttons, JSON syntax highlighting, progress bar animation, and tooltips
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
@@ -1455,8 +1456,18 @@ Features:
   - Shows 100 most recent prompts with previews
   - Real-time search/filter functionality
   - Favorites system with ⭐ star icons
+  - **Tags System** (new): Organize prompts with color-coded tags (code, writing, analysis, debug, review, tutorial, test, docs)
+    - Tag filtering: Click tags to filter history
+    - Multi-tag support: Show items with ANY selected tag
+    - Tag management: Add/remove tags via context menu
+    - Visual indicators: Tags shown next to prompts `[code] [review]`
+  - **Snippets Library** (new): Reusable prompt templates
+    - Quick insert with double-click or Enter
+    - Create/edit/delete custom snippets
+    - Default templates: Code Review, Bug Report, Explain Code
+    - Category organization: code, writing, debug, review, etc.
   - Double-click or Enter to load prompts
-  - Right-click context menu (Load, Delete, Toggle Favorite)
+  - Right-click context menu (Load, Delete, Toggle Favorite, Manage Tags)
   - Toggle visibility with ◀/▶ button
   - Auto-save to `~/.promptc_history.json`
 - **Drag & Drop File Loading** (new): Drop .txt/.md files directly into prompt/context areas
