@@ -70,7 +70,7 @@ class PromptCompilerUI:
         self.history_items = []
         self.favorites_items = []
         self.sidebar_visible = True
-        
+
         # Tags and snippets data
         self.available_tags = []
         self.snippets = []
@@ -428,45 +428,42 @@ class PromptCompilerUI:
         # Tags filter section
         tags_frame = ttk.Frame(self.sidebar)
         tags_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-        
+
         ttk.Label(tags_frame, text="🏷️ Tags:", font=("", 9, "bold")).pack(anchor=tk.W)
-        
+
         self.tags_filter_frame = ttk.Frame(tags_frame)
         self.tags_filter_frame.pack(fill=tk.X, pady=(2, 0))
         self._update_tag_filters()
-        
+
         # Snippets section
         snippets_label_frame = ttk.Frame(self.sidebar)
         snippets_label_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
-        
+
         ttk.Label(snippets_label_frame, text="✂️ Snippets:", font=("", 9, "bold")).pack(side=tk.LEFT)
-        ttk.Button(
-            snippets_label_frame,
-            text="+",
-            width=3,
-            command=self._add_snippet
-        ).pack(side=tk.RIGHT)
-        
+        ttk.Button(snippets_label_frame, text="+", width=3, command=self._add_snippet).pack(
+            side=tk.RIGHT
+        )
+
         snippets_list_frame = ttk.Frame(self.sidebar)
         snippets_list_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-        
+
         snippets_scroll = ttk.Scrollbar(snippets_list_frame)
         snippets_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         self.snippets_listbox = tk.Listbox(
             snippets_list_frame,
             yscrollcommand=snippets_scroll.set,
             selectmode=tk.SINGLE,
             height=4,
-            activestyle="dotbox"
+            activestyle="dotbox",
         )
         self.snippets_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         snippets_scroll.config(command=self.snippets_listbox.yview)
-        
+
         self.snippets_listbox.bind("<Double-Button-1>", lambda e: self._insert_snippet())
         self.snippets_listbox.bind("<Return>", lambda e: self._insert_snippet())
         self.snippets_listbox.bind("<Button-3>", self._show_snippet_context_menu)
-        
+
         self._refresh_snippets()
 
         # Listbox with scrollbar
@@ -2019,7 +2016,7 @@ class PromptCompilerUI:
 
                 self._refresh_history()
                 dialog.destroy()
-                self.status_var.set(f"🏷️ Updated tags")
+                self.status_var.set("🏷️ Updated tags")
 
             ttk.Button(btn_frame, text="💾 Save", command=save_tags).pack(side=tk.LEFT, padx=(0, 5))
             ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT)
@@ -2222,7 +2219,16 @@ class PromptCompilerUI:
             category_combo = ttk.Combobox(
                 dialog,
                 textvariable=category_var,
-                values=["code", "writing", "debug", "review", "tutorial", "test", "docs", "general"],
+                values=[
+                    "code",
+                    "writing",
+                    "debug",
+                    "review",
+                    "tutorial",
+                    "test",
+                    "docs",
+                    "general",
+                ],
             )
             category_combo.pack(fill=tk.X, padx=10, pady=(0, 10))
 
@@ -2318,7 +2324,16 @@ class PromptCompilerUI:
             category_combo = ttk.Combobox(
                 dialog,
                 textvariable=category_var,
-                values=["code", "writing", "debug", "review", "tutorial", "test", "docs", "general"],
+                values=[
+                    "code",
+                    "writing",
+                    "debug",
+                    "review",
+                    "tutorial",
+                    "test",
+                    "docs",
+                    "general",
+                ],
             )
             category_combo.pack(fill=tk.X, padx=10, pady=(0, 10))
 
@@ -2349,7 +2364,9 @@ class PromptCompilerUI:
                 dialog.destroy()
                 self.status_var.set(f"✏️ Updated snippet: {name}")
 
-            ttk.Button(btn_frame, text="💾 Save", command=save_changes).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="💾 Save", command=save_changes).pack(
+                side=tk.LEFT, padx=(0, 5)
+            )
             ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT)
 
         except Exception as e:

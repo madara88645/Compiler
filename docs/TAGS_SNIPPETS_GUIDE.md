@@ -73,14 +73,14 @@ Snippets are reusable prompt templates or common prompt fragments that you can q
 2. **Bug Report**
    ```
    **Bug Description:**
-   
+
    **Steps to Reproduce:**
-   1. 
-   2. 
-   3. 
-   
+   1.
+   2.
+   3.
+
    **Expected Behavior:**
-   
+
    **Actual Behavior:**
    ```
 
