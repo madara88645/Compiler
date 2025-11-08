@@ -435,6 +435,108 @@ class PromptCompilerUI:
         self.tags_filter_frame.pack(fill=tk.X, pady=(2, 0))
         self._update_tag_filters()
 
+        # Advanced Filters section
+        adv_filters_frame = ttk.Frame(self.sidebar)
+        adv_filters_frame.pack(fill=tk.X, padx=5, pady=(5, 5))
+
+        ttk.Label(adv_filters_frame, text="🔧 Filters:", font=("", 9, "bold")).pack(anchor=tk.W)
+
+        # Favorites only
+        self.filter_favorites_only = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            adv_filters_frame,
+            text="⭐ Favorites only",
+            variable=self.filter_favorites_only,
+            command=self._filter_history,
+        ).pack(anchor=tk.W, pady=2)
+
+        # Length filter
+        length_frame = ttk.Frame(adv_filters_frame)
+        length_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(length_frame, text="📏 Length:", font=("", 8)).pack(side=tk.LEFT)
+        self.filter_length = tk.StringVar(value="all")
+        length_combo = ttk.Combobox(
+            length_frame,
+            textvariable=self.filter_length,
+            values=["all", "short (<100)", "medium (100-500)", "long (>500)"],
+            state="readonly",
+            width=15,
+        )
+        length_combo.pack(side=tk.LEFT, padx=(5, 0))
+        length_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
+
+        # Date range filter
+        date_frame = ttk.Frame(adv_filters_frame)
+        date_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(date_frame, text="📅 Date:", font=("", 8)).pack(side=tk.LEFT)
+        self.filter_date_range = tk.StringVar(value="all")
+        date_combo = ttk.Combobox(
+            date_frame,
+            textvariable=self.filter_date_range,
+            values=["all", "today", "last 7 days", "last 30 days", "last 90 days"],
+            state="readonly",
+            width=15,
+        )
+        date_combo.pack(side=tk.LEFT, padx=(5, 0))
+        date_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
+
+        # Sort options
+        sort_frame = ttk.Frame(adv_filters_frame)
+        sort_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(sort_frame, text="↕️ Sort:", font=("", 8)).pack(side=tk.LEFT)
+        self.filter_sort = tk.StringVar(value="date (newest)")
+        sort_combo = ttk.Combobox(
+            sort_frame,
+            textvariable=self.filter_sort,
+            values=["date (newest)", "date (oldest)", "length (short)", "length (long)", "most used"],
+            state="readonly",
+            width=15,
+        )
+        sort_combo.pack(side=tk.LEFT, padx=(5, 0))
+        sort_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
+
+        # Clear filters button
+        ttk.Button(adv_filters_frame, text="🔄 Clear Filters", command=self._clear_all_filters).pack(
+            fill=tk.X, pady=(5, 0)
+        )
+
+        # Analytics button
+        ttk.Button(
+            adv_filters_frame, text="📊 View Analytics", command=self._show_analytics
+        ).pack(fill=tk.X, pady=(2, 0))
+
+        # Export/Import section
+        export_frame = ttk.LabelFrame(self.sidebar, text="📤 Backup & Restore", padding=5)
+        export_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
+
+        export_btn_frame = ttk.Frame(export_frame)
+        export_btn_frame.pack(fill=tk.X)
+
+        ttk.Button(
+            export_btn_frame, text="💾 Export All", command=self._export_data, width=15
+        ).pack(side=tk.LEFT, padx=(0, 2))
+
+        ttk.Button(
+            export_btn_frame, text="📥 Import", command=self._import_data, width=15
+        ).pack(side=tk.LEFT, padx=(2, 0))
+
+        # Quick export options
+        quick_export_frame = ttk.Frame(export_frame)
+        quick_export_frame.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Button(
+            quick_export_frame, text="📋 Export History", command=lambda: self._export_data("history"), width=15
+        ).pack(side=tk.LEFT, padx=(0, 2))
+
+        ttk.Button(
+            quick_export_frame, text="🏷️ Export Tags", command=lambda: self._export_data("tags"), width=15
+        ).pack(side=tk.LEFT, padx=(2, 0))
+
+        # Restore backup button
+        ttk.Button(
+            export_frame, text="♻️ Restore Backup", command=self._restore_backup, width=32
+        ).pack(fill=tk.X, pady=(5, 0))
+
         # Snippets section
         snippets_label_frame = ttk.Frame(self.sidebar)
         snippets_label_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
@@ -768,6 +870,11 @@ class PromptCompilerUI:
 
     def _on_close(self):  # pragma: no cover - UI callback
         self._save_settings()
+        # Auto-backup before closing
+        try:
+            self._auto_backup()
+        except Exception as e:
+            print(f"Auto-backup failed: {e}")
         try:
             self.root.destroy()
         except Exception:
@@ -1708,6 +1815,8 @@ class PromptCompilerUI:
                 "full_text": prompt_text,
                 "is_favorite": False,
                 "tags": [],
+                "usage_count": 0,
+                "length": len(prompt_text),
             }
 
             # Add to beginning of list
@@ -1728,7 +1837,7 @@ class PromptCompilerUI:
             print(f"Failed to save to history: {e}")
 
     def _refresh_history(self):
-        """Refresh the history listbox display."""
+        """Refresh the history listbox display with advanced filters."""
         try:
             # Clear listbox
             self.history_listbox.delete(0, tk.END)
@@ -1736,7 +1845,14 @@ class PromptCompilerUI:
             # Get search filter
             search_term = self.search_var.get().lower()
 
-            # Add items
+            # Get advanced filters
+            favorites_only = self.filter_favorites_only.get() if hasattr(self, 'filter_favorites_only') else False
+            length_filter = self.filter_length.get() if hasattr(self, 'filter_length') else "all"
+            date_range = self.filter_date_range.get() if hasattr(self, 'filter_date_range') else "all"
+            sort_by = self.filter_sort.get() if hasattr(self, 'filter_sort') else "date (newest)"
+
+            # Filter and collect items
+            filtered_items = []
             for item in self.history_items:
                 preview = item["preview"]
 
@@ -1750,6 +1866,55 @@ class PromptCompilerUI:
                     if not any(tag in item_tags for tag in self.active_tag_filter):
                         continue
 
+                # Filter by favorites
+                if favorites_only and not item.get("is_favorite", False):
+                    continue
+
+                # Filter by length
+                item_length = item.get("length", len(item.get("full_text", "")))
+                if length_filter == "short (<100)" and item_length >= 100:
+                    continue
+                elif length_filter == "medium (100-500)" and (item_length < 100 or item_length > 500):
+                    continue
+                elif length_filter == "long (>500)" and item_length <= 500:
+                    continue
+
+                # Filter by date range
+                if date_range != "all":
+                    try:
+                        item_date = datetime.fromisoformat(item["timestamp"])
+                        now = datetime.now()
+                        days_diff = (now - item_date).days
+
+                        if date_range == "today" and days_diff > 0:
+                            continue
+                        elif date_range == "last 7 days" and days_diff > 7:
+                            continue
+                        elif date_range == "last 30 days" and days_diff > 30:
+                            continue
+                        elif date_range == "last 90 days" and days_diff > 90:
+                            continue
+                    except Exception:
+                        pass
+
+                filtered_items.append(item)
+
+            # Sort items
+            if sort_by == "date (newest)":
+                filtered_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            elif sort_by == "date (oldest)":
+                filtered_items.sort(key=lambda x: x.get("timestamp", ""))
+            elif sort_by == "length (short)":
+                filtered_items.sort(key=lambda x: x.get("length", len(x.get("full_text", ""))))
+            elif sort_by == "length (long)":
+                filtered_items.sort(key=lambda x: x.get("length", len(x.get("full_text", ""))), reverse=True)
+            elif sort_by == "most used":
+                filtered_items.sort(key=lambda x: x.get("usage_count", 0), reverse=True)
+
+            # Add items to listbox
+            for item in filtered_items:
+                preview = item["preview"]
+
                 # Add favorite star
                 if item.get("is_favorite", False):
                     preview = "⭐ " + preview
@@ -1759,6 +1924,11 @@ class PromptCompilerUI:
                 if item_tags:
                     tag_str = " ".join([f"[{tag}]" for tag in item_tags[:3]])
                     preview = f"{preview} {tag_str}"
+
+                # Add usage count if > 0
+                usage_count = item.get("usage_count", 0)
+                if usage_count > 0:
+                    preview = f"{preview} (↻{usage_count})"
 
                 self.history_listbox.insert(tk.END, preview)
 
@@ -1798,6 +1968,16 @@ class PromptCompilerUI:
                     "Replace Prompt", "Replace current prompt with history item?"
                 ):
                     return
+
+            # Increment usage count
+            # Find actual index in history_items
+            for i, hist_item in enumerate(self.history_items):
+                if hist_item["full_text"] == prompt_text and hist_item["timestamp"] == item["timestamp"]:
+                    self.history_items[i]["usage_count"] = self.history_items[i].get("usage_count", 0) + 1
+                    # Save updated count
+                    with open(self.history_path, "w", encoding="utf-8") as f:
+                        json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+                    break
 
             # Load prompt
             self.txt_prompt.delete("1.0", tk.END)
@@ -2393,6 +2573,574 @@ class PromptCompilerUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete snippet: {e}")
+
+    def _clear_all_filters(self):
+        """Clear all advanced filters."""
+        try:
+            self.search_var.set("")
+            self.active_tag_filter = []
+            self.filter_favorites_only.set(False)
+            self.filter_length.set("all")
+            self.filter_date_range.set("all")
+            self.filter_sort.set("date (newest)")
+            self._update_tag_filters()
+            self._filter_history()
+            self.status_var.set("🔄 Filters cleared")
+        except Exception as e:
+            print(f"Failed to clear filters: {e}")
+
+    def _show_analytics(self):
+        """Show analytics dashboard."""
+        try:
+            # Create analytics window
+            analytics_window = tk.Toplevel(self.root)
+            analytics_window.title("📊 Analytics Dashboard")
+            analytics_window.geometry("700x600")
+            analytics_window.transient(self.root)
+
+            # Header
+            header_frame = ttk.Frame(analytics_window, padding=10)
+            header_frame.pack(fill=tk.X)
+            ttk.Label(
+                header_frame, text="📊 Prompt Analytics", font=("Segoe UI", 16, "bold")
+            ).pack(anchor=tk.W)
+
+            # Create notebook for different analytics views
+            notebook = ttk.Notebook(analytics_window)
+            notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            # Overview tab
+            overview_frame = ttk.Frame(notebook, padding=10)
+            notebook.add(overview_frame, text="📈 Overview")
+
+            # Calculate statistics
+            total_prompts = len(self.history_items)
+            favorites_count = sum(1 for item in self.history_items if item.get("is_favorite", False))
+            total_usage = sum(item.get("usage_count", 0) for item in self.history_items)
+            avg_length = (
+                sum(item.get("length", len(item.get("full_text", ""))) for item in self.history_items)
+                / total_prompts
+                if total_prompts > 0
+                else 0
+            )
+
+            # Stats grid
+            stats_frame = ttk.Frame(overview_frame)
+            stats_frame.pack(fill=tk.X, pady=10)
+
+            # Create stat boxes
+            stats = [
+                ("📝 Total Prompts", str(total_prompts)),
+                ("⭐ Favorites", str(favorites_count)),
+                ("↻ Total Usage", str(total_usage)),
+                ("📏 Avg Length", f"{int(avg_length)} chars"),
+            ]
+
+            for i, (label, value) in enumerate(stats):
+                stat_box = ttk.Frame(stats_frame, relief="solid", borderwidth=1, padding=10)
+                stat_box.grid(row=0, column=i, padx=5, sticky="ew")
+                stats_frame.columnconfigure(i, weight=1)
+
+                ttk.Label(stat_box, text=label, font=("", 9)).pack()
+                ttk.Label(stat_box, text=value, font=("", 14, "bold")).pack()
+
+            # Top tags
+            ttk.Label(overview_frame, text="🏷️ Top Tags", font=("", 12, "bold")).pack(
+                anchor=tk.W, pady=(20, 5)
+            )
+            tags_frame = ttk.Frame(overview_frame)
+            tags_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+            # Count tag usage
+            tag_counts = {}
+            for item in self.history_items:
+                for tag in item.get("tags", []):
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+            # Display top tags
+            if tag_counts:
+                sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                for tag, count in sorted_tags:
+                    tag_row = ttk.Frame(tags_frame)
+                    tag_row.pack(fill=tk.X, pady=2)
+                    ttk.Label(tag_row, text=f"🏷️ {tag}:", width=20).pack(side=tk.LEFT)
+                    ttk.Label(tag_row, text=f"{count} prompts").pack(side=tk.LEFT)
+            else:
+                ttk.Label(tags_frame, text="No tags found").pack()
+
+            # Top Used tab
+            top_used_frame = ttk.Frame(notebook, padding=10)
+            notebook.add(top_used_frame, text="🔥 Most Used")
+
+            ttk.Label(top_used_frame, text="Top 10 Most Used Prompts", font=("", 12, "bold")).pack(
+                anchor=tk.W, pady=(0, 10)
+            )
+
+            # Sort by usage count
+            top_used = sorted(
+                self.history_items, key=lambda x: x.get("usage_count", 0), reverse=True
+            )[:10]
+
+            if top_used:
+                for i, item in enumerate(top_used, 1):
+                    usage_count = item.get("usage_count", 0)
+                    if usage_count > 0:
+                        item_frame = ttk.Frame(top_used_frame)
+                        item_frame.pack(fill=tk.X, pady=5)
+
+                        ttk.Label(
+                            item_frame, text=f"{i}.", font=("", 10, "bold"), width=3
+                        ).pack(side=tk.LEFT)
+                        ttk.Label(item_frame, text=item["preview"][:60] + "...").pack(
+                            side=tk.LEFT, fill=tk.X, expand=True
+                        )
+                        ttk.Label(item_frame, text=f"↻ {usage_count}", foreground="#3b82f6").pack(
+                            side=tk.RIGHT
+                        )
+            else:
+                ttk.Label(top_used_frame, text="No usage data yet").pack()
+
+            # Recent Activity tab
+            recent_frame = ttk.Frame(notebook, padding=10)
+            notebook.add(recent_frame, text="📅 Recent Activity")
+
+            ttk.Label(recent_frame, text="Last 7 Days Activity", font=("", 12, "bold")).pack(
+                anchor=tk.W, pady=(0, 10)
+            )
+
+            # Count prompts by day
+            from collections import defaultdict
+
+            daily_counts = defaultdict(int)
+            now = datetime.now()
+
+            for item in self.history_items:
+                try:
+                    item_date = datetime.fromisoformat(item["timestamp"])
+                    days_ago = (now - item_date).days
+                    if days_ago < 7:
+                        day_name = item_date.strftime("%A")
+                        daily_counts[day_name] += 1
+                except Exception:
+                    pass
+
+            # Display daily activity
+            if daily_counts:
+                max_count = max(daily_counts.values())
+                for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+                    count = daily_counts.get(day, 0)
+                    day_frame = ttk.Frame(recent_frame)
+                    day_frame.pack(fill=tk.X, pady=3)
+
+                    ttk.Label(day_frame, text=f"{day}:", width=12).pack(side=tk.LEFT)
+
+                    # Simple bar chart
+                    bar_width = int((count / max_count * 300)) if max_count > 0 else 0
+                    canvas = tk.Canvas(day_frame, width=300, height=20, bg="white")
+                    canvas.pack(side=tk.LEFT, padx=5)
+                    if bar_width > 0:
+                        canvas.create_rectangle(0, 0, bar_width, 20, fill="#3b82f6", outline="")
+
+                    ttk.Label(day_frame, text=str(count)).pack(side=tk.LEFT)
+            else:
+                ttk.Label(recent_frame, text="No activity in the last 7 days").pack()
+
+            # Close button
+            btn_frame = ttk.Frame(analytics_window, padding=10)
+            btn_frame.pack(fill=tk.X)
+            ttk.Button(btn_frame, text="❌ Close", command=analytics_window.destroy).pack(side=tk.RIGHT)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show analytics: {e}")
+
+    def _export_data(self, data_type="all"):
+        """Export data to JSON file."""
+        try:
+            # Prepare data based on type
+            if data_type == "all":
+                export_data = {
+                    "version": "2.0.43",
+                    "export_date": datetime.now().isoformat(),
+                    "history": self.history_items,
+                    "tags": self.tags,
+                    "snippets": self.snippets,
+                    "ui_settings": {
+                        "theme": self.current_theme,
+                    },
+                }
+                default_filename = f"promptc_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                title = "Export All Data"
+            elif data_type == "history":
+                export_data = {
+                    "version": "2.0.43",
+                    "export_date": datetime.now().isoformat(),
+                    "history": self.history_items,
+                }
+                default_filename = f"promptc_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                title = "Export History"
+            elif data_type == "tags":
+                export_data = {
+                    "version": "2.0.43",
+                    "export_date": datetime.now().isoformat(),
+                    "tags": self.tags,
+                }
+                default_filename = f"promptc_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                title = "Export Tags"
+            else:
+                messagebox.showerror("Error", f"Unknown data type: {data_type}")
+                return
+
+            # Ask for save location
+            filepath = filedialog.asksaveasfilename(
+                title=title,
+                defaultextension=".json",
+                initialfile=default_filename,
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            )
+
+            if not filepath:
+                return
+
+            # Save to file
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+            messagebox.showinfo(
+                "Export Successful",
+                f"Data exported successfully to:\n{filepath}\n\n"
+                f"Items exported: {len(export_data.get('history', []))} prompts, "
+                f"{len(export_data.get('tags', []))} tags, "
+                f"{len(export_data.get('snippets', []))} snippets",
+            )
+            self.status_var.set(f"✅ Exported to {Path(filepath).name}")
+
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export data: {e}")
+
+    def _import_data(self):
+        """Import data from JSON file."""
+        try:
+            # Ask for file
+            filepath = filedialog.askopenfilename(
+                title="Import Data",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            )
+
+            if not filepath:
+                return
+
+            # Load file
+            with open(filepath, "r", encoding="utf-8") as f:
+                import_data = json.load(f)
+
+            # Validate structure
+            if not isinstance(import_data, dict):
+                messagebox.showerror("Import Error", "Invalid file format: Expected JSON object")
+                return
+
+            # Check version (optional, for future compatibility)
+            version = import_data.get("version", "unknown")
+
+            # Ask merge or replace
+            merge_choice = messagebox.askyesnocancel(
+                "Import Mode",
+                f"Import file version: {version}\n"
+                f"Export date: {import_data.get('export_date', 'unknown')}\n\n"
+                "Choose import mode:\n\n"
+                "• YES = Merge with existing data (keep both)\n"
+                "• NO = Replace existing data (overwrite)\n"
+                "• CANCEL = Abort import",
+            )
+
+            if merge_choice is None:  # Cancel
+                return
+
+            merge_mode = merge_choice  # True = merge, False = replace
+
+            # Import history
+            if "history" in import_data:
+                imported_history = import_data["history"]
+                if not isinstance(imported_history, list):
+                    messagebox.showerror("Import Error", "Invalid history format")
+                    return
+
+                if merge_mode:
+                    # Merge: Add only new items (check by timestamp + text)
+                    existing_keys = {
+                        (item.get("timestamp"), item.get("full_text"))
+                        for item in self.history_items
+                    }
+                    new_items = [
+                        item
+                        for item in imported_history
+                        if (item.get("timestamp"), item.get("full_text")) not in existing_keys
+                    ]
+                    self.history_items.extend(new_items)
+                    added_count = len(new_items)
+                else:
+                    # Replace
+                    self.history_items = imported_history
+                    added_count = len(imported_history)
+
+                # Save to file
+                with open(self.history_path, "w", encoding="utf-8") as f:
+                    json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+
+                self._refresh_history()
+
+            # Import tags
+            if "tags" in import_data:
+                imported_tags = import_data["tags"]
+                if not isinstance(imported_tags, list):
+                    messagebox.showerror("Import Error", "Invalid tags format")
+                    return
+
+                if merge_mode:
+                    # Merge: Add only new tags
+                    existing_names = {tag["name"] for tag in self.tags}
+                    new_tags = [tag for tag in imported_tags if tag["name"] not in existing_names]
+                    self.tags.extend(new_tags)
+                    tags_added = len(new_tags)
+                else:
+                    # Replace
+                    self.tags = imported_tags
+                    tags_added = len(imported_tags)
+
+                # Save to file
+                with open(self.tags_path, "w", encoding="utf-8") as f:
+                    json.dump(self.tags, f, indent=2, ensure_ascii=False)
+
+                self._update_tag_filters()
+
+            # Import snippets
+            if "snippets" in import_data:
+                imported_snippets = import_data["snippets"]
+                if not isinstance(imported_snippets, list):
+                    messagebox.showerror("Import Error", "Invalid snippets format")
+                    return
+
+                if merge_mode:
+                    # Merge: Add only new snippets
+                    existing_names = {snip["name"] for snip in self.snippets}
+                    new_snippets = [
+                        snip for snip in imported_snippets if snip["name"] not in existing_names
+                    ]
+                    self.snippets.extend(new_snippets)
+                    snippets_added = len(new_snippets)
+                else:
+                    # Replace
+                    self.snippets = imported_snippets
+                    snippets_added = len(imported_snippets)
+
+                # Save to file
+                with open(self.snippets_path, "w", encoding="utf-8") as f:
+                    json.dump(self.snippets, f, indent=2, ensure_ascii=False)
+
+                self._refresh_snippets()
+
+            # Import UI settings (optional)
+            if "ui_settings" in import_data and merge_mode is False:
+                ui_settings = import_data["ui_settings"]
+                if "theme" in ui_settings and ui_settings["theme"] != self.current_theme:
+                    self.toggle_theme()
+
+            mode_text = "merged" if merge_mode else "replaced"
+            messagebox.showinfo(
+                "Import Successful",
+                f"Data {mode_text} successfully!\n\n"
+                f"History: {added_count if 'history' in import_data else 0} items\n"
+                f"Tags: {tags_added if 'tags' in import_data else 0} tags\n"
+                f"Snippets: {snippets_added if 'snippets' in import_data else 0} snippets",
+            )
+            self.status_var.set(f"✅ Imported from {Path(filepath).name}")
+
+        except json.JSONDecodeError as e:
+            messagebox.showerror("Import Error", f"Invalid JSON file: {e}")
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to import data: {e}")
+
+    def _auto_backup(self):
+        """Create automatic backup on app close."""
+        try:
+            # Create backups directory
+            backup_dir = Path.home() / ".promptc_backups"
+            backup_dir.mkdir(exist_ok=True)
+
+            # Create backup file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_file = backup_dir / f"auto_backup_{timestamp}.json"
+
+            # Prepare backup data
+            backup_data = {
+                "version": "2.0.43",
+                "backup_date": datetime.now().isoformat(),
+                "backup_type": "auto",
+                "history": self.history_items,
+                "tags": self.tags,
+                "snippets": self.snippets,
+                "ui_settings": {
+                    "theme": self.current_theme,
+                },
+            }
+
+            # Save backup
+            with open(backup_file, "w", encoding="utf-8") as f:
+                json.dump(backup_data, f, indent=2, ensure_ascii=False)
+
+            # Keep only last 5 backups
+            backup_files = sorted(backup_dir.glob("auto_backup_*.json"))
+            if len(backup_files) > 5:
+                for old_backup in backup_files[:-5]:
+                    old_backup.unlink()
+
+            print(f"Auto-backup created: {backup_file.name}")
+
+        except Exception as e:
+            print(f"Auto-backup failed: {e}")
+
+    def _restore_backup(self):
+        """Restore from automatic backup."""
+        try:
+            backup_dir = Path.home() / ".promptc_backups"
+            if not backup_dir.exists():
+                messagebox.showinfo("No Backups", "No automatic backups found.")
+                return
+
+            # List available backups
+            backup_files = sorted(backup_dir.glob("auto_backup_*.json"), reverse=True)
+            if not backup_files:
+                messagebox.showinfo("No Backups", "No automatic backups found.")
+                return
+
+            # Create selection dialog
+            restore_window = tk.Toplevel(self.root)
+            restore_window.title("♻️ Restore Backup")
+            restore_window.geometry("600x400")
+            restore_window.transient(self.root)
+
+            ttk.Label(
+                restore_window, text="Select a backup to restore:", font=("", 11, "bold")
+            ).pack(padx=10, pady=10, anchor=tk.W)
+
+            # Listbox with backups
+            list_frame = ttk.Frame(restore_window)
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            scrollbar = ttk.Scrollbar(list_frame)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            backup_listbox = tk.Listbox(
+                list_frame, yscrollcommand=scrollbar.set, selectmode=tk.SINGLE
+            )
+            backup_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.config(command=backup_listbox.yview)
+
+            # Populate list
+            for backup_file in backup_files:
+                # Parse timestamp from filename
+                try:
+                    timestamp_str = backup_file.stem.replace("auto_backup_", "")
+                    timestamp = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
+                    display_name = f"{timestamp.strftime('%Y-%m-%d %H:%M:%S')} - {backup_file.name}"
+                except Exception:
+                    display_name = backup_file.name
+                backup_listbox.insert(tk.END, display_name)
+
+            # Selected backup info
+            info_var = tk.StringVar(value="Select a backup to see details")
+            info_label = ttk.Label(restore_window, textvariable=info_var, foreground="#666")
+            info_label.pack(padx=10, pady=(0, 10))
+
+            def on_select(event):
+                selection = backup_listbox.curselection()
+                if not selection:
+                    return
+                idx = selection[0]
+                backup_file = backup_files[idx]
+
+                # Load backup to show details
+                try:
+                    with open(backup_file, "r", encoding="utf-8") as f:
+                        backup_data = json.load(f)
+
+                    history_count = len(backup_data.get("history", []))
+                    tags_count = len(backup_data.get("tags", []))
+                    snippets_count = len(backup_data.get("snippets", []))
+
+                    info_var.set(
+                        f"📊 {history_count} prompts, {tags_count} tags, {snippets_count} snippets"
+                    )
+                except Exception as e:
+                    info_var.set(f"Error reading backup: {e}")
+
+            backup_listbox.bind("<<ListboxSelect>>", on_select)
+
+            # Buttons
+            btn_frame = ttk.Frame(restore_window)
+            btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def do_restore():
+                selection = backup_listbox.curselection()
+                if not selection:
+                    messagebox.showwarning("No Selection", "Please select a backup to restore.")
+                    return
+
+                idx = selection[0]
+                backup_file = backup_files[idx]
+
+                # Confirm
+                confirm = messagebox.askyesno(
+                    "Confirm Restore",
+                    f"Restore from backup:\n{backup_file.name}\n\n"
+                    "This will replace your current data.\n"
+                    "Continue?",
+                )
+
+                if not confirm:
+                    return
+
+                try:
+                    # Load backup
+                    with open(backup_file, "r", encoding="utf-8") as f:
+                        backup_data = json.load(f)
+
+                    # Restore history
+                    if "history" in backup_data:
+                        self.history_items = backup_data["history"]
+                        with open(self.history_path, "w", encoding="utf-8") as f:
+                            json.dump(self.history_items, f, indent=2, ensure_ascii=False)
+                        self._refresh_history()
+
+                    # Restore tags
+                    if "tags" in backup_data:
+                        self.tags = backup_data["tags"]
+                        with open(self.tags_path, "w", encoding="utf-8") as f:
+                            json.dump(self.tags, f, indent=2, ensure_ascii=False)
+                        self._update_tag_filters()
+
+                    # Restore snippets
+                    if "snippets" in backup_data:
+                        self.snippets = backup_data["snippets"]
+                        with open(self.snippets_path, "w", encoding="utf-8") as f:
+                            json.dump(self.snippets, f, indent=2, ensure_ascii=False)
+                        self._refresh_snippets()
+
+                    messagebox.showinfo("Restore Successful", "Data restored successfully!")
+                    restore_window.destroy()
+                    self.status_var.set(f"✅ Restored from {backup_file.name}")
+
+                except Exception as e:
+                    messagebox.showerror("Restore Error", f"Failed to restore backup: {e}")
+
+            ttk.Button(btn_frame, text="♻️ Restore", command=do_restore).pack(
+                side=tk.LEFT, padx=(0, 5)
+            )
+            ttk.Button(btn_frame, text="❌ Cancel", command=restore_window.destroy).pack(
+                side=tk.LEFT
+            )
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open restore dialog: {e}")
 
 
 def main():  # pragma: no cover

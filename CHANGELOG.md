@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.43] - 2025-11-08
+### Added
+- **Export/Import System**: Backup and restore your data with flexible options
+  - **💾 Export All**: Export complete backup (history + tags + snippets + settings)
+  - **📋 Export History**: Export only prompt history
+  - **🏷️ Export Tags**: Export only tag definitions
+  - Auto-generated timestamped filenames (e.g., `promptc_backup_20251108_143052.json`)
+  - JSON format with UTF-8 support and pretty-printing
+  - Version and export date metadata included
+- **Import Functionality**: Restore data from exported files
+  - **Merge Mode**: Combine with existing data (duplicate detection)
+  - **Replace Mode**: Replace all existing data
+  - Validation of JSON structure
+  - Version compatibility check
+  - User confirmation dialog with import details
+  - Smart duplicate detection based on timestamp + content
+- **Auto-Backup System**: Automatic data protection
+  - Creates backup automatically on app close
+  - Stores in `~/.promptc_backups/` directory
+  - Keeps last 5 backups (older ones auto-deleted)
+  - Backup includes all data: history, tags, snippets, settings
+  - Silent operation (no user interruption)
+- **Restore Backup UI**: Easy recovery from automatic backups
+  - "♻️ Restore Backup" button in sidebar
+  - Lists all available backups with timestamps
+  - Shows backup details: prompt count, tags, snippets
+  - Date-sorted list (newest first)
+  - One-click restore with confirmation
+  - Visual feedback on success
+
+### Changed
+- Sidebar now includes "📤 Backup & Restore" section
+- Export buttons added to sidebar with clear labels
+- `_on_close()` enhanced to create auto-backup before exit
+
+## [2.0.42] - 2025-11-07
+### Added
+- **Advanced Analytics Dashboard**: Comprehensive usage insights
+  - **Overview Tab**: Total prompts, favorites count, total usage, average length
+  - **Top Tags Tab**: Tag usage distribution with counts
+  - **Most Used Tab**: Top 10 prompts by usage count with ↻ indicator
+  - **Recent Activity Tab**: 7-day activity visualization with bar charts
+  - Interactive notebook interface with multiple tabs
+  - Real-time statistics calculation
+  - Color-coded visualizations (#3b82f6 blue theme)
+- **Usage Tracking**: Track how often each prompt is used
+  - `usage_count` field added to history items
+  - Automatically increments when prompt is loaded
+  - Persisted to JSON on each use
+  - Displayed in history list with (↻n) indicator
+- **Advanced Filtering**: Multi-criteria search and filter
+  - **Favorites Only**: Toggle to show only starred prompts
+  - **Length Filter**: short (<100), medium (100-500), long (>500 chars)
+  - **Date Range**: all, today, last 7/30/90 days
+  - **Sorting**: newest/oldest, shortest/longest, most/least used
+  - "🔄 Clear Filters" button to reset all filters
+  - "📊 View Analytics" button to open dashboard
+  - All filters work together (AND logic)
+  - Backward compatible with old history format
+- **Enhanced History Display**: Better visual feedback
+  - Usage count indicator: (↻n) after preview
+  - Length tracking for all prompts
+  - Date-based filtering with datetime parsing
+  - Multi-criteria sorting support
+
+### Changed
+- History item schema extended with `usage_count` and `length` fields
+- `_refresh_history()` completely rewritten with comprehensive filtering
+- `_load_prompt_from_history()` now tracks and persists usage
+- Sidebar expanded with advanced filters section
+- Filter controls use modern dropdowns and checkboxes
+
 ## [2.0.41] - 2025-11-06
 ### Added
 - **Tags System**: Organize and filter prompts with color-coded tags
