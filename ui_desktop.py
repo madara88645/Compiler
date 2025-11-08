@@ -488,7 +488,13 @@ class PromptCompilerUI:
         sort_combo = ttk.Combobox(
             sort_frame,
             textvariable=self.filter_sort,
-            values=["date (newest)", "date (oldest)", "length (short)", "length (long)", "most used"],
+            values=[
+                "date (newest)",
+                "date (oldest)",
+                "length (short)",
+                "length (long)",
+                "most used",
+            ],
             state="readonly",
             width=15,
         )
@@ -496,14 +502,14 @@ class PromptCompilerUI:
         sort_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
 
         # Clear filters button
-        ttk.Button(adv_filters_frame, text="🔄 Clear Filters", command=self._clear_all_filters).pack(
-            fill=tk.X, pady=(5, 0)
-        )
+        ttk.Button(
+            adv_filters_frame, text="🔄 Clear Filters", command=self._clear_all_filters
+        ).pack(fill=tk.X, pady=(5, 0))
 
         # Analytics button
-        ttk.Button(
-            adv_filters_frame, text="📊 View Analytics", command=self._show_analytics
-        ).pack(fill=tk.X, pady=(2, 0))
+        ttk.Button(adv_filters_frame, text="📊 View Analytics", command=self._show_analytics).pack(
+            fill=tk.X, pady=(2, 0)
+        )
 
         # Export/Import section
         export_frame = ttk.LabelFrame(self.sidebar, text="📤 Backup & Restore", padding=5)
@@ -516,20 +522,26 @@ class PromptCompilerUI:
             export_btn_frame, text="💾 Export All", command=self._export_data, width=15
         ).pack(side=tk.LEFT, padx=(0, 2))
 
-        ttk.Button(
-            export_btn_frame, text="📥 Import", command=self._import_data, width=15
-        ).pack(side=tk.LEFT, padx=(2, 0))
+        ttk.Button(export_btn_frame, text="📥 Import", command=self._import_data, width=15).pack(
+            side=tk.LEFT, padx=(2, 0)
+        )
 
         # Quick export options
         quick_export_frame = ttk.Frame(export_frame)
         quick_export_frame.pack(fill=tk.X, pady=(5, 0))
 
         ttk.Button(
-            quick_export_frame, text="📋 Export History", command=lambda: self._export_data("history"), width=15
+            quick_export_frame,
+            text="📋 Export History",
+            command=lambda: self._export_data("history"),
+            width=15,
         ).pack(side=tk.LEFT, padx=(0, 2))
 
         ttk.Button(
-            quick_export_frame, text="🏷️ Export Tags", command=lambda: self._export_data("tags"), width=15
+            quick_export_frame,
+            text="🏷️ Export Tags",
+            command=lambda: self._export_data("tags"),
+            width=15,
         ).pack(side=tk.LEFT, padx=(2, 0))
 
         # Restore backup button
@@ -1846,10 +1858,16 @@ class PromptCompilerUI:
             search_term = self.search_var.get().lower()
 
             # Get advanced filters
-            favorites_only = self.filter_favorites_only.get() if hasattr(self, 'filter_favorites_only') else False
-            length_filter = self.filter_length.get() if hasattr(self, 'filter_length') else "all"
-            date_range = self.filter_date_range.get() if hasattr(self, 'filter_date_range') else "all"
-            sort_by = self.filter_sort.get() if hasattr(self, 'filter_sort') else "date (newest)"
+            favorites_only = (
+                self.filter_favorites_only.get()
+                if hasattr(self, "filter_favorites_only")
+                else False
+            )
+            length_filter = self.filter_length.get() if hasattr(self, "filter_length") else "all"
+            date_range = (
+                self.filter_date_range.get() if hasattr(self, "filter_date_range") else "all"
+            )
+            sort_by = self.filter_sort.get() if hasattr(self, "filter_sort") else "date (newest)"
 
             # Filter and collect items
             filtered_items = []
@@ -1874,7 +1892,9 @@ class PromptCompilerUI:
                 item_length = item.get("length", len(item.get("full_text", "")))
                 if length_filter == "short (<100)" and item_length >= 100:
                     continue
-                elif length_filter == "medium (100-500)" and (item_length < 100 or item_length > 500):
+                elif length_filter == "medium (100-500)" and (
+                    item_length < 100 or item_length > 500
+                ):
                     continue
                 elif length_filter == "long (>500)" and item_length <= 500:
                     continue
@@ -1907,7 +1927,9 @@ class PromptCompilerUI:
             elif sort_by == "length (short)":
                 filtered_items.sort(key=lambda x: x.get("length", len(x.get("full_text", ""))))
             elif sort_by == "length (long)":
-                filtered_items.sort(key=lambda x: x.get("length", len(x.get("full_text", ""))), reverse=True)
+                filtered_items.sort(
+                    key=lambda x: x.get("length", len(x.get("full_text", ""))), reverse=True
+                )
             elif sort_by == "most used":
                 filtered_items.sort(key=lambda x: x.get("usage_count", 0), reverse=True)
 
@@ -1972,8 +1994,13 @@ class PromptCompilerUI:
             # Increment usage count
             # Find actual index in history_items
             for i, hist_item in enumerate(self.history_items):
-                if hist_item["full_text"] == prompt_text and hist_item["timestamp"] == item["timestamp"]:
-                    self.history_items[i]["usage_count"] = self.history_items[i].get("usage_count", 0) + 1
+                if (
+                    hist_item["full_text"] == prompt_text
+                    and hist_item["timestamp"] == item["timestamp"]
+                ):
+                    self.history_items[i]["usage_count"] = (
+                        self.history_items[i].get("usage_count", 0) + 1
+                    )
                     # Save updated count
                     with open(self.history_path, "w", encoding="utf-8") as f:
                         json.dump(self.history_items, f, indent=2, ensure_ascii=False)
@@ -2601,9 +2628,9 @@ class PromptCompilerUI:
             # Header
             header_frame = ttk.Frame(analytics_window, padding=10)
             header_frame.pack(fill=tk.X)
-            ttk.Label(
-                header_frame, text="📊 Prompt Analytics", font=("Segoe UI", 16, "bold")
-            ).pack(anchor=tk.W)
+            ttk.Label(header_frame, text="📊 Prompt Analytics", font=("Segoe UI", 16, "bold")).pack(
+                anchor=tk.W
+            )
 
             # Create notebook for different analytics views
             notebook = ttk.Notebook(analytics_window)
@@ -2615,10 +2642,15 @@ class PromptCompilerUI:
 
             # Calculate statistics
             total_prompts = len(self.history_items)
-            favorites_count = sum(1 for item in self.history_items if item.get("is_favorite", False))
+            favorites_count = sum(
+                1 for item in self.history_items if item.get("is_favorite", False)
+            )
             total_usage = sum(item.get("usage_count", 0) for item in self.history_items)
             avg_length = (
-                sum(item.get("length", len(item.get("full_text", ""))) for item in self.history_items)
+                sum(
+                    item.get("length", len(item.get("full_text", "")))
+                    for item in self.history_items
+                )
                 / total_prompts
                 if total_prompts > 0
                 else 0
@@ -2688,9 +2720,9 @@ class PromptCompilerUI:
                         item_frame = ttk.Frame(top_used_frame)
                         item_frame.pack(fill=tk.X, pady=5)
 
-                        ttk.Label(
-                            item_frame, text=f"{i}.", font=("", 10, "bold"), width=3
-                        ).pack(side=tk.LEFT)
+                        ttk.Label(item_frame, text=f"{i}.", font=("", 10, "bold"), width=3).pack(
+                            side=tk.LEFT
+                        )
                         ttk.Label(item_frame, text=item["preview"][:60] + "...").pack(
                             side=tk.LEFT, fill=tk.X, expand=True
                         )
@@ -2727,7 +2759,15 @@ class PromptCompilerUI:
             # Display daily activity
             if daily_counts:
                 max_count = max(daily_counts.values())
-                for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+                for day in [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                ]:
                     count = daily_counts.get(day, 0)
                     day_frame = ttk.Frame(recent_frame)
                     day_frame.pack(fill=tk.X, pady=3)
@@ -2748,7 +2788,9 @@ class PromptCompilerUI:
             # Close button
             btn_frame = ttk.Frame(analytics_window, padding=10)
             btn_frame.pack(fill=tk.X)
-            ttk.Button(btn_frame, text="❌ Close", command=analytics_window.destroy).pack(side=tk.RIGHT)
+            ttk.Button(btn_frame, text="❌ Close", command=analytics_window.destroy).pack(
+                side=tk.RIGHT
+            )
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show analytics: {e}")
@@ -2776,7 +2818,9 @@ class PromptCompilerUI:
                     "export_date": datetime.now().isoformat(),
                     "history": self.history_items,
                 }
-                default_filename = f"promptc_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                default_filename = (
+                    f"promptc_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                )
                 title = "Export History"
             elif data_type == "tags":
                 export_data = {
