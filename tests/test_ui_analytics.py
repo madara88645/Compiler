@@ -65,9 +65,7 @@ class TestAdvancedFiltering:
 
     def test_filter_favorites_only(self, sample_history_with_usage):
         """Test filtering favorites only."""
-        filtered = [
-            item for item in sample_history_with_usage if item.get("is_favorite", False)
-        ]
+        filtered = [item for item in sample_history_with_usage if item.get("is_favorite", False)]
 
         assert len(filtered) == 2
         assert all(item["is_favorite"] for item in filtered)
@@ -267,8 +265,7 @@ class TestAnalyticsCalculations:
     def test_average_length(self, sample_history_with_usage):
         """Test calculating average prompt length."""
         total_length = sum(
-            item.get("length", len(item.get("full_text", "")))
-            for item in sample_history_with_usage
+            item.get("length", len(item.get("full_text", ""))) for item in sample_history_with_usage
         )
         avg_length = total_length / len(sample_history_with_usage)
 

@@ -206,13 +206,9 @@ class TestImportData:
         imported = sample_history.copy()
 
         # Simulate merge logic
-        existing_keys = {
-            (item["timestamp"], item["full_text"]) for item in existing
-        }
+        existing_keys = {(item["timestamp"], item["full_text"]) for item in existing}
         new_items = [
-            item
-            for item in imported
-            if (item["timestamp"], item["full_text"]) not in existing_keys
+            item for item in imported if (item["timestamp"], item["full_text"]) not in existing_keys
         ]
 
         merged = existing + new_items
@@ -226,13 +222,9 @@ class TestImportData:
         imported = sample_history.copy()
 
         # Simulate merge
-        existing_keys = {
-            (item["timestamp"], item["full_text"]) for item in existing
-        }
+        existing_keys = {(item["timestamp"], item["full_text"]) for item in existing}
         new_items = [
-            item
-            for item in imported
-            if (item["timestamp"], item["full_text"]) not in existing_keys
+            item for item in imported if (item["timestamp"], item["full_text"]) not in existing_keys
         ]
 
         merged = existing + new_items
@@ -241,7 +233,8 @@ class TestImportData:
 
     def test_import_replace_mode(self, sample_history):
         """Test replace mode overwrites existing data."""
-        existing = [
+        # Old data that will be replaced
+        old_data = [
             {
                 "timestamp": "2025-11-07T10:00:00",
                 "preview": "Old prompt...",
@@ -254,11 +247,11 @@ class TestImportData:
         ]
         imported = sample_history.copy()
 
-        # Replace mode
+        # Replace mode - imported data replaces old data
         replaced = imported
 
         assert len(replaced) == 2
-        assert replaced[0]["full_text"] != "Old prompt text"
+        assert replaced[0]["full_text"] != old_data[0]["full_text"]
 
     def test_import_tags_merge(self, sample_tags):
         """Test merging tags without duplicates."""
