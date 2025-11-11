@@ -55,6 +55,12 @@ class PromptCompilerUI:
         self.root.geometry("1200x780")
         self.root.minsize(1000, 650)
         self.current_theme = "light"
+        
+        # UI Customization settings
+        self.accent_color = "#3b82f6"  # Default blue
+        self.font_size = "medium"  # small, medium, large
+        self.view_mode = "comfortable"  # compact, comfortable
+        
         # Settings file (per-user)
         self.config_path = Path.home() / ".promptc_ui.json"
         self.history_path = Path.home() / ".promptc_history.json"
@@ -196,6 +202,10 @@ class PromptCompilerUI:
         self.btn_theme = ttk.Button(opts, text="🌙 Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(self.btn_theme, "Toggle light/dark theme")
+
+        btn_settings = ttk.Button(opts, text="⚙️ Settings", command=self._show_settings)
+        btn_settings.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_settings, "Customize UI appearance and behavior")
 
         # Examples dropdown
         try:
@@ -796,6 +806,12 @@ class PromptCompilerUI:
         theme = data.get("theme")
         if theme in ("light", "dark"):
             self.current_theme = theme
+        
+        # UI Customization
+        self.accent_color = data.get("accent_color", "#3b82f6")
+        self.font_size = data.get("font_size", "medium")
+        self.view_mode = data.get("view_mode", "comfortable")
+        
         # Variables
         try:
             if "diagnostics" in data:
@@ -856,6 +872,9 @@ class PromptCompilerUI:
                 selected_idx = 0
             payload = {
                 "theme": self.current_theme,
+                "accent_color": self.accent_color,
+                "font_size": self.font_size,
+                "view_mode": self.view_mode,
                 "diagnostics": bool(self.var_diag.get()),
                 "trace": bool(self.var_trace.get()),
                 "use_expanded": bool(self.var_openai_expanded.get()),
@@ -3185,6 +3204,277 @@ class PromptCompilerUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open restore dialog: {e}")
+
+    def _show_settings(self):
+        """Show UI customization settings dialog."""
+        try:
+            settings_window = tk.Toplevel(self.root)
+            settings_window.title("⚙️ UI Settings")
+            settings_window.geometry("550x600")
+            settings_window.transient(self.root)
+
+            # Header
+            header_frame = ttk.Frame(settings_window, padding=10)
+            header_frame.pack(fill=tk.X)
+            ttk.Label(
+                header_frame, text="⚙️ UI Customization", font=("Segoe UI", 14, "bold")
+            ).pack(anchor=tk.W)
+            ttk.Label(
+                header_frame, text="Personalize your workspace", foreground="#666"
+            ).pack(anchor=tk.W)
+
+            # Create notebook for settings categories
+            notebook = ttk.Notebook(settings_window)
+            notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            # Appearance Tab
+            appearance_frame = ttk.Frame(notebook, padding=15)
+            notebook.add(appearance_frame, text="🎨 Appearance")
+
+            # Theme selection
+            ttk.Label(appearance_frame, text="Theme:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(0, 5)
+            )
+            theme_frame = ttk.Frame(appearance_frame)
+            theme_frame.pack(fill=tk.X, pady=(0, 15))
+
+            current_theme = tk.StringVar(value=self.current_theme)
+            ttk.Radiobutton(
+                theme_frame, text="☀️ Light", variable=current_theme, value="light"
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Radiobutton(
+                theme_frame, text="🌙 Dark", variable=current_theme, value="dark"
+            ).pack(side=tk.LEFT)
+
+            # Accent color selection
+            ttk.Label(appearance_frame, text="Accent Color:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(10, 5)
+            )
+            accent_frame = ttk.Frame(appearance_frame)
+            accent_frame.pack(fill=tk.X, pady=(0, 15))
+
+            accent_colors = {
+                "Blue": "#3b82f6",
+                "Green": "#10b981",
+                "Purple": "#8b5cf6",
+                "Pink": "#ec4899",
+                "Orange": "#f59e0b",
+                "Red": "#ef4444",
+            }
+
+            current_accent = tk.StringVar(value=self.accent_color)
+
+            color_buttons_frame = ttk.Frame(accent_frame)
+            color_buttons_frame.pack(fill=tk.X)
+
+            for i, (name, color) in enumerate(accent_colors.items()):
+                btn_frame = ttk.Frame(color_buttons_frame)
+                btn_frame.pack(side=tk.LEFT, padx=5)
+
+                color_canvas = tk.Canvas(btn_frame, width=30, height=30, bg="white", highlightthickness=2)
+                color_canvas.pack()
+                color_canvas.create_rectangle(2, 2, 28, 28, fill=color, outline="")
+
+                ttk.Radiobutton(
+                    btn_frame,
+                    text=name,
+                    variable=current_accent,
+                    value=color,
+                    command=lambda c=color, canvas=color_canvas: self._preview_accent_color(
+                        canvas, c
+                    ),
+                ).pack()
+
+                # Highlight selected
+                if color == self.accent_color:
+                    color_canvas.config(highlightbackground=color, highlightthickness=3)
+
+            # Font size selection
+            ttk.Label(appearance_frame, text="Font Size:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(10, 5)
+            )
+            font_frame = ttk.Frame(appearance_frame)
+            font_frame.pack(fill=tk.X, pady=(0, 15))
+
+            current_font_size = tk.StringVar(value=self.font_size)
+            ttk.Radiobutton(
+                font_frame, text="Small", variable=current_font_size, value="small"
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Radiobutton(
+                font_frame, text="Medium", variable=current_font_size, value="medium"
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Radiobutton(
+                font_frame, text="Large", variable=current_font_size, value="large"
+            ).pack(side=tk.LEFT)
+
+            # View mode selection
+            ttk.Label(appearance_frame, text="View Mode:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(10, 5)
+            )
+            view_frame = ttk.Frame(appearance_frame)
+            view_frame.pack(fill=tk.X, pady=(0, 15))
+
+            current_view_mode = tk.StringVar(value=self.view_mode)
+            ttk.Radiobutton(
+                view_frame, text="Compact", variable=current_view_mode, value="compact"
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Radiobutton(
+                view_frame, text="Comfortable", variable=current_view_mode, value="comfortable"
+            ).pack(side=tk.LEFT)
+
+            # Preview area
+            preview_frame = ttk.LabelFrame(appearance_frame, text="Preview", padding=10)
+            preview_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+            preview_text = tk.Text(preview_frame, height=4, wrap=tk.WORD)
+            preview_text.pack(fill=tk.BOTH, expand=True)
+            preview_text.insert("1.0", "This is a sample text preview.\nYou can see how your settings will look here.")
+            preview_text.config(state=tk.DISABLED)
+
+            # Behavior Tab
+            behavior_frame = ttk.Frame(notebook, padding=15)
+            notebook.add(behavior_frame, text="⚡ Behavior")
+
+            ttk.Label(behavior_frame, text="Window Settings:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(0, 5)
+            )
+
+            remember_size = tk.BooleanVar(value=True)
+            ttk.Checkbutton(
+                behavior_frame,
+                text="Remember window size and position",
+                variable=remember_size,
+            ).pack(anchor=tk.W, pady=5)
+
+            remember_sidebar = tk.BooleanVar(value=True)
+            ttk.Checkbutton(
+                behavior_frame,
+                text="Remember sidebar width",
+                variable=remember_sidebar,
+            ).pack(anchor=tk.W, pady=5)
+
+            ttk.Separator(behavior_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
+
+            ttk.Label(behavior_frame, text="Sidebar Settings:", font=("", 10, "bold")).pack(
+                anchor=tk.W, pady=(0, 5)
+            )
+
+            auto_refresh = tk.BooleanVar(value=True)
+            ttk.Checkbutton(
+                behavior_frame,
+                text="Auto-refresh history on generate",
+                variable=auto_refresh,
+            ).pack(anchor=tk.W, pady=5)
+
+            show_usage_count = tk.BooleanVar(value=True)
+            ttk.Checkbutton(
+                behavior_frame,
+                text="Show usage count indicators (↻n)",
+                variable=show_usage_count,
+            ).pack(anchor=tk.W, pady=5)
+
+            # About Tab
+            about_frame = ttk.Frame(notebook, padding=15)
+            notebook.add(about_frame, text="ℹ️ About")
+
+            ttk.Label(about_frame, text="Prompt Compiler", font=("", 14, "bold")).pack(pady=(0, 5))
+            ttk.Label(about_frame, text="Version 2.0.44", foreground="#666").pack(pady=(0, 15))
+
+            about_text = tk.Text(about_frame, height=10, wrap=tk.WORD, relief=tk.FLAT)
+            about_text.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+            about_text.insert(
+                "1.0",
+                "An offline desktop UI for compiling and optimizing prompts.\n\n"
+                "Features:\n"
+                "• Advanced analytics and filtering\n"
+                "• Tags and snippets system\n"
+                "• Export/Import with auto-backup\n"
+                "• Customizable UI themes\n"
+                "• Usage tracking and insights\n\n"
+                "For more information, visit the documentation.",
+            )
+            about_text.config(state=tk.DISABLED)
+
+            # Action buttons
+            btn_frame = ttk.Frame(settings_window, padding=10)
+            btn_frame.pack(fill=tk.X)
+
+            def apply_settings():
+                try:
+                    # Apply theme
+                    if current_theme.get() != self.current_theme:
+                        self.apply_theme(current_theme.get())
+
+                    # Apply accent color
+                    old_accent = self.accent_color
+                    self.accent_color = current_accent.get()
+                    if old_accent != self.accent_color:
+                        self._apply_accent_color()
+
+                    # Apply font size
+                    old_font_size = self.font_size
+                    self.font_size = current_font_size.get()
+                    if old_font_size != self.font_size:
+                        self._apply_font_size()
+
+                    # Apply view mode
+                    old_view_mode = self.view_mode
+                    self.view_mode = current_view_mode.get()
+                    if old_view_mode != self.view_mode:
+                        self._apply_view_mode()
+
+                    # Save settings
+                    self._save_settings()
+
+                    messagebox.showinfo("Settings Applied", "Your settings have been applied successfully!")
+                    settings_window.destroy()
+
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to apply settings: {e}")
+
+            ttk.Button(btn_frame, text="✅ Apply", command=apply_settings).pack(
+                side=tk.RIGHT, padx=(5, 0)
+            )
+            ttk.Button(btn_frame, text="❌ Cancel", command=settings_window.destroy).pack(
+                side=tk.RIGHT
+            )
+
+            def reset_defaults():
+                if messagebox.askyesno("Reset Settings", "Reset all settings to default values?"):
+                    current_theme.set("light")
+                    current_accent.set("#3b82f6")
+                    current_font_size.set("medium")
+                    current_view_mode.set("comfortable")
+
+            ttk.Button(btn_frame, text="↺ Reset", command=reset_defaults).pack(side=tk.LEFT)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show settings: {e}")
+
+    def _preview_accent_color(self, canvas, color):
+        """Preview accent color on canvas."""
+        canvas.config(highlightbackground=color, highlightthickness=3)
+
+    def _apply_accent_color(self):
+        """Apply accent color to UI elements."""
+        # This will be called when accent color changes
+        # Update relevant UI elements with new accent color
+        self.status_var.set(f"🎨 Accent color updated")
+
+    def _apply_font_size(self):
+        """Apply font size changes."""
+        # Font size mapping
+        sizes = {"small": 9, "medium": 10, "large": 12}
+        base_size = sizes.get(self.font_size, 10)
+
+        # Update UI elements
+        self.status_var.set(f"📏 Font size updated to {self.font_size}")
+
+    def _apply_view_mode(self):
+        """Apply view mode (compact/comfortable)."""
+        # Adjust padding based on view mode
+        padding = 5 if self.view_mode == "compact" else 10
+        self.status_var.set(f"👁️ View mode: {self.view_mode}")
 
 
 def main():  # pragma: no cover

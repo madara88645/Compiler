@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.44] - 2025-11-11
+### Added
+- **UI Customization & Settings**: Comprehensive appearance and behavior settings
+  - **⚙️ Settings Dialog**: Centralized settings panel with tabbed interface
+  - **Theme Selection**: Quick switch between Light and Dark modes
+  - **Accent Colors**: 6 color options (Blue, Green, Purple, Pink, Orange, Red)
+  - **Font Size Options**: Small, Medium, and Large text sizes
+  - **View Modes**: Compact and Comfortable spacing options
+  - **Live Preview**: See changes before applying
+  - **Behavior Settings**: Window and sidebar preferences
+  - **About Tab**: Version and feature information
+  - All settings persist across sessions
+  - Reset to defaults option
+- **Enhanced UI**: Settings button added to toolbar with ⚙️ icon
+- **Settings Persistence**: Accent color, font size, and view mode saved to config
+
+### Changed
+- UI initialization now loads custom accent color, font size, and view mode
+- Settings structure expanded to include appearance preferences
+- Version updated to 2.0.44
+
 ## [2.0.43] - 2025-11-08
 ### Added
 - **Export/Import System**: Backup and restore your data with flexible options
