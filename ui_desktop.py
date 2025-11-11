@@ -55,12 +55,12 @@ class PromptCompilerUI:
         self.root.geometry("1200x780")
         self.root.minsize(1000, 650)
         self.current_theme = "light"
-        
+
         # UI Customization settings
         self.accent_color = "#3b82f6"  # Default blue
         self.font_size = "medium"  # small, medium, large
         self.view_mode = "comfortable"  # compact, comfortable
-        
+
         # Settings file (per-user)
         self.config_path = Path.home() / ".promptc_ui.json"
         self.history_path = Path.home() / ".promptc_history.json"
@@ -806,12 +806,12 @@ class PromptCompilerUI:
         theme = data.get("theme")
         if theme in ("light", "dark"):
             self.current_theme = theme
-        
+
         # UI Customization
         self.accent_color = data.get("accent_color", "#3b82f6")
         self.font_size = data.get("font_size", "medium")
         self.view_mode = data.get("view_mode", "comfortable")
-        
+
         # Variables
         try:
             if "diagnostics" in data:
@@ -3216,12 +3216,12 @@ class PromptCompilerUI:
             # Header
             header_frame = ttk.Frame(settings_window, padding=10)
             header_frame.pack(fill=tk.X)
-            ttk.Label(
-                header_frame, text="⚙️ UI Customization", font=("Segoe UI", 14, "bold")
-            ).pack(anchor=tk.W)
-            ttk.Label(
-                header_frame, text="Personalize your workspace", foreground="#666"
-            ).pack(anchor=tk.W)
+            ttk.Label(header_frame, text="⚙️ UI Customization", font=("Segoe UI", 14, "bold")).pack(
+                anchor=tk.W
+            )
+            ttk.Label(header_frame, text="Personalize your workspace", foreground="#666").pack(
+                anchor=tk.W
+            )
 
             # Create notebook for settings categories
             notebook = ttk.Notebook(settings_window)
@@ -3242,9 +3242,9 @@ class PromptCompilerUI:
             ttk.Radiobutton(
                 theme_frame, text="☀️ Light", variable=current_theme, value="light"
             ).pack(side=tk.LEFT, padx=(0, 10))
-            ttk.Radiobutton(
-                theme_frame, text="🌙 Dark", variable=current_theme, value="dark"
-            ).pack(side=tk.LEFT)
+            ttk.Radiobutton(theme_frame, text="🌙 Dark", variable=current_theme, value="dark").pack(
+                side=tk.LEFT
+            )
 
             # Accent color selection
             ttk.Label(appearance_frame, text="Accent Color:", font=("", 10, "bold")).pack(
@@ -3271,7 +3271,9 @@ class PromptCompilerUI:
                 btn_frame = ttk.Frame(color_buttons_frame)
                 btn_frame.pack(side=tk.LEFT, padx=5)
 
-                color_canvas = tk.Canvas(btn_frame, width=30, height=30, bg="white", highlightthickness=2)
+                color_canvas = tk.Canvas(
+                    btn_frame, width=30, height=30, bg="white", highlightthickness=2
+                )
                 color_canvas.pack()
                 color_canvas.create_rectangle(2, 2, 28, 28, fill=color, outline="")
 
@@ -3328,7 +3330,10 @@ class PromptCompilerUI:
 
             preview_text = tk.Text(preview_frame, height=4, wrap=tk.WORD)
             preview_text.pack(fill=tk.BOTH, expand=True)
-            preview_text.insert("1.0", "This is a sample text preview.\nYou can see how your settings will look here.")
+            preview_text.insert(
+                "1.0",
+                "This is a sample text preview.\nYou can see how your settings will look here.",
+            )
             preview_text.config(state=tk.DISABLED)
 
             # Behavior Tab
@@ -3426,7 +3431,9 @@ class PromptCompilerUI:
                     # Save settings
                     self._save_settings()
 
-                    messagebox.showinfo("Settings Applied", "Your settings have been applied successfully!")
+                    messagebox.showinfo(
+                        "Settings Applied", "Your settings have been applied successfully!"
+                    )
                     settings_window.destroy()
 
                 except Exception as e:
@@ -3459,21 +3466,21 @@ class PromptCompilerUI:
         """Apply accent color to UI elements."""
         # This will be called when accent color changes
         # Update relevant UI elements with new accent color
-        self.status_var.set(f"🎨 Accent color updated")
+        self.status_var.set("🎨 Accent color updated")
 
     def _apply_font_size(self):
         """Apply font size changes."""
-        # Font size mapping
-        sizes = {"small": 9, "medium": 10, "large": 12}
-        base_size = sizes.get(self.font_size, 10)
+        # Font size mapping (for future implementation)
+        # sizes = {"small": 9, "medium": 10, "large": 12}
+        # base_size = sizes.get(self.font_size, 10)
 
         # Update UI elements
         self.status_var.set(f"📏 Font size updated to {self.font_size}")
 
     def _apply_view_mode(self):
         """Apply view mode (compact/comfortable)."""
-        # Adjust padding based on view mode
-        padding = 5 if self.view_mode == "compact" else 10
+        # Adjust padding based on view mode (for future implementation)
+        # padding = 5 if self.view_mode == "compact" else 10
         self.status_var.set(f"👁️ View mode: {self.view_mode}")
 
 
