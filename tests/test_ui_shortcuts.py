@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import os
-import sys
 import pytest
 import tkinter as tk
 from ui_desktop import PromptCompilerUI
@@ -21,7 +20,7 @@ def _can_create_tk_window():
 # Skip all tests in this file if running in CI or if Tkinter is not available
 pytestmark = pytest.mark.skipif(
     os.environ.get("CI") == "true" or not _can_create_tk_window(),
-    reason="Skipping GUI tests in headless environment or when Tkinter is unavailable"
+    reason="Skipping GUI tests in headless environment or when Tkinter is unavailable",
 )
 
 
@@ -355,7 +354,7 @@ class TestEdgeCases:
 
 @pytest.mark.skipif(
     os.environ.get("CI") == "true" or not _can_create_tk_window(),
-    reason="Skipping GUI test in headless environment"
+    reason="Skipping GUI test in headless environment",
 )
 def test_shortcuts_feature_complete():
     """Meta test to ensure shortcuts feature is complete."""
