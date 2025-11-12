@@ -380,8 +380,8 @@ class PromptCompilerUI:
         # Shortcuts
         self.root.bind("<Control-Return>", lambda _e: self.on_generate())
         self.root.bind("<F5>", lambda _e: self.on_generate())
-        # Quick search in text widgets
-        self.root.bind("<Control-f>", lambda _e: self._find_in_active())
+        # Quick search in text widgets - moved to Ctrl+Shift+F to avoid conflict
+        # self.root.bind("<Control-f>", lambda _e: self._find_in_active())
         # Save geometry on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         # Save selected tab on change
@@ -389,17 +389,20 @@ class PromptCompilerUI:
             self.nb.bind("<<NotebookTabChanged>>", lambda _e: self._save_settings())
         except Exception:
             pass
-        # Ctrl+S save shortcut
-        try:
-            self.root.bind("<Control-s>", lambda _e: self.on_save())
-        except Exception:
-            pass
+        # Ctrl+S save shortcut - will be overridden by _bind_keyboard_shortcuts
+        # try:
+        #     self.root.bind("<Control-s>", lambda _e: self.on_save())
+        # except Exception:
+        #     pass
         # Update prompt stats as user types
         try:
             self.txt_prompt.bind("<KeyRelease>", lambda _e: self._update_prompt_stats())
             self._update_prompt_stats()
         except Exception:
             pass
+
+        # Bind all keyboard shortcuts
+        self._bind_keyboard_shortcuts()
         # Apply initial wrap state
         try:
             self._apply_wrap()
@@ -3482,6 +3485,464 @@ class PromptCompilerUI:
         # Adjust padding based on view mode (for future implementation)
         # padding = 5 if self.view_mode == "compact" else 10
         self.status_var.set(f"👁️ View mode: {self.view_mode}")
+
+    def _show_keyboard_shortcuts(self):
+        """Show keyboard shortcuts reference dialog."""
+        try:
+            shortcuts_window = tk.Toplevel(self.root)
+            shortcuts_window.title("⌨️ Keyboard Shortcuts")
+            shortcuts_window.geometry("700x600")
+            shortcuts_window.transient(self.root)
+
+            # Header
+            header_frame = ttk.Frame(shortcuts_window, padding=10)
+            header_frame.pack(fill=tk.X)
+            ttk.Label(
+                header_frame, text="⌨️ Keyboard Shortcuts", font=("Segoe UI", 14, "bold")
+            ).pack(anchor=tk.W)
+            ttk.Label(
+                header_frame, text="Speed up your workflow with keyboard shortcuts", foreground="#666"
+            ).pack(anchor=tk.W)
+
+            # Create main frame with scrollbar
+            main_frame = ttk.Frame(shortcuts_window)
+            main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            canvas = tk.Canvas(main_frame, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+
+            scrollable_frame.bind(
+                "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Define shortcuts by category
+            shortcuts_data = {
+                "🚀 General": [
+                    ("Ctrl+Shift+P", "Open Command Palette"),
+                    ("Ctrl+K", "Show Keyboard Shortcuts"),
+                    ("Ctrl+,", "Open Settings"),
+                    ("Ctrl+Q", "Quit Application"),
+                    ("F11", "Toggle Fullscreen"),
+                ],
+                "📝 Editing": [
+                    ("Ctrl+Enter", "Generate Prompt"),
+                    ("Ctrl+L", "Clear Input"),
+                    ("Ctrl+A", "Select All Text"),
+                    ("Ctrl+C", "Copy Selected Text"),
+                    ("Ctrl+V", "Paste Text"),
+                    ("Ctrl+Z", "Undo"),
+                    ("Ctrl+Y", "Redo"),
+                ],
+                "📋 Clipboard": [
+                    ("Ctrl+Shift+C", "Copy System Prompt"),
+                    ("Ctrl+Shift+U", "Copy User Prompt"),
+                    ("Ctrl+Shift+E", "Copy Expanded Prompt"),
+                    ("Ctrl+Shift+S", "Copy JSON Schema"),
+                ],
+                "🔍 Navigation": [
+                    ("Ctrl+1", "Switch to System Prompt Tab"),
+                    ("Ctrl+2", "Switch to User Prompt Tab"),
+                    ("Ctrl+3", "Switch to Expanded Tab"),
+                    ("Ctrl+4", "Switch to Plan Tab"),
+                    ("Ctrl+5", "Switch to Schema Tab"),
+                    ("Ctrl+Tab", "Next Tab"),
+                    ("Ctrl+Shift+Tab", "Previous Tab"),
+                ],
+                "💾 File Operations": [
+                    ("Ctrl+S", "Save Current Prompt"),
+                    ("Ctrl+O", "Open Prompt from File"),
+                    ("Ctrl+E", "Export All Data"),
+                    ("Ctrl+I", "Import Data"),
+                ],
+                "📊 Views": [
+                    ("Ctrl+B", "Toggle Sidebar"),
+                    ("Ctrl+H", "Show History"),
+                    ("Ctrl+F", "Show Favorites"),
+                    ("Ctrl+T", "Show Tags"),
+                    ("Ctrl+R", "Show Snippets"),
+                    ("Ctrl+Shift+A", "Show Analytics"),
+                ],
+                "🎨 Appearance": [
+                    ("Ctrl+Shift+T", "Toggle Theme (Light/Dark)"),
+                    ("Ctrl+Plus", "Increase Font Size"),
+                    ("Ctrl+Minus", "Decrease Font Size"),
+                    ("Ctrl+0", "Reset Font Size"),
+                ],
+            }
+
+            # Create category sections
+            for category, shortcuts in shortcuts_data.items():
+                # Category header
+                cat_frame = ttk.Frame(scrollable_frame)
+                cat_frame.pack(fill=tk.X, padx=10, pady=(15, 5))
+                ttk.Label(cat_frame, text=category, font=("", 11, "bold")).pack(anchor=tk.W)
+                ttk.Separator(scrollable_frame, orient="horizontal").pack(
+                    fill=tk.X, padx=10, pady=(0, 5)
+                )
+
+                # Shortcuts in this category
+                for key, description in shortcuts:
+                    shortcut_frame = ttk.Frame(scrollable_frame)
+                    shortcut_frame.pack(fill=tk.X, padx=20, pady=2)
+
+                    # Keyboard shortcut (left)
+                    key_label = ttk.Label(
+                        shortcut_frame,
+                        text=key,
+                        font=("Consolas", 9),
+                        foreground=self.accent_color,
+                        width=20,
+                    )
+                    key_label.pack(side=tk.LEFT)
+
+                    # Description (right)
+                    desc_label = ttk.Label(shortcut_frame, text=description, foreground="#666")
+                    desc_label.pack(side=tk.LEFT, padx=10)
+
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Footer with close button
+            footer_frame = ttk.Frame(shortcuts_window, padding=10)
+            footer_frame.pack(fill=tk.X)
+            ttk.Button(footer_frame, text="✓ Close", command=shortcuts_window.destroy).pack()
+
+            # Bind mouse wheel for scrolling
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            shortcuts_window.protocol("WM_DELETE_WINDOW", lambda: [canvas.unbind_all("<MouseWheel>"), shortcuts_window.destroy()])
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show keyboard shortcuts: {e}")
+
+    def _show_command_palette(self):
+        """Show command palette for quick command execution."""
+        try:
+            palette_window = tk.Toplevel(self.root)
+            palette_window.title("Command Palette")
+            palette_window.geometry("600x400")
+            palette_window.transient(self.root)
+            palette_window.grab_set()
+
+            # Remove window decorations for modern look
+            # palette_window.overrideredirect(True)  # Uncomment for frameless window
+
+            # Center on parent
+            palette_window.update_idletasks()
+            x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (600 // 2)
+            y = self.root.winfo_y() + 100
+            palette_window.geometry(f"600x400+{x}+{y}")
+
+            # Search entry at the top
+            search_frame = ttk.Frame(palette_window, padding=10)
+            search_frame.pack(fill=tk.X)
+
+            ttk.Label(search_frame, text="🔍", font=("", 16)).pack(side=tk.LEFT, padx=(0, 5))
+            search_var = tk.StringVar()
+            search_entry = ttk.Entry(search_frame, textvariable=search_var, font=("", 11))
+            search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            search_entry.focus()
+
+            # Commands listbox
+            list_frame = ttk.Frame(palette_window)
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            commands_listbox = tk.Listbox(
+                list_frame,
+                font=("", 10),
+                relief=tk.FLAT,
+                highlightthickness=0,
+                activestyle="none",
+                selectmode=tk.SINGLE,
+            )
+            commands_scrollbar = ttk.Scrollbar(
+                list_frame, orient="vertical", command=commands_listbox.yview
+            )
+            commands_listbox.configure(yscrollcommand=commands_scrollbar.set)
+
+            commands_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            commands_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Define all available commands
+            all_commands = [
+                ("🚀 Generate Prompt", lambda: self._generate_prompt()),
+                ("🗑️ Clear Input", lambda: self._clear_input()),
+                ("📋 Copy System Prompt", lambda: self._copy_system_prompt()),
+                ("📋 Copy User Prompt", lambda: self._copy_user_prompt()),
+                ("📋 Copy Expanded Prompt", lambda: self._copy_expanded_prompt()),
+                ("📋 Copy JSON Schema", lambda: self._copy_schema()),
+                ("💾 Save Prompt", lambda: self._save_current_prompt()),
+                ("📂 Open Prompt", lambda: self._open_prompt_file()),
+                ("📤 Export All Data", lambda: self._export_data()),
+                ("📥 Import Data", lambda: self._import_data()),
+                ("📊 Show Analytics", lambda: self._show_analytics()),
+                ("⭐ Toggle Favorite", lambda: self._toggle_favorite()),
+                ("🏷️ Manage Tags", lambda: self._show_tag_manager()),
+                ("📝 Manage Snippets", lambda: self._show_snippet_manager()),
+                ("📜 Show History", lambda: self._show_history_view()),
+                ("⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
+                ("⚙️ Settings", lambda: self._show_settings()),
+                ("🌓 Toggle Theme", lambda: self._toggle_theme()),
+                ("🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
+                ("❌ Quit Application", lambda: self.root.quit()),
+            ]
+
+            # Store filtered commands
+            current_commands = []
+
+            def update_command_list(search_term=""):
+                """Update command list based on search term."""
+                commands_listbox.delete(0, tk.END)
+                current_commands.clear()
+
+                search_lower = search_term.lower()
+                for label, action in all_commands:
+                    if search_lower in label.lower():
+                        commands_listbox.insert(tk.END, label)
+                        current_commands.append((label, action))
+
+                # Select first item if available
+                if commands_listbox.size() > 0:
+                    commands_listbox.selection_set(0)
+                    commands_listbox.activate(0)
+
+            def execute_selected_command():
+                """Execute the selected command and close palette."""
+                selection = commands_listbox.curselection()
+                if selection:
+                    idx = selection[0]
+                    if idx < len(current_commands):
+                        _, action = current_commands[idx]
+                        palette_window.destroy()
+                        try:
+                            action()
+                        except Exception as e:
+                            messagebox.showerror("Error", f"Failed to execute command: {e}")
+
+            def on_search_changed(*args):
+                """Called when search text changes."""
+                update_command_list(search_var.get())
+
+            search_var.trace("w", on_search_changed)
+
+            # Initial population
+            update_command_list()
+
+            # Keyboard navigation
+            def on_key_press(event):
+                if event.keysym == "Escape":
+                    palette_window.destroy()
+                elif event.keysym == "Return":
+                    execute_selected_command()
+                elif event.keysym == "Down":
+                    current = commands_listbox.curselection()
+                    if current:
+                        next_idx = min(current[0] + 1, commands_listbox.size() - 1)
+                        commands_listbox.selection_clear(0, tk.END)
+                        commands_listbox.selection_set(next_idx)
+                        commands_listbox.activate(next_idx)
+                        commands_listbox.see(next_idx)
+                    return "break"
+                elif event.keysym == "Up":
+                    current = commands_listbox.curselection()
+                    if current:
+                        prev_idx = max(current[0] - 1, 0)
+                        commands_listbox.selection_clear(0, tk.END)
+                        commands_listbox.selection_set(prev_idx)
+                        commands_listbox.activate(prev_idx)
+                        commands_listbox.see(prev_idx)
+                    return "break"
+
+            search_entry.bind("<Key>", on_key_press)
+            commands_listbox.bind("<Double-Button-1>", lambda e: execute_selected_command())
+
+            # Footer info
+            footer_frame = ttk.Frame(palette_window, padding=(10, 0, 10, 10))
+            footer_frame.pack(fill=tk.X)
+            ttk.Label(
+                footer_frame,
+                text="↑↓ Navigate  •  Enter Execute  •  Esc Close",
+                foreground="#666",
+                font=("", 9),
+            ).pack()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show command palette: {e}")
+
+    def _generate_prompt(self):
+        """Wrapper for generate prompt action."""
+        self.on_generate()
+
+    def _clear_input(self):
+        """Wrapper for clear input action."""
+        # Clear the prompt input specifically
+        self.txt_prompt.delete("1.0", tk.END)
+        self.status_var.set("✓ Input cleared")
+
+    def _copy_system_prompt(self):
+        """Copy system prompt to clipboard."""
+        try:
+            content = self.txt_system.get("1.0", tk.END).strip()
+            if content:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self.status_var.set("📋 System prompt copied to clipboard")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy: {e}")
+
+    def _copy_user_prompt(self):
+        """Copy user prompt to clipboard."""
+        try:
+            content = self.txt_user.get("1.0", tk.END).strip()
+            if content:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self.status_var.set("📋 User prompt copied to clipboard")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy: {e}")
+
+    def _copy_expanded_prompt(self):
+        """Copy expanded prompt to clipboard."""
+        try:
+            content = self.txt_expanded.get("1.0", tk.END).strip()
+            if content:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self.status_var.set("📋 Expanded prompt copied to clipboard")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy: {e}")
+
+    def _copy_schema(self):
+        """Copy JSON schema to clipboard."""
+        try:
+            # Read schema file
+            schema_path = Path("schema/ir.schema.json")
+            if schema_path.exists():
+                content = schema_path.read_text(encoding="utf-8")
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self.status_var.set("📋 JSON schema copied to clipboard")
+            else:
+                messagebox.showwarning("Warning", "Schema file not found")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy schema: {e}")
+
+    def _save_current_prompt(self):
+        """Wrapper for save prompt action."""
+        try:
+            self.on_save()
+        except Exception:
+            # If on_save doesn't exist, show a message
+            messagebox.showinfo("Info", "Save functionality not available")
+
+    def _open_prompt_file(self):
+        """Open a prompt from file."""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Open Prompt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            )
+            if file_path:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    self.txt_prompt.delete("1.0", tk.END)
+                    self.txt_prompt.insert("1.0", content)
+                    self.status_var.set(f"📂 Opened: {os.path.basename(file_path)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open file: {e}")
+
+    def _show_history_view(self):
+        """Show history view in sidebar."""
+        # Just ensure sidebar is visible and filter is cleared for history
+        if not self.sidebar_visible:
+            self._toggle_sidebar()
+        self.status_var.set("📜 Showing history")
+
+    def _show_favorites_view(self):
+        """Show favorites view in sidebar."""
+        # Just ensure sidebar is visible and activate favorites filter
+        if not self.sidebar_visible:
+            self._toggle_sidebar()
+        self.filter_favorites_only.set(True)
+        self._filter_history()
+        self.status_var.set("⭐ Showing favorites")
+
+    def _toggle_theme(self):
+        """Wrapper for theme toggle."""
+        self.toggle_theme()
+
+    def _bind_keyboard_shortcuts(self):
+        """Bind all keyboard shortcuts to their respective actions."""
+        try:
+            # Command Palette
+            self.root.bind("<Control-Shift-P>", lambda e: self._show_command_palette())
+            self.root.bind("<Control-Shift-p>", lambda e: self._show_command_palette())
+
+            # Keyboard Shortcuts Reference
+            self.root.bind("<Control-k>", lambda e: self._show_keyboard_shortcuts())
+            self.root.bind("<Control-K>", lambda e: self._show_keyboard_shortcuts())
+
+            # Settings
+            self.root.bind("<Control-comma>", lambda e: self._show_settings())
+
+            # Generate & Clear
+            self.root.bind("<Control-Return>", lambda e: self._generate_prompt())
+            self.root.bind("<Control-l>", lambda e: self._clear_input())
+            self.root.bind("<Control-L>", lambda e: self._clear_input())
+
+            # Copy actions
+            self.root.bind("<Control-Shift-C>", lambda e: self._copy_system_prompt())
+            self.root.bind("<Control-Shift-c>", lambda e: self._copy_system_prompt())
+            self.root.bind("<Control-Shift-U>", lambda e: self._copy_user_prompt())
+            self.root.bind("<Control-Shift-u>", lambda e: self._copy_user_prompt())
+            self.root.bind("<Control-Shift-E>", lambda e: self._copy_expanded_prompt())
+            self.root.bind("<Control-Shift-e>", lambda e: self._copy_expanded_prompt())
+            self.root.bind("<Control-Shift-S>", lambda e: self._copy_schema())
+            self.root.bind("<Control-Shift-s>", lambda e: self._copy_schema())
+
+            # Tab navigation (Ctrl+1 through Ctrl+5)
+            self.root.bind("<Control-Key-1>", lambda e: self.output_notebook.select(0))
+            self.root.bind("<Control-Key-2>", lambda e: self.output_notebook.select(1))
+            self.root.bind("<Control-Key-3>", lambda e: self.output_notebook.select(2))
+            self.root.bind("<Control-Key-4>", lambda e: self.output_notebook.select(3))
+            self.root.bind("<Control-Key-5>", lambda e: self.output_notebook.select(4))
+
+            # File operations
+            self.root.bind("<Control-s>", lambda e: self._save_current_prompt())
+            self.root.bind("<Control-S>", lambda e: self._save_current_prompt())
+            self.root.bind("<Control-o>", lambda e: self._open_prompt_file())
+            self.root.bind("<Control-O>", lambda e: self._open_prompt_file())
+            self.root.bind("<Control-e>", lambda e: self._export_data())
+            self.root.bind("<Control-E>", lambda e: self._export_data())
+            self.root.bind("<Control-i>", lambda e: self._import_data())
+            self.root.bind("<Control-I>", lambda e: self._import_data())
+
+            # Views
+            self.root.bind("<Control-b>", lambda e: self._toggle_sidebar())
+            self.root.bind("<Control-B>", lambda e: self._toggle_sidebar())
+            self.root.bind("<Control-h>", lambda e: self._show_history_view())
+            self.root.bind("<Control-H>", lambda e: self._show_history_view())
+            self.root.bind("<Control-f>", lambda e: self._show_favorites_view())
+            self.root.bind("<Control-F>", lambda e: self._show_favorites_view())
+            self.root.bind("<Control-Shift-A>", lambda e: self._show_analytics())
+            self.root.bind("<Control-Shift-a>", lambda e: self._show_analytics())
+
+            # Theme toggle
+            self.root.bind("<Control-Shift-T>", lambda e: self._toggle_theme())
+            self.root.bind("<Control-Shift-t>", lambda e: self._toggle_theme())
+
+            # Quit
+            self.root.bind("<Control-q>", lambda e: self.root.quit())
+            self.root.bind("<Control-Q>", lambda e: self.root.quit())
+
+        except Exception as e:
+            print(f"Warning: Failed to bind some keyboard shortcuts: {e}")
 
 
 def main():  # pragma: no cover

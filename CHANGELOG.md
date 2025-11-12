@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.45] - 2025-11-12
+### Added
+- **⌨️ Keyboard Shortcuts Panel**: Comprehensive shortcuts reference dialog
+  - **Categorized Shortcuts**: 7 categories (General, Editing, Clipboard, Navigation, File Operations, Views, Appearance)
+  - **40+ Shortcuts**: Complete keyboard shortcuts for all major actions
+  - **Scrollable Interface**: Easy-to-navigate list with visual key indicators
+  - **Color-coded Keys**: Accent color highlighting for keyboard shortcuts
+  - **Ctrl+K Activation**: Quick access to shortcuts reference (also Ctrl+Shift+K)
+- **🎯 Command Palette**: VS Code-style quick command execution
+  - **Ctrl+Shift+P Activation**: Universal command launcher
+  - **Fuzzy Search**: Filter commands by typing
+  - **20+ Commands**: Access all major features instantly
+  - **Keyboard Navigation**: Arrow keys to select, Enter to execute, Esc to close
+  - **Modern UI**: Clean, centered dialog with emoji icons
+  - **Live Filtering**: Commands update as you type
+- **Enhanced Keyboard Bindings**: All shortcuts now functional
+  - **Generation**: Ctrl+Enter (generate prompt), Ctrl+L (clear input)
+  - **Clipboard**: Ctrl+Shift+C/U/E/S (copy system/user/expanded/schema)
+  - **Navigation**: Ctrl+1-5 (switch tabs), Ctrl+Tab (next tab)
+  - **File Ops**: Ctrl+S (save), Ctrl+O (open), Ctrl+E (export), Ctrl+I (import)
+  - **Views**: Ctrl+B (toggle sidebar), Ctrl+H (history), Ctrl+F (favorites), Ctrl+Shift+A (analytics)
+  - **Theme**: Ctrl+Shift+T (toggle theme)
+- **Wrapper Functions**: Clean abstraction layer for all shortcut actions
+- **Test Suite**: 30 comprehensive tests for keyboard shortcuts and command palette
+  - Tests for dialog opening, command execution, clipboard operations
+  - Integration tests for sidebar, theme, and export/import
+  - Edge case handling for empty content and repeated operations
+
+### Changed
+- Removed conflicting Ctrl+F binding (was used for find, now for favorites)
+- Commented out Ctrl+S conflict (now handled by new shortcuts system)
+- All keyboard shortcuts now bound through centralized `_bind_keyboard_shortcuts()` method
+- Command palette integrates with all existing features
+- Version updated to 2.0.45
+
+### Fixed
+- Keyboard shortcuts now properly integrated with existing UI components
+- Theme toggle accessible via both UI and keyboard shortcut
+- Copy operations now work from any tab
+- Sidebar visibility controlled via keyboard shortcuts
+
 ## [2.0.44] - 2025-11-11
 ### Added
 - **UI Customization & Settings**: Comprehensive appearance and behavior settings
