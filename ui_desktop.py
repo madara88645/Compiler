@@ -3501,7 +3501,9 @@ class PromptCompilerUI:
                 header_frame, text="⌨️ Keyboard Shortcuts", font=("Segoe UI", 14, "bold")
             ).pack(anchor=tk.W)
             ttk.Label(
-                header_frame, text="Speed up your workflow with keyboard shortcuts", foreground="#666"
+                header_frame,
+                text="Speed up your workflow with keyboard shortcuts",
+                foreground="#666",
             ).pack(anchor=tk.W)
 
             # Create main frame with scrollbar
@@ -3616,7 +3618,10 @@ class PromptCompilerUI:
                 canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
             canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            shortcuts_window.protocol("WM_DELETE_WINDOW", lambda: [canvas.unbind_all("<MouseWheel>"), shortcuts_window.destroy()])
+            shortcuts_window.protocol(
+                "WM_DELETE_WINDOW",
+                lambda: [canvas.unbind_all("<MouseWheel>"), shortcuts_window.destroy()],
+            )
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show keyboard shortcuts: {e}")

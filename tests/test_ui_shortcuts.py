@@ -1,10 +1,8 @@
 """Test keyboard shortcuts and command palette functionality."""
 
 from __future__ import annotations
-import json
 import pytest
 import tkinter as tk
-from pathlib import Path
 from ui_desktop import PromptCompilerUI
 
 
@@ -40,7 +38,7 @@ class TestKeyboardShortcuts:
         # The shortcuts data should be defined in the function
         # We can verify this by checking the function doesn't crash
         ui_app._show_keyboard_shortcuts()
-        
+
         # Close the dialog
         for widget in ui_app.root.winfo_children():
             if isinstance(widget, tk.Toplevel):
@@ -60,14 +58,14 @@ class TestKeyboardShortcuts:
     def test_command_palette_has_commands(self, ui_app):
         """Test that command palette contains commands."""
         ui_app._show_command_palette()
-        
+
         # Find the command palette window
         palette = None
         for widget in ui_app.root.winfo_children():
             if isinstance(widget, tk.Toplevel):
                 palette = widget
                 break
-        
+
         assert palette is not None, "Command palette window should exist"
         palette.destroy()
 
@@ -82,11 +80,11 @@ class TestKeyboardShortcuts:
         """Test Ctrl+Enter generate shortcut wrapper."""
         # Set some input
         ui_app.txt_prompt.insert("1.0", "test prompt for shortcut")
-        
+
         # Call the wrapper function
         try:
             ui_app._generate_prompt()
-        except Exception as e:
+        except Exception:
             # It's okay if it fails due to missing dependencies
             pass
 
@@ -94,7 +92,7 @@ class TestKeyboardShortcuts:
         """Test clear input shortcut wrapper."""
         ui_app.txt_prompt.insert("1.0", "test content to clear")
         ui_app._clear_input()
-        
+
         content = ui_app.txt_prompt.get("1.0", tk.END).strip()
         assert content == "", "Input should be cleared"
 
@@ -102,9 +100,9 @@ class TestKeyboardShortcuts:
         """Test copy system prompt to clipboard."""
         test_content = "System prompt test content"
         ui_app.txt_system.insert("1.0", test_content)
-        
+
         ui_app._copy_system_prompt()
-        
+
         # Verify clipboard content
         clipboard_content = ui_app.root.clipboard_get()
         assert clipboard_content == test_content
@@ -113,9 +111,9 @@ class TestKeyboardShortcuts:
         """Test copy user prompt to clipboard."""
         test_content = "User prompt test content"
         ui_app.txt_user.insert("1.0", test_content)
-        
+
         ui_app._copy_user_prompt()
-        
+
         clipboard_content = ui_app.root.clipboard_get()
         assert clipboard_content == test_content
 
@@ -123,9 +121,9 @@ class TestKeyboardShortcuts:
         """Test copy expanded prompt to clipboard."""
         test_content = "Expanded prompt test content"
         ui_app.txt_expanded.insert("1.0", test_content)
-        
+
         ui_app._copy_expanded_prompt()
-        
+
         clipboard_content = ui_app.root.clipboard_get()
         assert clipboard_content == test_content
 
@@ -156,14 +154,14 @@ class TestKeyboardShortcuts:
         """Test showing history view."""
         ui_app._show_history_view()
         # Should ensure sidebar is visible
-        assert ui_app.sidebar_visible == True
+        assert ui_app.sidebar_visible is True
 
     def test_show_favorites_view(self, ui_app):
         """Test showing favorites view."""
         ui_app._show_favorites_view()
         # Should enable favorites filter
-        assert ui_app.filter_favorites_only.get() == True
-        assert ui_app.sidebar_visible == True
+        assert ui_app.filter_favorites_only.get() is True
+        assert ui_app.sidebar_visible is True
 
 
 class TestCommandPalette:
@@ -172,34 +170,23 @@ class TestCommandPalette:
     def test_command_palette_search(self, ui_app):
         """Test command palette search functionality."""
         ui_app._show_command_palette()
-        
+
         # Find the palette window
         palette = None
         for widget in ui_app.root.winfo_children():
             if isinstance(widget, tk.Toplevel):
                 palette = widget
                 break
-        
+
         if palette:
             palette.destroy()
 
     def test_command_palette_has_all_major_commands(self, ui_app):
         """Test that command palette includes major commands."""
-        # Expected commands that should be in the palette
-        expected_commands = [
-            "Generate Prompt",
-            "Clear Input",
-            "Copy System Prompt",
-            "Show Analytics",
-            "Keyboard Shortcuts",
-            "Settings",
-            "Toggle Theme",
-        ]
-        
         # We can't easily test the actual listbox content,
         # but we can verify the palette opens without errors
         ui_app._show_command_palette()
-        
+
         for widget in ui_app.root.winfo_children():
             if isinstance(widget, tk.Toplevel):
                 widget.destroy()
@@ -231,7 +218,7 @@ class TestShortcutWrappers:
             "_show_history_view",
             "_show_favorites_view",
         ]
-        
+
         for wrapper in required_wrappers:
             assert hasattr(ui_app, wrapper), f"Missing wrapper: {wrapper}"
             assert callable(getattr(ui_app, wrapper)), f"{wrapper} is not callable"
@@ -273,20 +260,18 @@ class TestUIIntegration:
 
     def test_sidebar_integration(self, ui_app):
         """Test that shortcuts work with sidebar."""
-        original_state = ui_app.sidebar_visible
-        
         # Toggle and verify
         ui_app._show_history_view()
-        assert ui_app.sidebar_visible == True
-        
+        assert ui_app.sidebar_visible is True
+
         ui_app._show_favorites_view()
-        assert ui_app.filter_favorites_only.get() == True
+        assert ui_app.filter_favorites_only.get() is True
 
     def test_theme_toggle_still_works(self, ui_app):
         """Test that theme toggle still works after adding shortcuts."""
         original_theme = ui_app.current_theme
         ui_app._toggle_theme()
-        
+
         new_theme = ui_app.current_theme
         assert new_theme != original_theme
 
@@ -307,7 +292,7 @@ class TestEdgeCases:
         # Clear all text widgets
         ui_app.txt_system.delete("1.0", tk.END)
         ui_app.txt_user.delete("1.0", tk.END)
-        
+
         # Should not crash
         try:
             ui_app._copy_system_prompt()
@@ -336,11 +321,11 @@ class TestEdgeCases:
     def test_shortcuts_work_after_theme_change(self, ui_app):
         """Test shortcuts still work after changing theme."""
         ui_app._toggle_theme()
-        
+
         # Try some shortcuts
         ui_app.txt_system.insert("1.0", "test after theme change")
         ui_app._copy_system_prompt()
-        
+
         clipboard = ui_app.root.clipboard_get()
         assert "test after theme change" in clipboard
 
@@ -349,7 +334,7 @@ def test_shortcuts_feature_complete():
     """Meta test to ensure shortcuts feature is complete."""
     root = tk.Tk()
     app = PromptCompilerUI(root)
-    
+
     # Check all required methods exist
     required_methods = [
         "_show_keyboard_shortcuts",
@@ -362,8 +347,8 @@ def test_shortcuts_feature_complete():
         "_copy_expanded_prompt",
         "_copy_schema",
     ]
-    
+
     for method in required_methods:
         assert hasattr(app, method), f"Missing required method: {method}"
-    
+
     root.destroy()
