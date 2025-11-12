@@ -1,21 +1,44 @@
 """Test keyboard shortcuts and command palette functionality."""
 
 from __future__ import annotations
+import os
+import sys
 import pytest
 import tkinter as tk
 from ui_desktop import PromptCompilerUI
 
 
+def _can_create_tk_window():
+    """Check if we can create a Tkinter window."""
+    try:
+        root = tk.Tk()
+        root.destroy()
+        return True
+    except Exception:
+        return False
+
+
+# Skip all tests in this file if running in CI or if Tkinter is not available
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true" or not _can_create_tk_window(),
+    reason="Skipping GUI tests in headless environment or when Tkinter is unavailable"
+)
+
+
 @pytest.fixture
 def ui_app():
     """Create a UI instance for testing."""
-    root = tk.Tk()
-    app = PromptCompilerUI(root)
-    yield app
     try:
-        root.destroy()
-    except Exception:
-        pass
+        root = tk.Tk()
+        app = PromptCompilerUI(root)
+        yield app
+        try:
+            root.destroy()
+        except Exception:
+            pass
+    except tk.TclError as e:
+        # Skip test if Tkinter initialization fails
+        pytest.skip(f"Tkinter initialization failed: {e}")
 
 
 class TestKeyboardShortcuts:
@@ -330,6 +353,10 @@ class TestEdgeCases:
         assert "test after theme change" in clipboard
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true" or not _can_create_tk_window(),
+    reason="Skipping GUI test in headless environment"
+)
 def test_shortcuts_feature_complete():
     """Meta test to ensure shortcuts feature is complete."""
     root = tk.Tk()
