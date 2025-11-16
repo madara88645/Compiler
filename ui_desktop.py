@@ -458,8 +458,8 @@ class PromptCompilerUI:
             ir2 = compile_text_v2(prompt)
             result = self.prompt_validator.validate(ir2, prompt)
             self.root.after(0, lambda: self._render_quality_result(prompt, result))
-        except Exception as e:
-            self.root.after(0, lambda: self._handle_quality_error(e))
+        except Exception as exc:
+            self.root.after(0, self._handle_quality_error, exc)
         finally:
             self.root.after(0, lambda: self._set_quality_busy(False))
 
@@ -510,8 +510,8 @@ class PromptCompilerUI:
             diff_text = "".join(diff).strip() or "(No textual differences)"
             combined = f"{report}\n\n=== Diff ===\n{diff_text}"
             self.root.after(0, lambda: self._render_autofix_result(result, combined))
-        except Exception as e:
-            self.root.after(0, lambda: self._handle_quality_error(e))
+        except Exception as exc:
+            self.root.after(0, self._handle_quality_error, exc)
         finally:
             self.root.after(0, lambda: self._set_quality_busy(False))
 
@@ -807,7 +807,9 @@ class PromptCompilerUI:
 
         stats = ttk.Frame(frame, padding=(8, 0))
         stats.pack(fill=tk.X)
-        ttk.Label(stats, text="Overall Score:", font=("", 10, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(stats, text="Overall Score:", font=("", 10, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
         self.lbl_quality_total = ttk.Label(
             stats,
             textvariable=self.quality_total_var,
