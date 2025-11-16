@@ -13,6 +13,7 @@ Features:
 """
 
 from __future__ import annotations
+import difflib
 import json
 import os
 import re
@@ -40,6 +41,8 @@ from app.emitters import (
     emit_plan_v2,
     emit_expanded_prompt_v2,
 )
+from app.autofix import auto_fix_prompt, explain_fixes
+from app.validator import PromptValidator
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -81,6 +84,24 @@ class PromptCompilerUI:
         self.available_tags = []
         self.snippets = []
         self.active_tag_filter = []
+
+        # Quality coach state
+        self.prompt_validator = PromptValidator()
+        self.last_quality_result = None
+        self.last_quality_prompt = ""
+        self.pending_auto_fix_text = None
+        self.last_autofix_result = None
+        self._quality_report_placeholder = (
+            "Run an analysis to see per-category scores, detected issues, and strengths."
+        )
+        self._quality_fix_placeholder = (
+            "Auto-fix results (reports and diffs) will appear here once you run the fixer."
+        )
+        self.quality_total_var = tk.StringVar(value="—")
+        self.quality_breakdown_var = tk.StringVar(
+            value="Analyze the prompt to see detailed scores."
+        )
+        self.quality_status_var = tk.StringVar(value="Ready")
 
         # Main container with sidebar
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -270,6 +291,7 @@ class PromptCompilerUI:
 
         # Notebook outputs
         self.nb = ttk.Notebook(content)
+        self.output_notebook = self.nb
         self.nb.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         self.txt_system = self._add_tab("System Prompt")
         self.txt_user = self._add_tab("User Prompt")
@@ -350,6 +372,11 @@ class PromptCompilerUI:
         # IR Diff tab (v1 vs v2)
         self.txt_diff = self._add_tab("IR Diff")
 
+        # Quality coach tab
+        quality_frame = ttk.Frame(self.nb)
+        self.nb.add(quality_frame, text="Quality Coach")
+        self._build_quality_tab(quality_frame)
+
         # Load settings (theme, toggles, model, geometry) and apply
         self._load_settings()
         self.apply_theme(self.current_theme)
@@ -409,11 +436,111 @@ class PromptCompilerUI:
         except Exception:
             pass
 
-        # Load history, tags, snippets and populate sidebar
+        # Load history, tags, snippets
         self._load_history()
         self._load_tags()
         self._load_snippets()
-        self._create_sidebar()
+
+    # Quality coach operations
+
+    def _run_quality_check(self):
+        prompt = self.txt_prompt.get("1.0", tk.END).strip()
+        if not prompt:
+            messagebox.showwarning("Quality Coach", "Enter a prompt before analyzing.")
+            return
+        self._focus_quality_tab()
+        self._set_quality_busy(True)
+        self.quality_status_var.set("Analyzing prompt...")
+        self.root.after(30, lambda: self._quality_worker(prompt))
+
+    def _quality_worker(self, prompt: str):
+        try:
+            ir2 = compile_text_v2(prompt)
+            result = self.prompt_validator.validate(ir2, prompt)
+            self.root.after(0, lambda: self._render_quality_result(prompt, result))
+        except Exception as e:
+            self.root.after(0, lambda: self._handle_quality_error(e))
+        finally:
+            self.root.after(0, lambda: self._set_quality_busy(False))
+
+    def _render_quality_result(self, prompt: str, result) -> None:
+        self.last_quality_result = result
+        self.last_quality_prompt = prompt
+        self.quality_total_var.set(f"{result.score.total:.1f}/100")
+        breakdown = (
+            f"Clarity {result.score.clarity:.1f} | Specificity {result.score.specificity:.1f} | "
+            f"Completeness {result.score.completeness:.1f} | Consistency {result.score.consistency:.1f}"
+        )
+        self.quality_breakdown_var.set(breakdown)
+        report = self._format_quality_report(result)
+        self._update_quality_text(self.txt_quality_report, report)
+        self.pending_auto_fix_text = None
+        try:
+            self.btn_quality_apply_fix.config(state="disabled")
+        except Exception:
+            pass
+        self.quality_status_var.set(
+            f"Quality updated • {result.errors} errors • {result.warnings} warnings"
+        )
+
+    def _handle_quality_error(self, error: Exception) -> None:
+        self.quality_status_var.set("Quality analysis failed")
+        messagebox.showerror("Quality Coach", str(error))
+
+    def _run_auto_fix(self):
+        prompt = self.txt_prompt.get("1.0", tk.END).strip()
+        if not prompt:
+            messagebox.showwarning("Quality Coach", "Enter a prompt before auto-fixing.")
+            return
+        self._focus_quality_tab()
+        self._set_quality_busy(True)
+        self.quality_status_var.set("Running auto-fix...")
+        self.root.after(30, lambda: self._auto_fix_worker(prompt))
+
+    def _auto_fix_worker(self, prompt: str):
+        try:
+            result = auto_fix_prompt(prompt)
+            report = explain_fixes(result)
+            diff = difflib.unified_diff(
+                result.original_text.splitlines(keepends=True),
+                result.fixed_text.splitlines(keepends=True),
+                fromfile="original",
+                tofile="auto_fix",
+            )
+            diff_text = "".join(diff).strip() or "(No textual differences)"
+            combined = f"{report}\n\n=== Diff ===\n{diff_text}"
+            self.root.after(0, lambda: self._render_autofix_result(result, combined))
+        except Exception as e:
+            self.root.after(0, lambda: self._handle_quality_error(e))
+        finally:
+            self.root.after(0, lambda: self._set_quality_busy(False))
+
+    def _render_autofix_result(self, result, combined_text: str):
+        self.last_autofix_result = result
+        self._update_quality_text(self.txt_quality_fix, combined_text)
+        original = (result.original_text or "").strip()
+        fixed = (result.fixed_text or "").strip()
+        if fixed and fixed != original:
+            self.pending_auto_fix_text = result.fixed_text
+            self.btn_quality_apply_fix.config(state="normal")
+            self.quality_status_var.set(
+                f"Auto-fix ready • Improvement +{result.improvement:.1f} points"
+            )
+        else:
+            self.pending_auto_fix_text = None
+            self.btn_quality_apply_fix.config(state="disabled")
+            self.quality_status_var.set("Auto-fix suggested no changes")
+
+    def _apply_auto_fix(self):
+        if not self.pending_auto_fix_text:
+            messagebox.showinfo("Quality Coach", "Run auto-fix to generate suggestions first.")
+            return
+        self.txt_prompt.delete("1.0", tk.END)
+        self.txt_prompt.insert("1.0", self.pending_auto_fix_text)
+        self._update_prompt_stats()
+        self.pending_auto_fix_text = None
+        self.btn_quality_apply_fix.config(state="disabled")
+        self.quality_status_var.set("Applied auto-fix suggestions to prompt")
 
     def _create_sidebar(self):
         """Create the sidebar with recent prompts and favorites."""
@@ -673,6 +800,136 @@ class PromptCompilerUI:
             )
         return txt
 
+    def _build_quality_tab(self, frame: ttk.Frame) -> None:
+        header = ttk.Frame(frame, padding=8)
+        header.pack(fill=tk.X)
+        ttk.Label(header, text="Prompt Quality Coach", font=("", 12, "bold")).pack(anchor=tk.W)
+
+        stats = ttk.Frame(frame, padding=(8, 0))
+        stats.pack(fill=tk.X)
+        ttk.Label(stats, text="Overall Score:", font=("", 10, "bold")).grid(row=0, column=0, sticky="w")
+        self.lbl_quality_total = ttk.Label(
+            stats,
+            textvariable=self.quality_total_var,
+            font=("", 22, "bold"),
+            foreground="#15803d",
+        )
+        self.lbl_quality_total.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Label(stats, textvariable=self.quality_breakdown_var, foreground="#4b5563").grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(4, 0)
+        )
+
+        btn_frame = ttk.Frame(frame, padding=8)
+        btn_frame.pack(fill=tk.X)
+        self.btn_quality_analyze = ttk.Button(
+            btn_frame, text="🧮 Analyze Prompt", command=self._run_quality_check
+        )
+        self.btn_quality_analyze.pack(side=tk.LEFT)
+        self._add_tooltip(self.btn_quality_analyze, "Compile and score the current prompt")
+        self.btn_quality_auto_fix = ttk.Button(
+            btn_frame, text="🪄 Auto-Fix Prompt", command=self._run_auto_fix
+        )
+        self.btn_quality_auto_fix.pack(side=tk.LEFT, padx=(6, 0))
+        self._add_tooltip(self.btn_quality_auto_fix, "Suggest automatic fixes for low scores")
+        self.btn_quality_apply_fix = ttk.Button(
+            btn_frame, text="✅ Apply Auto-Fix", command=self._apply_auto_fix, state="disabled"
+        )
+        self.btn_quality_apply_fix.pack(side=tk.LEFT, padx=(6, 0))
+        self._add_tooltip(self.btn_quality_apply_fix, "Replace the prompt with the suggested fixes")
+        ttk.Label(btn_frame, textvariable=self.quality_status_var, foreground="#4b5563").pack(
+            side=tk.RIGHT
+        )
+
+        reports = ttk.Frame(frame, padding=(8, 0))
+        reports.pack(fill=tk.BOTH, expand=True)
+        reports.columnconfigure(0, weight=1)
+        reports.columnconfigure(1, weight=1)
+
+        left = ttk.Frame(reports)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        ttk.Label(left, text="Quality Report", font=("", 10, "bold")).pack(anchor=tk.W)
+        self.txt_quality_report = tk.Text(left, wrap=tk.WORD, height=16)
+        self.txt_quality_report.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
+        self.txt_quality_report.insert("1.0", self._quality_report_placeholder)
+        self.txt_quality_report.config(state=tk.DISABLED)
+
+        right = ttk.Frame(reports)
+        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        ttk.Label(right, text="Auto-Fix Preview", font=("", 10, "bold")).pack(anchor=tk.W)
+        self.txt_quality_fix = tk.Text(right, wrap=tk.WORD, height=16)
+        self.txt_quality_fix.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
+        self.txt_quality_fix.insert("1.0", self._quality_fix_placeholder)
+        self.txt_quality_fix.config(state=tk.DISABLED)
+
+    def _update_quality_text(self, widget: tk.Text, text: str) -> None:
+        try:
+            widget.config(state=tk.NORMAL)
+            widget.delete("1.0", tk.END)
+            widget.insert("1.0", text)
+            widget.config(state=tk.DISABLED)
+        except Exception:
+            pass
+
+    def _focus_quality_tab(self) -> None:
+        try:
+            for i in range(self.nb.index("end")):
+                if self.nb.tab(i, "text") == "Quality Coach":
+                    self.nb.select(i)
+                    break
+        except Exception:
+            pass
+
+    def _set_quality_busy(self, busy: bool) -> None:
+        state = "disabled" if busy else "normal"
+        for btn in (self.btn_quality_analyze, self.btn_quality_auto_fix):
+            try:
+                btn.config(state=state)
+            except Exception:
+                pass
+        if busy:
+            try:
+                self.btn_quality_apply_fix.config(state="disabled")
+            except Exception:
+                pass
+        else:
+            apply_state = "normal" if self.pending_auto_fix_text else "disabled"
+            try:
+                self.btn_quality_apply_fix.config(state=apply_state)
+            except Exception:
+                pass
+
+    def _format_quality_report(self, result) -> str:
+        lines = [
+            f"Total Score: {result.score.total:.1f}/100",
+            (
+                "Clarity: {0:.1f} | Specificity: {1:.1f} | Completeness: {2:.1f} | Consistency: {3:.1f}".format(
+                    result.score.clarity,
+                    result.score.specificity,
+                    result.score.completeness,
+                    result.score.consistency,
+                )
+            ),
+            "",
+            f"Issues ({len(result.issues)} total):",
+        ]
+        if result.issues:
+            for issue in result.issues:
+                lines.append(
+                    f"- [{issue.severity.upper()} / {issue.category}] {issue.message}\n  Suggestion: {issue.suggestion}"
+                )
+        else:
+            lines.append("- None 🎉")
+
+        if getattr(result, "strengths", None):
+            lines.append("\nStrengths:")
+            for strength in result.strengths:
+                lines.append(f"✓ {strength}")
+
+        lines.append(
+            f"\nSummary: {result.errors} errors, {result.warnings} warnings, {result.info} info items"
+        )
+        return "\n".join(lines)
+
     # Theme
     def toggle_theme(self):
         self.apply_theme("dark" if self.current_theme == "light" else "light")
@@ -771,6 +1028,8 @@ class PromptCompilerUI:
             self.txt_trace,
             getattr(self, "txt_openai", None),
             getattr(self, "txt_diff", None),
+            getattr(self, "txt_quality_report", None),
+            getattr(self, "txt_quality_fix", None),
         ]:
             if t is None:
                 continue
@@ -933,12 +1192,27 @@ class PromptCompilerUI:
             self.txt_ir2,
             self.txt_trace,
             getattr(self, "txt_openai", None),
+            getattr(self, "txt_diff", None),
+            getattr(self, "txt_quality_report", None),
+            getattr(self, "txt_quality_fix", None),
         ]:
             if t is None:
                 continue
             t.delete("1.0", tk.END)
+        if hasattr(self, "txt_quality_report"):
+            self._update_quality_text(self.txt_quality_report, self._quality_report_placeholder)
+        if hasattr(self, "txt_quality_fix"):
+            self._update_quality_text(self.txt_quality_fix, self._quality_fix_placeholder)
         self.summary_var.set("")
         self.status_var.set("Cleared")
+        self.quality_total_var.set("—")
+        self.quality_breakdown_var.set("Analyze the prompt to see detailed scores.")
+        self.quality_status_var.set("Ready")
+        self.pending_auto_fix_text = None
+        try:
+            self.btn_quality_apply_fix.config(state="disabled")
+        except Exception:
+            pass
         # Clear chips and constraints
         for w in self.chips_container.winfo_children():
             w.destroy()
@@ -1552,6 +1826,8 @@ class PromptCompilerUI:
             self.txt_trace,
             getattr(self, "txt_openai", None),
             getattr(self, "txt_diff", None),
+            getattr(self, "txt_quality_report", None),
+            getattr(self, "txt_quality_fix", None),
         ]:
             if t is None:
                 continue
@@ -1750,7 +2026,7 @@ class PromptCompilerUI:
         # Enable drag and drop using tkinterdnd2 or built-in methods
         try:
             # Try using tkinterdnd2 if available
-            from tkinterdnd2 import DND_FILES
+            from tkinterdnd2 import DND_FILES  # type: ignore
 
             widget.drop_target_register(DND_FILES)
             widget.dnd_bind("<<DropEnter>>", on_drag_enter)
@@ -3682,6 +3958,9 @@ class PromptCompilerUI:
                 ("📋 Copy User Prompt", lambda: self._copy_user_prompt()),
                 ("📋 Copy Expanded Prompt", lambda: self._copy_expanded_prompt()),
                 ("📋 Copy JSON Schema", lambda: self._copy_schema()),
+                ("🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
+                ("🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
+                ("✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
                 ("💾 Save Prompt", lambda: self._save_current_prompt()),
                 ("📂 Open Prompt", lambda: self._open_prompt_file()),
                 ("📤 Export All Data", lambda: self._export_data()),
@@ -3838,6 +4117,14 @@ class PromptCompilerUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy schema: {e}")
 
+    def _analyze_prompt_quality(self):
+        """Shortcut wrapper for running quality analysis."""
+        self._run_quality_check()
+
+    def _auto_fix_prompt_quality(self):
+        """Shortcut wrapper for running auto-fix."""
+        self._run_auto_fix()
+
     def _save_current_prompt(self):
         """Wrapper for save prompt action."""
         try:
@@ -3910,6 +4197,12 @@ class PromptCompilerUI:
             self.root.bind("<Control-Shift-e>", lambda e: self._copy_expanded_prompt())
             self.root.bind("<Control-Shift-S>", lambda e: self._copy_schema())
             self.root.bind("<Control-Shift-s>", lambda e: self._copy_schema())
+
+            # Quality coach
+            self.root.bind("<Control-Shift-Q>", lambda e: self._analyze_prompt_quality())
+            self.root.bind("<Control-Shift-q>", lambda e: self._analyze_prompt_quality())
+            self.root.bind("<Control-Alt-Q>", lambda e: self._auto_fix_prompt_quality())
+            self.root.bind("<Control-Alt-q>", lambda e: self._auto_fix_prompt_quality())
 
             # Tab navigation (Ctrl+1 through Ctrl+5)
             self.root.bind("<Control-Key-1>", lambda e: self.output_notebook.select(0))
