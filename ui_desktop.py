@@ -22,6 +22,7 @@ from tkinter import ttk, messagebox, filedialog
 import time
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 from app.compiler import (
     compile_text,
@@ -43,6 +44,7 @@ from app.emitters import (
 )
 from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
+from app.templates import get_registry, PromptTemplate, TemplateVariable
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -102,6 +104,10 @@ class PromptCompilerUI:
             value="Analyze the prompt to see detailed scores."
         )
         self.quality_status_var = tk.StringVar(value="Ready")
+
+        # Template system
+        self.template_registry = get_registry()
+        self.current_template = None
 
         # Main container with sidebar
         main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -227,6 +233,10 @@ class PromptCompilerUI:
         btn_settings = ttk.Button(opts, text="⚙️ Settings", command=self._show_settings)
         btn_settings.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_settings, "Customize UI appearance and behavior")
+
+        btn_templates = ttk.Button(opts, text="📋 Templates", command=self._show_template_manager)
+        btn_templates.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_templates, "Manage and use prompt templates")
 
         # Examples dropdown
         try:
@@ -3963,7 +3973,8 @@ class PromptCompilerUI:
                 ("🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
                 ("🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
                 ("✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
-                ("💾 Save Prompt", lambda: self._save_current_prompt()),
+                ("� Template Manager", lambda: self._show_template_manager()),
+                ("�💾 Save Prompt", lambda: self._save_current_prompt()),
                 ("📂 Open Prompt", lambda: self._open_prompt_file()),
                 ("📤 Export All Data", lambda: self._export_data()),
                 ("📥 Import Data", lambda: self._import_data()),
@@ -4241,8 +4252,410 @@ class PromptCompilerUI:
             self.root.bind("<Control-q>", lambda e: self.root.quit())
             self.root.bind("<Control-Q>", lambda e: self.root.quit())
 
+            # Templates
+            self.root.bind("<Control-t>", lambda e: self._show_template_manager())
+            self.root.bind("<Control-T>", lambda e: self._show_template_manager())
+
         except Exception as e:
             print(f"Warning: Failed to bind some keyboard shortcuts: {e}")
+
+    # Template Management Methods
+
+    def _show_template_manager(self):
+        """Show template manager dialog."""
+        try:
+            manager_window = tk.Toplevel(self.root)
+            manager_window.title("📋 Template Manager")
+            manager_window.geometry("900x600")
+            manager_window.transient(self.root)
+            manager_window.grab_set()
+
+            # Center on parent
+            manager_window.update_idletasks()
+            x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (900 // 2)
+            y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (600 // 2)
+            manager_window.geometry(f"900x600+{x}+{y}")
+
+            # Top toolbar
+            toolbar = ttk.Frame(manager_window, padding=10)
+            toolbar.pack(fill=tk.X)
+
+            ttk.Label(toolbar, text="Category:").pack(side=tk.LEFT, padx=(0, 5))
+            
+            categories = ["All"] + self.template_registry.get_categories()
+            category_var = tk.StringVar(value="All")
+            category_combo = ttk.Combobox(
+                toolbar,
+                textvariable=category_var,
+                values=categories,
+                state="readonly",
+                width=20,
+            )
+            category_combo.pack(side=tk.LEFT, padx=(0, 10))
+
+            ttk.Label(toolbar, text="Search:").pack(side=tk.LEFT, padx=(10, 5))
+            search_var = tk.StringVar()
+            search_entry = ttk.Entry(toolbar, textvariable=search_var, width=30)
+            search_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+            btn_new = ttk.Button(toolbar, text="➕ New Template", command=lambda: self._edit_template(None, manager_window))
+            btn_new.pack(side=tk.LEFT, padx=5)
+
+            btn_refresh = ttk.Button(toolbar, text="🔄 Refresh", command=lambda: update_template_list())
+            btn_refresh.pack(side=tk.LEFT, padx=5)
+
+            # Template list (left side)
+            list_frame = ttk.Frame(manager_window)
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            # Listbox with scrollbar
+            list_container = ttk.Frame(list_frame)
+            list_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            templates_listbox = tk.Listbox(
+                list_container,
+                font=("", 10),
+                relief=tk.FLAT,
+                highlightthickness=1,
+                selectmode=tk.SINGLE,
+            )
+            list_scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=templates_listbox.yview)
+            templates_listbox.configure(yscrollcommand=list_scrollbar.set)
+
+            templates_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Details panel (right side)
+            details_frame = ttk.LabelFrame(list_frame, text="Template Details", padding=10)
+            details_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+
+            # Template name
+            name_label = ttk.Label(details_frame, text="", font=("", 12, "bold"))
+            name_label.pack(anchor=tk.W, pady=(0, 5))
+
+            # Category and tags
+            meta_label = ttk.Label(details_frame, text="", foreground="#666")
+            meta_label.pack(anchor=tk.W, pady=(0, 10))
+
+            # Description
+            desc_label = ttk.Label(details_frame, text="", wraplength=350, justify=tk.LEFT)
+            desc_label.pack(anchor=tk.W, pady=(0, 10))
+
+            # Variables
+            var_frame = ttk.LabelFrame(details_frame, text="Variables", padding=5)
+            var_frame.pack(fill=tk.X, pady=(0, 10))
+            var_text = tk.Text(var_frame, height=6, wrap=tk.WORD, font=("", 9))
+            var_text.pack(fill=tk.BOTH, expand=True)
+            var_text.config(state=tk.DISABLED)
+
+            # Template content preview
+            content_frame = ttk.LabelFrame(details_frame, text="Template Content", padding=5)
+            content_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+            content_text = tk.Text(content_frame, wrap=tk.WORD, font=("", 9))
+            content_text.pack(fill=tk.BOTH, expand=True)
+            content_text.config(state=tk.DISABLED)
+
+            # Action buttons
+            action_frame = ttk.Frame(details_frame)
+            action_frame.pack(fill=tk.X)
+
+            btn_use = ttk.Button(
+                action_frame,
+                text="✅ Use Template",
+                command=lambda: self._use_selected_template(templates_listbox, manager_window),
+            )
+            btn_use.pack(side=tk.LEFT, padx=(0, 5))
+
+            btn_edit = ttk.Button(
+                action_frame,
+                text="✏️ Edit",
+                command=lambda: self._edit_selected_template(templates_listbox, manager_window),
+            )
+            btn_edit.pack(side=tk.LEFT, padx=5)
+
+            btn_delete = ttk.Button(
+                action_frame,
+                text="🗑️ Delete",
+                command=lambda: self._delete_selected_template(templates_listbox),
+            )
+            btn_delete.pack(side=tk.LEFT, padx=5)
+
+            # Store current templates for list
+            current_templates = []
+
+            def update_template_list():
+                """Update template list based on category and search."""
+                templates_listbox.delete(0, tk.END)
+                current_templates.clear()
+
+                category = category_var.get()
+                search = search_var.get().lower()
+
+                # Get templates
+                if category == "All":
+                    templates = self.template_registry.list_templates()
+                else:
+                    templates = self.template_registry.list_templates(category=category)
+
+                # Filter by search
+                if search:
+                    templates = [
+                        t for t in templates
+                        if search in t.name.lower() or search in t.description.lower()
+                    ]
+
+                # Populate list
+                for template in templates:
+                    templates_listbox.insert(tk.END, f"{template.name} ({template.category})")
+                    current_templates.append(template)
+
+                # Select first if available
+                if current_templates:
+                    templates_listbox.selection_set(0)
+                    show_template_details(current_templates[0])
+
+            def show_template_details(template: PromptTemplate):
+                """Show details of selected template."""
+                name_label.config(text=template.name)
+                
+                tags_str = ", ".join(template.tags) if template.tags else "No tags"
+                meta_label.config(text=f"Category: {template.category} | Tags: {tags_str}")
+                
+                desc_label.config(text=template.description)
+
+                # Show variables
+                var_text.config(state=tk.NORMAL)
+                var_text.delete("1.0", tk.END)
+                if template.variables:
+                    for var in template.variables:
+                        req = "Required" if var.required else "Optional"
+                        default = f" (default: {var.default})" if var.default else ""
+                        var_text.insert(tk.END, f"• {var.name} - {req}{default}\n  {var.description}\n\n")
+                else:
+                    var_text.insert(tk.END, "No variables defined")
+                var_text.config(state=tk.DISABLED)
+
+                # Show content
+                content_text.config(state=tk.NORMAL)
+                content_text.delete("1.0", tk.END)
+                content_text.insert(tk.END, template.template_text)
+                content_text.config(state=tk.DISABLED)
+
+            def on_template_select(event):
+                """Handle template selection."""
+                selection = templates_listbox.curselection()
+                if selection and current_templates:
+                    idx = selection[0]
+                    if idx < len(current_templates):
+                        show_template_details(current_templates[idx])
+
+            templates_listbox.bind("<<ListboxSelect>>", on_template_select)
+            category_combo.bind("<<ComboboxSelected>>", lambda e: update_template_list())
+            search_var.trace("w", lambda *args: update_template_list())
+
+            # Initial load
+            update_template_list()
+
+            # Store reference for other methods
+            self._template_manager_window = manager_window
+            self._current_templates_list = current_templates
+            self._templates_listbox = templates_listbox
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show template manager: {e}")
+
+    def _use_selected_template(self, listbox: tk.Listbox, manager_window: tk.Toplevel):
+        """Apply selected template to prompt area."""
+        selection = listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Template Manager", "Please select a template first")
+            return
+
+        idx = selection[0]
+        if idx >= len(self._current_templates_list):
+            return
+
+        template = self._current_templates_list[idx]
+
+        # If template has variables, show dialog to fill them
+        if template.variables:
+            self._show_variable_dialog(template, manager_window)
+        else:
+            # No variables, just insert template
+            self.txt_prompt.delete("1.0", tk.END)
+            self.txt_prompt.insert("1.0", template.template_text)
+            self._update_prompt_stats()
+            manager_window.destroy()
+            self.status_var.set(f"✅ Applied template: {template.name}")
+
+    def _show_variable_dialog(self, template: PromptTemplate, parent_window: tk.Toplevel):
+        """Show dialog to fill template variables."""
+        try:
+            var_dialog = tk.Toplevel(parent_window)
+            var_dialog.title(f"Fill Variables - {template.name}")
+            var_dialog.geometry("600x500")
+            var_dialog.transient(parent_window)
+            var_dialog.grab_set()
+
+            # Center on parent
+            var_dialog.update_idletasks()
+            x = parent_window.winfo_x() + (parent_window.winfo_width() // 2) - (600 // 2)
+            y = parent_window.winfo_y() + (parent_window.winfo_height() // 2) - (500 // 2)
+            var_dialog.geometry(f"600x500+{x}+{y}")
+
+            # Header
+            header = ttk.Frame(var_dialog, padding=10)
+            header.pack(fill=tk.X)
+            ttk.Label(
+                header,
+                text=f"Fill in the template variables for: {template.name}",
+                font=("", 11, "bold"),
+            ).pack(anchor=tk.W)
+            ttk.Label(header, text=template.description, wraplength=550).pack(anchor=tk.W, pady=(5, 0))
+
+            # Scrollable variable inputs
+            canvas_frame = ttk.Frame(var_dialog)
+            canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            canvas = tk.Canvas(canvas_frame)
+            scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Create input fields for each variable
+            variable_entries = {}
+
+            for var in template.variables:
+                var_frame = ttk.LabelFrame(scrollable_frame, text=var.name, padding=10)
+                var_frame.pack(fill=tk.X, padx=5, pady=5)
+
+                # Description
+                ttk.Label(var_frame, text=var.description, wraplength=500).pack(anchor=tk.W)
+
+                # Required/Optional indicator
+                req_text = "Required" if var.required else "Optional"
+                req_label = ttk.Label(var_frame, text=req_text, foreground="#666", font=("", 8))
+                req_label.pack(anchor=tk.W, pady=(2, 0))
+
+                # Input field (Text widget for multiline support)
+                input_text = tk.Text(var_frame, height=3, wrap=tk.WORD)
+                input_text.pack(fill=tk.X, pady=(5, 0))
+
+                # Set default value if available
+                if var.default:
+                    input_text.insert("1.0", var.default)
+                elif var.name in template.example_values:
+                    input_text.insert("1.0", template.example_values[var.name])
+
+                variable_entries[var.name] = input_text
+
+            # Action buttons
+            button_frame = ttk.Frame(var_dialog, padding=10)
+            button_frame.pack(fill=tk.X)
+
+            def apply_template():
+                """Apply template with filled variables."""
+                try:
+                    # Collect variable values
+                    values = {}
+                    for var_name, text_widget in variable_entries.items():
+                        value = text_widget.get("1.0", tk.END).strip()
+                        values[var_name] = value
+
+                    # Render template
+                    rendered = template.render(values)
+
+                    # Insert into prompt area
+                    self.txt_prompt.delete("1.0", tk.END)
+                    self.txt_prompt.insert("1.0", rendered)
+                    self._update_prompt_stats()
+
+                    # Close dialogs
+                    var_dialog.destroy()
+                    parent_window.destroy()
+
+                    self.status_var.set(f"✅ Applied template: {template.name}")
+
+                except ValueError as e:
+                    messagebox.showerror("Validation Error", str(e))
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to apply template: {e}")
+
+            ttk.Button(button_frame, text="✅ Apply Template", command=apply_template).pack(
+                side=tk.LEFT, padx=5
+            )
+            ttk.Button(button_frame, text="❌ Cancel", command=var_dialog.destroy).pack(
+                side=tk.LEFT, padx=5
+            )
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show variable dialog: {e}")
+
+    def _edit_selected_template(self, listbox: tk.Listbox, parent_window: tk.Toplevel):
+        """Edit selected template."""
+        selection = listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Template Manager", "Please select a template first")
+            return
+
+        idx = selection[0]
+        if idx >= len(self._current_templates_list):
+            return
+
+        template = self._current_templates_list[idx]
+        self._edit_template(template, parent_window)
+
+    def _edit_template(self, template: Optional[PromptTemplate], parent_window: tk.Toplevel):
+        """Show template editor dialog."""
+        messagebox.showinfo(
+            "Template Editor",
+            "Template editing UI will be implemented in the next iteration.\n\n"
+            "For now, you can manually edit template files in:\n"
+            f"{self.template_registry.user_path}"
+        )
+
+    def _delete_selected_template(self, listbox: tk.Listbox):
+        """Delete selected template."""
+        selection = listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Template Manager", "Please select a template first")
+            return
+
+        idx = selection[0]
+        if idx >= len(self._current_templates_list):
+            return
+
+        template = self._current_templates_list[idx]
+
+        # Confirm deletion
+        if not messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to delete the template:\n\n{template.name}\n\nThis action cannot be undone."
+        ):
+            return
+
+        try:
+            if self.template_registry.delete_template(template.id):
+                messagebox.showinfo("Success", f"Template '{template.name}' deleted successfully")
+                # Refresh list
+                listbox.delete(idx)
+                self._current_templates_list.pop(idx)
+                if self._current_templates_list:
+                    listbox.selection_set(0)
+            else:
+                messagebox.showerror("Error", "Failed to delete template (it may be a built-in template)")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete template: {e}")
 
 
 def main():  # pragma: no cover
