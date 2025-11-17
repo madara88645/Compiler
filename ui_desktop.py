@@ -44,7 +44,7 @@ from app.emitters import (
 )
 from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
-from app.templates import get_registry, PromptTemplate, TemplateVariable
+from app.templates import get_registry, PromptTemplate
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -4281,7 +4281,7 @@ class PromptCompilerUI:
             toolbar.pack(fill=tk.X)
 
             ttk.Label(toolbar, text="Category:").pack(side=tk.LEFT, padx=(0, 5))
-            
+
             categories = ["All"] + self.template_registry.get_categories()
             category_var = tk.StringVar(value="All")
             category_combo = ttk.Combobox(
@@ -4298,10 +4298,16 @@ class PromptCompilerUI:
             search_entry = ttk.Entry(toolbar, textvariable=search_var, width=30)
             search_entry.pack(side=tk.LEFT, padx=(0, 10))
 
-            btn_new = ttk.Button(toolbar, text="➕ New Template", command=lambda: self._edit_template(None, manager_window))
+            btn_new = ttk.Button(
+                toolbar,
+                text="➕ New Template",
+                command=lambda: self._edit_template(None, manager_window),
+            )
             btn_new.pack(side=tk.LEFT, padx=5)
 
-            btn_refresh = ttk.Button(toolbar, text="🔄 Refresh", command=lambda: update_template_list())
+            btn_refresh = ttk.Button(
+                toolbar, text="🔄 Refresh", command=lambda: update_template_list()
+            )
             btn_refresh.pack(side=tk.LEFT, padx=5)
 
             # Template list (left side)
@@ -4319,7 +4325,9 @@ class PromptCompilerUI:
                 highlightthickness=1,
                 selectmode=tk.SINGLE,
             )
-            list_scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=templates_listbox.yview)
+            list_scrollbar = ttk.Scrollbar(
+                list_container, orient="vertical", command=templates_listbox.yview
+            )
             templates_listbox.configure(yscrollcommand=list_scrollbar.set)
 
             templates_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -4400,7 +4408,8 @@ class PromptCompilerUI:
                 # Filter by search
                 if search:
                     templates = [
-                        t for t in templates
+                        t
+                        for t in templates
                         if search in t.name.lower() or search in t.description.lower()
                     ]
 
@@ -4417,10 +4426,10 @@ class PromptCompilerUI:
             def show_template_details(template: PromptTemplate):
                 """Show details of selected template."""
                 name_label.config(text=template.name)
-                
+
                 tags_str = ", ".join(template.tags) if template.tags else "No tags"
                 meta_label.config(text=f"Category: {template.category} | Tags: {tags_str}")
-                
+
                 desc_label.config(text=template.description)
 
                 # Show variables
@@ -4430,7 +4439,9 @@ class PromptCompilerUI:
                     for var in template.variables:
                         req = "Required" if var.required else "Optional"
                         default = f" (default: {var.default})" if var.default else ""
-                        var_text.insert(tk.END, f"• {var.name} - {req}{default}\n  {var.description}\n\n")
+                        var_text.insert(
+                            tk.END, f"• {var.name} - {req}{default}\n  {var.description}\n\n"
+                        )
                 else:
                     var_text.insert(tk.END, "No variables defined")
                 var_text.config(state=tk.DISABLED)
@@ -4511,7 +4522,9 @@ class PromptCompilerUI:
                 text=f"Fill in the template variables for: {template.name}",
                 font=("", 11, "bold"),
             ).pack(anchor=tk.W)
-            ttk.Label(header, text=template.description, wraplength=550).pack(anchor=tk.W, pady=(5, 0))
+            ttk.Label(header, text=template.description, wraplength=550).pack(
+                anchor=tk.W, pady=(5, 0)
+            )
 
             # Scrollable variable inputs
             canvas_frame = ttk.Frame(var_dialog)
@@ -4522,8 +4535,7 @@ class PromptCompilerUI:
             scrollable_frame = ttk.Frame(canvas)
 
             scrollable_frame.bind(
-                "<Configure>",
-                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+                "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
             )
 
             canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
@@ -4621,7 +4633,7 @@ class PromptCompilerUI:
             "Template Editor",
             "Template editing UI will be implemented in the next iteration.\n\n"
             "For now, you can manually edit template files in:\n"
-            f"{self.template_registry.user_path}"
+            f"{self.template_registry.user_path}",
         )
 
     def _delete_selected_template(self, listbox: tk.Listbox):
@@ -4640,7 +4652,7 @@ class PromptCompilerUI:
         # Confirm deletion
         if not messagebox.askyesno(
             "Confirm Delete",
-            f"Are you sure you want to delete the template:\n\n{template.name}\n\nThis action cannot be undone."
+            f"Are you sure you want to delete the template:\n\n{template.name}\n\nThis action cannot be undone.",
         ):
             return
 
@@ -4653,7 +4665,9 @@ class PromptCompilerUI:
                 if self._current_templates_list:
                     listbox.selection_set(0)
             else:
-                messagebox.showerror("Error", "Failed to delete template (it may be a built-in template)")
+                messagebox.showerror(
+                    "Error", "Failed to delete template (it may be a built-in template)"
+                )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete template: {e}")
 
