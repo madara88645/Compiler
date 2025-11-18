@@ -4472,6 +4472,9 @@ class PromptCompilerUI:
             self._current_templates_list = current_templates
             self._templates_listbox = templates_listbox
 
+            # Add refresh callback for child windows
+            manager_window._refresh_templates = update_template_list
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show template manager: {e}")
 
@@ -4628,13 +4631,441 @@ class PromptCompilerUI:
         self._edit_template(template, parent_window)
 
     def _edit_template(self, template: Optional[PromptTemplate], parent_window: tk.Toplevel):
-        """Show template editor dialog."""
-        messagebox.showinfo(
-            "Template Editor",
-            "Template editing UI will be implemented in the next iteration.\n\n"
-            "For now, you can manually edit template files in:\n"
-            f"{self.template_registry.user_path}",
+        """Show template builder/editor dialog."""
+        from app.templates import TemplateVariable
+
+        builder_window = tk.Toplevel(parent_window)
+        builder_window.title("✏️ Edit Template" if template else "➕ Create New Template")
+        builder_window.geometry("900x700")
+        builder_window.transient(parent_window)
+        builder_window.grab_set()
+
+        # Initialize data
+        if template:
+            template_data = {
+                "id": template.id,
+                "name": template.name,
+                "description": template.description,
+                "category": template.category,
+                "tags": list(template.tags),
+                "template_text": template.template_text,
+                "variables": [
+                    {
+                        "name": v.name,
+                        "description": v.description,
+                        "required": v.required,
+                        "default": v.default or "",
+                    }
+                    for v in template.variables
+                ],
+            }
+        else:
+            template_data = {
+                "id": "",
+                "name": "",
+                "description": "",
+                "category": "custom",
+                "tags": [],
+                "template_text": "",
+                "variables": [],
+            }
+
+        # Main container with scrollbar
+        main_canvas = tk.Canvas(builder_window)
+        main_scrollbar = ttk.Scrollbar(builder_window, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = ttk.Frame(main_canvas)
+
+        scrollable_frame.bind(
+            "<Configure>", lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
         )
+
+        main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        main_canvas.configure(yscrollcommand=main_scrollbar.set)
+
+        main_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        main_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # === Basic Information Section ===
+        basic_frame = ttk.LabelFrame(scrollable_frame, text="📋 Basic Information", padding=15)
+        basic_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # ID (read-only if editing)
+        ttk.Label(basic_frame, text="Template ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        id_var = tk.StringVar(value=template_data["id"])
+        id_entry = ttk.Entry(basic_frame, textvariable=id_var, width=40)
+        id_entry.grid(row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0))
+        if template:
+            id_entry.config(state="readonly")
+        ttk.Label(basic_frame, text="(lowercase, hyphens only)", foreground="gray").grid(
+            row=0, column=2, sticky=tk.W, padx=(5, 0)
+        )
+
+        # Name
+        ttk.Label(basic_frame, text="Name:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        name_var = tk.StringVar(value=template_data["name"])
+        ttk.Entry(basic_frame, textvariable=name_var, width=40).grid(
+            row=1, column=1, columnspan=2, sticky=tk.W, pady=5, padx=(10, 0)
+        )
+
+        # Description
+        ttk.Label(basic_frame, text="Description:").grid(row=2, column=0, sticky=tk.NW, pady=5)
+        desc_text = tk.Text(basic_frame, height=3, width=40, wrap=tk.WORD)
+        desc_text.insert("1.0", template_data["description"])
+        desc_text.grid(row=2, column=1, columnspan=2, sticky=tk.W, pady=5, padx=(10, 0))
+
+        # Category
+        ttk.Label(basic_frame, text="Category:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        categories = self.template_registry.get_categories() + ["custom"]
+        category_var = tk.StringVar(value=template_data["category"])
+        ttk.Combobox(
+            basic_frame, textvariable=category_var, values=categories, width=37, state="readonly"
+        ).grid(row=3, column=1, columnspan=2, sticky=tk.W, pady=5, padx=(10, 0))
+
+        # Tags
+        ttk.Label(basic_frame, text="Tags:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        tags_var = tk.StringVar(value=", ".join(template_data["tags"]))
+        ttk.Entry(basic_frame, textvariable=tags_var, width=40).grid(
+            row=4, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+        )
+        ttk.Label(basic_frame, text="(comma-separated)", foreground="gray").grid(
+            row=4, column=2, sticky=tk.W, padx=(5, 0)
+        )
+
+        # === Template Text Section ===
+        template_frame = ttk.LabelFrame(scrollable_frame, text="📝 Template Text", padding=15)
+        template_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Toolbar
+        toolbar = ttk.Frame(template_frame)
+        toolbar.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(toolbar, text="Use {{variable_name}} for placeholders").pack(side=tk.LEFT)
+
+        # Insert variable button
+        def insert_variable():
+            if not template_data["variables"]:
+                messagebox.showinfo("No Variables", "Define variables first in the section below")
+                return
+            var_names = [v["name"] for v in template_data["variables"]]
+            # Simple selection dialog
+            sel_window = tk.Toplevel(builder_window)
+            sel_window.title("Insert Variable")
+            sel_window.geometry("300x400")
+            sel_window.transient(builder_window)
+
+            ttk.Label(sel_window, text="Select a variable to insert:", font=("", 10, "bold")).pack(
+                pady=10
+            )
+
+            listbox = tk.Listbox(sel_window, height=15)
+            listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+            for vname in var_names:
+                listbox.insert(tk.END, vname)
+
+            def do_insert():
+                selection = listbox.curselection()
+                if selection:
+                    var_name = var_names[selection[0]]
+                    template_text.insert(tk.INSERT, f"{{{{{var_name}}}}}")
+                sel_window.destroy()
+
+            ttk.Button(sel_window, text="Insert", command=do_insert).pack(pady=5)
+            ttk.Button(sel_window, text="Cancel", command=sel_window.destroy).pack(pady=5)
+
+        ttk.Button(toolbar, text="📌 Insert Variable", command=insert_variable).pack(
+            side=tk.RIGHT, padx=5
+        )
+
+        # Text area
+        text_frame = ttk.Frame(template_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        template_text = tk.Text(text_frame, height=10, wrap=tk.WORD)
+        template_text.insert("1.0", template_data["template_text"])
+        text_scroll = ttk.Scrollbar(text_frame, orient="vertical", command=template_text.yview)
+        template_text.configure(yscrollcommand=text_scroll.set)
+
+        template_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        text_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # === Variables Section ===
+        var_frame = ttk.LabelFrame(scrollable_frame, text="🔧 Variables", padding=15)
+        var_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Variables listbox
+        var_list_frame = ttk.Frame(var_frame)
+        var_list_frame.pack(fill=tk.BOTH, expand=True)
+
+        var_listbox = tk.Listbox(var_list_frame, height=8)
+        var_scroll = ttk.Scrollbar(var_list_frame, orient="vertical", command=var_listbox.yview)
+        var_listbox.configure(yscrollcommand=var_scroll.set)
+
+        var_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        var_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def refresh_var_list():
+            var_listbox.delete(0, tk.END)
+            for v in template_data["variables"]:
+                req = "✓" if v["required"] else "○"
+                default_hint = f" (default: {v['default']})" if v["default"] else ""
+                var_listbox.insert(tk.END, f"{req} {v['name']}{default_hint} - {v['description']}")
+
+        refresh_var_list()
+
+        # Variable buttons
+        var_btn_frame = ttk.Frame(var_frame)
+        var_btn_frame.pack(fill=tk.X, pady=(10, 0))
+
+        def add_variable():
+            var_dialog = tk.Toplevel(builder_window)
+            var_dialog.title("Add Variable")
+            var_dialog.geometry("500x350")
+            var_dialog.transient(builder_window)
+            var_dialog.grab_set()
+
+            form_frame = ttk.Frame(var_dialog, padding=20)
+            form_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(form_frame, text="Variable Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
+            vname_var = tk.StringVar()
+            ttk.Entry(form_frame, textvariable=vname_var, width=30).grid(
+                row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            ttk.Label(form_frame, text="Description:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            vdesc_var = tk.StringVar()
+            ttk.Entry(form_frame, textvariable=vdesc_var, width=30).grid(
+                row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            ttk.Label(form_frame, text="Default Value:").grid(row=2, column=0, sticky=tk.W, pady=5)
+            vdefault_var = tk.StringVar()
+            ttk.Entry(form_frame, textvariable=vdefault_var, width=30).grid(
+                row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            vrequired_var = tk.BooleanVar(value=True)
+            ttk.Checkbutton(form_frame, text="Required", variable=vrequired_var).grid(
+                row=3, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            def save_var():
+                name = vname_var.get().strip()
+                desc = vdesc_var.get().strip()
+                if not name:
+                    messagebox.showwarning("Invalid Input", "Variable name is required")
+                    return
+
+                template_data["variables"].append(
+                    {
+                        "name": name,
+                        "description": desc,
+                        "required": vrequired_var.get(),
+                        "default": vdefault_var.get().strip(),
+                    }
+                )
+                refresh_var_list()
+                var_dialog.destroy()
+
+            btn_frame = ttk.Frame(form_frame)
+            btn_frame.grid(row=4, column=0, columnspan=2, pady=20)
+
+            ttk.Button(btn_frame, text="Save", command=save_var).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="Cancel", command=var_dialog.destroy).pack(
+                side=tk.LEFT, padx=5
+            )
+
+        def edit_variable():
+            selection = var_listbox.curselection()
+            if not selection:
+                messagebox.showinfo("No Selection", "Select a variable to edit")
+                return
+
+            idx = selection[0]
+            var_data = template_data["variables"][idx]
+
+            var_dialog = tk.Toplevel(builder_window)
+            var_dialog.title("Edit Variable")
+            var_dialog.geometry("500x350")
+            var_dialog.transient(builder_window)
+            var_dialog.grab_set()
+
+            form_frame = ttk.Frame(var_dialog, padding=20)
+            form_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(form_frame, text="Variable Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
+            vname_var = tk.StringVar(value=var_data["name"])
+            ttk.Entry(form_frame, textvariable=vname_var, width=30).grid(
+                row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            ttk.Label(form_frame, text="Description:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            vdesc_var = tk.StringVar(value=var_data["description"])
+            ttk.Entry(form_frame, textvariable=vdesc_var, width=30).grid(
+                row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            ttk.Label(form_frame, text="Default Value:").grid(row=2, column=0, sticky=tk.W, pady=5)
+            vdefault_var = tk.StringVar(value=var_data["default"])
+            ttk.Entry(form_frame, textvariable=vdefault_var, width=30).grid(
+                row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            vrequired_var = tk.BooleanVar(value=var_data["required"])
+            ttk.Checkbutton(form_frame, text="Required", variable=vrequired_var).grid(
+                row=3, column=1, sticky=tk.W, pady=5, padx=(10, 0)
+            )
+
+            def save_var():
+                name = vname_var.get().strip()
+                desc = vdesc_var.get().strip()
+                if not name:
+                    messagebox.showwarning("Invalid Input", "Variable name is required")
+                    return
+
+                template_data["variables"][idx] = {
+                    "name": name,
+                    "description": desc,
+                    "required": vrequired_var.get(),
+                    "default": vdefault_var.get().strip(),
+                }
+                refresh_var_list()
+                var_dialog.destroy()
+
+            btn_frame = ttk.Frame(form_frame)
+            btn_frame.grid(row=4, column=0, columnspan=2, pady=20)
+
+            ttk.Button(btn_frame, text="Save", command=save_var).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="Cancel", command=var_dialog.destroy).pack(
+                side=tk.LEFT, padx=5
+            )
+
+        def delete_variable():
+            selection = var_listbox.curselection()
+            if not selection:
+                messagebox.showinfo("No Selection", "Select a variable to delete")
+                return
+
+            idx = selection[0]
+            var_name = template_data["variables"][idx]["name"]
+
+            if messagebox.askyesno("Confirm Delete", f"Delete variable '{var_name}'?"):
+                template_data["variables"].pop(idx)
+                refresh_var_list()
+
+        ttk.Button(var_btn_frame, text="➕ Add Variable", command=add_variable).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Button(var_btn_frame, text="✏️ Edit Variable", command=edit_variable).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Button(var_btn_frame, text="🗑️ Delete Variable", command=delete_variable).pack(
+            side=tk.LEFT, padx=5
+        )
+
+        # === Preview Section ===
+        preview_frame = ttk.LabelFrame(scrollable_frame, text="👁️ Preview", padding=15)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        preview_text = tk.Text(preview_frame, height=8, wrap=tk.WORD, state=tk.DISABLED)
+        preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=preview_text.yview)
+        preview_text.configure(yscrollcommand=preview_scroll.set)
+
+        preview_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        preview_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def update_preview():
+            try:
+                text = template_text.get("1.0", tk.END).strip()
+                # Create example values
+                example_vals = {}
+                for v in template_data["variables"]:
+                    if v["default"]:
+                        example_vals[v["name"]] = v["default"]
+                    else:
+                        example_vals[v["name"]] = f"<{v['name']}>"
+
+                # Simple render
+                rendered = text
+                for vname, vval in example_vals.items():
+                    rendered = rendered.replace(f"{{{{{vname}}}}}", vval)
+
+                preview_text.config(state=tk.NORMAL)
+                preview_text.delete("1.0", tk.END)
+                preview_text.insert("1.0", rendered)
+                preview_text.config(state=tk.DISABLED)
+            except Exception as e:
+                preview_text.config(state=tk.NORMAL)
+                preview_text.delete("1.0", tk.END)
+                preview_text.insert("1.0", f"Preview error: {e}")
+                preview_text.config(state=tk.DISABLED)
+
+        ttk.Button(preview_frame, text="🔄 Update Preview", command=update_preview).pack(
+            pady=(5, 0)
+        )
+
+        # === Action Buttons ===
+        action_frame = ttk.Frame(scrollable_frame)
+        action_frame.pack(fill=tk.X, padx=5, pady=15)
+
+        def save_template():
+            # Validate
+            template_id = id_var.get().strip()
+            template_name = name_var.get().strip()
+            template_desc = desc_text.get("1.0", tk.END).strip()
+            template_cat = category_var.get()
+            template_tags = [t.strip() for t in tags_var.get().split(",") if t.strip()]
+            template_txt = template_text.get("1.0", tk.END).strip()
+
+            if not template_id or not template_name or not template_txt:
+                messagebox.showwarning("Invalid Input", "ID, Name, and Template Text are required")
+                return
+
+            # Create PromptTemplate object
+            variables = [
+                TemplateVariable(
+                    name=v["name"],
+                    description=v["description"],
+                    required=v["required"],
+                    default=v["default"] if v["default"] else None,
+                )
+                for v in template_data["variables"]
+            ]
+
+            new_template = PromptTemplate(
+                id=template_id,
+                name=template_name,
+                description=template_desc,
+                category=template_cat,
+                template_text=template_txt,
+                variables=variables,
+                tags=template_tags,
+            )
+
+            # Save
+            try:
+                self.template_registry.save_template(new_template)
+                messagebox.showinfo(
+                    "Success",
+                    f"Template '{template_name}' saved successfully!\n\nLocation: {self.template_registry.user_path}",
+                )
+                builder_window.destroy()
+                # Refresh parent template manager if it exists
+                if hasattr(parent_window, "_refresh_templates"):
+                    parent_window._refresh_templates()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save template: {e}")
+
+        ttk.Button(
+            action_frame, text="💾 Save Template", command=save_template, style="Accent.TButton"
+        ).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="❌ Cancel", command=builder_window.destroy).pack(
+            side=tk.LEFT, padx=5
+        )
+
+        # Initial preview
+        update_preview()
 
     def _delete_selected_template(self, listbox: tk.Listbox):
         """Delete selected template."""
