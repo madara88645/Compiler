@@ -309,9 +309,7 @@ class PromptCompilerUI:
         llm_extra = ttk.Frame(top)
         llm_extra.pack(fill=tk.X, pady=(4, 0))
         ttk.Label(llm_extra, text="Endpoint:").pack(side=tk.LEFT)
-        self.var_local_endpoint = tk.StringVar(
-            value="http://localhost:11434/v1/chat/completions"
-        )
+        self.var_local_endpoint = tk.StringVar(value="http://localhost:11434/v1/chat/completions")
         self.entry_local_endpoint = ttk.Entry(
             llm_extra, textvariable=self.var_local_endpoint, width=38
         )
@@ -449,6 +447,11 @@ class PromptCompilerUI:
         self.var_min_priority.trace_add(
             "write", lambda *_: (self._render_constraints_table(), self._save_settings())
         )
+        self.var_llm_provider.trace_add(
+            "write", lambda *_: (self._update_llm_controls(), self._save_settings())
+        )
+        self.var_local_endpoint.trace_add("write", lambda *_: self._save_settings())
+        self.var_local_api_key.trace_add("write", lambda *_: self._save_settings())
         try:
             # Persist auto-generate toggle if present
             getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).trace_add(
@@ -1085,7 +1088,7 @@ class PromptCompilerUI:
             self.txt_ir,
             self.txt_ir2,
             self.txt_trace,
-            getattr(self, "txt_openai", None),
+            getattr(self, "txt_llm", None),
             getattr(self, "txt_diff", None),
             getattr(self, "txt_quality_report", None),
             getattr(self, "txt_quality_fix", None),
@@ -1169,6 +1172,13 @@ class PromptCompilerUI:
                     allowed = []
                 if not allowed or val in allowed:
                     self.var_model.set(val)
+            provider = data.get("llm_provider")
+            if provider in ("OpenAI", "Local HTTP"):
+                self.var_llm_provider.set(provider)
+            if "local_endpoint" in data and data.get("local_endpoint"):
+                self.var_local_endpoint.set(str(data.get("local_endpoint")))
+            if "local_api_key" in data:
+                self.var_local_api_key.set(str(data.get("local_api_key") or ""))
         except Exception:
             pass
         # Geometry
@@ -1182,6 +1192,10 @@ class PromptCompilerUI:
             idx = int(data.get("selected_tab", -1))
             if idx >= 0:
                 self.nb.select(idx)
+        except Exception:
+            pass
+        try:
+            self._update_llm_controls()
         except Exception:
             pass
 
@@ -1211,6 +1225,9 @@ class PromptCompilerUI:
                 ),
                 "min_priority": getattr(self, "var_min_priority", tk.StringVar(value="Any")).get(),
                 "model": (self.var_model.get() or "gpt-4o-mini").strip(),
+                "llm_provider": (self.var_llm_provider.get() or "OpenAI").strip(),
+                "local_endpoint": (self.var_local_endpoint.get() or "").strip(),
+                "local_api_key": (self.var_local_api_key.get() or "").strip(),
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
             }
@@ -1250,7 +1267,7 @@ class PromptCompilerUI:
             self.txt_ir,
             self.txt_ir2,
             self.txt_trace,
-            getattr(self, "txt_openai", None),
+            getattr(self, "txt_llm", None),
             getattr(self, "txt_diff", None),
             getattr(self, "txt_quality_report", None),
             getattr(self, "txt_quality_fix", None),
@@ -1341,11 +1358,110 @@ class PromptCompilerUI:
         except Exception:
             pass
 
+    def _prepare_llm_messages(self, prompt: str) -> tuple[str, str]:
+        ir = optimize_ir(compile_text(prompt))
+        use_expanded = bool(self.var_openai_expanded.get())
+        diagnostics = bool(self.var_diag.get()) if use_expanded else False
+        system = ""
+        user = ""
+        ir2 = None
+        if bool(self.var_render_v2.get()):
+            try:
+                ir2 = compile_text_v2(prompt)
+            except Exception:
+                ir2 = None
+        if ir2 is not None:
+            system = emit_system_prompt_v2(ir2)
+            if use_expanded:
+                user = emit_expanded_prompt_v2(ir2, diagnostics=diagnostics)
+            else:
+                user = emit_user_prompt_v2(ir2)
+        else:
+            system = emit_system_prompt(ir)
+            if use_expanded:
+                user = emit_expanded_prompt(ir, diagnostics=diagnostics)
+            else:
+                user = emit_user_prompt(ir)
+        try:
+            if bool(self.var_include_context.get()):
+                ctx_text = self.txt_context.get("1.0", tk.END).strip()
+                if ctx_text:
+                    user = f"[Context]\n{ctx_text}\n\n" + user
+        except Exception:
+            pass
+        return system, user
+
     def on_send_openai(self):  # pragma: no cover - UI action
         prompt = self.txt_prompt.get("1.0", tk.END).strip()
         if not prompt:
-            messagebox.showwarning("OpenAI", "Enter a prompt text first.")
+            messagebox.showwarning("LLM", "Enter a prompt text first.")
             return
+        provider = (self.var_llm_provider.get() or "OpenAI").strip()
+        try:
+            system, user = self._prepare_llm_messages(prompt)
+        except Exception as exc:
+            messagebox.showerror("LLM", f"Failed to prepare prompt: {exc}")
+            return
+
+        def _focus_llm_tab():
+            try:
+                for i in range(self.nb.index("end")):
+                    if self.nb.tab(i, "text") == "LLM Response":
+                        self.nb.select(i)
+                        break
+            except Exception:
+                pass
+
+        if provider == "Local HTTP":
+            endpoint = (self.var_local_endpoint.get() or "").strip()
+            if not endpoint:
+                messagebox.showerror("Local LLM", "Set a local HTTP endpoint URL first.")
+                return
+            model = (self.var_model.get() or "local-model").strip()
+            api_key = (self.var_local_api_key.get() or "").strip()
+            headers = {"Content-Type": "application/json"}
+            if api_key:
+                if api_key.lower().startswith("bearer "):
+                    headers["Authorization"] = api_key
+                else:
+                    headers["Authorization"] = f"Bearer {api_key}"
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": 0.7,
+            }
+            self.status_var.set(f"Local LLM: sending ({model})...")
+
+            def _send_local():
+                try:
+                    resp = httpx.post(endpoint, json=payload, timeout=60, headers=headers)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    content = None
+                    try:
+                        choices = data.get("choices")
+                        if choices:
+                            msg = choices[0].get("message", {})
+                            content = msg.get("content") or choices[0].get("text")
+                    except Exception:
+                        content = None
+                    if content is None:
+                        content = json.dumps(data, ensure_ascii=False, indent=2)
+                    self.txt_llm.delete("1.0", tk.END)
+                    self.txt_llm.insert(tk.END, content or "<no content>")
+                    _focus_llm_tab()
+                    self.status_var.set("Local LLM: done")
+                except Exception as e:
+                    self.status_var.set("Local LLM: error")
+                    messagebox.showerror("Local LLM", str(e))
+
+            self.root.after(30, _send_local)
+            return
+
+        # Default to OpenAI provider
         if OpenAI is None:
             messagebox.showerror(
                 "OpenAI", "Package 'openai' not installed. Run: pip install openai"
@@ -1355,18 +1471,10 @@ class PromptCompilerUI:
             messagebox.showerror("OpenAI", "OPENAI_API_KEY is not set in environment.")
             return
         model = (self.var_model.get() or "gpt-4o-mini").strip()
-        use_expanded = bool(self.var_openai_expanded.get())
-        diagnostics = bool(self.var_diag.get()) if use_expanded else False
         self.status_var.set(f"OpenAI: sending ({model})...")
 
-        def _do_send():
+        def _send_openai():
             try:
-                ir = optimize_ir(compile_text(prompt))
-                system = emit_system_prompt(ir)
-                if use_expanded:
-                    user = emit_expanded_prompt(ir, diagnostics=diagnostics)
-                else:
-                    user = emit_user_prompt(ir)
                 client = OpenAI()
                 resp = client.chat.completions.create(
                     model=model,
@@ -1380,20 +1488,15 @@ class PromptCompilerUI:
                     content = resp.choices[0].message.content  # type: ignore[attr-defined]
                 except Exception:
                     content = str(resp)
-                self.txt_openai.delete("1.0", tk.END)
-                self.txt_openai.insert(tk.END, content or "<no content>")
-                # Focus the OpenAI tab
-                for i in range(self.nb.index("end")):
-                    if self.nb.tab(i, "text") == "OpenAI Response":
-                        self.nb.select(i)
-                        break
+                self.txt_llm.delete("1.0", tk.END)
+                self.txt_llm.insert(tk.END, content or "<no content>")
+                _focus_llm_tab()
                 self.status_var.set("OpenAI: done")
             except Exception as e:
                 self.status_var.set("OpenAI: error")
                 messagebox.showerror("OpenAI", str(e))
 
-        # Run slightly later to keep UI responsive
-        self.root.after(30, _do_send)
+        self.root.after(30, _send_openai)
 
     def _generate_core(self, prompt: str):
         try:
@@ -1849,7 +1952,7 @@ class PromptCompilerUI:
                 "Expanded Prompt": self.txt_expanded,
                 "IR JSON": self.txt_ir,
                 "IR v2 JSON": self.txt_ir2,
-                "OpenAI Response": self.txt_openai,
+                "LLM Response": self.txt_llm,
                 "Trace": self.txt_trace,
                 "IR Diff": self.txt_diff,
             }
@@ -1913,7 +2016,7 @@ class PromptCompilerUI:
             self.txt_ir,
             self.txt_ir2,
             self.txt_trace,
-            getattr(self, "txt_openai", None),
+            getattr(self, "txt_llm", None),
             getattr(self, "txt_diff", None),
             getattr(self, "txt_quality_report", None),
             getattr(self, "txt_quality_fix", None),

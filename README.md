@@ -44,7 +44,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI IR v2 helpers (new)**: Intent chips under the summary and an IR v2 Constraints table with copy (plus an "Only live_debug" filter)
 * **Desktop UI: IR Diff + Find (new)**: IR v1 vs v2 diff tab and Ctrl+F quick search in the active tab
 * **Desktop UI: Export Trace (new)**: One-click export of Trace output from the Constraints tab toolbar
-* **Desktop UI: Send to OpenAI (new)**: Model field, Use Expanded toggle, Send to OpenAI button, and an "OpenAI Response" tab
+* **Desktop UI: LLM send (new)**: Choose OpenAI or a Local HTTP endpoint, customize models, and review responses in the "LLM Response" tab
 * **Desktop UI: Persistent settings (new)**: Theme, Diagnostics, Trace, OpenAI model, Use Expanded, and window size are saved per-user
 * **Desktop UI: Export & Copy all (new)**: Per-tab "Export JSON" for IR tabs, "Export MD" for Expanded, and a "Copy all" action for prompt tabs
 * **Desktop UI: Recent Prompts Sidebar (new)**: Track and access prompt history with search, favorites (⭐), double-click load, right-click menu, auto-save to `~/.promptc_history.json`
@@ -1484,12 +1484,12 @@ Features:
 - **Modern UI Theme** (new): Enhanced visual design with emoji icons, syntax highlighting, progress bar, tooltips
 - Light / Dark theme toggle (bottom button in toolbar row)
 - Status line shows processing time and heuristic versions
-- Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, Only live_debug filter, window geometry)
+- Settings are persisted per-user (theme, diagnostics, trace, model, Use Expanded, LLM provider, local endpoint/API key, Only live_debug filter, window geometry)
 - Examples dropdown (new): Quick-load prompts from `examples/*.txt`. Add your own `.txt` files to extend the list. Optional "Auto-generate" toggle runs Generate immediately on selection.
  - Context box (new): Paste optional background context and check "Include context in prompts" to prepend it into User/Expanded prompts. Useful for retrieval-style grounding.
 
 Tips:
-- Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/OpenAI)
+- Press Ctrl+F to search in the current tab (System/User/Plan/Expanded/IR/Trace/IR Diff/LLM)
 - Use the Examples dropdown to insert a sample prompt; if "Auto-generate" is checked, it will run automatically, otherwise click Generate.
  - Keep the Context concise (e.g., the top 1–3 most relevant paragraphs) for best results.
 
@@ -1499,35 +1499,36 @@ Additional new capabilities:
 - Min priority dropdown to hide lower-priority constraints
 - Copy as cURL button on IR JSON / IR v2 JSON tabs to reproduce the request
 
-#### Send to OpenAI directly from the Desktop UI (new)
+#### Send prompts to OpenAI or a Local HTTP endpoint (new)
 
-You can send the compiled prompts straight to OpenAI without leaving the app.
+You can send the compiled prompts directly to OpenAI **or** to any self-hosted endpoint that mimics the OpenAI Chat Completions API (Ollama, LM Studio, OpenRouter-compatible gateways, etc.).
 
 Steps:
-- Install the optional dependency: `pip install openai`
-- Set your API key in the environment (PowerShell):
+1. Install the optional dependency: `pip install openai`. (httpx already ships via `requirements.txt`.)
+2. Pick a provider in the toolbar:
+  - **OpenAI** – export an API key and choose a model such as `gpt-4o-mini`.
+  - **Local HTTP** – enter the base URL of your server (defaults to `http://localhost:11434/v1/chat/completions`) and, if required, an API key or token.
+3. Choose a model name for the selected provider, optionally check **Use Expanded** to send the Expanded Prompt, then click **Send to LLM**.
+4. Responses land in the **LLM Response** tab and the status line reflects progress.
 
 ```powershell
-$env:OPENAI_API_KEY = "sk-..."
+$env:OPENAI_API_KEY = "sk-..."  # required only for the OpenAI provider
 ```
 
-- In the UI toolbar, set a Model (e.g., `gpt-4o-mini`), optionally check "Use Expanded" to send the Expanded Prompt, and click "Send to OpenAI".
-- The response will appear in the "OpenAI Response" tab. The status line will show progress and completion.
-
-Screenshot:
-
-![OpenAI from Desktop UI](docs/images/image-1756540999147.png)
-
 Notes:
-- Never commit your API keys. Use environment variables.
-- If the image above is missing, save a screenshot as `docs/images/desktop_openai.png`.
+- Local servers must implement the OpenAI-compatible `/chat/completions` JSON contract; the UI forwards the compiled System/User messages and `temperature`.
+- The Authorization header automatically uses `Bearer <value>` unless you already include the prefix in the API key field.
+- Never commit your API keys—stick to environment variables or OS-native secret storage.
+- If the image below is missing, save a screenshot as `docs/images/desktop_openai.png`.
+
+![Desktop UI LLM send](docs/images/image-1756540999147.png)
 
 #### Settings persistence (new)
 
 The desktop app saves your UI preferences under your home folder (per-user):
 
 - File: `~/.promptc_ui.json` (on Windows: `C:\Users\<you>\.promptc_ui.json`)
-- Stored fields: `theme`, `diagnostics`, `trace`, `model`, `use_expanded`, `auto_generate_example`, `geometry`
+- Stored fields: `theme`, `diagnostics`, `trace`, `model`, `use_expanded`, `llm_provider`, `local_endpoint`, `local_api_key`, `auto_generate_example`, `geometry`
 - Values are loaded at startup and updated automatically when changed.
 
 ### One-shot pipe to OpenAI (demo)
