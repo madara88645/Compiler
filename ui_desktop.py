@@ -24,6 +24,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
+import httpx
+
 from app.compiler import (
     compile_text,
     compile_text_v2,
@@ -262,29 +264,74 @@ class PromptCompilerUI:
                 side=tk.LEFT, padx=(6, 0)
             )
 
-        # OpenAI quick-send controls
-        ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(12, 2))
+        # LLM quick-send controls
+        ttk.Label(opts, text="Provider:").pack(side=tk.LEFT, padx=(12, 2))
+        self.var_llm_provider = tk.StringVar(value="OpenAI")
+        self.cmb_llm_provider = ttk.Combobox(
+            opts,
+            textvariable=self.var_llm_provider,
+            width=12,
+            state="readonly",
+            values=("OpenAI", "Local HTTP"),
+        )
+        self.cmb_llm_provider.pack(side=tk.LEFT)
+        self.cmb_llm_provider.bind("<<ComboboxSelected>>", lambda _e: self._update_llm_controls())
+        ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(8, 2))
+        self._openai_models = (
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-4.1-mini",
+            "gpt-4.1",
+        )
+        self._local_model_suggestions = (
+            "llama3",
+            "llama3.1",
+            "phi-3",
+            "qwen2.5",
+        )
         self.var_model = tk.StringVar(value="gpt-4o-mini")
         self.cmb_model = ttk.Combobox(
             opts,
             textvariable=self.var_model,
             width=18,
-            state="readonly",
-            values=(
-                "gpt-4o-mini",
-                "gpt-4o",
-                "gpt-4.1-mini",
-                "gpt-4.1",
-            ),
+            state="normal",
+            values=self._openai_models,
         )
         self.cmb_model.pack(side=tk.LEFT)
         self.var_openai_expanded = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(
             side=tk.LEFT, padx=(6, 0)
         )
-        btn_openai = ttk.Button(opts, text="🤖 Send to OpenAI", command=self.on_send_openai)
-        btn_openai.pack(side=tk.LEFT, padx=6)
-        self._add_tooltip(btn_openai, "Send compiled prompt directly to OpenAI API")
+        self.btn_send_llm = ttk.Button(opts, text="🤖 Send to OpenAI", command=self.on_send_openai)
+        self.btn_send_llm.pack(side=tk.LEFT, padx=6)
+        self._add_tooltip(self.btn_send_llm, "Send compiled prompt directly to OpenAI API")
+
+        llm_extra = ttk.Frame(top)
+        llm_extra.pack(fill=tk.X, pady=(4, 0))
+        ttk.Label(llm_extra, text="Endpoint:").pack(side=tk.LEFT)
+        self.var_local_endpoint = tk.StringVar(
+            value="http://localhost:11434/v1/chat/completions"
+        )
+        self.entry_local_endpoint = ttk.Entry(
+            llm_extra, textvariable=self.var_local_endpoint, width=38
+        )
+        self.entry_local_endpoint.pack(side=tk.LEFT, padx=(4, 8))
+        self._add_tooltip(
+            self.entry_local_endpoint,
+            "HTTP endpoint compatible with OpenAI chat format (e.g., Ollama, LM Studio)",
+        )
+        ttk.Label(llm_extra, text="API key (optional):").pack(side=tk.LEFT)
+        self.var_local_api_key = tk.StringVar(value="")
+        self.entry_local_api_key = ttk.Entry(
+            llm_extra, textvariable=self.var_local_api_key, width=20, show="*"
+        )
+        self.entry_local_api_key.pack(side=tk.LEFT, padx=(4, 0))
+        self._add_tooltip(
+            self.entry_local_api_key,
+            "Optional Authorization header for self-hosted gateways",
+        )
+        self._local_entries = (self.entry_local_endpoint, self.entry_local_api_key)
+        self._update_llm_controls()
 
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
@@ -309,7 +356,7 @@ class PromptCompilerUI:
         self.txt_expanded = self._add_tab("Expanded Prompt")
         self.txt_ir = self._add_tab("IR JSON")
         self.txt_ir2 = self._add_tab("IR v2 JSON")
-        self.txt_openai = self._add_tab("OpenAI Response")
+        self.txt_llm = self._add_tab("LLM Response")
         # IR v2 Constraints Viewer tab (table)
         cons_frame = ttk.Frame(self.nb)
         self.nb.add(cons_frame, text="IR v2 Constraints")
@@ -1263,6 +1310,36 @@ class PromptCompilerUI:
         self.status_var.set("⚡ Generating...")
 
         self.root.after(30, lambda: self._generate_core(prompt))
+
+    def _update_llm_controls(self) -> None:
+        provider = getattr(self, "var_llm_provider", tk.StringVar(value="OpenAI")).get()
+        is_openai = provider == "OpenAI"
+        model_choices = self._openai_models if is_openai else self._local_model_suggestions
+        try:
+            self.cmb_model.configure(values=model_choices)
+        except Exception:
+            pass
+        if is_openai and self.var_model.get() not in model_choices:
+            self.var_model.set(self._openai_models[0])
+        elif not is_openai and not self.var_model.get():
+            self.var_model.set(model_choices[0])
+        entry_state = "disabled" if is_openai else "normal"
+        for entry in getattr(self, "_local_entries", []):
+            try:
+                entry.config(state=entry_state)
+            except Exception:
+                pass
+        btn_label = "🤖 Send to OpenAI" if is_openai else "🖥️ Send to Local LLM"
+        tooltip = (
+            "Send compiled prompt directly to OpenAI API"
+            if is_openai
+            else "Send prompt to a local HTTP endpoint (Ollama, LM Studio, etc.)"
+        )
+        try:
+            self.btn_send_llm.config(text=btn_label)
+            self._add_tooltip(self.btn_send_llm, tooltip)
+        except Exception:
+            pass
 
     def on_send_openai(self):  # pragma: no cover - UI action
         prompt = self.txt_prompt.get("1.0", tk.END).strip()
