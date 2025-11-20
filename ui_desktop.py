@@ -47,6 +47,7 @@ from app.emitters import (
 from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
+from app.rag.simple_index import search, search_embed, search_hybrid
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -74,6 +75,11 @@ class PromptCompilerUI:
         self.favorites_path = Path.home() / ".promptc_favorites.json"
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
+
+        # RAG settings (defaults)
+        self.rag_db_path = None  # None = use default ~/.promptc_index.db
+        self.rag_embed_dim = 64
+        self.rag_method = "fts"  # fts, embed, hybrid
 
         # Progress indicator
         self.progress_var = tk.DoubleVar(value=0)
@@ -175,6 +181,11 @@ class PromptCompilerUI:
         ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(
             side=tk.LEFT
         )
+        btn_search_docs = ttk.Button(
+            ctx_header, text="🔍 Search", command=self._show_rag_search, width=8
+        )
+        btn_search_docs.pack(side=tk.RIGHT, padx=(4, 0))
+        self._add_tooltip(btn_search_docs, "Search indexed documents (RAG)")
         btn_load_context = ttk.Button(
             ctx_header, text="📂 Load", command=lambda: self._load_file_dialog("context"), width=8
         )
@@ -1179,6 +1190,15 @@ class PromptCompilerUI:
                 self.var_local_endpoint.set(str(data.get("local_endpoint")))
             if "local_api_key" in data:
                 self.var_local_api_key.set(str(data.get("local_api_key") or ""))
+            # RAG settings
+            if "rag_db_path" in data:
+                self.rag_db_path = data.get("rag_db_path")
+            if "rag_embed_dim" in data:
+                self.rag_embed_dim = int(data.get("rag_embed_dim") or 64)
+            if "rag_method" in data:
+                method = data.get("rag_method")
+                if method in ("fts", "embed", "hybrid"):
+                    self.rag_method = method
         except Exception:
             pass
         # Geometry
@@ -1228,6 +1248,9 @@ class PromptCompilerUI:
                 "llm_provider": (self.var_llm_provider.get() or "OpenAI").strip(),
                 "local_endpoint": (self.var_local_endpoint.get() or "").strip(),
                 "local_api_key": (self.var_local_api_key.get() or "").strip(),
+                "rag_db_path": self.rag_db_path,
+                "rag_embed_dim": self.rag_embed_dim,
+                "rag_method": self.rag_method,
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
             }
@@ -1309,6 +1332,171 @@ class PromptCompilerUI:
         txt.pack(fill=tk.BOTH, expand=True)
         txt.insert(tk.END, text)
         txt.config(state=tk.DISABLED)
+
+    def _show_rag_search(self):
+        """Show RAG document search dialog."""
+        try:
+            search_window = tk.Toplevel(self.root)
+            search_window.title("🔍 Search Documents (RAG)")
+            search_window.geometry("900x700")
+            search_window.transient(self.root)
+
+            # Header
+            header = ttk.Frame(search_window, padding=10)
+            header.pack(fill=tk.X)
+            ttk.Label(header, text="🔍 Document Search", font=("", 12, "bold")).pack(anchor=tk.W)
+            ttk.Label(
+                header,
+                text="Search indexed documents and add relevant snippets to context",
+                foreground="#666",
+            ).pack(anchor=tk.W)
+
+            # Search controls
+            controls = ttk.Frame(search_window, padding=10)
+            controls.pack(fill=tk.X)
+
+            ttk.Label(controls, text="Query:").pack(side=tk.LEFT, padx=(0, 5))
+            query_var = tk.StringVar()
+            query_entry = ttk.Entry(controls, textvariable=query_var, width=40)
+            query_entry.pack(side=tk.LEFT, padx=(0, 10))
+            query_entry.focus_set()
+
+            ttk.Label(controls, text="Method:").pack(side=tk.LEFT, padx=(10, 5))
+            method_var = tk.StringVar(value=self.rag_method)
+            method_combo = ttk.Combobox(
+                controls,
+                textvariable=method_var,
+                width=10,
+                state="readonly",
+                values=("fts", "embed", "hybrid"),
+            )
+            method_combo.pack(side=tk.LEFT, padx=(0, 10))
+
+            ttk.Label(controls, text="Results:").pack(side=tk.LEFT, padx=(10, 5))
+            k_var = tk.IntVar(value=10)
+            k_spin = ttk.Spinbox(controls, from_=1, to=50, textvariable=k_var, width=8)
+            k_spin.pack(side=tk.LEFT, padx=(0, 10))
+
+            def do_search():
+                query = query_var.get().strip()
+                if not query:
+                    messagebox.showwarning("Search", "Enter a search query first.")
+                    return
+
+                method = method_var.get()
+                k = k_var.get()
+                # Update persisted preference
+                self.rag_method = method
+                self._save_settings()
+                self.status_var.set(f"RAG: searching ({method})...")
+
+                try:
+                    search_kwargs = {"k": k, "db_path": self.rag_db_path}
+                    if method == "fts":
+                        results = search(query, **search_kwargs)
+                    elif method == "embed":
+                        results = search_embed(query, embed_dim=self.rag_embed_dim, **search_kwargs)
+                    else:  # hybrid
+                        results = search_hybrid(
+                            query, embed_dim=self.rag_embed_dim, **search_kwargs
+                        )
+
+                    # Clear previous results
+                    for item in results_tree.get_children():
+                        results_tree.delete(item)
+
+                    # Populate results
+                    for r in results:
+                        path = r.get("path", "")
+                        snippet = r.get("snippet", "")
+                        score = r.get("score", 0.0)
+                        chunk_idx = r.get("chunk_index", 0)
+                        display_path = Path(path).name if path else "unknown"
+                        results_tree.insert(
+                            "",
+                            tk.END,
+                            values=(display_path, f"chunk {chunk_idx}", f"{score:.3f}", snippet),
+                            tags=("result",),
+                        )
+
+                    results_label.config(text=f"Found {len(results)} result(s)")
+                    self.status_var.set(f"RAG: {len(results)} results")
+
+                except Exception as e:
+                    messagebox.showerror("Search Error", f"Failed to search: {e}")
+                    self.status_var.set("RAG: error")
+
+            btn_search = ttk.Button(controls, text="🔍 Search", command=do_search)
+            btn_search.pack(side=tk.LEFT, padx=5)
+
+            # Results label
+            results_label = ttk.Label(search_window, text="No results yet", padding=(10, 5))
+            results_label.pack(anchor=tk.W)
+
+            # Results treeview
+            results_frame = ttk.Frame(search_window, padding=10)
+            results_frame.pack(fill=tk.BOTH, expand=True)
+
+            columns = ("file", "chunk", "score", "snippet")
+            results_tree = ttk.Treeview(
+                results_frame, columns=columns, show="headings", selectmode="extended"
+            )
+            results_tree.heading("file", text="File")
+            results_tree.heading("chunk", text="Chunk")
+            results_tree.heading("score", text="Score")
+            results_tree.heading("snippet", text="Snippet")
+
+            results_tree.column("file", width=150, anchor=tk.W)
+            results_tree.column("chunk", width=80, anchor=tk.CENTER)
+            results_tree.column("score", width=80, anchor=tk.CENTER)
+            results_tree.column("snippet", width=500, anchor=tk.W)
+
+            results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            scrollbar = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=results_tree.yview)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            results_tree.configure(yscrollcommand=scrollbar.set)
+
+            # Action buttons
+            actions = ttk.Frame(search_window, padding=10)
+            actions.pack(fill=tk.X)
+
+            def add_to_context():
+                selected = results_tree.selection()
+                if not selected:
+                    messagebox.showwarning("Selection", "Select one or more results first.")
+                    return
+
+                snippets = []
+                for item_id in selected:
+                    values = results_tree.item(item_id, "values")
+                    snippet_text = values[3] if len(values) > 3 else ""
+                    file_name = values[0] if len(values) > 0 else ""
+                    chunk_info = values[1] if len(values) > 1 else ""
+                    snippets.append(f"[{file_name} {chunk_info}]\n{snippet_text}\n")
+
+                if snippets:
+                    current_context = self.txt_context.get("1.0", tk.END).strip()
+                    separator = "\n---\n" if current_context else ""
+                    new_context = current_context + separator + "\n".join(snippets)
+                    self.txt_context.delete("1.0", tk.END)
+                    self.txt_context.insert("1.0", new_context)
+                    self.var_include_context.set(True)
+                    search_window.destroy()
+                    self.status_var.set(f"✅ Added {len(selected)} snippet(s) to context")
+
+            ttk.Button(actions, text="➕ Add Selected to Context", command=add_to_context).pack(
+                side=tk.LEFT, padx=5
+            )
+            ttk.Button(actions, text="❌ Close", command=search_window.destroy).pack(
+                side=tk.LEFT, padx=5
+            )
+
+            # Bind Enter key to search
+            query_entry.bind("<Return>", lambda e: do_search())
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open RAG search: {e}")
 
     def on_generate(self):
         prompt = self.txt_prompt.get("1.0", tk.END).strip()

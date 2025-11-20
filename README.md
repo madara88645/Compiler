@@ -1523,12 +1523,40 @@ Notes:
 
 ![Desktop UI LLM send](docs/images/image-1756540999147.png)
 
+#### Search indexed documents (RAG) from the Desktop UI (new)
+
+You can now search your local RAG index directly from the desktop application and insert relevant snippets into the context area.
+
+Steps:
+1. Index your documents first using the CLI (if not already done):
+   ```powershell
+   promptc rag index .\docs .\examples --ext .txt --ext .md
+   ```
+2. In the Desktop UI, locate the **"🔍 Search"** button next to the Context "📂 Load" button.
+3. Click **"🔍 Search"** to open the RAG search dialog.
+4. Enter your search query, choose a search method (FTS/Embed/Hybrid), and click **"🔍 Search"**.
+5. Select one or more results from the table, then click **"➕ Add Selected to Context"**.
+6. The selected snippets will be appended to your Context area with file/chunk metadata.
+
+Features:
+- **Search methods**: FTS (fast lexical), Embed (semantic), or Hybrid (best of both)
+- **Multi-select**: Choose multiple snippets to combine into a single context
+- **Auto-include**: The "Include context in prompts" checkbox is automatically enabled
+- **Persistent settings**: Your preferred search method is saved between sessions
+
+![RAG Search Dialog](docs/images/desktop_rag_search.png)
+
+Notes:
+- If no index exists, you'll see an error; run `promptc rag index` first.
+- The default database path is `~/.promptc_index.db`.
+- Search results display the filename, chunk index, relevance score, and a preview snippet.
+
 #### Settings persistence (new)
 
 The desktop app saves your UI preferences under your home folder (per-user):
 
 - File: `~/.promptc_ui.json` (on Windows: `C:\Users\<you>\.promptc_ui.json`)
-- Stored fields: `theme`, `diagnostics`, `trace`, `model`, `use_expanded`, `llm_provider`, `local_endpoint`, `local_api_key`, `auto_generate_example`, `geometry`
+- Stored fields: `theme`, `diagnostics`, `trace`, `model`, `use_expanded`, `llm_provider`, `local_endpoint`, `local_api_key`, `rag_db_path`, `rag_embed_dim`, `rag_method`, `auto_generate_example`, `geometry`
 - Values are loaded at startup and updated automatically when changed.
 
 ### One-shot pipe to OpenAI (demo)
