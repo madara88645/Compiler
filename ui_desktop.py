@@ -183,9 +183,7 @@ class PromptCompilerUI:
         ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(
             side=tk.LEFT
         )
-        btn_pins = ttk.Button(
-            ctx_header, text="📌 Pins", command=self._show_rag_pins, width=8
-        )
+        btn_pins = ttk.Button(ctx_header, text="📌 Pins", command=self._show_rag_pins, width=8)
         btn_pins.pack(side=tk.RIGHT, padx=(4, 0))
         self._add_tooltip(btn_pins, "Insert from pinned RAG snippets")
         btn_search_docs = ttk.Button(
@@ -1557,7 +1555,11 @@ class PromptCompilerUI:
                         "",
                         tk.END,
                         iid=f"q{idx}",
-                        values=(display, entry.method, self.rag_history_store.format_timestamp(entry.timestamp)),
+                        values=(
+                            display,
+                            entry.method,
+                            self.rag_history_store.format_timestamp(entry.timestamp),
+                        ),
                     )
 
             def refresh_pins():
@@ -1611,7 +1613,9 @@ class PromptCompilerUI:
                     elif method == "embed":
                         results = search_embed(query, embed_dim=self.rag_embed_dim, **search_kwargs)
                     else:
-                        results = search_hybrid(query, embed_dim=self.rag_embed_dim, **search_kwargs)
+                        results = search_hybrid(
+                            query, embed_dim=self.rag_embed_dim, **search_kwargs
+                        )
 
                     for item in results_tree.get_children():
                         results_tree.delete(item)
@@ -1717,9 +1721,15 @@ class PromptCompilerUI:
                 self.rag_history_store.clear_pins()
                 refresh_pins()
 
-            ttk.Button(history_btns, text="▶️ Run", command=rerun_selected).pack(side=tk.LEFT, padx=2)
-            ttk.Button(history_btns, text="🗑️ Remove", command=delete_history).pack(side=tk.LEFT, padx=2)
-            ttk.Button(history_btns, text="🧹 Clear", command=clear_history).pack(side=tk.LEFT, padx=2)
+            ttk.Button(history_btns, text="▶️ Run", command=rerun_selected).pack(
+                side=tk.LEFT, padx=2
+            )
+            ttk.Button(history_btns, text="🗑️ Remove", command=delete_history).pack(
+                side=tk.LEFT, padx=2
+            )
+            ttk.Button(history_btns, text="🧹 Clear", command=clear_history).pack(
+                side=tk.LEFT, padx=2
+            )
 
             ttk.Button(pins_btns, text="➕ Insert", command=insert_pin).pack(side=tk.LEFT, padx=2)
             ttk.Button(pins_btns, text="🗑️ Remove", command=delete_pin).pack(side=tk.LEFT, padx=2)

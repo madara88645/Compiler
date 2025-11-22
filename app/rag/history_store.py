@@ -50,7 +50,7 @@ class RAGHistoryStore:
                 query=str(item.get("query", "")),
                 method=str(item.get("method", "fts")),
                 k=int(item.get("k", 10)),
-                timestamp=str(item.get("timestamp", self._now()))
+                timestamp=str(item.get("timestamp", self._now())),
             )
             for item in data.get("queries", [])
             if isinstance(item, dict)
@@ -60,7 +60,7 @@ class RAGHistoryStore:
                 label=str(item.get("label", "Unnamed")),
                 snippet=str(item.get("snippet", "")),
                 source=str(item.get("source", "")),
-                created_at=str(item.get("created_at", self._now()))
+                created_at=str(item.get("created_at", self._now())),
             )
             for item in data.get("pins", [])
             if isinstance(item, dict)
@@ -72,7 +72,9 @@ class RAGHistoryStore:
             "pins": [entry.__dict__ for entry in self.pins[-self.max_pins :]],
         }
         try:
-            self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         except Exception:
             pass
 
@@ -81,7 +83,11 @@ class RAGHistoryStore:
             return
         entry = QueryEntry(query=query, method=method or "fts", k=max(1, k), timestamp=self._now())
         # dedupe consecutive duplicates
-        if self.queries and self.queries[-1].query == entry.query and self.queries[-1].method == entry.method:
+        if (
+            self.queries
+            and self.queries[-1].query == entry.query
+            and self.queries[-1].method == entry.method
+        ):
             self.queries[-1] = entry
         else:
             self.queries.append(entry)
