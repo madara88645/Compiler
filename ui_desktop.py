@@ -48,6 +48,7 @@ from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
 from app.rag.simple_index import search, search_embed, search_hybrid
+from app.rag.history_store import RAGHistoryStore
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -75,6 +76,7 @@ class PromptCompilerUI:
         self.favorites_path = Path.home() / ".promptc_favorites.json"
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
+        self.rag_history_store = RAGHistoryStore()
 
         # RAG settings (defaults)
         self.rag_db_path = None  # None = use default ~/.promptc_index.db
@@ -181,6 +183,11 @@ class PromptCompilerUI:
         ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(
             side=tk.LEFT
         )
+        btn_pins = ttk.Button(
+            ctx_header, text="📌 Pins", command=self._show_rag_pins, width=8
+        )
+        btn_pins.pack(side=tk.RIGHT, padx=(4, 0))
+        self._add_tooltip(btn_pins, "Insert from pinned RAG snippets")
         btn_search_docs = ttk.Button(
             ctx_header, text="🔍 Search", command=self._show_rag_search, width=8
         )
@@ -1333,25 +1340,111 @@ class PromptCompilerUI:
         txt.insert(tk.END, text)
         txt.config(state=tk.DISABLED)
 
+    def _insert_snippets_into_context(self, snippets: list[str]):
+        current_context = self.txt_context.get("1.0", tk.END).strip()
+        separator = "\n---\n" if current_context else ""
+        new_context = current_context + separator + "\n".join(snippets)
+        self.txt_context.delete("1.0", tk.END)
+        self.txt_context.insert("1.0", new_context)
+        self.var_include_context.set(True)
+
+    def _insert_pin_into_context(self, pin_entry):
+        snippet = getattr(pin_entry, "snippet", "")
+        if not snippet.strip():
+            return
+        label = getattr(pin_entry, "label", "Pinned snippet")
+        display = f"[{label}]\n{snippet}\n"
+        self._insert_snippets_into_context([display])
+        self.status_var.set(f"📌 Inserted '{label}' into context")
+
+    def _show_rag_pins(self):
+        try:
+            if not self.rag_history_store.pins:
+                messagebox.showinfo("Pins", "No pinned snippets yet. Use RAG search to add pins.")
+                return
+            win = tk.Toplevel(self.root)
+            win.title("📌 Pinned Snippets")
+            win.geometry("500x400")
+            win.transient(self.root)
+
+            tree = ttk.Treeview(
+                win,
+                columns=("label", "source", "time"),
+                show="headings",
+                selectmode="browse",
+            )
+            for col, width in ("label", 200), ("source", 120), ("time", 100):
+                tree.heading(col, text=col.title())
+                tree.column(col, width=width, anchor=tk.W)
+            tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            def refresh():
+                tree.delete(*tree.get_children())
+                for idx, entry in self.rag_history_store.iter_pins():
+                    tree.insert(
+                        "",
+                        tk.END,
+                        iid=f"p{idx}",
+                        values=(
+                            entry.label,
+                            entry.source or "context",
+                            self.rag_history_store.format_timestamp(entry.created_at),
+                        ),
+                    )
+
+            def get_selected():
+                sel = tree.selection()
+                if not sel:
+                    return None
+                idx = int(sel[0][1:])
+                if 0 <= idx < len(self.rag_history_store.pins):
+                    return idx, self.rag_history_store.pins[idx]
+                return None
+
+            def insert_sel():
+                entry = get_selected()
+                if not entry:
+                    messagebox.showinfo("Pins", "Select a pinned snippet first.")
+                    return
+                _idx, pin_entry = entry
+                self._insert_pin_into_context(pin_entry)
+
+            def delete_sel():
+                entry = get_selected()
+                if not entry:
+                    return
+                idx, _ = entry
+                self.rag_history_store.delete_pin(idx)
+                refresh()
+
+            btns = ttk.Frame(win)
+            btns.pack(fill=tk.X, padx=10, pady=(0, 10))
+            ttk.Button(btns, text="➕ Insert", command=insert_sel).pack(side=tk.LEFT, padx=4)
+            ttk.Button(btns, text="🗑️ Remove", command=delete_sel).pack(side=tk.LEFT, padx=4)
+            ttk.Button(btns, text="❌ Close", command=win.destroy).pack(side=tk.RIGHT, padx=4)
+
+            tree.bind("<Double-1>", lambda _e: insert_sel())
+            refresh()
+        except Exception as exc:
+            messagebox.showerror("Pins", f"Failed to open pins: {exc}")
+
     def _show_rag_search(self):
-        """Show RAG document search dialog."""
+        """Show RAG document search dialog with recents and pins."""
         try:
             search_window = tk.Toplevel(self.root)
             search_window.title("🔍 Search Documents (RAG)")
-            search_window.geometry("900x700")
+            search_window.geometry("1000x720")
             search_window.transient(self.root)
 
-            # Header
             header = ttk.Frame(search_window, padding=10)
             header.pack(fill=tk.X)
             ttk.Label(header, text="🔍 Document Search", font=("", 12, "bold")).pack(anchor=tk.W)
             ttk.Label(
                 header,
-                text="Search indexed documents and add relevant snippets to context",
+                text="Search indexed documents, re-run saved queries, and manage pinned snippets",
                 foreground="#666",
             ).pack(anchor=tk.W)
 
-            # Search controls
             controls = ttk.Frame(search_window, padding=10)
             controls.pack(fill=tk.X)
 
@@ -1377,64 +1470,60 @@ class PromptCompilerUI:
             k_spin = ttk.Spinbox(controls, from_=1, to=50, textvariable=k_var, width=8)
             k_spin.pack(side=tk.LEFT, padx=(0, 10))
 
-            def do_search():
-                query = query_var.get().strip()
-                if not query:
-                    messagebox.showwarning("Search", "Enter a search query first.")
-                    return
-
-                method = method_var.get()
-                k = k_var.get()
-                # Update persisted preference
-                self.rag_method = method
-                self._save_settings()
-                self.status_var.set(f"RAG: searching ({method})...")
-
-                try:
-                    search_kwargs = {"k": k, "db_path": self.rag_db_path}
-                    if method == "fts":
-                        results = search(query, **search_kwargs)
-                    elif method == "embed":
-                        results = search_embed(query, embed_dim=self.rag_embed_dim, **search_kwargs)
-                    else:  # hybrid
-                        results = search_hybrid(
-                            query, embed_dim=self.rag_embed_dim, **search_kwargs
-                        )
-
-                    # Clear previous results
-                    for item in results_tree.get_children():
-                        results_tree.delete(item)
-
-                    # Populate results
-                    for r in results:
-                        path = r.get("path", "")
-                        snippet = r.get("snippet", "")
-                        score = r.get("score", 0.0)
-                        chunk_idx = r.get("chunk_index", 0)
-                        display_path = Path(path).name if path else "unknown"
-                        results_tree.insert(
-                            "",
-                            tk.END,
-                            values=(display_path, f"chunk {chunk_idx}", f"{score:.3f}", snippet),
-                            tags=("result",),
-                        )
-
-                    results_label.config(text=f"Found {len(results)} result(s)")
-                    self.status_var.set(f"RAG: {len(results)} results")
-
-                except Exception as e:
-                    messagebox.showerror("Search Error", f"Failed to search: {e}")
-                    self.status_var.set("RAG: error")
-
-            btn_search = ttk.Button(controls, text="🔍 Search", command=do_search)
+            btn_search = ttk.Button(controls, text="🔍 Search")
             btn_search.pack(side=tk.LEFT, padx=5)
 
-            # Results label
-            results_label = ttk.Label(search_window, text="No results yet", padding=(10, 5))
+            body = ttk.PanedWindow(search_window, orient=tk.HORIZONTAL)
+            body.pack(fill=tk.BOTH, expand=True)
+
+            left_panel = ttk.Frame(body, padding=10)
+            body.add(left_panel, weight=0)
+            right_panel = ttk.Frame(body)
+            body.add(right_panel, weight=1)
+
+            # Left: history and pins
+            history_frame = ttk.LabelFrame(left_panel, text="🕘 Recent queries", padding=6)
+            history_frame.pack(fill=tk.BOTH, expand=True)
+
+            history_tree = ttk.Treeview(
+                history_frame,
+                columns=("query", "method", "time"),
+                show="headings",
+                height=8,
+                selectmode="browse",
+            )
+            for col, width in ("query", 160), ("method", 70), ("time", 90):
+                history_tree.heading(col, text=col.title())
+                history_tree.column(col, width=width, anchor=tk.W)
+            history_tree.pack(fill=tk.BOTH, expand=True)
+
+            history_btns = ttk.Frame(history_frame)
+            history_btns.pack(fill=tk.X, pady=(4, 0))
+
+            # Pins
+            pins_frame = ttk.LabelFrame(left_panel, text="📌 Pinned snippets", padding=6)
+            pins_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+            pins_tree = ttk.Treeview(
+                pins_frame,
+                columns=("label", "source", "time"),
+                show="headings",
+                height=6,
+                selectmode="browse",
+            )
+            for col, width in ("label", 140), ("source", 80), ("time", 90):
+                pins_tree.heading(col, text=col.title())
+                pins_tree.column(col, width=width, anchor=tk.W)
+            pins_tree.pack(fill=tk.BOTH, expand=True)
+
+            pins_btns = ttk.Frame(pins_frame)
+            pins_btns.pack(fill=tk.X, pady=(4, 0))
+
+            # Right: results
+            results_label = ttk.Label(right_panel, text="No results yet", padding=(10, 5))
             results_label.pack(anchor=tk.W)
 
-            # Results treeview
-            results_frame = ttk.Frame(search_window, padding=10)
+            results_frame = ttk.Frame(right_panel, padding=10)
             results_frame.pack(fill=tk.BOTH, expand=True)
 
             columns = ("file", "chunk", "score", "snippet")
@@ -1457,16 +1546,127 @@ class PromptCompilerUI:
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
             results_tree.configure(yscrollcommand=scrollbar.set)
 
-            # Action buttons
-            actions = ttk.Frame(search_window, padding=10)
+            actions = ttk.Frame(right_panel, padding=10)
             actions.pack(fill=tk.X)
+
+            def refresh_history():
+                history_tree.delete(*history_tree.get_children())
+                for idx, entry in self.rag_history_store.iter_queries():
+                    display = entry.query[:40] + ("…" if len(entry.query) > 40 else "")
+                    history_tree.insert(
+                        "",
+                        tk.END,
+                        iid=f"q{idx}",
+                        values=(display, entry.method, self.rag_history_store.format_timestamp(entry.timestamp)),
+                    )
+
+            def refresh_pins():
+                pins_tree.delete(*pins_tree.get_children())
+                for idx, entry in self.rag_history_store.iter_pins():
+                    pins_tree.insert(
+                        "",
+                        tk.END,
+                        iid=f"p{idx}",
+                        values=(
+                            entry.label,
+                            entry.source or "context",
+                            self.rag_history_store.format_timestamp(entry.created_at),
+                        ),
+                    )
+
+            def get_history_entry():
+                sel = history_tree.selection()
+                if not sel:
+                    return None
+                idx = int(sel[0][1:])
+                if 0 <= idx < len(self.rag_history_store.queries):
+                    return idx, self.rag_history_store.queries[idx]
+                return None
+
+            def get_pin_entry():
+                sel = pins_tree.selection()
+                if not sel:
+                    return None
+                idx = int(sel[0][1:])
+                if 0 <= idx < len(self.rag_history_store.pins):
+                    return idx, self.rag_history_store.pins[idx]
+                return None
+
+            def do_search():
+                query = query_var.get().strip()
+                if not query:
+                    messagebox.showwarning("Search", "Enter a search query first.")
+                    return
+
+                method = method_var.get()
+                k = k_var.get()
+                self.rag_method = method
+                self._save_settings()
+                self.status_var.set(f"RAG: searching ({method})...")
+
+                try:
+                    search_kwargs = {"k": k, "db_path": self.rag_db_path}
+                    if method == "fts":
+                        results = search(query, **search_kwargs)
+                    elif method == "embed":
+                        results = search_embed(query, embed_dim=self.rag_embed_dim, **search_kwargs)
+                    else:
+                        results = search_hybrid(query, embed_dim=self.rag_embed_dim, **search_kwargs)
+
+                    for item in results_tree.get_children():
+                        results_tree.delete(item)
+
+                    for r in results:
+                        path = r.get("path", "")
+                        snippet = r.get("snippet", "")
+                        score = r.get("score", 0.0)
+                        chunk_idx = r.get("chunk_index", 0)
+                        display_path = Path(path).name if path else "unknown"
+                        results_tree.insert(
+                            "",
+                            tk.END,
+                            values=(display_path, f"chunk {chunk_idx}", f"{score:.3f}", snippet),
+                        )
+
+                    self.rag_history_store.add_query(query, method, k)
+                    refresh_history()
+                    results_label.config(text=f"Found {len(results)} result(s)")
+                    self.status_var.set(f"RAG: {len(results)} results")
+
+                except Exception as e:
+                    messagebox.showerror("Search Error", f"Failed to search: {e}")
+                    self.status_var.set("RAG: error")
+
+            btn_search.config(command=do_search)
+
+            def rerun_selected():
+                entry = get_history_entry()
+                if not entry:
+                    messagebox.showinfo("RAG", "Select a saved query first.")
+                    return
+                _idx, query_entry_data = entry
+                query_var.set(query_entry_data.query)
+                method_var.set(query_entry_data.method)
+                k_var.set(query_entry_data.k)
+                do_search()
+
+            def delete_history():
+                entry = get_history_entry()
+                if not entry:
+                    return
+                idx, _ = entry
+                self.rag_history_store.delete_query(idx)
+                refresh_history()
+
+            def clear_history():
+                self.rag_history_store.clear_queries()
+                refresh_history()
 
             def add_to_context():
                 selected = results_tree.selection()
                 if not selected:
                     messagebox.showwarning("Selection", "Select one or more results first.")
                     return
-
                 snippets = []
                 for item_id in selected:
                     values = results_tree.item(item_id, "values")
@@ -1474,26 +1674,73 @@ class PromptCompilerUI:
                     file_name = values[0] if len(values) > 0 else ""
                     chunk_info = values[1] if len(values) > 1 else ""
                     snippets.append(f"[{file_name} {chunk_info}]\n{snippet_text}\n")
-
                 if snippets:
-                    current_context = self.txt_context.get("1.0", tk.END).strip()
-                    separator = "\n---\n" if current_context else ""
-                    new_context = current_context + separator + "\n".join(snippets)
-                    self.txt_context.delete("1.0", tk.END)
-                    self.txt_context.insert("1.0", new_context)
-                    self.var_include_context.set(True)
+                    self._insert_snippets_into_context(snippets)
                     search_window.destroy()
                     self.status_var.set(f"✅ Added {len(selected)} snippet(s) to context")
 
+            def pin_selected():
+                selected = results_tree.selection()
+                if not selected:
+                    messagebox.showwarning("Pins", "Select at least one snippet to pin.")
+                    return
+                count = 0
+                for item_id in selected:
+                    values = results_tree.item(item_id, "values")
+                    snippet_text = values[3] if len(values) > 3 else ""
+                    label = values[0] if len(values) > 0 else "Snippet"
+                    source = f"{values[0]} {values[1]}" if len(values) > 1 else values[0]
+                    if snippet_text.strip():
+                        self.rag_history_store.add_pin(label, snippet_text, source)
+                        count += 1
+                if count:
+                    refresh_pins()
+                    self.status_var.set(f"📌 Added {count} snippet(s) to pins")
+
+            def insert_pin():
+                entry = get_pin_entry()
+                if not entry:
+                    messagebox.showinfo("Pins", "Select a pinned snippet first.")
+                    return
+                _idx, pin_data = entry
+                self._insert_pin_into_context(pin_data)
+
+            def delete_pin():
+                entry = get_pin_entry()
+                if not entry:
+                    return
+                idx, _ = entry
+                self.rag_history_store.delete_pin(idx)
+                refresh_pins()
+
+            def clear_pins():
+                self.rag_history_store.clear_pins()
+                refresh_pins()
+
+            ttk.Button(history_btns, text="▶️ Run", command=rerun_selected).pack(side=tk.LEFT, padx=2)
+            ttk.Button(history_btns, text="🗑️ Remove", command=delete_history).pack(side=tk.LEFT, padx=2)
+            ttk.Button(history_btns, text="🧹 Clear", command=clear_history).pack(side=tk.LEFT, padx=2)
+
+            ttk.Button(pins_btns, text="➕ Insert", command=insert_pin).pack(side=tk.LEFT, padx=2)
+            ttk.Button(pins_btns, text="🗑️ Remove", command=delete_pin).pack(side=tk.LEFT, padx=2)
+            ttk.Button(pins_btns, text="🧹 Clear", command=clear_pins).pack(side=tk.LEFT, padx=2)
+
             ttk.Button(actions, text="➕ Add Selected to Context", command=add_to_context).pack(
+                side=tk.LEFT, padx=5
+            )
+            ttk.Button(actions, text="📌 Pin Selected", command=pin_selected).pack(
                 side=tk.LEFT, padx=5
             )
             ttk.Button(actions, text="❌ Close", command=search_window.destroy).pack(
                 side=tk.LEFT, padx=5
             )
 
-            # Bind Enter key to search
+            history_tree.bind("<Double-1>", lambda _e: rerun_selected())
+            pins_tree.bind("<Double-1>", lambda _e: insert_pin())
             query_entry.bind("<Return>", lambda e: do_search())
+
+            refresh_history()
+            refresh_pins()
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open RAG search: {e}")

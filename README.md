@@ -1537,12 +1537,15 @@ Steps:
 4. Enter your search query, choose a search method (FTS/Embed/Hybrid), and click **"🔍 Search"**.
 5. Select one or more results from the table, then click **"➕ Add Selected to Context"**.
 6. The selected snippets will be appended to your Context area with file/chunk metadata.
+7. Use the **"📌 Pins"** button next to the Context header at any time to re-open your pinned snippets and drop them directly into the context without running another search.
 
 Features:
 - **Search methods**: FTS (fast lexical), Embed (semantic), or Hybrid (best of both)
 - **Multi-select**: Choose multiple snippets to combine into a single context
 - **Auto-include**: The "Include context in prompts" checkbox is automatically enabled
 - **Persistent settings**: Your preferred search method is saved between sessions
+- **Recent history**: The dialog remembers your last 25 queries so you can re-run them with one click
+- **Pinned snippets**: Save any snippet once, reuse it anytime from the dialog or the standalone Pins browser
 
 ![RAG Search Dialog](docs/images/desktop_rag_search.png)
 
@@ -1550,6 +1553,7 @@ Notes:
 - If no index exists, you'll see an error; run `promptc rag index` first.
 - The default database path is `~/.promptc_index.db`.
 - Search results display the filename, chunk index, relevance score, and a preview snippet.
+- Pins and history are saved under `~/.promptc_rag_history.json` (per user).
 
 #### Settings persistence (new)
 
