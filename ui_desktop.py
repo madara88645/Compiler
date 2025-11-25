@@ -18,7 +18,7 @@ import json
 import os
 import re
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 import time
 from pathlib import Path
 from datetime import datetime
@@ -48,6 +48,7 @@ from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
 from app.rag.simple_index import search, search_embed, search_hybrid
+from app.context_presets import ContextPresetStore
 from app.rag.history_store import RAGHistoryStore
 
 # Optional OpenAI client (only used when sending directly from UI)
@@ -77,6 +78,8 @@ class PromptCompilerUI:
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
         self.rag_history_store = RAGHistoryStore()
+        self.context_presets_store = ContextPresetStore()
+        self.context_preset_menu = None
 
         # RAG settings (defaults)
         self.rag_db_path = None  # None = use default ~/.promptc_index.db
@@ -183,6 +186,11 @@ class PromptCompilerUI:
         ttk.Label(ctx_header, text="📋 Context (optional):", font=("", 10, "bold")).pack(
             side=tk.LEFT
         )
+        btn_presets = ttk.Menubutton(ctx_header, text="📚 Presets", width=10)
+        btn_presets.pack(side=tk.RIGHT, padx=(4, 0))
+        self.context_preset_menu = tk.Menu(btn_presets, tearoff=0)
+        btn_presets["menu"] = self.context_preset_menu
+        self._add_tooltip(btn_presets, "Load or save context presets")
         btn_pins = ttk.Button(ctx_header, text="📌 Pins", command=self._show_rag_pins, width=8)
         btn_pins.pack(side=tk.RIGHT, padx=(4, 0))
         self._add_tooltip(btn_pins, "Insert from pinned RAG snippets")
@@ -516,6 +524,7 @@ class PromptCompilerUI:
         self._load_history()
         self._load_tags()
         self._load_snippets()
+        self._refresh_context_presets_menu()
 
     # Quality coach operations
 
@@ -1425,6 +1434,142 @@ class PromptCompilerUI:
             refresh()
         except Exception as exc:
             messagebox.showerror("Pins", f"Failed to open pins: {exc}")
+
+    def _refresh_context_presets_menu(self):
+        try:
+            if not self.context_preset_menu:
+                return
+            self.context_preset_menu.delete(0, tk.END)
+            names = self.context_presets_store.list_names()
+            if names:
+                for name in names:
+                    self.context_preset_menu.add_command(
+                        label=name,
+                        command=lambda n=name: self._apply_context_preset(n),
+                    )
+            else:
+                self.context_preset_menu.add_command(label="(No presets yet)", state=tk.DISABLED)
+            self.context_preset_menu.add_separator()
+            self.context_preset_menu.add_command(
+                label="💾 Save current…", command=self._prompt_save_context_preset
+            )
+            self.context_preset_menu.add_command(
+                label="🛠️ Manage presets…", command=self._show_context_presets_dialog
+            )
+        except Exception:
+            pass
+
+    def _apply_context_preset(self, name: str):
+        preset = self.context_presets_store.get(name)
+        if not preset:
+            messagebox.showerror("Context Presets", f"Preset '{name}' not found.")
+            return
+        self.txt_context.delete("1.0", tk.END)
+        self.txt_context.insert("1.0", preset.content)
+        self.var_include_context.set(True)
+        self.status_var.set(f"📚 Loaded preset '{name}'")
+
+    def _prompt_save_context_preset(self):
+        content = self.txt_context.get("1.0", tk.END).strip()
+        if not content:
+            messagebox.showwarning("Context Presets", "Enter context text before saving a preset.")
+            return
+        default = f"Preset {len(self.context_presets_store.presets) + 1}"
+        name = simpledialog.askstring(
+            "Save Context Preset",
+            "Preset name:",
+            parent=self.root,
+            initialvalue=default,
+        )
+        if not name:
+            return
+        self.context_presets_store.upsert(name, content)
+        self._refresh_context_presets_menu()
+        self.status_var.set(f"💾 Saved preset '{name}'")
+
+    def _show_context_presets_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Context Presets")
+        dialog.geometry("500x420")
+        dialog.transient(self.root)
+
+        frame = ttk.Frame(dialog, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        listbox = tk.Listbox(frame, height=10)
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar = ttk.Scrollbar(frame, command=listbox.yview)
+        scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+        listbox.config(yscrollcommand=scrollbar.set)
+
+        preview = tk.Text(dialog, height=10, wrap=tk.WORD)
+        preview.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        preview.config(state=tk.DISABLED)
+
+        btns = ttk.Frame(dialog)
+        btns.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        def refresh_list():
+            listbox.delete(0, tk.END)
+            for name in self.context_presets_store.list_names():
+                listbox.insert(tk.END, name)
+            update_preview()
+
+        def get_selected_name():
+            selection = listbox.curselection()
+            if not selection:
+                return None
+            return listbox.get(selection[0])
+
+        def update_preview(_event=None):
+            try:
+                selection = get_selected_name()
+                preset = self.context_presets_store.get(selection) if selection else None
+                preview.config(state=tk.NORMAL)
+                preview.delete("1.0", tk.END)
+                if preset:
+                    preview.insert("1.0", preset.content)
+                preview.config(state=tk.DISABLED)
+            except Exception:
+                pass
+
+        def apply_selected():
+            name = get_selected_name()
+            if not name:
+                messagebox.showinfo("Context Presets", "Select a preset to load.")
+                return
+            self._apply_context_preset(name)
+            dialog.destroy()
+
+        def rename_selected():
+            name = get_selected_name()
+            if not name:
+                return
+            new_name = simpledialog.askstring(
+                "Rename Preset", "New name:", parent=dialog, initialvalue=name
+            )
+            if not new_name:
+                return
+            if self.context_presets_store.rename(name, new_name):
+                self._refresh_context_presets_menu()
+                refresh_list()
+
+        def delete_selected():
+            name = get_selected_name()
+            if not name:
+                return
+            if messagebox.askyesno("Delete Preset", f"Delete '{name}'?"):
+                self.context_presets_store.delete(name)
+                self._refresh_context_presets_menu()
+                refresh_list()
+
+        ttk.Button(btns, text="Load", command=apply_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Rename", command=rename_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Delete", command=delete_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Close", command=dialog.destroy).pack(side=tk.RIGHT, padx=4)
+
+        listbox.bind("<<ListboxSelect>>", update_preview)
+        refresh_list()
 
     def _show_rag_search(self):
         """Show RAG document search dialog with recents and pins."""

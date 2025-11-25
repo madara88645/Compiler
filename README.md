@@ -1546,6 +1546,7 @@ Features:
 - **Persistent settings**: Your preferred search method is saved between sessions
 - **Recent history**: The dialog remembers your last 25 queries so you can re-run them with one click
 - **Pinned snippets**: Save any snippet once, reuse it anytime from the dialog or the standalone Pins browser
+- **Context presets**: Save frequently used context bundles and reapply them from a dropdown next to the Context box
 
 ![RAG Search Dialog](docs/images/desktop_rag_search.png)
 
@@ -1554,6 +1555,7 @@ Notes:
 - The default database path is `~/.promptc_index.db`.
 - Search results display the filename, chunk index, relevance score, and a preview snippet.
 - Pins and history are saved under `~/.promptc_rag_history.json` (per user).
+- Context presets are stored next to your snippets at `~/.promptc_context_presets.json`.
 
 #### Settings persistence (new)
 
