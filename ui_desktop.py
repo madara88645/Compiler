@@ -49,6 +49,7 @@ from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
 from app.rag.simple_index import search, search_embed, search_hybrid
 from app.context_presets import ContextPresetStore
+from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
 
 # Optional OpenAI client (only used when sending directly from UI)
@@ -1665,6 +1666,11 @@ class PromptCompilerUI:
             # Right: results
             results_label = ttk.Label(right_panel, text="No results yet", padding=(10, 5))
             results_label.pack(anchor=tk.W)
+            selection_info_var = tk.StringVar(value="Select snippets to preview size")
+            selection_info_lbl = ttk.Label(
+                right_panel, textvariable=selection_info_var, padding=(10, 0), foreground="#555"
+            )
+            selection_info_lbl.pack(anchor=tk.W)
 
             results_frame = ttk.Frame(right_panel, padding=10)
             results_frame.pack(fill=tk.BOTH, expand=True)
@@ -1691,6 +1697,8 @@ class PromptCompilerUI:
 
             actions = ttk.Frame(right_panel, padding=10)
             actions.pack(fill=tk.X)
+            compression_var = tk.BooleanVar(value=False)
+            compression_limit_var = tk.IntVar(value=600)
 
             def refresh_history():
                 history_tree.delete(*history_tree.get_children())
@@ -1738,6 +1746,41 @@ class PromptCompilerUI:
                 if 0 <= idx < len(self.rag_history_store.pins):
                     return idx, self.rag_history_store.pins[idx]
                 return None
+
+            def _compression_limit() -> int:
+                try:
+                    val = int(compression_limit_var.get())
+                except Exception:
+                    val = 600
+                return max(120, min(2000, val))
+
+            def _get_snippet_from_item(item_id: str) -> str:
+                values = results_tree.item(item_id, "values")
+                return values[3] if len(values) > 3 else ""
+
+            def update_selection_stats(*_args):
+                selected = results_tree.selection()
+                if not selected:
+                    selection_info_var.set("Select snippets to preview size")
+                    return
+                total_chars = 0
+                total_tokens = 0
+                compressed_tokens = 0
+                limit = _compression_limit()
+                use_compress = bool(compression_var.get())
+                for item_id in selected:
+                    snippet = _get_snippet_from_item(item_id)
+                    total_chars += len(snippet)
+                    tokens = estimate_tokens(snippet)
+                    total_tokens += tokens
+                    if use_compress:
+                        compressed_tokens += estimate_tokens(
+                            compress_text_block(snippet, max_chars=limit)
+                        )
+                msg = f"{len(selected)} snippet(s) • ~{total_tokens} tokens • {total_chars} chars"
+                if use_compress:
+                    msg += f" → ~{compressed_tokens} tokens after summarize"
+                selection_info_var.set(msg)
 
             def do_search():
                 query = query_var.get().strip()
@@ -1820,13 +1863,20 @@ class PromptCompilerUI:
                 for item_id in selected:
                     values = results_tree.item(item_id, "values")
                     snippet_text = values[3] if len(values) > 3 else ""
+                    if bool(compression_var.get()) and snippet_text:
+                        snippet_text = compress_text_block(
+                            snippet_text, max_chars=_compression_limit()
+                        )
                     file_name = values[0] if len(values) > 0 else ""
                     chunk_info = values[1] if len(values) > 1 else ""
                     snippets.append(f"[{file_name} {chunk_info}]\n{snippet_text}\n")
                 if snippets:
                     self._insert_snippets_into_context(snippets)
                     search_window.destroy()
-                    self.status_var.set(f"✅ Added {len(selected)} snippet(s) to context")
+                    note = " (summarized)" if compression_var.get() else ""
+                    self.status_var.set(
+                        f"✅ Added {len(selected)} snippet(s){note} to context"
+                    )
 
             def pin_selected():
                 selected = results_tree.selection()
@@ -1883,6 +1933,20 @@ class PromptCompilerUI:
             ttk.Button(actions, text="➕ Add Selected to Context", command=add_to_context).pack(
                 side=tk.LEFT, padx=5
             )
+            ttk.Checkbutton(
+                actions,
+                text="Summarize before insert",
+                variable=compression_var,
+            ).pack(side=tk.LEFT, padx=5)
+            ttk.Label(actions, text="Max chars:").pack(side=tk.LEFT)
+            ttk.Spinbox(
+                actions,
+                from_=120,
+                to=2000,
+                increment=40,
+                textvariable=compression_limit_var,
+                width=6,
+            ).pack(side=tk.LEFT, padx=(0, 8))
             ttk.Button(actions, text="📌 Pin Selected", command=pin_selected).pack(
                 side=tk.LEFT, padx=5
             )
@@ -1893,9 +1957,13 @@ class PromptCompilerUI:
             history_tree.bind("<Double-1>", lambda _e: rerun_selected())
             pins_tree.bind("<Double-1>", lambda _e: insert_pin())
             query_entry.bind("<Return>", lambda e: do_search())
+            results_tree.bind("<<TreeviewSelect>>", lambda _e: update_selection_stats())
+            compression_var.trace_add("write", update_selection_stats)
+            compression_limit_var.trace_add("write", update_selection_stats)
 
             refresh_history()
             refresh_pins()
+            update_selection_stats()
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open RAG search: {e}")
