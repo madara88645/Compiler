@@ -1874,9 +1874,7 @@ class PromptCompilerUI:
                     self._insert_snippets_into_context(snippets)
                     search_window.destroy()
                     note = " (summarized)" if compression_var.get() else ""
-                    self.status_var.set(
-                        f"✅ Added {len(selected)} snippet(s){note} to context"
-                    )
+                    self.status_var.set(f"✅ Added {len(selected)} snippet(s){note} to context")
 
             def pin_selected():
                 selected = results_tree.selection()
