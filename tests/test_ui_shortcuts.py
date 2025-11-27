@@ -1,9 +1,12 @@
 """Test keyboard shortcuts and command palette functionality."""
 
 from __future__ import annotations
+
 import os
-import pytest
 import tkinter as tk
+
+import pytest
+
 from ui_desktop import PromptCompilerUI
 
 
@@ -350,6 +353,50 @@ class TestEdgeCases:
 
         clipboard = ui_app.root.clipboard_get()
         assert "test after theme change" in clipboard
+
+
+class TestShortcutDataModel:
+    """Validate helper data powering shortcut UIs."""
+
+    def test_shortcut_reference_structure(self, ui_app):
+        data = ui_app._shortcut_reference_data()
+        assert {"🚀 General", "📝 Editing", "📊 Views"}.issubset(data.keys())
+        for category, entries in data.items():
+            assert entries, f"Category {category} should not be empty"
+            seen = set()
+            for key, description in entries:
+                assert isinstance(key, str) and isinstance(description, str)
+                assert key not in seen, f"Duplicate key {key} in {category}"
+                seen.add(key)
+
+    def test_shortcut_reference_contains_generate_shortcut(self, ui_app):
+        data = ui_app._shortcut_reference_data()
+        general_keys = {key for key, _ in data.get("🚀 General", [])}
+        editing_keys = {key for key, _ in data.get("📝 Editing", [])}
+        assert "Ctrl+Shift+P" in general_keys
+        assert "Ctrl+Enter" in editing_keys
+
+    def test_command_palette_entries_unique_labels(self, ui_app):
+        entries = ui_app._command_palette_entries()
+        labels = [label for label, _ in entries]
+        assert len(labels) == len(set(labels))
+
+    def test_command_palette_entries_cover_core_actions(self, ui_app):
+        entries = ui_app._command_palette_entries()
+        labels = {label for label, _ in entries}
+        required = {
+            "🚀 Generate Prompt",
+            "🗑️ Clear Input",
+            "📋 Copy System Prompt",
+            "⌨️ Keyboard Shortcuts",
+            "⚙️ Settings",
+        }
+        assert required.issubset(labels)
+
+    def test_command_palette_search_logic(self, ui_app):
+        entries = ui_app._command_palette_entries()
+        filtered = [label for label, _ in entries if "copy" in label.lower()]
+        assert len(filtered) >= 3
 
 
 @pytest.mark.skipif(

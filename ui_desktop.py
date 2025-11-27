@@ -22,7 +22,7 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 
 import httpx
 
@@ -4610,6 +4610,62 @@ class PromptCompilerUI:
         # padding = 5 if self.view_mode == "compact" else 10
         self.status_var.set(f"👁️ View mode: {self.view_mode}")
 
+    def _shortcut_reference_data(self) -> dict[str, list[tuple[str, str]]]:
+        """Return categorized keyboard shortcut data for reuse/testing."""
+        return {
+            "🚀 General": [
+                ("Ctrl+Shift+P", "Open Command Palette"),
+                ("Ctrl+K", "Show Keyboard Shortcuts"),
+                ("Ctrl+,", "Open Settings"),
+                ("Ctrl+Q", "Quit Application"),
+                ("F11", "Toggle Fullscreen"),
+            ],
+            "📝 Editing": [
+                ("Ctrl+Enter", "Generate Prompt"),
+                ("Ctrl+L", "Clear Input"),
+                ("Ctrl+A", "Select All Text"),
+                ("Ctrl+C", "Copy Selected Text"),
+                ("Ctrl+V", "Paste Text"),
+                ("Ctrl+Z", "Undo"),
+                ("Ctrl+Y", "Redo"),
+            ],
+            "📋 Clipboard": [
+                ("Ctrl+Shift+C", "Copy System Prompt"),
+                ("Ctrl+Shift+U", "Copy User Prompt"),
+                ("Ctrl+Shift+E", "Copy Expanded Prompt"),
+                ("Ctrl+Shift+S", "Copy JSON Schema"),
+            ],
+            "🔍 Navigation": [
+                ("Ctrl+1", "Switch to System Prompt Tab"),
+                ("Ctrl+2", "Switch to User Prompt Tab"),
+                ("Ctrl+3", "Switch to Expanded Tab"),
+                ("Ctrl+4", "Switch to Plan Tab"),
+                ("Ctrl+5", "Switch to Schema Tab"),
+                ("Ctrl+Tab", "Next Tab"),
+                ("Ctrl+Shift+Tab", "Previous Tab"),
+            ],
+            "💾 File Operations": [
+                ("Ctrl+S", "Save Current Prompt"),
+                ("Ctrl+O", "Open Prompt from File"),
+                ("Ctrl+E", "Export All Data"),
+                ("Ctrl+I", "Import Data"),
+            ],
+            "📊 Views": [
+                ("Ctrl+B", "Toggle Sidebar"),
+                ("Ctrl+H", "Show History"),
+                ("Ctrl+F", "Show Favorites"),
+                ("Ctrl+T", "Show Tags"),
+                ("Ctrl+R", "Show Snippets"),
+                ("Ctrl+Shift+A", "Show Analytics"),
+            ],
+            "🎨 Appearance": [
+                ("Ctrl+Shift+T", "Toggle Theme (Light/Dark)"),
+                ("Ctrl+Plus", "Increase Font Size"),
+                ("Ctrl+Minus", "Decrease Font Size"),
+                ("Ctrl+0", "Reset Font Size"),
+            ],
+        }
+
     def _show_keyboard_shortcuts(self):
         """Show keyboard shortcuts reference dialog."""
         try:
@@ -4646,59 +4702,7 @@ class PromptCompilerUI:
             canvas.configure(yscrollcommand=scrollbar.set)
 
             # Define shortcuts by category
-            shortcuts_data = {
-                "🚀 General": [
-                    ("Ctrl+Shift+P", "Open Command Palette"),
-                    ("Ctrl+K", "Show Keyboard Shortcuts"),
-                    ("Ctrl+,", "Open Settings"),
-                    ("Ctrl+Q", "Quit Application"),
-                    ("F11", "Toggle Fullscreen"),
-                ],
-                "📝 Editing": [
-                    ("Ctrl+Enter", "Generate Prompt"),
-                    ("Ctrl+L", "Clear Input"),
-                    ("Ctrl+A", "Select All Text"),
-                    ("Ctrl+C", "Copy Selected Text"),
-                    ("Ctrl+V", "Paste Text"),
-                    ("Ctrl+Z", "Undo"),
-                    ("Ctrl+Y", "Redo"),
-                ],
-                "📋 Clipboard": [
-                    ("Ctrl+Shift+C", "Copy System Prompt"),
-                    ("Ctrl+Shift+U", "Copy User Prompt"),
-                    ("Ctrl+Shift+E", "Copy Expanded Prompt"),
-                    ("Ctrl+Shift+S", "Copy JSON Schema"),
-                ],
-                "🔍 Navigation": [
-                    ("Ctrl+1", "Switch to System Prompt Tab"),
-                    ("Ctrl+2", "Switch to User Prompt Tab"),
-                    ("Ctrl+3", "Switch to Expanded Tab"),
-                    ("Ctrl+4", "Switch to Plan Tab"),
-                    ("Ctrl+5", "Switch to Schema Tab"),
-                    ("Ctrl+Tab", "Next Tab"),
-                    ("Ctrl+Shift+Tab", "Previous Tab"),
-                ],
-                "💾 File Operations": [
-                    ("Ctrl+S", "Save Current Prompt"),
-                    ("Ctrl+O", "Open Prompt from File"),
-                    ("Ctrl+E", "Export All Data"),
-                    ("Ctrl+I", "Import Data"),
-                ],
-                "📊 Views": [
-                    ("Ctrl+B", "Toggle Sidebar"),
-                    ("Ctrl+H", "Show History"),
-                    ("Ctrl+F", "Show Favorites"),
-                    ("Ctrl+T", "Show Tags"),
-                    ("Ctrl+R", "Show Snippets"),
-                    ("Ctrl+Shift+A", "Show Analytics"),
-                ],
-                "🎨 Appearance": [
-                    ("Ctrl+Shift+T", "Toggle Theme (Light/Dark)"),
-                    ("Ctrl+Plus", "Increase Font Size"),
-                    ("Ctrl+Minus", "Decrease Font Size"),
-                    ("Ctrl+0", "Reset Font Size"),
-                ],
-            }
+            shortcuts_data = self._shortcut_reference_data()
 
             # Create category sections
             for category, shortcuts in shortcuts_data.items():
@@ -4750,6 +4754,35 @@ class PromptCompilerUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show keyboard shortcuts: {e}")
 
+    def _command_palette_entries(self) -> list[tuple[str, Callable[[], None]]]:
+        """Return list of command palette entries for reuse/testing."""
+        return [
+            ("🚀 Generate Prompt", lambda: self._generate_prompt()),
+            ("🗑️ Clear Input", lambda: self._clear_input()),
+            ("📋 Copy System Prompt", lambda: self._copy_system_prompt()),
+            ("📋 Copy User Prompt", lambda: self._copy_user_prompt()),
+            ("📋 Copy Expanded Prompt", lambda: self._copy_expanded_prompt()),
+            ("📋 Copy JSON Schema", lambda: self._copy_schema()),
+            ("🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
+            ("🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
+            ("✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
+            ("� Template Manager", lambda: self._show_template_manager()),
+            ("�💾 Save Prompt", lambda: self._save_current_prompt()),
+            ("📂 Open Prompt", lambda: self._open_prompt_file()),
+            ("📤 Export All Data", lambda: self._export_data()),
+            ("📥 Import Data", lambda: self._import_data()),
+            ("📊 Show Analytics", lambda: self._show_analytics()),
+            ("⭐ Toggle Favorite", lambda: self._toggle_favorite()),
+            ("🏷️ Manage Tags", lambda: self._show_tag_manager()),
+            ("📝 Manage Snippets", lambda: self._show_snippet_manager()),
+            ("📜 Show History", lambda: self._show_history_view()),
+            ("⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
+            ("⚙️ Settings", lambda: self._show_settings()),
+            ("🌓 Toggle Theme", lambda: self._toggle_theme()),
+            ("🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
+            ("❌ Quit Application", lambda: self.root.quit()),
+        ]
+
     def _show_command_palette(self):
         """Show command palette for quick command execution."""
         try:
@@ -4799,32 +4832,7 @@ class PromptCompilerUI:
             commands_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
             # Define all available commands
-            all_commands = [
-                ("🚀 Generate Prompt", lambda: self._generate_prompt()),
-                ("🗑️ Clear Input", lambda: self._clear_input()),
-                ("📋 Copy System Prompt", lambda: self._copy_system_prompt()),
-                ("📋 Copy User Prompt", lambda: self._copy_user_prompt()),
-                ("📋 Copy Expanded Prompt", lambda: self._copy_expanded_prompt()),
-                ("📋 Copy JSON Schema", lambda: self._copy_schema()),
-                ("🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
-                ("🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
-                ("✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
-                ("� Template Manager", lambda: self._show_template_manager()),
-                ("�💾 Save Prompt", lambda: self._save_current_prompt()),
-                ("📂 Open Prompt", lambda: self._open_prompt_file()),
-                ("📤 Export All Data", lambda: self._export_data()),
-                ("📥 Import Data", lambda: self._import_data()),
-                ("📊 Show Analytics", lambda: self._show_analytics()),
-                ("⭐ Toggle Favorite", lambda: self._toggle_favorite()),
-                ("🏷️ Manage Tags", lambda: self._show_tag_manager()),
-                ("📝 Manage Snippets", lambda: self._show_snippet_manager()),
-                ("📜 Show History", lambda: self._show_history_view()),
-                ("⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
-                ("⚙️ Settings", lambda: self._show_settings()),
-                ("🌓 Toggle Theme", lambda: self._toggle_theme()),
-                ("🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
-                ("❌ Quit Application", lambda: self.root.quit()),
-            ]
+            all_commands = self._command_palette_entries()
 
             # Store filtered commands
             current_commands = []
