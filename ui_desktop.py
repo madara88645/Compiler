@@ -78,6 +78,7 @@ class PromptCompilerUI:
         self.favorites_path = Path.home() / ".promptc_favorites.json"
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
+        self.command_palette_favorites: set[str] = set()
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
@@ -1152,6 +1153,11 @@ class PromptCompilerUI:
                 data = json.loads(self.config_path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
+        favorites = data.get("command_palette_favorites", [])
+        try:
+            self.command_palette_favorites = {str(item) for item in favorites if item}
+        except Exception:
+            self.command_palette_favorites = set()
         # Theme
         theme = data.get("theme")
         if theme in ("light", "dark"):
@@ -1268,6 +1274,7 @@ class PromptCompilerUI:
                 "rag_method": self.rag_method,
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
+                "command_palette_favorites": sorted(self.command_palette_favorites),
             }
             self.config_path.write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -4666,6 +4673,21 @@ class PromptCompilerUI:
             ],
         }
 
+    def _is_command_palette_favorite(self, command_id: str) -> bool:
+        return command_id in self.command_palette_favorites
+
+    def _set_command_palette_favorite(self, command_id: str, value: bool) -> None:
+        if not command_id:
+            return
+        if value:
+            self.command_palette_favorites.add(command_id)
+        else:
+            self.command_palette_favorites.discard(command_id)
+        try:
+            self._save_settings()
+        except Exception:
+            pass
+
     def _show_keyboard_shortcuts(self):
         """Show keyboard shortcuts reference dialog."""
         try:
@@ -4754,33 +4776,37 @@ class PromptCompilerUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show keyboard shortcuts: {e}")
 
-    def _command_palette_entries(self) -> list[tuple[str, Callable[[], None]]]:
-        """Return list of command palette entries for reuse/testing."""
+    def _command_palette_entries(self) -> list[tuple[str, str, Callable[[], None]]]:
+        """Return (id, label, action) tuples for the command palette."""
         return [
-            ("🚀 Generate Prompt", lambda: self._generate_prompt()),
-            ("🗑️ Clear Input", lambda: self._clear_input()),
-            ("📋 Copy System Prompt", lambda: self._copy_system_prompt()),
-            ("📋 Copy User Prompt", lambda: self._copy_user_prompt()),
-            ("📋 Copy Expanded Prompt", lambda: self._copy_expanded_prompt()),
-            ("📋 Copy JSON Schema", lambda: self._copy_schema()),
-            ("🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
-            ("🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
-            ("✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
-            ("� Template Manager", lambda: self._show_template_manager()),
-            ("�💾 Save Prompt", lambda: self._save_current_prompt()),
-            ("📂 Open Prompt", lambda: self._open_prompt_file()),
-            ("📤 Export All Data", lambda: self._export_data()),
-            ("📥 Import Data", lambda: self._import_data()),
-            ("📊 Show Analytics", lambda: self._show_analytics()),
-            ("⭐ Toggle Favorite", lambda: self._toggle_favorite()),
-            ("🏷️ Manage Tags", lambda: self._show_tag_manager()),
-            ("📝 Manage Snippets", lambda: self._show_snippet_manager()),
-            ("📜 Show History", lambda: self._show_history_view()),
-            ("⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
-            ("⚙️ Settings", lambda: self._show_settings()),
-            ("🌓 Toggle Theme", lambda: self._toggle_theme()),
-            ("🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
-            ("❌ Quit Application", lambda: self.root.quit()),
+            ("generate_prompt", "🚀 Generate Prompt", lambda: self._generate_prompt()),
+            ("clear_input", "🗑️ Clear Input", lambda: self._clear_input()),
+            ("copy_system", "📋 Copy System Prompt", lambda: self._copy_system_prompt()),
+            ("copy_user", "📋 Copy User Prompt", lambda: self._copy_user_prompt()),
+            (
+                "copy_expanded",
+                "📋 Copy Expanded Prompt",
+                lambda: self._copy_expanded_prompt(),
+            ),
+            ("copy_schema", "📋 Copy JSON Schema", lambda: self._copy_schema()),
+            ("analyze_quality", "🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
+            ("auto_fix", "🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
+            ("apply_auto_fix", "✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
+            ("template_manager", "� Template Manager", lambda: self._show_template_manager()),
+            ("save_prompt", "�💾 Save Prompt", lambda: self._save_current_prompt()),
+            ("open_prompt", "📂 Open Prompt", lambda: self._open_prompt_file()),
+            ("export_data", "📤 Export All Data", lambda: self._export_data()),
+            ("import_data", "📥 Import Data", lambda: self._import_data()),
+            ("show_analytics", "📊 Show Analytics", lambda: self._show_analytics()),
+            ("toggle_favorite", "⭐ Toggle Favorite", lambda: self._toggle_favorite()),
+            ("manage_tags", "🏷️ Manage Tags", lambda: self._show_tag_manager()),
+            ("manage_snippets", "📝 Manage Snippets", lambda: self._show_snippet_manager()),
+            ("show_history", "📜 Show History", lambda: self._show_history_view()),
+            ("keyboard_shortcuts", "⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
+            ("settings", "⚙️ Settings", lambda: self._show_settings()),
+            ("toggle_theme", "🌓 Toggle Theme", lambda: self._toggle_theme()),
+            ("toggle_sidebar", "🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
+            ("quit", "❌ Quit Application", lambda: self.root.quit()),
         ]
 
     def _show_command_palette(self):
@@ -4810,6 +4836,15 @@ class PromptCompilerUI:
             search_entry = ttk.Entry(search_frame, textvariable=search_var, font=("", 11))
             search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
             search_entry.focus()
+
+            favorites_only_var = tk.BooleanVar(value=False)
+            favorites_toggle = ttk.Checkbutton(
+                search_frame,
+                text="⭐ Favorites",
+                variable=favorites_only_var,
+                command=lambda: update_command_list(search_var.get()),
+            )
+            favorites_toggle.pack(side=tk.RIGHT, padx=(8, 0))
 
             # Commands listbox
             list_frame = ttk.Frame(palette_window)
@@ -4843,15 +4878,23 @@ class PromptCompilerUI:
                 current_commands.clear()
 
                 search_lower = search_term.lower()
-                for label, action in all_commands:
-                    if search_lower in label.lower():
-                        commands_listbox.insert(tk.END, label)
-                        current_commands.append((label, action))
+                favorites_only = favorites_only_var.get()
+                for cmd_id, label, action in all_commands:
+                    if favorites_only and not self._is_command_palette_favorite(cmd_id):
+                        continue
+                    if search_lower not in label.lower():
+                        continue
+                    prefix = "★ " if self._is_command_palette_favorite(cmd_id) else "   "
+                    commands_listbox.insert(tk.END, f"{prefix}{label}")
+                    current_commands.append((cmd_id, label, action))
 
                 # Select first item if available
                 if commands_listbox.size() > 0:
                     commands_listbox.selection_set(0)
                     commands_listbox.activate(0)
+                    refresh_favorite_button()
+                else:
+                    refresh_favorite_button()
 
             def execute_selected_command():
                 """Execute the selected command and close palette."""
@@ -4859,12 +4902,35 @@ class PromptCompilerUI:
                 if selection:
                     idx = selection[0]
                     if idx < len(current_commands):
-                        _, action = current_commands[idx]
+                        _, _, action = current_commands[idx]
                         palette_window.destroy()
                         try:
                             action()
                         except Exception as e:
                             messagebox.showerror("Error", f"Failed to execute command: {e}")
+
+            def toggle_current_favorite():
+                selection = commands_listbox.curselection()
+                if not selection:
+                    return
+                idx = selection[0]
+                if idx >= len(current_commands):
+                    return
+                cmd_id, _label, _action = current_commands[idx]
+                is_fav = self._is_command_palette_favorite(cmd_id)
+                self._set_command_palette_favorite(cmd_id, not is_fav)
+                update_command_list(search_var.get())
+
+            def refresh_favorite_button():
+                selection = commands_listbox.curselection()
+                if not selection or selection[0] >= len(current_commands):
+                    fav_button.config(state=tk.DISABLED, text="☆ Add Favorite")
+                    return
+                cmd_id, _label, _action = current_commands[selection[0]]
+                if self._is_command_palette_favorite(cmd_id):
+                    fav_button.config(state=tk.NORMAL, text="★ Remove Favorite")
+                else:
+                    fav_button.config(state=tk.NORMAL, text="☆ Add Favorite")
 
             def on_search_changed(*args):
                 """Called when search text changes."""
@@ -4902,16 +4968,26 @@ class PromptCompilerUI:
 
             search_entry.bind("<Key>", on_key_press)
             commands_listbox.bind("<Double-Button-1>", lambda e: execute_selected_command())
+            commands_listbox.bind("<<ListboxSelect>>", lambda _e: refresh_favorite_button())
 
             # Footer info
             footer_frame = ttk.Frame(palette_window, padding=(10, 0, 10, 10))
             footer_frame.pack(fill=tk.X)
+
+            fav_button = ttk.Button(
+                footer_frame,
+                text="☆ Add Favorite",
+                command=toggle_current_favorite,
+                state=tk.DISABLED,
+            )
+            fav_button.pack(side=tk.LEFT)
+
             ttk.Label(
                 footer_frame,
-                text="↑↓ Navigate  •  Enter Execute  •  Esc Close",
+                text="↑↓ Navigate  •  Enter Execute  •  Esc Close  •  Favorites toggle available",
                 foreground="#666",
                 font=("", 9),
-            ).pack()
+            ).pack(side=tk.RIGHT)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show command palette: {e}")

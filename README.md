@@ -51,7 +51,19 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Tags & Snippets (new)**: Organize prompts with 8 color-coded tags (code, writing, analysis, debug, review, tutorial, test, docs), multi-tag filtering, reusable snippet library with CRUD operations, quick insert at cursor
 * **Desktop UI: Drag & Drop Files (new)**: Drop .txt/.md files into prompt/context areas with visual indicators, confirmation dialogs, and "📂 Load" buttons
 * **Desktop UI: Modern Theme (new)**: Emoji icons on buttons, JSON syntax highlighting, progress bar animation, and tooltips
+* **Desktop UI: Command Palette Favorites (new)**: Star frequently used palette actions, filter to favorites, and persist them per-user alongside other UI settings
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
+
+### Desktop UI Sneak Peeks (Nov 2025)
+
+![Token pack preview UI](docs/images/desktop_token_pack.png)
+*Token pack preview keeps an eye on character/token budgets and optionally compresses snippets before insertion.*
+
+![Command palette favorites](docs/images/desktop_palette_favorites.png)
+*Command palette favorites make your most common actions only a star-click away.*
+
+![Quality coach scores](docs/images/desktop_quality_scores.png)
+*Quality coach visualizes clarity/specificity/consistency so you can brag about prompt scores.*
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
 * **Multi-language emitters (TR/EN/ES)**: System/User/Plan/Expanded prompts render localized section labels for supported languages

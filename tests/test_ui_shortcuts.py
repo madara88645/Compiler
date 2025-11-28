@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import tkinter as tk
 
@@ -28,11 +29,14 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture
-def ui_app():
+def ui_app(tmp_path):
     """Create a UI instance for testing."""
     try:
         root = tk.Tk()
         app = PromptCompilerUI(root)
+        app.config_path = tmp_path / "promptc_ui.json"
+        app.command_palette_favorites = set()
+        app._save_settings()
         yield app
         try:
             root.destroy()
@@ -378,12 +382,12 @@ class TestShortcutDataModel:
 
     def test_command_palette_entries_unique_labels(self, ui_app):
         entries = ui_app._command_palette_entries()
-        labels = [label for label, _ in entries]
+        labels = [label for _cmd_id, label, _action in entries]
         assert len(labels) == len(set(labels))
 
     def test_command_palette_entries_cover_core_actions(self, ui_app):
         entries = ui_app._command_palette_entries()
-        labels = {label for label, _ in entries}
+        labels = {label for _cmd_id, label, _action in entries}
         required = {
             "🚀 Generate Prompt",
             "🗑️ Clear Input",
@@ -395,8 +399,23 @@ class TestShortcutDataModel:
 
     def test_command_palette_search_logic(self, ui_app):
         entries = ui_app._command_palette_entries()
-        filtered = [label for label, _ in entries if "copy" in label.lower()]
+        filtered = [label for _cmd_id, label, _action in entries if "copy" in label.lower()]
         assert len(filtered) >= 3
+
+    def test_command_palette_entries_have_unique_ids(self, ui_app):
+        entries = ui_app._command_palette_entries()
+        ids = [cmd_id for cmd_id, _label, _action in entries]
+        assert len(ids) == len(set(ids))
+
+    def test_command_palette_favorite_toggle_and_persist(self, ui_app):
+        entries = ui_app._command_palette_entries()
+        cmd_id = entries[0][0]
+        ui_app._set_command_palette_favorite(cmd_id, True)
+        assert ui_app._is_command_palette_favorite(cmd_id)
+        config_data = json.loads(ui_app.config_path.read_text(encoding="utf-8"))
+        assert cmd_id in config_data.get("command_palette_favorites", [])
+        ui_app._set_command_palette_favorite(cmd_id, False)
+        assert not ui_app._is_command_palette_favorite(cmd_id)
 
 
 @pytest.mark.skipif(
