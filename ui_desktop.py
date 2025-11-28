@@ -4789,7 +4789,11 @@ class PromptCompilerUI:
                 lambda: self._copy_expanded_prompt(),
             ),
             ("copy_schema", "📋 Copy JSON Schema", lambda: self._copy_schema()),
-            ("analyze_quality", "🧮 Analyze Prompt Quality", lambda: self._analyze_prompt_quality()),
+            (
+                "analyze_quality",
+                "🧮 Analyze Prompt Quality",
+                lambda: self._analyze_prompt_quality(),
+            ),
             ("auto_fix", "🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
             ("apply_auto_fix", "✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
             ("template_manager", "� Template Manager", lambda: self._show_template_manager()),
