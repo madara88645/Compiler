@@ -51,6 +51,7 @@ from app.rag.simple_index import search, search_embed, search_hybrid
 from app.context_presets import ContextPresetStore
 from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
+from app.command_palette import get_command_palette_commands, get_ui_config_path
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -73,7 +74,7 @@ class PromptCompilerUI:
         self.view_mode = "comfortable"  # compact, comfortable
 
         # Settings file (per-user)
-        self.config_path = Path.home() / ".promptc_ui.json"
+        self.config_path = get_ui_config_path()
         self.history_path = Path.home() / ".promptc_history.json"
         self.favorites_path = Path.home() / ".promptc_favorites.json"
         self.tags_path = Path.home() / ".promptc_tags.json"
@@ -4778,40 +4779,38 @@ class PromptCompilerUI:
 
     def _command_palette_entries(self) -> list[tuple[str, str, Callable[[], None]]]:
         """Return (id, label, action) tuples for the command palette."""
-        return [
-            ("generate_prompt", "🚀 Generate Prompt", lambda: self._generate_prompt()),
-            ("clear_input", "🗑️ Clear Input", lambda: self._clear_input()),
-            ("copy_system", "📋 Copy System Prompt", lambda: self._copy_system_prompt()),
-            ("copy_user", "📋 Copy User Prompt", lambda: self._copy_user_prompt()),
-            (
-                "copy_expanded",
-                "📋 Copy Expanded Prompt",
-                lambda: self._copy_expanded_prompt(),
-            ),
-            ("copy_schema", "📋 Copy JSON Schema", lambda: self._copy_schema()),
-            (
-                "analyze_quality",
-                "🧮 Analyze Prompt Quality",
-                lambda: self._analyze_prompt_quality(),
-            ),
-            ("auto_fix", "🪄 Auto-Fix Prompt", lambda: self._auto_fix_prompt_quality()),
-            ("apply_auto_fix", "✅ Apply Auto-Fix", lambda: self._apply_auto_fix()),
-            ("template_manager", "� Template Manager", lambda: self._show_template_manager()),
-            ("save_prompt", "�💾 Save Prompt", lambda: self._save_current_prompt()),
-            ("open_prompt", "📂 Open Prompt", lambda: self._open_prompt_file()),
-            ("export_data", "📤 Export All Data", lambda: self._export_data()),
-            ("import_data", "📥 Import Data", lambda: self._import_data()),
-            ("show_analytics", "📊 Show Analytics", lambda: self._show_analytics()),
-            ("toggle_favorite", "⭐ Toggle Favorite", lambda: self._toggle_favorite()),
-            ("manage_tags", "🏷️ Manage Tags", lambda: self._show_tag_manager()),
-            ("manage_snippets", "📝 Manage Snippets", lambda: self._show_snippet_manager()),
-            ("show_history", "📜 Show History", lambda: self._show_history_view()),
-            ("keyboard_shortcuts", "⌨️ Keyboard Shortcuts", lambda: self._show_keyboard_shortcuts()),
-            ("settings", "⚙️ Settings", lambda: self._show_settings()),
-            ("toggle_theme", "🌓 Toggle Theme", lambda: self._toggle_theme()),
-            ("toggle_sidebar", "🔄 Toggle Sidebar", lambda: self._toggle_sidebar()),
-            ("quit", "❌ Quit Application", lambda: self.root.quit()),
-        ]
+        action_map: dict[str, Callable[[], None]] = {
+            "generate_prompt": lambda: self._generate_prompt(),
+            "clear_input": lambda: self._clear_input(),
+            "copy_system": lambda: self._copy_system_prompt(),
+            "copy_user": lambda: self._copy_user_prompt(),
+            "copy_expanded": lambda: self._copy_expanded_prompt(),
+            "copy_schema": lambda: self._copy_schema(),
+            "analyze_quality": lambda: self._analyze_prompt_quality(),
+            "auto_fix": lambda: self._auto_fix_prompt_quality(),
+            "apply_auto_fix": lambda: self._apply_auto_fix(),
+            "template_manager": lambda: self._show_template_manager(),
+            "save_prompt": lambda: self._save_current_prompt(),
+            "open_prompt": lambda: self._open_prompt_file(),
+            "export_data": lambda: self._export_data(),
+            "import_data": lambda: self._import_data(),
+            "show_analytics": lambda: self._show_analytics(),
+            "toggle_favorite": lambda: self._toggle_favorite(),
+            "manage_tags": lambda: self._show_tag_manager(),
+            "manage_snippets": lambda: self._show_snippet_manager(),
+            "show_history": lambda: self._show_history_view(),
+            "keyboard_shortcuts": lambda: self._show_keyboard_shortcuts(),
+            "settings": lambda: self._show_settings(),
+            "toggle_theme": lambda: self._toggle_theme(),
+            "toggle_sidebar": lambda: self._toggle_sidebar(),
+            "quit": lambda: self.root.quit(),
+        }
+        entries: list[tuple[str, str, Callable[[], None]]] = []
+        for command in get_command_palette_commands():
+            action = action_map.get(command.id)
+            if action:
+                entries.append((command.id, command.label, action))
+        return entries
 
     def _show_command_palette(self):
         """Show command palette for quick command execution."""

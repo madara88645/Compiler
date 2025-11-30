@@ -29,6 +29,8 @@ All notable changes to this project will be documented in this file.
   - Tests for dialog opening, command execution, clipboard operations
   - Integration tests for sidebar, theme, and export/import
   - Edge case handling for empty content and repeated operations
+- **CLI Command Palette Favorites**: `promptc palette commands|favorites` lets the CLI inspect and edit the same starred actions as the desktop UI. Honors the shared `PROMPTC_UI_CONFIG` override for sandboxed settings.
+- **Shared Palette Metadata (`app/command_palette.py`)**: Single source of truth for command IDs, labels, and config-file path; both UI and CLI now derive entries from this module.
 
 ### Changed
 - Removed conflicting Ctrl+F binding (was used for find, now for favorites)

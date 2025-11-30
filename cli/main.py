@@ -57,6 +57,13 @@ from app.rag.simple_index import (
     prune as rag_prune_fn,
     DEFAULT_DB_PATH,
 )
+from app.command_palette import (
+    get_command_palette_commands,
+    get_command_palette_command_map,
+    get_saved_palette_favorites,
+    get_ui_config_path,
+    persist_palette_favorites,
+)
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
@@ -68,6 +75,7 @@ export_app = typer.Typer(help="Export and import data")
 favorites_app = typer.Typer(help="Favorite prompts and bookmarks")
 snippets_app = typer.Typer(help="Quick reusable prompt snippets")
 collections_app = typer.Typer(help="Collections/workspaces for organizing prompts")
+palette_app = typer.Typer(help="Command palette favorites and metadata")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
@@ -77,6 +85,7 @@ app.add_typer(export_app, name="export")
 app.add_typer(favorites_app, name="favorites")
 app.add_typer(snippets_app, name="snippets")
 app.add_typer(collections_app, name="collections")
+app.add_typer(palette_app, name="palette")
 
 
 @app.command("edit")
@@ -4513,6 +4522,117 @@ def favorites_clear(force: bool = typer.Option(False, "--force", help="Skip conf
     favorites_mgr.clear()
 
     console.print("[green]✓ All favorites cleared[/green]")
+
+
+# ============================================================
+# COMMAND PALETTE HELPERS
+# ============================================================
+
+
+@palette_app.command("commands")
+def palette_list_commands(json_output: bool = typer.Option(False, "--json", help="Output as JSON")):
+    """List available command palette entries and show favorite status."""
+
+    commands = get_command_palette_commands()
+    favorites = get_saved_palette_favorites()
+
+    if json_output:
+        payload = [
+            {"id": cmd.id, "label": cmd.label, "favorite": cmd.id in favorites}
+            for cmd in commands
+        ]
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    typer.echo("Command Palette Entries:\n")
+    for cmd in commands:
+        star = "⭐" if cmd.id in favorites else "  "
+        typer.echo(f" {star} {cmd.id:<20} {cmd.label}")
+    typer.echo(f"\nConfig file: {get_ui_config_path()}")
+
+
+@palette_app.command("favorites")
+def palette_manage_favorites(
+    add: Optional[List[str]] = typer.Option(
+        None, "--add", "-a", help="Command ID to add to favorites (repeatable)"
+    ),
+    remove: Optional[List[str]] = typer.Option(
+        None, "--remove", "-r", help="Command ID to remove (repeatable)"
+    ),
+    clear: bool = typer.Option(False, "--clear", help="Remove all favorites"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """View or update command palette favorites stored in the desktop UI config."""
+
+    command_map = get_command_palette_command_map()
+    catalog = get_command_palette_commands()
+    order_index = {cmd.id: idx for idx, cmd in enumerate(catalog)}
+    favorites = get_saved_palette_favorites()
+    changed = False
+
+    def ensure_command(cmd_id: str) -> None:
+        if cmd_id not in command_map:
+            typer.secho(
+                f"Unknown command id '{cmd_id}'. Run 'promptc palette commands' to inspect valid IDs.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+    if clear and favorites:
+        favorites.clear()
+        changed = True
+
+    for cmd_id in add or []:
+        ensure_command(cmd_id)
+        if cmd_id not in favorites:
+            favorites.add(cmd_id)
+            changed = True
+
+    for cmd_id in remove or []:
+        if cmd_id not in command_map:
+            typer.secho(
+                f"Unknown command id '{cmd_id}' ignored.", fg=typer.colors.YELLOW, err=True
+            )
+            continue
+        if cmd_id in favorites:
+            favorites.remove(cmd_id)
+            changed = True
+
+    valid_favorites = {cid for cid in favorites if cid in command_map}
+    stale_ids = sorted(cid for cid in favorites if cid not in command_map)
+
+    if changed:
+        persist_palette_favorites(valid_favorites)
+
+    ordered_commands = [
+        command_map[cid]
+        for cid in sorted(valid_favorites, key=lambda c: order_index.get(c, len(order_index)))
+    ]
+
+    if json_output:
+        payload = {
+            "favorites": [{"id": cmd.id, "label": cmd.label} for cmd in ordered_commands],
+            "config_path": str(get_ui_config_path()),
+            "changed": changed,
+        }
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if ordered_commands:
+        typer.echo("⭐ Command Palette Favorites:\n")
+        for cmd in ordered_commands:
+            typer.echo(f" - {cmd.label} ({cmd.id})")
+    else:
+        typer.echo("No command palette favorites saved.")
+
+    typer.echo(f"Config file: {get_ui_config_path()}")
+    if stale_ids:
+        typer.echo(
+            "Stale IDs without matching commands: " + ", ".join(stale_ids)
+        )
+    if changed:
+        typer.echo("Changes saved.")
 
 
 # ============================================================

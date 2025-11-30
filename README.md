@@ -52,6 +52,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Drag & Drop Files (new)**: Drop .txt/.md files into prompt/context areas with visual indicators, confirmation dialogs, and "📂 Load" buttons
 * **Desktop UI: Modern Theme (new)**: Emoji icons on buttons, JSON syntax highlighting, progress bar animation, and tooltips
 * **Desktop UI: Command Palette Favorites (new)**: Star frequently used palette actions, filter to favorites, and persist them per-user alongside other UI settings
+* **CLI: Palette Favorites (new)**: Manage command palette favorites from the CLI with `promptc palette commands` and `promptc palette favorites`; shared storage with desktop UI via `~/.promptc_ui.json` (override with `PROMPTC_UI_CONFIG` env var)
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
@@ -1363,6 +1364,25 @@ promptc json-path .\outputs\file.json metadata.missing --default "n/a"
 promptc json-path .\outputs\file.json steps[0]          # list index access
 promptc json-path .\outputs\file.json metadata.domain_candidates[1]
 promptc json-path .\outputs\file.json steps[0] --type   # prints the JSON type
+
+##### Command palette favorites (CLI)
+
+Command palette favorites are stored in the same per-user config file as the desktop UI
+(`~/.promptc_ui.json`). Manage or inspect them without launching the GUI:
+
+```powershell
+promptc palette commands                       # list all palette entries (⭐ indicates favorite)
+promptc palette favorites                      # list saved favorites
+promptc palette favorites --add generate_prompt --add auto_fix
+promptc palette favorites --remove auto_fix
+promptc palette favorites --json               # machine-readable output (includes config path)
+
+# Override the config path (useful for CI/tests)
+$env:PROMPTC_UI_CONFIG = "$env:TEMP\promptc_ui.json"; promptc palette favorites --json
+```
+
+`PROMPTC_UI_CONFIG` overrides the config location on every platform; the desktop UI also
+honors this variable, so you can keep sandboxed settings for automated workflows.
 ```
 
 Batch concurrency output example:
