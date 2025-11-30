@@ -4538,8 +4538,7 @@ def palette_list_commands(json_output: bool = typer.Option(False, "--json", help
 
     if json_output:
         payload = [
-            {"id": cmd.id, "label": cmd.label, "favorite": cmd.id in favorites}
-            for cmd in commands
+            {"id": cmd.id, "label": cmd.label, "favorite": cmd.id in favorites} for cmd in commands
         ]
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -4591,9 +4590,7 @@ def palette_manage_favorites(
 
     for cmd_id in remove or []:
         if cmd_id not in command_map:
-            typer.secho(
-                f"Unknown command id '{cmd_id}' ignored.", fg=typer.colors.YELLOW, err=True
-            )
+            typer.secho(f"Unknown command id '{cmd_id}' ignored.", fg=typer.colors.YELLOW, err=True)
             continue
         if cmd_id in favorites:
             favorites.remove(cmd_id)
@@ -4628,9 +4625,7 @@ def palette_manage_favorites(
 
     typer.echo(f"Config file: {get_ui_config_path()}")
     if stale_ids:
-        typer.echo(
-            "Stale IDs without matching commands: " + ", ".join(stale_ids)
-        )
+        typer.echo("Stale IDs without matching commands: " + ", ".join(stale_ids))
     if changed:
         typer.echo("Changes saved.")
 

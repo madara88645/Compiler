@@ -25,7 +25,7 @@ def run_cli(args, cwd: Path, env: dict[str, str] | None = None):
 def test_json_path_and_diff(tmp_path: Path):
     # generate two IR files via CLI root command (json-only)
     code, out1, err = run_cli(["compile", "--json-only", "teach me gradient descent"], Path.cwd())
-    assert code == 0, f"stdout={out}\nstderr={err}"
+    assert code == 0, f"stdout={out1}\nstderr={err}"
     data1 = json.loads(out1)
     p1 = tmp_path / "a.json"
     p1.write_text(json.dumps(data1), encoding="utf-8")
@@ -33,14 +33,14 @@ def test_json_path_and_diff(tmp_path: Path):
     code, out2, err = run_cli(
         ["compile", "--json-only", "teach me gradient descent in 10 minutes"], Path.cwd()
     )
-    assert code == 0, f"stdout={out}\nstderr={err}"
+    assert code == 0, f"stdout={out2}\nstderr={err}"
     data2 = json.loads(out2)
     p2 = tmp_path / "b.json"
     p2.write_text(json.dumps(data2), encoding="utf-8")
 
     # json-path should extract a field
     code, jp_out, _ = run_cli(["json-path", str(p1), "language"], Path.cwd())
-    assert code == 0, f"stdout={out}\nstderr={err}"
+    assert code == 0, f"stdout={jp_out}"
     assert json.loads(jp_out) in ("en", "tr", "es")
 
     # diff should show something (or no differences if heuristics match exactly)
