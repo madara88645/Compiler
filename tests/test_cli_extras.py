@@ -116,3 +116,31 @@ def test_palette_favorites_cli(tmp_path: Path):
     commands = json.loads(out)
     entry = next(cmd for cmd in commands if cmd["id"] == "generate_prompt")
     assert entry["favorite"] is True
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--clear", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["favorites"] == []
+    assert payload["cleared_any"] is True
+
+    code, out, err = run_cli(
+        ["palette", "commands", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    commands = json.loads(out)
+    entry = next(cmd for cmd in commands if cmd["id"] == "generate_prompt")
+    assert entry["favorite"] is False
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--clear"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 1
+    assert "No favorites to clear." in out

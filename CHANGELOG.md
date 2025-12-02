@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - Commented out Ctrl+S conflict (now handled by new shortcuts system)
 - All keyboard shortcuts now bound through centralized `_bind_keyboard_shortcuts()` method
 - Command palette integrates with all existing features
+- CLI `promptc palette favorites --clear` now reports when nothing was removed and exits with status 1 for easier scripting
 - Version updated to 2.0.45
 
 ### Fixed

@@ -4568,6 +4568,9 @@ def palette_manage_favorites(
     order_index = {cmd.id: idx for idx, cmd in enumerate(catalog)}
     favorites = get_saved_palette_favorites()
     changed = False
+    clear_requested = bool(clear)
+    has_other_ops = bool(add or remove)
+    cleared_any = False
 
     def ensure_command(cmd_id: str) -> None:
         if cmd_id not in command_map:
@@ -4578,9 +4581,13 @@ def palette_manage_favorites(
             )
             raise typer.Exit(code=1)
 
-    if clear and favorites:
-        favorites.clear()
-        changed = True
+    if clear_requested:
+        if favorites:
+            favorites.clear()
+            changed = True
+            cleared_any = True
+        else:
+            cleared_any = False
 
     for cmd_id in add or []:
         ensure_command(cmd_id)
@@ -4607,14 +4614,23 @@ def palette_manage_favorites(
         for cid in sorted(valid_favorites, key=lambda c: order_index.get(c, len(order_index)))
     ]
 
+    clear_only_no_effect = clear_requested and not has_other_ops and not cleared_any
+
     if json_output:
         payload = {
             "favorites": [{"id": cmd.id, "label": cmd.label} for cmd in ordered_commands],
             "config_path": str(get_ui_config_path()),
             "changed": changed,
+            "cleared_any": cleared_any,
         }
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        if clear_only_no_effect:
+            raise typer.Exit(code=1)
         return
+
+    if clear_only_no_effect:
+        typer.echo("No favorites to clear.")
+        raise typer.Exit(code=1)
 
     if ordered_commands:
         typer.echo("⭐ Command Palette Favorites:\n")
