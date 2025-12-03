@@ -53,6 +53,7 @@ Compile messy natural language prompts (Turkish / English / Spanish) into a stru
 * **Desktop UI: Modern Theme (new)**: Emoji icons on buttons, JSON syntax highlighting, progress bar animation, and tooltips
 * **Desktop UI: Command Palette Favorites (new)**: Star frequently used palette actions, filter to favorites, and persist them per-user alongside other UI settings
 * **CLI: Palette Favorites (new)**: Manage command palette favorites from the CLI with `promptc palette commands` and `promptc palette favorites`; shared storage with desktop UI via `~/.promptc_ui.json` (override with `PROMPTC_UI_CONFIG` env var)
+* **Desktop UI: Prompt Quality Coach (new)**: Analyze any prompt with an overall quality score, detailed sub-scores (clarity/specificity/completeness/consistency), issue list with suggestions, and one-click auto-fix/apply preview — fully local, no API calls
 * **Version Endpoint & CLI**: `/version` API route and `promptc version` command for build visibility
 * **Heuristic Version & IR Hash**: Each IR adds `metadata.heuristic_version` and short `metadata.ir_signature`
 * **IR v2 (default)**: Rich IR with constraint objects (id/origin/priority), explicit intents, typed steps. CLI defaults to v2 JSON; use `--v1` for legacy. To render prompts using IR v2 emitters, add `--render-v2`. API includes `ir_v2` by default; send `{ "v2": false }` to get only v1.
