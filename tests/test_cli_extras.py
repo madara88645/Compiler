@@ -126,6 +126,8 @@ def test_palette_favorites_cli(tmp_path: Path):
     payload = json.loads(out)
     assert payload["favorites"] == []
     assert payload["cleared_any"] is True
+    backup_candidates = list(tmp_path.glob("promptc_ui.json.*.bak"))
+    assert backup_candidates, "clearing existing favorites should create a backup"
 
     code, out, err = run_cli(
         ["palette", "commands", "--json"],
@@ -144,3 +146,48 @@ def test_palette_favorites_cli(tmp_path: Path):
     )
     assert code == 1
     assert "No favorites to clear." in out
+
+    export_path = tmp_path / "palette_export.json"
+    code, out, err = run_cli(
+        [
+            "palette",
+            "favorites",
+            "--add",
+            "save_prompt",
+            "--export",
+            str(export_path),
+            "--json",
+        ],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["favorites"] == [{"id": "save_prompt", "label": "💾 Save Prompt"}]
+    assert payload["export_path"] == str(export_path)
+    export_data = json.loads(export_path.read_text(encoding="utf-8"))
+    assert export_data["favorites"] == ["save_prompt"]
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--clear", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+
+    code, out, err = run_cli(
+        [
+            "palette",
+            "favorites",
+            "--import-from",
+            str(export_path),
+            "--replace",
+            "--json",
+        ],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["favorites"] == [{"id": "save_prompt", "label": "💾 Save Prompt"}]
+    assert payload["import_source"] == str(export_path)

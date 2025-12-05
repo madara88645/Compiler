@@ -62,6 +62,9 @@ from app.command_palette import (
     get_command_palette_command_map,
     get_saved_palette_favorites,
     get_ui_config_path,
+    backup_ui_config,
+    export_palette_favorites,
+    load_exported_palette_favorites,
     persist_palette_favorites,
 )
 
@@ -4559,6 +4562,21 @@ def palette_manage_favorites(
         None, "--remove", "-r", help="Command ID to remove (repeatable)"
     ),
     clear: bool = typer.Option(False, "--clear", help="Remove all favorites"),
+    export_path: Optional[Path] = typer.Option(
+        None,
+        "--export",
+        help="Write current favorites to a JSON file (creates directories as needed)",
+    ),
+    import_path: Optional[Path] = typer.Option(
+        None,
+        "--import-from",
+        help="Read favorites from a JSON export file",
+    ),
+    replace_import: bool = typer.Option(
+        False,
+        "--replace",
+        help="Replace existing favorites when importing instead of merging",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """View or update command palette favorites stored in the desktop UI config."""
@@ -4566,11 +4584,16 @@ def palette_manage_favorites(
     command_map = get_command_palette_command_map()
     catalog = get_command_palette_commands()
     order_index = {cmd.id: idx for idx, cmd in enumerate(catalog)}
-    favorites = get_saved_palette_favorites()
-    changed = False
+    favorites = set(get_saved_palette_favorites())
+    original_valid = {cid for cid in favorites if cid in command_map}
     clear_requested = bool(clear)
-    has_other_ops = bool(add or remove)
+    has_other_ops = bool(add or remove or import_path)
     cleared_any = False
+    backup_path: Path | None = None
+    export_result_path: Path | None = None
+    import_ids: list[str] = []
+    import_source: Path | None = None
+    import_applied = False
 
     def ensure_command(cmd_id: str) -> None:
         if cmd_id not in command_map:
@@ -4584,16 +4607,37 @@ def palette_manage_favorites(
     if clear_requested:
         if favorites:
             favorites.clear()
-            changed = True
             cleared_any = True
         else:
             cleared_any = False
+
+    if import_path:
+        import_source = import_path
+        try:
+            import_ids = load_exported_palette_favorites(import_path)
+        except (OSError, ValueError) as exc:
+            typer.secho(f"Failed to import favorites: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
+        if replace_import:
+            favorites.clear()
+
+        for cmd_id in import_ids:
+            if cmd_id not in command_map:
+                typer.secho(
+                    f"Ignoring unknown command id '{cmd_id}' from import.",
+                    fg=typer.colors.YELLOW,
+                    err=True,
+                )
+                continue
+            if cmd_id not in favorites:
+                favorites.add(cmd_id)
+                import_applied = True
 
     for cmd_id in add or []:
         ensure_command(cmd_id)
         if cmd_id not in favorites:
             favorites.add(cmd_id)
-            changed = True
 
     for cmd_id in remove or []:
         if cmd_id not in command_map:
@@ -4601,12 +4645,15 @@ def palette_manage_favorites(
             continue
         if cmd_id in favorites:
             favorites.remove(cmd_id)
-            changed = True
 
     valid_favorites = {cid for cid in favorites if cid in command_map}
     stale_ids = sorted(cid for cid in favorites if cid not in command_map)
+    original_valid_sorted = sorted(original_valid, key=lambda c: c)
+    new_valid_sorted = sorted(valid_favorites, key=lambda c: c)
+    changed = original_valid_sorted != new_valid_sorted
 
     if changed:
+        backup_path = backup_ui_config()
         persist_palette_favorites(valid_favorites)
 
     ordered_commands = [
@@ -4616,12 +4663,25 @@ def palette_manage_favorites(
 
     clear_only_no_effect = clear_requested and not has_other_ops and not cleared_any
 
+    if export_path:
+        try:
+            export_palette_favorites(export_path, [cmd.id for cmd in ordered_commands])
+            export_result_path = export_path
+        except OSError as exc:
+            typer.secho(f"Failed to export favorites: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
     if json_output:
         payload = {
             "favorites": [{"id": cmd.id, "label": cmd.label} for cmd in ordered_commands],
             "config_path": str(get_ui_config_path()),
             "changed": changed,
             "cleared_any": cleared_any,
+            "backup_path": str(backup_path) if backup_path else None,
+            "export_path": str(export_result_path) if export_result_path else None,
+            "import_source": str(import_source) if import_source else None,
+            "imported_ids": import_ids,
+            "import_replaced": replace_import,
         }
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         if clear_only_no_effect:
@@ -4644,6 +4704,13 @@ def palette_manage_favorites(
         typer.echo("Stale IDs without matching commands: " + ", ".join(stale_ids))
     if changed:
         typer.echo("Changes saved.")
+        if backup_path:
+            typer.echo(f"Backup saved to: {backup_path}")
+    if import_source:
+        status = "applied" if import_applied else "skipped"
+        typer.echo(f"Import {status} from: {import_source}")
+    if export_result_path:
+        typer.echo(f"Favorites exported to: {export_result_path}")
 
 
 # ============================================================

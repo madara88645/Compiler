@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, List
 
 CONFIG_ENV_VAR = "PROMPTC_UI_CONFIG"
 DEFAULT_CONFIG_FILENAME = ".promptc_ui.json"
+EXPORT_SCHEMA_VERSION = 1
+MAX_CONFIG_BACKUPS = 5
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,64 @@ def persist_palette_favorites(
     favorites: Iterable[str], base_config: dict[str, Any] | None = None
 ) -> None:
     config = dict(base_config) if base_config is not None else load_ui_config()
-    normalized = sorted({str(item) for item in favorites if item})
+    normalized = sorted(set(normalize_favorite_ids(favorites)))
     config["command_palette_favorites"] = normalized
     save_ui_config(config)
+
+
+def normalize_favorite_ids(values: Iterable[Any]) -> List[str]:
+    normalized: List[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def backup_ui_config(max_backups: int = MAX_CONFIG_BACKUPS) -> Path | None:
+    path = get_ui_config_path()
+    if not path.exists():
+        return None
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    backup_path = path.with_name(f"{path.name}.{timestamp}.bak")
+    shutil.copy2(path, backup_path)
+
+    backups = sorted(
+        path.parent.glob(f"{path.name}.*.bak"),
+        key=lambda candidate: candidate.stat().st_mtime,
+        reverse=True,
+    )
+    for stale in backups[max_backups:]:
+        try:
+            stale.unlink()
+        except FileNotFoundError:
+            continue
+    return backup_path
+
+
+def export_palette_favorites(path: Path, favorites: Iterable[str]) -> dict[str, Any]:
+    payload = {
+        "version": EXPORT_SCHEMA_VERSION,
+        "favorites": normalize_favorite_ids(favorites),
+        "exported_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "source_config": str(get_ui_config_path()),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def load_exported_palette_favorites(path: Path) -> List[str]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, dict):
+        raw_values = data.get("favorites", [])
+    elif isinstance(data, list):
+        raw_values = data
+    else:
+        raise ValueError("Export must be a list or a dict with a 'favorites' key.")
+
+    if not isinstance(raw_values, list):
+        raise ValueError("'favorites' must be a list of command ids.")
+
+    return normalize_favorite_ids(raw_values)
