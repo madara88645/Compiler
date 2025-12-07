@@ -51,7 +51,12 @@ from app.rag.simple_index import search, search_embed, search_hybrid
 from app.context_presets import ContextPresetStore
 from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
-from app.command_palette import get_command_palette_commands, get_ui_config_path
+from app.command_palette import (
+    get_command_palette_commands,
+    get_saved_palette_favorites_list,
+    get_ui_config_path,
+    persist_palette_favorites,
+)
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -79,7 +84,7 @@ class PromptCompilerUI:
         self.favorites_path = Path.home() / ".promptc_favorites.json"
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
-        self.command_palette_favorites: set[str] = set()
+        self.command_palette_favorites: list[str] = []
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
@@ -1154,11 +1159,10 @@ class PromptCompilerUI:
                 data = json.loads(self.config_path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
-        favorites = data.get("command_palette_favorites", [])
         try:
-            self.command_palette_favorites = {str(item) for item in favorites if item}
+            self.command_palette_favorites = get_saved_palette_favorites_list(data)
         except Exception:
-            self.command_palette_favorites = set()
+            self.command_palette_favorites = []
         # Theme
         theme = data.get("theme")
         if theme in ("light", "dark"):
@@ -1275,11 +1279,9 @@ class PromptCompilerUI:
                 "rag_method": self.rag_method,
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
-                "command_palette_favorites": sorted(self.command_palette_favorites),
+                "command_palette_favorites": list(self.command_palette_favorites),
             }
-            self.config_path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            persist_palette_favorites(self.command_palette_favorites, base_config=payload)
         except Exception:
             pass
 
@@ -4674,20 +4676,58 @@ class PromptCompilerUI:
             ],
         }
 
+    def _command_palette_favorite_set(self) -> set[str]:
+        return set(self.command_palette_favorites)
+
     def _is_command_palette_favorite(self, command_id: str) -> bool:
-        return command_id in self.command_palette_favorites
+        return command_id in self._command_palette_favorite_set()
 
     def _set_command_palette_favorite(self, command_id: str, value: bool) -> None:
         if not command_id:
             return
+        favorites_set = self._command_palette_favorite_set()
         if value:
-            self.command_palette_favorites.add(command_id)
+            if command_id not in favorites_set:
+                self.command_palette_favorites.append(command_id)
         else:
-            self.command_palette_favorites.discard(command_id)
+            try:
+                self.command_palette_favorites.remove(command_id)
+            except ValueError:
+                pass
         try:
             self._save_settings()
         except Exception:
             pass
+
+    def _move_command_palette_favorite(self, command_id: str, direction: int) -> None:
+        if not command_id or direction == 0:
+            return
+        try:
+            idx = self.command_palette_favorites.index(command_id)
+        except ValueError:
+            return
+        new_idx = max(0, min(len(self.command_palette_favorites) - 1, idx + direction))
+        if new_idx == idx:
+            return
+        self.command_palette_favorites[idx], self.command_palette_favorites[new_idx] = (
+            self.command_palette_favorites[new_idx],
+            self.command_palette_favorites[idx],
+        )
+        try:
+            self._save_settings()
+        except Exception:
+            pass
+
+    def _prune_stale_command_palette_favorites(self, valid_ids: set[str]) -> int:
+        before = len(self.command_palette_favorites)
+        self.command_palette_favorites = [cid for cid in self.command_palette_favorites if cid in valid_ids]
+        removed = before - len(self.command_palette_favorites)
+        if removed:
+            try:
+                self._save_settings()
+            except Exception:
+                pass
+        return removed
 
     def _show_keyboard_shortcuts(self):
         """Show keyboard shortcuts reference dialog."""
@@ -4871,6 +4911,23 @@ class PromptCompilerUI:
 
             # Define all available commands
             all_commands = self._command_palette_entries()
+            all_command_ids = {cid for cid, _label, _action in all_commands}
+
+            stale_ids = [cid for cid in self.command_palette_favorites if cid not in all_command_ids]
+
+            if stale_ids:
+                warning_frame = ttk.Frame(palette_window, padding=(10, 2))
+                warning_frame.pack(fill=tk.X)
+                ttk.Label(
+                    warning_frame,
+                    text="Some favorites refer to commands that no longer exist.",
+                    foreground="#b45309",
+                ).pack(side=tk.LEFT, padx=(0, 8))
+                ttk.Button(
+                    warning_frame,
+                    text="🧹 Clean stale",
+                    command=lambda: prune_stale_and_refresh(),
+                ).pack(side=tk.LEFT)
 
             # Store filtered commands
             current_commands = []
@@ -4928,12 +4985,18 @@ class PromptCompilerUI:
                 selection = commands_listbox.curselection()
                 if not selection or selection[0] >= len(current_commands):
                     fav_button.config(state=tk.DISABLED, text="☆ Add Favorite")
+                    move_up_button.config(state=tk.DISABLED)
+                    move_down_button.config(state=tk.DISABLED)
                     return
                 cmd_id, _label, _action = current_commands[selection[0]]
                 if self._is_command_palette_favorite(cmd_id):
                     fav_button.config(state=tk.NORMAL, text="★ Remove Favorite")
+                    move_up_button.config(state=tk.NORMAL)
+                    move_down_button.config(state=tk.NORMAL)
                 else:
                     fav_button.config(state=tk.NORMAL, text="☆ Add Favorite")
+                    move_up_button.config(state=tk.DISABLED)
+                    move_down_button.config(state=tk.DISABLED)
 
             def on_search_changed(*args):
                 """Called when search text changes."""
@@ -4982,8 +5045,27 @@ class PromptCompilerUI:
                 text="☆ Add Favorite",
                 command=toggle_current_favorite,
                 state=tk.DISABLED,
+                width=14,
             )
             fav_button.pack(side=tk.LEFT)
+
+            move_up_button = ttk.Button(
+                footer_frame,
+                text="↑ Move Up",
+                command=lambda: move_selected_favorite(-1),
+                state=tk.DISABLED,
+                width=10,
+            )
+            move_up_button.pack(side=tk.LEFT, padx=(6, 0))
+
+            move_down_button = ttk.Button(
+                footer_frame,
+                text="↓ Move Down",
+                command=lambda: move_selected_favorite(1),
+                state=tk.DISABLED,
+                width=10,
+            )
+            move_down_button.pack(side=tk.LEFT, padx=(4, 0))
 
             ttk.Label(
                 footer_frame,
@@ -4991,6 +5073,36 @@ class PromptCompilerUI:
                 foreground="#666",
                 font=("", 9),
             ).pack(side=tk.RIGHT)
+
+            def prune_stale_and_refresh():
+                removed = self._prune_stale_command_palette_favorites(all_command_ids)
+                update_command_list(search_var.get())
+                if removed:
+                    self.status_var.set(f"🧹 Removed {removed} stale favorites")
+                else:
+                    self.status_var.set("No stale favorites to remove")
+
+            def move_selected_favorite(delta: int):
+                selection = commands_listbox.curselection()
+                if not selection:
+                    return
+                idx = selection[0]
+                if idx >= len(current_commands):
+                    return
+                cmd_id, _label, _action = current_commands[idx]
+                if not self._is_command_palette_favorite(cmd_id):
+                    return
+                self._move_command_palette_favorite(cmd_id, delta)
+                update_command_list(search_var.get())
+                # re-select the moved command
+                for i, (cid, _lbl, _act) in enumerate(current_commands):
+                    if cid == cmd_id:
+                        commands_listbox.selection_clear(0, tk.END)
+                        commands_listbox.selection_set(i)
+                        commands_listbox.activate(i)
+                        commands_listbox.see(i)
+                        break
+                refresh_favorite_button()
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show command palette: {e}")

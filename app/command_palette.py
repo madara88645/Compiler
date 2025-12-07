@@ -83,17 +83,35 @@ def save_ui_config(payload: dict[str, Any]) -> None:  # pragma: no cover - thin 
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def get_saved_palette_favorites(config: dict[str, Any] | None = None) -> set[str]:
+def _dedupe_preserve_order(values: List[str]) -> List[str]:
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for item in values:
+        if item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def get_saved_palette_favorites_list(config: dict[str, Any] | None = None) -> List[str]:
     data = config if config is not None else load_ui_config()
     favorites = data.get("command_palette_favorites") or []
-    return {str(item) for item in favorites if item}
+    if not isinstance(favorites, list):
+        return []
+    normalized = normalize_favorite_ids(favorites)
+    return _dedupe_preserve_order(normalized)
+
+
+def get_saved_palette_favorites(config: dict[str, Any] | None = None) -> set[str]:
+    return set(get_saved_palette_favorites_list(config))
 
 
 def persist_palette_favorites(
     favorites: Iterable[str], base_config: dict[str, Any] | None = None
 ) -> None:
     config = dict(base_config) if base_config is not None else load_ui_config()
-    normalized = sorted(set(normalize_favorite_ids(favorites)))
+    normalized = _dedupe_preserve_order(normalize_favorite_ids(favorites))
     config["command_palette_favorites"] = normalized
     save_ui_config(config)
 

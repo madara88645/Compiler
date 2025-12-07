@@ -191,3 +191,46 @@ def test_palette_favorites_cli(tmp_path: Path):
     payload = json.loads(out)
     assert payload["favorites"] == [{"id": "save_prompt", "label": "💾 Save Prompt"}]
     assert payload["import_source"] == str(export_path)
+
+    # Introduce stale favorite manually
+    config_path.write_text(
+        json.dumps({"command_palette_favorites": ["save_prompt", "unknown_cmd"]}, indent=2),
+        encoding="utf-8",
+    )
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--list-stale", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 1, "list-stale should exit non-zero when stale entries exist"
+    payload = json.loads(out)
+    assert payload["stale_ids"] == ["unknown_cmd"]
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--prune-stale", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["pruned_stale"] is True
+    assert payload["favorites"] == [{"id": "save_prompt", "label": "💾 Save Prompt"}]
+
+    # Add another favorite and reorder
+    code, out, err = run_cli(
+        ["palette", "favorites", "--add", "copy_user", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+
+    code, out, err = run_cli(
+        ["palette", "favorites", "--reorder", "copy_user,save_prompt", "--json"],
+        Path.cwd(),
+        env=env,
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["favorites_order"] == ["copy_user", "save_prompt"]
+    assert payload["reordered_ids"] == ["copy_user", "save_prompt"]

@@ -61,6 +61,7 @@ from app.command_palette import (
     get_command_palette_commands,
     get_command_palette_command_map,
     get_saved_palette_favorites,
+    get_saved_palette_favorites_list,
     get_ui_config_path,
     backup_ui_config,
     export_palette_favorites,
@@ -4562,6 +4563,16 @@ def palette_manage_favorites(
         None, "--remove", "-r", help="Command ID to remove (repeatable)"
     ),
     clear: bool = typer.Option(False, "--clear", help="Remove all favorites"),
+    list_stale: bool = typer.Option(
+        False,
+        "--list-stale",
+        help="List stale favorites (commands no longer available)",
+    ),
+    prune_stale: bool = typer.Option(
+        False,
+        "--prune-stale",
+        help="Remove favorites whose commands no longer exist",
+    ),
     export_path: Optional[Path] = typer.Option(
         None,
         "--export",
@@ -4578,22 +4589,28 @@ def palette_manage_favorites(
         help="Replace existing favorites when importing instead of merging",
     ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    reorder: Optional[str] = typer.Option(
+        None,
+        "--reorder",
+        help="Reorder favorites with a comma-separated list of command IDs (others keep their relative order)",
+    ),
 ):
     """View or update command palette favorites stored in the desktop UI config."""
 
     command_map = get_command_palette_command_map()
-    catalog = get_command_palette_commands()
-    order_index = {cmd.id: idx for idx, cmd in enumerate(catalog)}
-    favorites = set(get_saved_palette_favorites())
-    original_valid = {cid for cid in favorites if cid in command_map}
+    favorites_list = get_saved_palette_favorites_list()
+    favorites_set = set(favorites_list)
+    original_valid_list = [cid for cid in favorites_list if cid in command_map]
     clear_requested = bool(clear)
-    has_other_ops = bool(add or remove or import_path)
+    has_other_ops = bool(add or remove or import_path or reorder or prune_stale)
     cleared_any = False
     backup_path: Path | None = None
     export_result_path: Path | None = None
     import_ids: list[str] = []
     import_source: Path | None = None
     import_applied = False
+    pruned_any = False
+    reordered_ids: list[str] = []
 
     def ensure_command(cmd_id: str) -> None:
         if cmd_id not in command_map:
@@ -4605,8 +4622,8 @@ def palette_manage_favorites(
             raise typer.Exit(code=1)
 
     if clear_requested:
-        if favorites:
-            favorites.clear()
+        if favorites_list:
+            favorites_list.clear()
             cleared_any = True
         else:
             cleared_any = False
@@ -4620,7 +4637,8 @@ def palette_manage_favorites(
             raise typer.Exit(code=1)
 
         if replace_import:
-            favorites.clear()
+            favorites_list.clear()
+            favorites_set.clear()
 
         for cmd_id in import_ids:
             if cmd_id not in command_map:
@@ -4630,36 +4648,68 @@ def palette_manage_favorites(
                     err=True,
                 )
                 continue
-            if cmd_id not in favorites:
-                favorites.add(cmd_id)
+            if cmd_id not in favorites_set:
+                favorites_list.append(cmd_id)
+                favorites_set.add(cmd_id)
                 import_applied = True
 
     for cmd_id in add or []:
         ensure_command(cmd_id)
-        if cmd_id not in favorites:
-            favorites.add(cmd_id)
+        if cmd_id not in favorites_set:
+            favorites_list.append(cmd_id)
+            favorites_set.add(cmd_id)
 
     for cmd_id in remove or []:
         if cmd_id not in command_map:
             typer.secho(f"Unknown command id '{cmd_id}' ignored.", fg=typer.colors.YELLOW, err=True)
             continue
-        if cmd_id in favorites:
-            favorites.remove(cmd_id)
+        if cmd_id in favorites_set:
+            favorites_set.remove(cmd_id)
+            try:
+                favorites_list.remove(cmd_id)
+            except ValueError:
+                pass
 
-    valid_favorites = {cid for cid in favorites if cid in command_map}
-    stale_ids = sorted(cid for cid in favorites if cid not in command_map)
-    original_valid_sorted = sorted(original_valid, key=lambda c: c)
-    new_valid_sorted = sorted(valid_favorites, key=lambda c: c)
+    stale_ids = [cid for cid in favorites_list if cid not in command_map]
+
+    if reorder:
+        requested_order = [cid.strip() for cid in reorder.split(",") if cid.strip()]
+        reordered_ids = []
+        seen: set[str] = set()
+        for cid in requested_order:
+            if cid not in favorites_set:
+                typer.secho(
+                    f"Ignoring unknown or non-favorite id '{cid}' in reorder list.",
+                    fg=typer.colors.YELLOW,
+                    err=True,
+                )
+                continue
+            if cid in seen:
+                continue
+            reordered_ids.append(cid)
+            seen.add(cid)
+        for cid in favorites_list:
+            if cid in seen:
+                continue
+            reordered_ids.append(cid)
+            seen.add(cid)
+        favorites_list = reordered_ids
+
+    if prune_stale and stale_ids:
+        favorites_list = [cid for cid in favorites_list if cid in command_map]
+        favorites_set = set(favorites_list)
+        pruned_any = True
+
+    valid_favorites_list = [cid for cid in favorites_list if cid in command_map]
+    original_valid_sorted = original_valid_list
+    new_valid_sorted = valid_favorites_list
     changed = original_valid_sorted != new_valid_sorted
 
     if changed:
         backup_path = backup_ui_config()
-        persist_palette_favorites(valid_favorites)
+        persist_palette_favorites(valid_favorites_list)
 
-    ordered_commands = [
-        command_map[cid]
-        for cid in sorted(valid_favorites, key=lambda c: order_index.get(c, len(order_index)))
-    ]
+    ordered_commands = [command_map[cid] for cid in valid_favorites_list]
 
     clear_only_no_effect = clear_requested and not has_other_ops and not cleared_any
 
@@ -4677,14 +4727,20 @@ def palette_manage_favorites(
             "config_path": str(get_ui_config_path()),
             "changed": changed,
             "cleared_any": cleared_any,
+            "stale_ids": stale_ids,
             "backup_path": str(backup_path) if backup_path else None,
             "export_path": str(export_result_path) if export_result_path else None,
             "import_source": str(import_source) if import_source else None,
             "imported_ids": import_ids,
             "import_replaced": replace_import,
+            "pruned_stale": pruned_any,
+            "reordered_ids": reordered_ids,
+            "favorites_order": [cmd.id for cmd in ordered_commands],
         }
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         if clear_only_no_effect:
+            raise typer.Exit(code=1)
+        if list_stale and stale_ids:
             raise typer.Exit(code=1)
         return
 
@@ -4692,6 +4748,13 @@ def palette_manage_favorites(
         typer.echo("No favorites to clear.")
         raise typer.Exit(code=1)
 
+    if list_stale:
+        if stale_ids:
+            typer.echo("Stale favorites (not in current command set):")
+            for sid in stale_ids:
+                typer.echo(f" - {sid}")
+        else:
+            typer.echo("No stale favorites found.")
     if ordered_commands:
         typer.echo("⭐ Command Palette Favorites:\n")
         for cmd in ordered_commands:
@@ -4702,6 +4765,8 @@ def palette_manage_favorites(
     typer.echo(f"Config file: {get_ui_config_path()}")
     if stale_ids:
         typer.echo("Stale IDs without matching commands: " + ", ".join(stale_ids))
+        if list_stale:
+            raise typer.Exit(code=1)
     if changed:
         typer.echo("Changes saved.")
         if backup_path:
@@ -4711,6 +4776,10 @@ def palette_manage_favorites(
         typer.echo(f"Import {status} from: {import_source}")
     if export_result_path:
         typer.echo(f"Favorites exported to: {export_result_path}")
+    if prune_stale and pruned_any:
+        typer.echo("Stale favorites pruned.")
+    if reorder:
+        typer.echo("Favorites reordered.")
 
 
 # ============================================================
