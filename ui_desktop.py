@@ -4720,7 +4720,9 @@ class PromptCompilerUI:
 
     def _prune_stale_command_palette_favorites(self, valid_ids: set[str]) -> int:
         before = len(self.command_palette_favorites)
-        self.command_palette_favorites = [cid for cid in self.command_palette_favorites if cid in valid_ids]
+        self.command_palette_favorites = [
+            cid for cid in self.command_palette_favorites if cid in valid_ids
+        ]
         removed = before - len(self.command_palette_favorites)
         if removed:
             try:
@@ -4913,7 +4915,9 @@ class PromptCompilerUI:
             all_commands = self._command_palette_entries()
             all_command_ids = {cid for cid, _label, _action in all_commands}
 
-            stale_ids = [cid for cid in self.command_palette_favorites if cid not in all_command_ids]
+            stale_ids = [
+                cid for cid in self.command_palette_favorites if cid not in all_command_ids
+            ]
 
             if stale_ids:
                 warning_frame = ttk.Frame(palette_window, padding=(10, 2))
