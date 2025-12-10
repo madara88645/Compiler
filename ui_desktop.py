@@ -43,8 +43,7 @@ from app.emitters import (
     emit_user_prompt_v2,
     emit_plan_v2,
     emit_expanded_prompt_v2,
-)
-from app.autofix import auto_fix_prompt, explain_fixes
+)from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
 from app.rag.simple_index import search, search_embed, search_hybrid
@@ -85,6 +84,7 @@ class PromptCompilerUI:
         self.tags_path = Path.home() / ".promptc_tags.json"
         self.snippets_path = Path.home() / ".promptc_snippets.json"
         self.command_palette_favorites: list[str] = []
+        self.command_palette_recent: list[str] = []
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
@@ -4731,6 +4731,14 @@ class PromptCompilerUI:
                 pass
         return removed
 
+    def _record_recent_command_palette_action(self, command_id: str) -> None:
+        if not command_id:
+            return
+        if command_id in self.command_palette_recent:
+            self.command_palette_recent.remove(command_id)
+        self.command_palette_recent.insert(0, command_id)
+        self.command_palette_recent = self.command_palette_recent[:8]
+
     def _show_keyboard_shortcuts(self):
         """Show keyboard shortcuts reference dialog."""
         try:
@@ -4891,6 +4899,8 @@ class PromptCompilerUI:
             )
             favorites_toggle.pack(side=tk.RIGHT, padx=(8, 0))
 
+            stale_badge = None
+
             # Commands listbox
             list_frame = ttk.Frame(palette_window)
             list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -4932,6 +4942,8 @@ class PromptCompilerUI:
                     text="🧹 Clean stale",
                     command=lambda: prune_stale_and_refresh(),
                 ).pack(side=tk.LEFT)
+                stale_badge = ttk.Label(search_frame, text="⚠ Stale", foreground="#b45309")
+                stale_badge.pack(side=tk.RIGHT, padx=(8, 0))
 
             # Store filtered commands
             current_commands = []
@@ -4943,11 +4955,22 @@ class PromptCompilerUI:
 
                 search_lower = search_term.lower()
                 favorites_only = favorites_only_var.get()
+                filtered = []
                 for cmd_id, label, action in all_commands:
                     if favorites_only and not self._is_command_palette_favorite(cmd_id):
                         continue
                     if search_lower not in label.lower():
                         continue
+                    filtered.append((cmd_id, label, action))
+
+                if not search_lower and not favorites_only and self.command_palette_recent:
+                    recent_set = set(self.command_palette_recent)
+                    recent_entries = [c for c in filtered if c[0] in recent_set]
+                    seen = {c[0] for c in recent_entries}
+                    remaining_entries = [c for c in filtered if c[0] not in seen]
+                    filtered = recent_entries + remaining_entries
+
+                for cmd_id, label, action in filtered:
                     prefix = "★ " if self._is_command_palette_favorite(cmd_id) else "   "
                     commands_listbox.insert(tk.END, f"{prefix}{label}")
                     current_commands.append((cmd_id, label, action))
@@ -4966,10 +4989,11 @@ class PromptCompilerUI:
                 if selection:
                     idx = selection[0]
                     if idx < len(current_commands):
-                        _, _, action = current_commands[idx]
+                        cmd_id, _label, action = current_commands[idx]
                         palette_window.destroy()
                         try:
                             action()
+                            self._record_recent_command_palette_action(cmd_id)
                         except Exception as e:
                             messagebox.showerror("Error", f"Failed to execute command: {e}")
 
