@@ -43,7 +43,8 @@ from app.emitters import (
     emit_user_prompt_v2,
     emit_plan_v2,
     emit_expanded_prompt_v2,
-)from app.autofix import auto_fix_prompt, explain_fixes
+)
+from app.autofix import auto_fix_prompt, explain_fixes
 from app.validator import PromptValidator
 from app.templates import get_registry, PromptTemplate
 from app.rag.simple_index import search, search_embed, search_hybrid
@@ -272,6 +273,12 @@ class PromptCompilerUI:
         btn_templates.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_templates, "Manage and use prompt templates")
 
+        self.btn_palette = ttk.Button(opts, text="🧭 Palette", command=self._show_command_palette)
+        self.btn_palette.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(self.btn_palette, "Open Command Palette (Ctrl+Shift+P)")
+        self.palette_badge_var = tk.StringVar(value="")
+        self.palette_badge_label = None
+
         # Examples dropdown
         try:
             ex_files = sorted((Path("examples")).glob("*.txt"))
@@ -467,6 +474,7 @@ class PromptCompilerUI:
         # Load settings (theme, toggles, model, geometry) and apply
         self._load_settings()
         self.apply_theme(self.current_theme)
+        self._update_palette_badge()
 
         # Persist on change
         self.var_diag.trace_add("write", lambda *_: self._save_settings())
@@ -4696,6 +4704,52 @@ class PromptCompilerUI:
                 pass
         try:
             self._save_settings()
+            self._update_palette_badge()
+        except Exception:
+            pass
+
+    def _ensure_palette_badge_label(self) -> ttk.Label:
+        if getattr(self, "palette_badge_label", None) is None:
+            try:
+                parent = self.btn_palette.master
+            except Exception:
+                parent = None
+            self.palette_badge_label = ttk.Label(
+                parent or self.root,
+                textvariable=self.palette_badge_var,
+                foreground="#b45309",
+                padding=(6, 2),
+            )
+            try:
+                self._add_tooltip(
+                    self.palette_badge_label,
+                    "Some palette favorites are stale. Open the palette to clean them.",
+                )
+            except Exception:
+                pass
+        return self.palette_badge_label
+
+    def _update_palette_badge(self) -> None:
+        try:
+            if not getattr(self, "btn_palette", None):
+                return
+            all_command_ids = {cmd.id for cmd in get_command_palette_commands()}
+            stale_ids = [cid for cid in self.command_palette_favorites if cid not in all_command_ids]
+            badge = getattr(self, "palette_badge_label", None)
+            if not stale_ids:
+                self.palette_badge_var.set("")
+                if badge is not None:
+                    try:
+                        badge.pack_forget()
+                    except Exception:
+                        pass
+                return
+            badge = self._ensure_palette_badge_label()
+            self.palette_badge_var.set(f"⚠ {len(stale_ids)}")
+            try:
+                badge.pack(side=tk.LEFT, padx=(0, 6))
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -4715,6 +4769,7 @@ class PromptCompilerUI:
         )
         try:
             self._save_settings()
+            self._update_palette_badge()
         except Exception:
             pass
 
@@ -4729,6 +4784,10 @@ class PromptCompilerUI:
                 self._save_settings()
             except Exception:
                 pass
+        try:
+            self._update_palette_badge()
+        except Exception:
+            pass
         return removed
 
     def _record_recent_command_palette_action(self, command_id: str) -> None:
