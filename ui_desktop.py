@@ -4708,26 +4708,49 @@ class PromptCompilerUI:
         except Exception:
             pass
 
-    def _ensure_palette_badge_label(self) -> ttk.Label:
+    def _ensure_palette_badge_label(self) -> ttk.Button:
         if getattr(self, "palette_badge_label", None) is None:
             try:
                 parent = self.btn_palette.master
             except Exception:
                 parent = None
-            self.palette_badge_label = ttk.Label(
+            try:
+                style = ttk.Style()
+                style.configure(
+                    "PaletteBadge.TButton",
+                    padding=(6, 2),
+                    foreground="#b45309",
+                )
+            except Exception:
+                pass
+            self.palette_badge_label = ttk.Button(
                 parent or self.root,
                 textvariable=self.palette_badge_var,
-                foreground="#b45309",
-                padding=(6, 2),
+                style="PaletteBadge.TButton",
+                command=self._handle_palette_badge_click,
+                takefocus=False,
             )
             try:
                 self._add_tooltip(
                     self.palette_badge_label,
-                    "Some palette favorites are stale. Open the palette to clean them.",
+                    "Stale palette favorites detected. Click to clean and open the palette.",
                 )
             except Exception:
                 pass
         return self.palette_badge_label
+
+    def _handle_palette_badge_click(self) -> None:
+        try:
+            all_command_ids = {cmd.id for cmd in get_command_palette_commands()}
+            removed = self._prune_stale_command_palette_favorites(all_command_ids)
+            if removed:
+                self.status_var.set(f"🧹 Removed {removed} stale favorites")
+            self._show_command_palette()
+        except Exception:
+            try:
+                self._show_command_palette()
+            except Exception:
+                pass
 
     def _update_palette_badge(self) -> None:
         try:
