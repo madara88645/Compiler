@@ -4708,21 +4708,37 @@ class PromptCompilerUI:
         except Exception:
             pass
 
+    def _configure_palette_badge_style(self) -> None:
+        try:
+            dark = self.current_theme == "dark"
+            bg = "#451a03" if dark else "#fff7ed"
+            fg = "#fb923c" if dark else "#9a3412"
+            border = "#ea580c" if dark else "#f97316"
+            style = ttk.Style()
+            style.configure(
+                "PaletteBadge.TButton",
+                padding=(6, 2),
+                foreground=fg,
+                background=bg,
+                bordercolor=border,
+                focusthickness=1,
+                focuscolor=border,
+            )
+            style.map(
+                "PaletteBadge.TButton",
+                background=[("active", border)],
+                foreground=[("active", "#ffffff")],
+            )
+        except Exception:
+            pass
+
     def _ensure_palette_badge_label(self) -> ttk.Button:
         if getattr(self, "palette_badge_label", None) is None:
             try:
                 parent = self.btn_palette.master
             except Exception:
                 parent = None
-            try:
-                style = ttk.Style()
-                style.configure(
-                    "PaletteBadge.TButton",
-                    padding=(6, 2),
-                    foreground="#b45309",
-                )
-            except Exception:
-                pass
+            self._configure_palette_badge_style()
             self.palette_badge_label = ttk.Button(
                 parent or self.root,
                 textvariable=self.palette_badge_var,
@@ -4769,6 +4785,7 @@ class PromptCompilerUI:
                     except Exception:
                         pass
                 return
+            self._configure_palette_badge_style()
             badge = self._ensure_palette_badge_label()
             self.palette_badge_var.set(f"⚠ {len(stale_ids)}")
             try:
