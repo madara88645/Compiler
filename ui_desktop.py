@@ -4789,6 +4789,10 @@ class PromptCompilerUI:
             badge = self._ensure_palette_badge_label()
             self.palette_badge_var.set(f"⚠ {len(stale_ids)}")
             try:
+                self.status_var.set(f"⚠️ {len(stale_ids)} stale favorite — click badge to clean")
+            except Exception:
+                pass
+            try:
                 badge.pack(side=tk.LEFT, padx=(0, 6))
             except Exception:
                 pass
