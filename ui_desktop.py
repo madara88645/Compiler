@@ -5356,6 +5356,8 @@ class PromptCompilerUI:
             # Command Palette
             self.root.bind("<Control-Shift-P>", lambda e: self._show_command_palette())
             self.root.bind("<Control-Shift-p>", lambda e: self._show_command_palette())
+            self.root.bind("<Alt-p>", lambda e: self._handle_palette_badge_click())
+            self.root.bind("<Alt-P>", lambda e: self._handle_palette_badge_click())
 
             # Keyboard Shortcuts Reference
             self.root.bind("<Control-k>", lambda e: self._show_keyboard_shortcuts())
