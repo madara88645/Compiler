@@ -4970,6 +4970,10 @@ class PromptCompilerUI:
     def _show_command_palette(self):
         """Show command palette for quick command execution."""
         try:
+            try:
+                self._update_palette_badge()
+            except Exception:
+                pass
             palette_window = tk.Toplevel(self.root)
             palette_window.title("Command Palette")
             palette_window.geometry("600x400")
