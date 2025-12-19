@@ -4757,7 +4757,24 @@ class PromptCompilerUI:
 
     def _handle_palette_badge_click(self) -> None:
         try:
-            all_command_ids = {cmd.id for cmd in get_command_palette_commands()}
+            commands = list(get_command_palette_commands())
+            all_command_ids = {cmd.id for cmd in commands}
+            stale_ids = [
+                cid for cid in self.command_palette_favorites if cid not in all_command_ids
+            ]
+
+            if stale_ids:
+                label_map = {cmd.id: cmd.label for cmd in commands}
+                preview = [label_map.get(cid, cid) for cid in stale_ids[:3]]
+                preview_text = "\n".join(f"• {lbl}" for lbl in preview)
+                try:
+                    messagebox.showinfo(
+                        "Stale Favorites",
+                        f"These favorites look stale:\n{preview_text}\n\nThey will be cleaned now and the palette will open.",
+                    )
+                except Exception:
+                    pass
+
             removed = self._prune_stale_command_palette_favorites(all_command_ids)
             if removed:
                 self.status_var.set(f"🧹 Removed {removed} stale favorites")
