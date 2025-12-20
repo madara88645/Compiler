@@ -119,6 +119,8 @@ def persist_palette_favorites(
 def normalize_favorite_ids(values: Iterable[Any]) -> List[str]:
     normalized: List[str] = []
     for raw in values:
+        if raw is None:
+            continue
         text = str(raw).strip()
         if text:
             normalized.append(text)
@@ -128,7 +130,7 @@ def normalize_favorite_ids(values: Iterable[Any]) -> List[str]:
 def compute_stale_favorites(favorites: Iterable[Any], valid_ids: Iterable[str]) -> List[str]:
     """Return ordered, deduped stale favorite ids (those not in valid_ids)."""
 
-    valid: set[str] = {str(v).strip() for v in valid_ids if str(v).strip()}
+    valid: set[str] = set(normalize_favorite_ids(valid_ids))
     stale: List[str] = []
     seen: set[str] = set()
     for fav in normalize_favorite_ids(favorites):

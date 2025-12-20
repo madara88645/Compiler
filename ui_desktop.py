@@ -52,6 +52,7 @@ from app.context_presets import ContextPresetStore
 from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
 from app.command_palette import (
+    CONFIG_ENV_VAR,
     compute_stale_favorites,
     get_command_palette_commands,
     get_saved_palette_favorites_list,
@@ -1290,7 +1291,15 @@ class PromptCompilerUI:
                 "selected_tab": selected_idx,
                 "command_palette_favorites": list(self.command_palette_favorites),
             }
-            persist_palette_favorites(self.command_palette_favorites, base_config=payload)
+            original_env = os.environ.get(CONFIG_ENV_VAR)
+            try:
+                os.environ[CONFIG_ENV_VAR] = str(self.config_path)
+                persist_palette_favorites(self.command_palette_favorites, base_config=payload)
+            finally:
+                if original_env is None:
+                    os.environ.pop(CONFIG_ENV_VAR, None)
+                else:
+                    os.environ[CONFIG_ENV_VAR] = original_env
         except Exception:
             pass
 
@@ -4685,7 +4694,15 @@ class PromptCompilerUI:
             ],
         }
 
+    def _ensure_command_palette_favorites_list(self) -> None:
+        if not isinstance(self.command_palette_favorites, list):
+            try:
+                self.command_palette_favorites = list(self.command_palette_favorites)
+            except Exception:
+                self.command_palette_favorites = []
+
     def _command_palette_favorite_set(self) -> set[str]:
+        self._ensure_command_palette_favorites_list()
         return set(self.command_palette_favorites)
 
     def _is_command_palette_favorite(self, command_id: str) -> bool:
@@ -4694,6 +4711,7 @@ class PromptCompilerUI:
     def _set_command_palette_favorite(self, command_id: str, value: bool) -> None:
         if not command_id:
             return
+        self._ensure_command_palette_favorites_list()
         favorites_set = self._command_palette_favorite_set()
         if value:
             if command_id not in favorites_set:

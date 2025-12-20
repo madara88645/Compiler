@@ -1,5 +1,3 @@
-import pytest
-
 from app.command_palette import compute_stale_favorites
 
 
