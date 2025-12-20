@@ -125,6 +125,21 @@ def normalize_favorite_ids(values: Iterable[Any]) -> List[str]:
     return normalized
 
 
+def compute_stale_favorites(favorites: Iterable[Any], valid_ids: Iterable[str]) -> List[str]:
+    """Return ordered, deduped stale favorite ids (those not in valid_ids)."""
+
+    valid: set[str] = {str(v).strip() for v in valid_ids if str(v).strip()}
+    stale: List[str] = []
+    seen: set[str] = set()
+    for fav in normalize_favorite_ids(favorites):
+        if fav in seen:
+            continue
+        seen.add(fav)
+        if fav not in valid:
+            stale.append(fav)
+    return stale
+
+
 def backup_ui_config(max_backups: int = MAX_CONFIG_BACKUPS) -> Path | None:
     path = get_ui_config_path()
     if not path.exists():

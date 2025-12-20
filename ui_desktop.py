@@ -52,6 +52,7 @@ from app.context_presets import ContextPresetStore
 from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
 from app.command_palette import (
+    compute_stale_favorites,
     get_command_palette_commands,
     get_saved_palette_favorites_list,
     get_ui_config_path,
@@ -4759,9 +4760,7 @@ class PromptCompilerUI:
         try:
             commands = list(get_command_palette_commands())
             all_command_ids = {cmd.id for cmd in commands}
-            stale_ids = [
-                cid for cid in self.command_palette_favorites if cid not in all_command_ids
-            ]
+            stale_ids = compute_stale_favorites(self.command_palette_favorites, all_command_ids)
 
             if stale_ids:
                 label_map = {cmd.id: cmd.label for cmd in commands}
@@ -4790,9 +4789,7 @@ class PromptCompilerUI:
             if not getattr(self, "btn_palette", None):
                 return
             all_command_ids = {cmd.id for cmd in get_command_palette_commands()}
-            stale_ids = [
-                cid for cid in self.command_palette_favorites if cid not in all_command_ids
-            ]
+            stale_ids = compute_stale_favorites(self.command_palette_favorites, all_command_ids)
             badge = getattr(self, "palette_badge_label", None)
             if not stale_ids:
                 self.palette_badge_var.set("")
