@@ -281,6 +281,10 @@ class PromptCompilerUI:
         self.palette_badge_var = tk.StringVar(value="")
         self.palette_badge_label = None
 
+        btn_chat = ttk.Button(opts, text="💬 Chat (beta)", command=self._show_chat_window)
+        btn_chat.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(btn_chat, "Chat directly with your selected LLM without copy/paste")
+
         # Examples dropdown
         try:
             ex_files = sorted((Path("examples")).glob("*.txt"))
@@ -5275,6 +5279,175 @@ class PromptCompilerUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show command palette: {e}")
+
+    def _show_chat_window(self):
+        try:
+            if getattr(self, "chat_window", None) is not None:
+                try:
+                    self.chat_window.deiconify()
+                    self.chat_window.lift()
+                    return
+                except Exception:
+                    self.chat_window = None
+            chat = tk.Toplevel(self.root)
+            chat.title("Chat (beta)")
+            chat.geometry("820x620")
+            chat.transient(self.root)
+            self.chat_window = chat
+
+            topbar = ttk.Frame(chat, padding=8)
+            topbar.pack(fill=tk.X)
+            ttk.Label(topbar, text="Provider:").pack(side=tk.LEFT)
+            provider_combo = ttk.Combobox(
+                topbar,
+                textvariable=self.var_llm_provider,
+                values=("OpenAI", "Local HTTP"),
+                state="readonly",
+                width=10,
+            )
+            provider_combo.pack(side=tk.LEFT, padx=(4, 8))
+
+            ttk.Label(topbar, text="Model:").pack(side=tk.LEFT)
+            entry_model = ttk.Entry(topbar, textvariable=self.var_model, width=18)
+            entry_model.pack(side=tk.LEFT, padx=(4, 8))
+
+            ttk.Label(topbar, text="Endpoint (Local HTTP):").pack(side=tk.LEFT)
+            entry_endpoint = ttk.Entry(topbar, textvariable=self.var_local_endpoint, width=34)
+            entry_endpoint.pack(side=tk.LEFT, padx=(4, 0))
+
+            # History
+            history_frame = ttk.Frame(chat, padding=(8, 4))
+            history_frame.pack(fill=tk.BOTH, expand=True)
+            history = tk.Text(history_frame, wrap=tk.WORD, state=tk.DISABLED, height=22)
+            history.pack(fill=tk.BOTH, expand=True)
+
+            # Prompt entry
+            input_frame = ttk.Frame(chat, padding=8)
+            input_frame.pack(fill=tk.X)
+            ttk.Label(input_frame, text="Your message:").pack(anchor=tk.W)
+            entry = tk.Text(input_frame, height=3, wrap=tk.WORD)
+            entry.pack(fill=tk.X, expand=True)
+
+            btns = ttk.Frame(chat, padding=(8, 4))
+            btns.pack(fill=tk.X)
+            status_label = ttk.Label(btns, textvariable=self.status_var, foreground="#555")
+            status_label.pack(side=tk.RIGHT)
+
+            def append_history(role: str, content: str):
+                try:
+                    history.configure(state=tk.NORMAL)
+                    history.insert(tk.END, f"{role}:\n{content}\n\n")
+                    history.see(tk.END)
+                    history.configure(state=tk.DISABLED)
+                except Exception:
+                    pass
+
+            def send_message():
+                prompt_text = entry.get("1.0", tk.END).strip()
+                if not prompt_text:
+                    messagebox.showwarning("Chat", "Enter a message first.")
+                    return
+
+                try:
+                    system, user = self._prepare_llm_messages(prompt_text)
+                except Exception as exc:
+                    messagebox.showerror("Chat", f"Failed to prepare prompt: {exc}")
+                    return
+
+                append_history("You", prompt_text)
+                entry.delete("1.0", tk.END)
+
+                provider = (self.var_llm_provider.get() or "OpenAI").strip()
+                model = (self.var_model.get() or "gpt-4o-mini").strip()
+
+                if provider == "Local HTTP":
+                    endpoint = (self.var_local_endpoint.get() or "").strip()
+                    if not endpoint:
+                        messagebox.showerror("Local LLM", "Set a local HTTP endpoint URL first.")
+                        return
+                    api_key = (self.var_local_api_key.get() or "").strip()
+                    headers = {"Content-Type": "application/json"}
+                    if api_key:
+                        if api_key.lower().startswith("bearer "):
+                            headers["Authorization"] = api_key
+                        else:
+                            headers["Authorization"] = f"Bearer {api_key}"
+                    payload = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        "temperature": 0.7,
+                    }
+                    self.status_var.set(f"Local LLM: sending ({model})...")
+
+                    def _send_local():
+                        try:
+                            resp = httpx.post(endpoint, json=payload, timeout=60, headers=headers)
+                            resp.raise_for_status()
+                            data = resp.json()
+                            content = None
+                            try:
+                                choices = data.get("choices")
+                                if choices:
+                                    msg = choices[0].get("message", {})
+                                    content = msg.get("content") or choices[0].get("text")
+                            except Exception:
+                                content = None
+                            if content is None:
+                                content = json.dumps(data, ensure_ascii=False, indent=2)
+                            append_history("LLM", content or "<no content>")
+                            self.status_var.set("Local LLM: done")
+                        except Exception as e:
+                            self.status_var.set("Local LLM: error")
+                            messagebox.showerror("Local LLM", str(e))
+
+                    self.root.after(30, _send_local)
+                    return
+
+                # OpenAI default
+                if OpenAI is None:
+                    messagebox.showerror(
+                        "OpenAI", "Package 'openai' not installed. Run: pip install openai"
+                    )
+                    return
+                if not os.environ.get("OPENAI_API_KEY"):
+                    messagebox.showerror("OpenAI", "OPENAI_API_KEY is not set in environment.")
+                    return
+                self.status_var.set(f"OpenAI: sending ({model})...")
+
+                def _send_openai():
+                    try:
+                        client = OpenAI()
+                        resp = client.chat.completions.create(
+                            model=model,
+                            messages=[
+                                {"role": "system", "content": system},
+                                {"role": "user", "content": user},
+                            ],
+                            temperature=0.7,
+                        )
+                        try:
+                            content = resp.choices[0].message.content  # type: ignore[attr-defined]
+                        except Exception:
+                            content = str(resp)
+                        append_history("LLM", content or "<no content>")
+                        self.status_var.set("OpenAI: done")
+                    except Exception as e:
+                        self.status_var.set("OpenAI: error")
+                        messagebox.showerror("OpenAI", str(e))
+
+                self.root.after(30, _send_openai)
+
+            send_btn = ttk.Button(btns, text="Genişlet ve Gönder", command=send_message)
+            send_btn.pack(side=tk.LEFT)
+
+            entry.bind("<Control-Return>", lambda _e: send_message())
+            entry.bind("<Control-Shift-Return>", lambda _e: send_message())
+
+        except Exception as e:
+            messagebox.showerror("Chat", f"Failed to open chat: {e}")
 
     def _generate_prompt(self):
         """Wrapper for generate prompt action."""
