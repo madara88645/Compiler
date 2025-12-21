@@ -296,6 +296,9 @@ def test_create_record_from_ir():
     assert record.warnings_count == 1
     assert record.prompt_length == len(prompt_text)
     assert len(record.prompt_hash) > 0
+    assert record.interface_type == "desktop"
+    assert record.user_level == "intermediate"
+    assert record.task_type == "general"
 
 
 def test_create_record_from_ir_without_validation():
@@ -308,12 +311,13 @@ def test_create_record_from_ir_without_validation():
         "intents": ["answer"],
     }
 
-    record = create_record_from_ir(prompt_text, ir, None)
+    record = create_record_from_ir(prompt_text, ir, None, interface_type="api")
 
     assert record.prompt_text == prompt_text
     assert record.validation_score == 0.0
     assert record.issues_count == 0
     assert record.warnings_count == 0
+    assert record.interface_type == "api"
 
 
 def test_improvement_rate(temp_db):

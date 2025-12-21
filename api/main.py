@@ -667,7 +667,12 @@ async def analytics_record(req: AnalyticsRecordRequest):
         validation_result = validate_prompt(ir, req.prompt_text)
 
     # Create record
-    record = create_record_from_ir(req.prompt_text, ir.model_dump(), validation_result)
+    record = create_record_from_ir(
+        req.prompt_text,
+        ir.model_dump(),
+        validation_result,
+        interface_type="api",
+    )
 
     # Save
     manager = AnalyticsManager()

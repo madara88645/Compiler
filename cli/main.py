@@ -2076,7 +2076,12 @@ def analytics_record(
             validation_result = validator(ir, prompt_text)
 
     # Create record
-    record = create_record_from_ir(prompt_text, ir.model_dump(), validation_result)
+    record = create_record_from_ir(
+        prompt_text,
+        ir.model_dump(),
+        validation_result,
+        interface_type="cli",
+    )
 
     # Save to analytics
     manager = AnalyticsManager()

@@ -32,6 +32,13 @@ class PromptRecord:
     prompt_length: int = 0
     ir_version: str = "v2"
     tags: List[str] = field(default_factory=list)
+    interface_type: str = "desktop"
+    user_level: str = "intermediate"
+    task_type: str = "general"
+    pre_score: Optional[float] = None
+    post_score: Optional[float] = None
+    time_ms: Optional[int] = None
+    iteration_count: int = 0
 
 
 @dataclass
@@ -91,9 +98,18 @@ class AnalyticsManager:
                 warnings_count INTEGER DEFAULT 0,
                 prompt_length INTEGER DEFAULT 0,
                 ir_version TEXT DEFAULT 'v2',
-                tags TEXT  -- JSON array
+                tags TEXT,  -- JSON array
+                interface_type TEXT DEFAULT 'desktop',
+                user_level TEXT DEFAULT 'intermediate',
+                task_type TEXT DEFAULT 'general',
+                pre_score REAL,
+                post_score REAL,
+                time_ms INTEGER,
+                iteration_count INTEGER DEFAULT 0
             )
         """)
+
+        self._ensure_schema(cursor)
 
         # Indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON prompt_records(timestamp)")
@@ -105,6 +121,25 @@ class AnalyticsManager:
 
         conn.commit()
         conn.close()
+
+    def _ensure_schema(self, cursor: sqlite3.Cursor) -> None:
+        """Ensure newer columns exist for backward compatibility."""
+        cursor.execute("PRAGMA table_info(prompt_records)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+
+        column_specs = {
+            "interface_type": "TEXT DEFAULT 'desktop'",
+            "user_level": "TEXT DEFAULT 'intermediate'",
+            "task_type": "TEXT DEFAULT 'general'",
+            "pre_score": "REAL",
+            "post_score": "REAL",
+            "time_ms": "INTEGER",
+            "iteration_count": "INTEGER DEFAULT 0",
+        }
+
+        for name, ddl in column_specs.items():
+            if name not in existing_columns:
+                cursor.execute(f"ALTER TABLE prompt_records ADD COLUMN {name} {ddl}")
 
     def record_prompt(self, record: PromptRecord) -> int:
         """
@@ -124,8 +159,10 @@ class AnalyticsManager:
             INSERT INTO prompt_records (
                 timestamp, prompt_text, prompt_hash, validation_score,
                 domain, persona, language, intents, issues_count,
-                warnings_count, prompt_length, ir_version, tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                warnings_count, prompt_length, ir_version, tags,
+                interface_type, user_level, task_type, pre_score, post_score,
+                time_ms, iteration_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 record.timestamp,
@@ -141,6 +178,13 @@ class AnalyticsManager:
                 record.prompt_length,
                 record.ir_version,
                 json.dumps(record.tags),
+                record.interface_type,
+                record.user_level,
+                record.task_type,
+                record.pre_score,
+                record.post_score,
+                record.time_ms,
+                record.iteration_count,
             ),
         )
 
@@ -178,6 +222,7 @@ class AnalyticsManager:
             List of PromptRecord objects
         """
         conn = sqlite3.connect(str(self.db_path))
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         query = "SELECT * FROM prompt_records WHERE 1=1"
@@ -214,28 +259,36 @@ class AnalyticsManager:
         rows = cursor.fetchall()
         conn.close()
 
-        records = []
-        for row in rows:
-            records.append(
-                PromptRecord(
-                    id=row[0],
-                    timestamp=row[1],
-                    prompt_text=row[2],
-                    prompt_hash=row[3],
-                    validation_score=row[4],
-                    domain=row[5],
-                    persona=row[6],
-                    language=row[7],
-                    intents=json.loads(row[8]) if row[8] else [],
-                    issues_count=row[9],
-                    warnings_count=row[10],
-                    prompt_length=row[11],
-                    ir_version=row[12],
-                    tags=json.loads(row[13]) if row[13] else [],
-                )
-            )
+        records = [self._row_to_record(row) for row in rows]
 
         return records
+
+    def _row_to_record(self, row: sqlite3.Row) -> PromptRecord:
+        """Convert a sqlite row to PromptRecord with safe defaults."""
+        row_dict = dict(row)
+        return PromptRecord(
+            id=row_dict.get("id"),
+            timestamp=row_dict.get("timestamp"),
+            prompt_text=row_dict.get("prompt_text", ""),
+            prompt_hash=row_dict.get("prompt_hash", ""),
+            validation_score=row_dict.get("validation_score", 0.0),
+            domain=row_dict.get("domain", "general"),
+            persona=row_dict.get("persona", "assistant"),
+            language=row_dict.get("language", "en"),
+            intents=json.loads(row_dict.get("intents") or "[]"),
+            issues_count=row_dict.get("issues_count", 0),
+            warnings_count=row_dict.get("warnings_count", 0),
+            prompt_length=row_dict.get("prompt_length", 0),
+            ir_version=row_dict.get("ir_version", "v2"),
+            tags=json.loads(row_dict.get("tags") or "[]"),
+            interface_type=row_dict.get("interface_type", "desktop"),
+            user_level=row_dict.get("user_level", "intermediate"),
+            task_type=row_dict.get("task_type", "general"),
+            pre_score=row_dict.get("pre_score"),
+            post_score=row_dict.get("post_score"),
+            time_ms=row_dict.get("time_ms"),
+            iteration_count=row_dict.get("iteration_count", 0),
+        )
 
     def get_summary(
         self,
@@ -453,7 +506,17 @@ class AnalyticsManager:
 
 
 def create_record_from_ir(
-    prompt_text: str, ir: Dict[str, Any], validation_result: Optional[Dict[str, Any]] = None
+    prompt_text: str,
+    ir: Dict[str, Any],
+    validation_result: Optional[Dict[str, Any]] = None,
+    *,
+    interface_type: str = "desktop",
+    user_level: str = "intermediate",
+    task_type: str = "general",
+    pre_score: Optional[float] = None,
+    post_score: Optional[float] = None,
+    time_ms: Optional[int] = None,
+    iteration_count: int = 0,
 ) -> PromptRecord:
     """
     Create a PromptRecord from IR and validation result
@@ -505,4 +568,11 @@ def create_record_from_ir(
         warnings_count=warnings_count,
         prompt_length=len(prompt_text),
         ir_version="v2" if "intents" in ir else "v1",
+        interface_type=interface_type,
+        user_level=user_level,
+        task_type=task_type,
+        pre_score=pre_score,
+        post_score=post_score,
+        time_ms=time_ms,
+        iteration_count=iteration_count,
     )
