@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import Callable, Optional
 
 import httpx
+from app.analytics import AnalyticsManager, create_record_from_ir
 
 from app.compiler import (
     compile_text,
@@ -91,6 +92,7 @@ class PromptCompilerUI:
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
+        self.analytics_manager = AnalyticsManager()
 
         # RAG settings (defaults)
         self.rag_db_path = None  # None = use default ~/.promptc_index.db
@@ -2079,6 +2081,26 @@ class PromptCompilerUI:
             pass
         return system, user
 
+    def _record_analytics(self, prompt: str, ir_obj, elapsed_ms: int) -> None:
+        """Best-effort analytics logging for desktop runs."""
+        try:
+            record = create_record_from_ir(
+                prompt,
+                ir_obj.model_dump() if hasattr(ir_obj, "model_dump") else ir_obj,
+                None,
+                interface_type="desktop",
+                user_level="intermediate",
+                task_type="compile",
+                time_ms=elapsed_ms,
+                iteration_count=1,
+            )
+            self.analytics_manager.record_prompt(record)
+        except Exception:
+            try:
+                self.status_var.set("Analytics logging skipped")
+            except Exception:
+                pass
+
     def on_send_openai(self):  # pragma: no cover - UI action
         prompt = self.txt_prompt.get("1.0", tk.END).strip()
         if not prompt:
@@ -2287,6 +2309,9 @@ class PromptCompilerUI:
             self.status_var.set(
                 f"✅ Done ({elapsed} ms) • heur v1 {HEURISTIC_VERSION} • heur v2 {HEURISTIC2_VERSION}{suffix}"
             )
+
+            # Best-effort analytics capture (desktop)
+            self._record_analytics(prompt, ir, elapsed)
 
             # Apply JSON syntax highlighting
             self._apply_json_highlighting(self.txt_ir, ir_json)
