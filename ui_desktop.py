@@ -2145,6 +2145,7 @@ class PromptCompilerUI:
         except Exception as exc:
             messagebox.showerror("LLM", f"Failed to prepare prompt: {exc}")
             return
+        t0 = time.time()
 
         def _focus_llm_tab():
             try:
@@ -5427,6 +5428,7 @@ class PromptCompilerUI:
 
                 provider = (self.var_llm_provider.get() or "OpenAI").strip()
                 model = (self.var_model.get() or "gpt-4o-mini").strip()
+                t0 = time.time()
 
                 if provider == "Local HTTP":
                     endpoint = (self.var_local_endpoint.get() or "").strip()
