@@ -80,6 +80,8 @@ class PromptCompilerUI:
         self.accent_color = "#3b82f6"  # Default blue
         self.font_size = "medium"  # small, medium, large
         self.view_mode = "comfortable"  # compact, comfortable
+        self.var_user_level = tk.StringVar(value="intermediate")
+        self.var_task_type = tk.StringVar(value="general")
 
         # Settings file (per-user)
         self.config_path = get_ui_config_path()
@@ -353,6 +355,26 @@ class PromptCompilerUI:
         self.btn_send_llm.pack(side=tk.LEFT, padx=6)
         self._add_tooltip(self.btn_send_llm, "Send compiled prompt directly to OpenAI API")
 
+        # User metadata controls
+        ttk.Label(opts, text="User Level:").pack(side=tk.LEFT, padx=(12, 2))
+        self.cmb_user_level = ttk.Combobox(
+            opts,
+            textvariable=self.var_user_level,
+            width=12,
+            state="readonly",
+            values=("beginner", "intermediate", "advanced"),
+        )
+        self.cmb_user_level.pack(side=tk.LEFT)
+        ttk.Label(opts, text="Task Type:").pack(side=tk.LEFT, padx=(8, 2))
+        self.cmb_task_type = ttk.Combobox(
+            opts,
+            textvariable=self.var_task_type,
+            width=12,
+            state="readonly",
+            values=("general", "analysis", "coding", "teaching", "ab_test"),
+        )
+        self.cmb_task_type.pack(side=tk.LEFT)
+
         llm_extra = ttk.Frame(top)
         llm_extra.pack(fill=tk.X, pady=(4, 0))
         ttk.Label(llm_extra, text="Endpoint:").pack(side=tk.LEFT)
@@ -500,6 +522,8 @@ class PromptCompilerUI:
         )
         self.var_local_endpoint.trace_add("write", lambda *_: self._save_settings())
         self.var_local_api_key.trace_add("write", lambda *_: self._save_settings())
+        self.var_user_level.trace_add("write", lambda *_: self._save_settings())
+        self.var_task_type.trace_add("write", lambda *_: self._save_settings())
         try:
             # Persist auto-generate toggle if present
             getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).trace_add(
@@ -1232,6 +1256,13 @@ class PromptCompilerUI:
                 self.var_local_endpoint.set(str(data.get("local_endpoint")))
             if "local_api_key" in data:
                 self.var_local_api_key.set(str(data.get("local_api_key") or ""))
+            if "user_level" in data:
+                lvl = str(data.get("user_level") or "intermediate")
+                if lvl in ("beginner", "intermediate", "advanced"):
+                    self.var_user_level.set(lvl)
+            if "task_type" in data:
+                tt = str(data.get("task_type") or "general")
+                self.var_task_type.set(tt)
             # RAG settings
             if "rag_db_path" in data:
                 self.rag_db_path = data.get("rag_db_path")
@@ -1290,6 +1321,8 @@ class PromptCompilerUI:
                 "llm_provider": (self.var_llm_provider.get() or "OpenAI").strip(),
                 "local_endpoint": (self.var_local_endpoint.get() or "").strip(),
                 "local_api_key": (self.var_local_api_key.get() or "").strip(),
+                "user_level": (self.var_user_level.get() or "intermediate").strip(),
+                "task_type": (self.var_task_type.get() or "general").strip(),
                 "rag_db_path": self.rag_db_path,
                 "rag_embed_dim": self.rag_embed_dim,
                 "rag_method": self.rag_method,
@@ -2048,7 +2081,7 @@ class PromptCompilerUI:
         except Exception:
             pass
 
-    def _prepare_llm_messages(self, prompt: str) -> tuple[str, str]:
+    def _prepare_llm_messages(self, prompt: str) -> tuple[str, str, object]:
         ir = optimize_ir(compile_text(prompt))
         use_expanded = bool(self.var_openai_expanded.get())
         diagnostics = bool(self.var_diag.get()) if use_expanded else False
@@ -2079,9 +2112,9 @@ class PromptCompilerUI:
                     user = f"[Context]\n{ctx_text}\n\n" + user
         except Exception:
             pass
-        return system, user
+        return system, user, ir
 
-    def _record_analytics(self, prompt: str, ir_obj, elapsed_ms: int) -> None:
+    def _record_analytics(self, prompt: str, ir_obj, elapsed_ms: int, *, task_type: str) -> None:
         """Best-effort analytics logging for desktop runs."""
         try:
             record = create_record_from_ir(
@@ -2089,8 +2122,8 @@ class PromptCompilerUI:
                 ir_obj.model_dump() if hasattr(ir_obj, "model_dump") else ir_obj,
                 None,
                 interface_type="desktop",
-                user_level="intermediate",
-                task_type="compile",
+                user_level=(self.var_user_level.get() or "intermediate").strip(),
+                task_type=task_type,
                 time_ms=elapsed_ms,
                 iteration_count=1,
             )
@@ -2108,7 +2141,7 @@ class PromptCompilerUI:
             return
         provider = (self.var_llm_provider.get() or "OpenAI").strip()
         try:
-            system, user = self._prepare_llm_messages(prompt)
+            system, user, ir = self._prepare_llm_messages(prompt)
         except Exception as exc:
             messagebox.showerror("LLM", f"Failed to prepare prompt: {exc}")
             return
@@ -2164,6 +2197,11 @@ class PromptCompilerUI:
                     self.txt_llm.insert(tk.END, content or "<no content>")
                     _focus_llm_tab()
                     self.status_var.set("Local LLM: done")
+                    try:
+                        elapsed = int((time.time() - t0) * 1000)
+                        self._record_analytics(prompt, ir, elapsed, task_type="llm_send")
+                    except Exception:
+                        pass
                 except Exception as e:
                     self.status_var.set("Local LLM: error")
                     messagebox.showerror("Local LLM", str(e))
@@ -2202,6 +2240,11 @@ class PromptCompilerUI:
                 self.txt_llm.insert(tk.END, content or "<no content>")
                 _focus_llm_tab()
                 self.status_var.set("OpenAI: done")
+                try:
+                    elapsed = int((time.time() - t0) * 1000)
+                    self._record_analytics(prompt, ir, elapsed, task_type="llm_send")
+                except Exception:
+                    pass
             except Exception as e:
                 self.status_var.set("OpenAI: error")
                 messagebox.showerror("OpenAI", str(e))
@@ -2311,7 +2354,7 @@ class PromptCompilerUI:
             )
 
             # Best-effort analytics capture (desktop)
-            self._record_analytics(prompt, ir, elapsed)
+            self._record_analytics(prompt, ir, elapsed, task_type=self.var_task_type.get())
 
             # Apply JSON syntax highlighting
             self._apply_json_highlighting(self.txt_ir, ir_json)
@@ -5374,7 +5417,7 @@ class PromptCompilerUI:
                     return
 
                 try:
-                    system, user = self._prepare_llm_messages(prompt_text)
+                    system, user, ir = self._prepare_llm_messages(prompt_text)
                 except Exception as exc:
                     messagebox.showerror("Chat", f"Failed to prepare prompt: {exc}")
                     return
@@ -5424,6 +5467,11 @@ class PromptCompilerUI:
                                 content = json.dumps(data, ensure_ascii=False, indent=2)
                             append_history("LLM", content or "<no content>")
                             self.status_var.set("Local LLM: done")
+                            try:
+                                elapsed = int((time.time() - t0) * 1000)
+                                self._record_analytics(prompt_text, ir, elapsed, task_type="chat")
+                            except Exception:
+                                pass
                         except Exception as e:
                             self.status_var.set("Local LLM: error")
                             messagebox.showerror("Local LLM", str(e))
@@ -5459,6 +5507,11 @@ class PromptCompilerUI:
                             content = str(resp)
                         append_history("LLM", content or "<no content>")
                         self.status_var.set("OpenAI: done")
+                        try:
+                            elapsed = int((time.time() - t0) * 1000)
+                            self._record_analytics(prompt_text, ir, elapsed, task_type="chat")
+                        except Exception:
+                            pass
                     except Exception as e:
                         self.status_var.set("OpenAI: error")
                         messagebox.showerror("OpenAI", str(e))
