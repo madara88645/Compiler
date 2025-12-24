@@ -2136,7 +2136,13 @@ class PromptCompilerUI:
         return "low"
 
     def _record_analytics(
-        self, prompt: str, ir_obj, elapsed_ms: int, *, task_type: str, tags: Optional[List[str]] = None
+        self,
+        prompt: str,
+        ir_obj,
+        elapsed_ms: int,
+        *,
+        task_type: str,
+        tags: Optional[List[str]] = None,
     ) -> None:
         """Best-effort analytics logging for desktop runs."""
         try:
