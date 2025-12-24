@@ -22,7 +22,7 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 
 import httpx
 from app.analytics import AnalyticsManager, create_record_from_ir
@@ -82,6 +82,7 @@ class PromptCompilerUI:
         self.view_mode = "comfortable"  # compact, comfortable
         self.var_user_level = tk.StringVar(value="intermediate")
         self.var_task_type = tk.StringVar(value="general")
+        self.cognitive_load_var = tk.StringVar(value="Load: —")
 
         # Settings file (per-user)
         self.config_path = get_ui_config_path()
@@ -403,9 +404,14 @@ class PromptCompilerUI:
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
 
-        # Summary line
+        # Summary line + cognitive load indicator
         self.summary_var = tk.StringVar(value="")
-        ttk.Label(content, textvariable=self.summary_var, padding=(8, 0)).pack(fill=tk.X)
+        summary_frame = ttk.Frame(content, padding=(8, 0))
+        summary_frame.pack(fill=tk.X)
+        ttk.Label(summary_frame, textvariable=self.summary_var).pack(side=tk.LEFT)
+        ttk.Label(summary_frame, textvariable=self.cognitive_load_var, foreground="#555").pack(
+            side=tk.RIGHT
+        )
 
         # Intents chips (IR v2)
         self.chips_frame = ttk.Frame(content, padding=(8, 2))
@@ -2114,9 +2120,30 @@ class PromptCompilerUI:
             pass
         return system, user, ir
 
-    def _record_analytics(self, prompt: str, ir_obj, elapsed_ms: int, *, task_type: str) -> None:
+    def _compute_cognitive_load(self, prompt: str) -> str:
+        """Rough heuristic: combines character and sentence counts."""
+        text = prompt.strip()
+        if not text:
+            return "unknown"
+        chars = len(text)
+        sentences = max(1, text.count(".") + text.count("!") + text.count("?"))
+        words = len(text.split())
+        score = chars / 400 + sentences / 3 + words / 150
+        if score >= 6:
+            return "high"
+        if score >= 3:
+            return "medium"
+        return "low"
+
+    def _record_analytics(
+        self, prompt: str, ir_obj, elapsed_ms: int, *, task_type: str, tags: Optional[List[str]] = None
+    ) -> None:
         """Best-effort analytics logging for desktop runs."""
         try:
+            load = self._compute_cognitive_load(prompt)
+            tag_list = tags or []
+            if load not in tag_list:
+                tag_list.append(f"load:{load}")
             record = create_record_from_ir(
                 prompt,
                 ir_obj.model_dump() if hasattr(ir_obj, "model_dump") else ir_obj,
@@ -2126,6 +2153,7 @@ class PromptCompilerUI:
                 task_type=task_type,
                 time_ms=elapsed_ms,
                 iteration_count=1,
+                tags=tag_list,
             )
             self.analytics_manager.record_prompt(record)
         except Exception:
@@ -2200,7 +2228,15 @@ class PromptCompilerUI:
                     self.status_var.set("Local LLM: done")
                     try:
                         elapsed = int((time.time() - t0) * 1000)
-                        self._record_analytics(prompt, ir, elapsed, task_type="llm_send")
+                        load = self._compute_cognitive_load(prompt)
+                        self.cognitive_load_var.set(f"Load: {load}")
+                        self._record_analytics(
+                            prompt,
+                            ir,
+                            elapsed,
+                            task_type="llm_send",
+                            tags=["llm_send"],
+                        )
                     except Exception:
                         pass
                 except Exception as e:
@@ -2243,7 +2279,15 @@ class PromptCompilerUI:
                 self.status_var.set("OpenAI: done")
                 try:
                     elapsed = int((time.time() - t0) * 1000)
-                    self._record_analytics(prompt, ir, elapsed, task_type="llm_send")
+                    load = self._compute_cognitive_load(prompt)
+                    self.cognitive_load_var.set(f"Load: {load}")
+                    self._record_analytics(
+                        prompt,
+                        ir,
+                        elapsed,
+                        task_type="llm_send",
+                        tags=["llm_send"],
+                    )
                 except Exception:
                     pass
             except Exception as e:
@@ -2348,6 +2392,8 @@ class PromptCompilerUI:
             if diagnostics and amb:
                 parts.append("Ambiguous: " + ",".join(sorted(amb)[:5]))
             elapsed = int((time.time() - t0) * 1000)
+            load = self._compute_cognitive_load(prompt)
+            self.cognitive_load_var.set(f"Load: {load}")
             self.summary_var.set(" | ".join(parts))
             suffix = " • v2 emitters" if use_v2_emitters else ""
             self.status_var.set(
@@ -5471,7 +5517,15 @@ class PromptCompilerUI:
                             self.status_var.set("Local LLM: done")
                             try:
                                 elapsed = int((time.time() - t0) * 1000)
-                                self._record_analytics(prompt_text, ir, elapsed, task_type="chat")
+                                load = self._compute_cognitive_load(prompt_text)
+                                self.cognitive_load_var.set(f"Load: {load}")
+                                self._record_analytics(
+                                    prompt_text,
+                                    ir,
+                                    elapsed,
+                                    task_type="chat",
+                                    tags=["chat"],
+                                )
                             except Exception:
                                 pass
                         except Exception as e:
@@ -5511,7 +5565,15 @@ class PromptCompilerUI:
                         self.status_var.set("OpenAI: done")
                         try:
                             elapsed = int((time.time() - t0) * 1000)
-                            self._record_analytics(prompt_text, ir, elapsed, task_type="chat")
+                            load = self._compute_cognitive_load(prompt_text)
+                            self.cognitive_load_var.set(f"Load: {load}")
+                            self._record_analytics(
+                                prompt_text,
+                                ir,
+                                elapsed,
+                                task_type="chat",
+                                tags=["chat"],
+                            )
                         except Exception:
                             pass
                     except Exception as e:

@@ -517,6 +517,7 @@ def create_record_from_ir(
     post_score: Optional[float] = None,
     time_ms: Optional[int] = None,
     iteration_count: int = 0,
+    tags: Optional[List[str]] = None,
 ) -> PromptRecord:
     """
     Create a PromptRecord from IR and validation result
@@ -575,4 +576,5 @@ def create_record_from_ir(
         post_score=post_score,
         time_ms=time_ms,
         iteration_count=iteration_count,
+        tags=tags or [],
     )
