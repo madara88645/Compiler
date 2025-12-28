@@ -502,12 +502,17 @@ def _run_compile(
     quiet: bool,
     persona: str | None,
     trace: bool,
+    record_analytics: bool = False,
+    user_level: str = "intermediate",
+    task_type: str = "general",
+    tags: list[str] | None = None,
     v1: bool = False,
     render_v2: bool = False,
     out: Path | None = None,
     out_dir: Path | None = None,
     fmt: str | None = None,
 ):
+    t0 = time.time()
     if v1:
         ir = optimize_ir(compile_text(full_text))
         ir2 = None
@@ -649,6 +654,26 @@ def _run_compile(
         # Silently fail if history fails
         pass
 
+    # Best-effort analytics capture (CLI)
+    if record_analytics:
+        try:
+            elapsed_ms = int((time.time() - t0) * 1000)
+            record = create_record_from_ir(
+                full_text,
+                ir_json,
+                None,
+                interface_type="cli",
+                user_level=(user_level or "intermediate").strip(),
+                task_type=(task_type or "general").strip(),
+                time_ms=elapsed_ms,
+                iteration_count=1,
+                tags=tags or [],
+            )
+            AnalyticsManager().record_prompt(record)
+        except Exception:
+            # Never fail the command due to analytics.
+            pass
+
 
 def _write_output(
     content: str, out: Path | None, out_dir: Path | None, default_name: str = "output.txt"
@@ -731,6 +756,26 @@ def compile(
     persona: str = typer.Option(
         None, "--persona", help="Force persona (bypass heuristic) e.g. teacher, researcher"
     ),
+    record_analytics: bool = typer.Option(
+        False,
+        "--record-analytics/--no-record-analytics",
+        help="Record this run to analytics DB (best-effort)",
+    ),
+    user_level: str = typer.Option(
+        "intermediate",
+        "--user-level",
+        help="Analytics user level: beginner|intermediate|advanced",
+    ),
+    task_type: str = typer.Option(
+        "general",
+        "--task-type",
+        help="Analytics task type (e.g. general, debugging, teaching)",
+    ),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Analytics tag (repeatable), e.g. --tag project:x --tag load:high",
+    ),
     trace: bool = typer.Option(
         False, "--trace", help="Print heuristic trace lines (stderr friendly)"
     ),
@@ -770,6 +815,10 @@ def compile(
         quiet,
         persona,
         trace,
+        record_analytics=record_analytics,
+        user_level=user_level,
+        task_type=task_type,
+        tags=tags,
         v1=v1,
         render_v2=render_v2,
         out=out,
@@ -2050,6 +2099,21 @@ def analytics_record(
     validate: bool = typer.Option(
         True, "--validate/--no-validate", help="Run validation and include scores"
     ),
+    user_level: str = typer.Option(
+        "intermediate",
+        "--user-level",
+        help="Analytics user level: beginner|intermediate|advanced",
+    ),
+    task_type: str = typer.Option(
+        "general",
+        "--task-type",
+        help="Analytics task type (e.g. general, debugging, teaching)",
+    ),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Analytics tag (repeatable), e.g. --tag project:x --tag load:high",
+    ),
 ):
     """
     Record a prompt compilation in analytics database
@@ -2065,8 +2129,10 @@ def analytics_record(
 
     prompt_text = prompt.read_text(encoding="utf-8")
 
+    t0 = time.time()
     with console.status("[cyan]Compiling prompt..."):
         ir = compile_text_v2(prompt_text)
+    elapsed_ms = int((time.time() - t0) * 1000)
 
     validation_result = None
     if validate:
@@ -2081,6 +2147,11 @@ def analytics_record(
         ir.model_dump(),
         validation_result,
         interface_type="cli",
+        user_level=(user_level or "intermediate").strip(),
+        task_type=(task_type or "general").strip(),
+        time_ms=elapsed_ms,
+        iteration_count=1,
+        tags=tags or [],
     )
 
     # Save to analytics

@@ -41,6 +41,10 @@ class CompileRequest(BaseModel):
     trace: bool = False
     v2: bool = True
     render_v2_prompts: bool = False
+    record_analytics: bool = False
+    user_level: str = "intermediate"
+    task_type: str = "general"
+    tags: Optional[List[str]] = None
 
 
 class CompileResponse(BaseModel):
@@ -150,6 +154,26 @@ async def compile_endpoint(req: CompileRequest):
         user_v2 = emit_user_prompt_v2(ir2)
         plan_v2 = emit_plan_v2(ir2)
         exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+
+    # Best-effort analytics capture (API) - opt-in via request
+    if req.record_analytics:
+        try:
+            analytics_ir = ir2.model_dump() if ir2 is not None else ir.model_dump()
+            record = create_record_from_ir(
+                req.text,
+                analytics_ir,
+                None,
+                interface_type="api",
+                user_level=(req.user_level or "intermediate").strip(),
+                task_type=(req.task_type or "general").strip(),
+                time_ms=elapsed,
+                iteration_count=1,
+                tags=req.tags or [],
+            )
+            AnalyticsManager().record_prompt(record)
+        except Exception:
+            # Never fail the request due to analytics.
+            pass
     return CompileResponse(
         ir=ir.model_dump(),
         ir_v2=(ir2.model_dump() if ir2 else None),
