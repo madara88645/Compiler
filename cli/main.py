@@ -522,6 +522,33 @@ def _run_compile(
         ir = None
     if persona and (ir is not None):
         ir.persona = persona.strip().lower()
+
+    # Build IR payload early so analytics can be recorded even when we exit early
+    # (e.g. --json-only/--quiet). This is cheap (model_dump) and keeps behavior consistent.
+    ir_json = ir.model_dump() if ir else ir2.model_dump()
+    if trace and ir:
+        ir_json["trace"] = generate_trace(ir)
+
+    # Best-effort analytics capture (CLI)
+    if record_analytics:
+        try:
+            elapsed_ms = int((time.time() - t0) * 1000)
+            record = create_record_from_ir(
+                full_text,
+                ir_json,
+                None,
+                interface_type="cli",
+                user_level=(user_level or "intermediate").strip(),
+                task_type=(task_type or "general").strip(),
+                time_ms=elapsed_ms,
+                iteration_count=1,
+                tags=tags or [],
+            )
+            AnalyticsManager().record_prompt(record)
+        except Exception:
+            # Never fail the command due to analytics.
+            pass
+
     # Resolve quiet vs json_only
     if json_only and quiet:
         quiet = False
@@ -543,9 +570,7 @@ def _run_compile(
         else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if (ir2 and render_v2) else "")
     )
     if json_only:
-        data = ir.model_dump() if ir else ir2.model_dump()
-        if trace and ir:
-            data["trace"] = generate_trace(ir)
+        data = ir_json
         fmt_l = (fmt or "json").lower()
         # Prepare payload according to desired format
         if fmt_l in {"yaml", "yml"}:
@@ -609,9 +634,7 @@ def _run_compile(
     else:
         print(f"[bold white]IR v2[/bold white] (heuristics v{HEURISTIC2_VERSION})")
     print("\n[bold blue]IR JSON:[/bold blue]")
-    ir_json = ir.model_dump() if ir else ir2.model_dump()
-    if trace and ir:
-        ir_json["trace"] = generate_trace(ir)
+    ir_json = ir_json
     rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)
     if out or out_dir:
         fmt_l = (fmt or "json").lower()
@@ -653,26 +676,6 @@ def _run_compile(
     except Exception:
         # Silently fail if history fails
         pass
-
-    # Best-effort analytics capture (CLI)
-    if record_analytics:
-        try:
-            elapsed_ms = int((time.time() - t0) * 1000)
-            record = create_record_from_ir(
-                full_text,
-                ir_json,
-                None,
-                interface_type="cli",
-                user_level=(user_level or "intermediate").strip(),
-                task_type=(task_type or "general").strip(),
-                time_ms=elapsed_ms,
-                iteration_count=1,
-                tags=tags or [],
-            )
-            AnalyticsManager().record_prompt(record)
-        except Exception:
-            # Never fail the command due to analytics.
-            pass
 
 
 def _write_output(
