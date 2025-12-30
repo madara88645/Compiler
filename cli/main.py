@@ -503,6 +503,7 @@ def _run_compile(
     persona: str | None,
     trace: bool,
     record_analytics: bool = False,
+    validate: bool = False,
     user_level: str = "intermediate",
     task_type: str = "general",
     tags: list[str] | None = None,
@@ -529,6 +530,32 @@ def _run_compile(
     if trace and ir:
         ir_json["trace"] = generate_trace(ir)
 
+    validation_result = None
+    if validate:
+        if ir2 is None:
+            # Validation currently supports IR v2 only.
+            print("[warn] Validation skipped (IR v1)", file=sys.stderr)
+        else:
+            try:
+                validation_result = validate_prompt(ir2, full_text)
+                # Keep stdout clean for --json-only; emit summary to stderr.
+                score_total = (
+                    validation_result.score.total
+                    if hasattr(validation_result, "score")
+                    and hasattr(validation_result.score, "total")
+                    else None
+                )
+                if score_total is not None:
+                    print(
+                        f"[validation] score={score_total:.1f} errors={getattr(validation_result, 'errors', 0)} "
+                        f"warnings={getattr(validation_result, 'warnings', 0)} issues={len(getattr(validation_result, 'issues', []) or [])}",
+                        file=sys.stderr,
+                    )
+                else:
+                    print("[validation] ok", file=sys.stderr)
+            except Exception as e:
+                print(f"[warn] Validation failed: {e}", file=sys.stderr)
+
     # Best-effort analytics capture (CLI)
     if record_analytics:
         try:
@@ -536,7 +563,7 @@ def _run_compile(
             record = create_record_from_ir(
                 full_text,
                 ir_json,
-                None,
+                validation_result,
                 interface_type="cli",
                 user_level=(user_level or "intermediate").strip(),
                 task_type=(task_type or "general").strip(),
@@ -764,6 +791,11 @@ def compile(
         "--record-analytics/--no-record-analytics",
         help="Record this run to analytics DB (best-effort)",
     ),
+    validate: bool = typer.Option(
+        False,
+        "--validate/--no-validate",
+        help="Run prompt validation and print a short summary to stderr",
+    ),
     user_level: str = typer.Option(
         "intermediate",
         "--user-level",
@@ -819,6 +851,7 @@ def compile(
         persona,
         trace,
         record_analytics=record_analytics,
+        validate=validate,
         user_level=user_level,
         task_type=task_type,
         tags=tags,

@@ -108,3 +108,35 @@ def test_cli_analytics_record_records_metadata(tmp_path: Path, monkeypatch):
     assert rec.iteration_count == 1
     assert rec.time_ms is not None
     assert rec.time_ms >= 0
+
+
+def test_cli_compile_validate_affects_analytics(monkeypatch):
+    captured = _capture_analytics(monkeypatch)
+
+    class _Score:
+        def __init__(self, total: float):
+            self.total = total
+
+    class _Validation:
+        def __init__(self):
+            self.score = _Score(88.5)
+            self.issues = []
+            self.warnings = 0
+            self.errors = 0
+
+    monkeypatch.setattr(cli_main, "validate_prompt", lambda ir, original_text=None: _Validation())
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "compile",
+            "hello world",
+            "--json-only",
+            "--validate",
+            "--record-analytics",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert len(captured) == 1
+    assert captured[0].validation_score == 88.5
