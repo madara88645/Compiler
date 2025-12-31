@@ -41,6 +41,12 @@ def test_cli_compile_records_metadata(monkeypatch):
             "hello world",
             "--json-only",
             "--record-analytics",
+            "--pre-score",
+            "10",
+            "--post-score",
+            "42.5",
+            "--iteration-count",
+            "3",
             "--user-level",
             "beginner",
             "--task-type",
@@ -61,7 +67,9 @@ def test_cli_compile_records_metadata(monkeypatch):
     assert rec.task_type == "debugging"
     assert "project:x" in rec.tags
     assert "foo:bar" in rec.tags
-    assert rec.iteration_count == 1
+    assert rec.pre_score == 10
+    assert rec.post_score == 42.5
+    assert rec.iteration_count == 3
     assert rec.time_ms is not None
     assert rec.time_ms >= 0
 
