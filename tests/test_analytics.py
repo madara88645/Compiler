@@ -91,6 +91,75 @@ def test_get_records(temp_db):
     assert len(high_score_records) == 3
 
 
+def test_get_records_with_hci_filters(temp_db):
+    """Test filters used for HCI-style analytics slicing."""
+    manager = AnalyticsManager(db_path=temp_db)
+
+    records = [
+        PromptRecord(
+            prompt_text="A",
+            prompt_hash="a",
+            validation_score=80.0,
+            domain="general",
+            persona="assistant",
+            language="en",
+            intents=["answer"],
+            issues_count=0,
+            prompt_length=10,
+            user_level="beginner",
+            task_type="debugging",
+            tags=["project:x", "flow:cli"],
+        ),
+        PromptRecord(
+            prompt_text="B",
+            prompt_hash="b",
+            validation_score=75.0,
+            domain="general",
+            persona="assistant",
+            language="en",
+            intents=["answer"],
+            issues_count=1,
+            prompt_length=10,
+            user_level="advanced",
+            task_type="teaching",
+            tags=["project:y"],
+        ),
+        PromptRecord(
+            prompt_text="C",
+            prompt_hash="c",
+            validation_score=90.0,
+            domain="education",
+            persona="teacher",
+            language="en",
+            intents=["teach"],
+            issues_count=0,
+            prompt_length=10,
+            user_level="beginner",
+            task_type="debugging",
+            tags=["project:x", "load:high"],
+        ),
+    ]
+
+    for r in records:
+        manager.record_prompt(r)
+
+    # Filter by user_level
+    beginners = manager.get_records(user_level="beginner")
+    assert len(beginners) == 2
+
+    # Filter by task_type
+    debugging = manager.get_records(task_type="debugging")
+    assert len(debugging) == 2
+
+    # Filter by tag
+    project_x = manager.get_records(tags=["project:x"])
+    assert len(project_x) == 2
+
+    # Multiple tags should be AND-ed
+    project_x_cli = manager.get_records(tags=["project:x", "flow:cli"])
+    assert len(project_x_cli) == 1
+
+
 def test_get_summary(temp_db):
     """Test analytics summary"""
     manager = AnalyticsManager(db_path=temp_db)
@@ -146,6 +215,29 @@ def test_get_summary_with_filters(temp_db):
     assert summary.total_prompts == 5
     assert all(d[0] == "education" for d in summary.top_domains)
 
+    # Filter by user_level and tag
+    # Add some tagged beginner records
+    for i in range(3):
+        manager.record_prompt(
+            PromptRecord(
+                prompt_text=f"Prompt tagged {i}",
+                prompt_hash=f"tagged{i}",
+                validation_score=80.0,
+                domain="education",
+                persona="teacher",
+                language="en",
+                intents=["teach"],
+                issues_count=0,
+                prompt_length=100,
+                user_level="beginner",
+                task_type="debugging",
+                tags=["project:x"],
+            )
+        )
+
+    filtered = manager.get_summary(days=30, user_level="beginner", tags=["project:x"])
+    assert filtered.total_prompts == 3
+
 
 def test_get_score_trends(temp_db):
     """Test score trends over time"""
@@ -179,6 +271,10 @@ def test_get_score_trends(temp_db):
         assert "avg_score" in trend
         assert "count" in trend
         assert trend["count"] > 0
+
+    # Smoke test filtered trends
+    filtered = manager.get_score_trends(days=7, domain="general")
+    assert len(filtered) == len(trends)
 
 
 def test_get_domain_breakdown(temp_db):
@@ -217,6 +313,10 @@ def test_get_domain_breakdown(temp_db):
     # Check score calculations
     assert breakdown["education"]["avg_score"] == 85.0
     assert breakdown["tech"]["min_score"] == 70.0
+
+    # Smoke test filtered breakdown
+    only_teacher = manager.get_domain_breakdown(days=30, persona="teacher")
+    assert only_teacher == {}
 
 
 def test_clear_old_records(temp_db):

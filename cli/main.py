@@ -2237,6 +2237,13 @@ def analytics_summary(
     days: int = typer.Option(30, help="Number of days to analyze"),
     domain: Optional[str] = typer.Option(None, help="Filter by domain"),
     persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    user_level: Optional[str] = typer.Option(None, "--user-level", help="Filter by user level"),
+    task_type: Optional[str] = typer.Option(None, "--task-type", help="Filter by task type"),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filter by tag (repeatable; record must contain all tags)",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -2251,7 +2258,14 @@ def analytics_summary(
     manager = AnalyticsManager()
 
     with console.status("[cyan]Analyzing data..."):
-        summary = manager.get_summary(days=days, domain=domain, persona=persona)
+        summary = manager.get_summary(
+            days=days,
+            domain=domain,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
+        )
 
     if json_output:
         from dataclasses import asdict
@@ -2327,6 +2341,15 @@ def analytics_summary(
 @analytics_app.command("trends")
 def analytics_trends(
     days: int = typer.Option(30, help="Number of days to analyze"),
+    domain: Optional[str] = typer.Option(None, help="Filter by domain"),
+    persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    user_level: Optional[str] = typer.Option(None, "--user-level", help="Filter by user level"),
+    task_type: Optional[str] = typer.Option(None, "--task-type", help="Filter by task type"),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filter by tag (repeatable; record must contain all tags)",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -2340,7 +2363,14 @@ def analytics_trends(
     manager = AnalyticsManager()
 
     with console.status("[cyan]Analyzing trends..."):
-        trends = manager.get_score_trends(days=days)
+        trends = manager.get_score_trends(
+            days=days,
+            domain=domain,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
+        )
 
     if not trends:
         console.print("[yellow]No data available for the specified period[/yellow]")
@@ -2390,6 +2420,14 @@ def analytics_trends(
 @analytics_app.command("domains")
 def analytics_domains(
     days: int = typer.Option(30, help="Number of days to analyze"),
+    persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    user_level: Optional[str] = typer.Option(None, "--user-level", help="Filter by user level"),
+    task_type: Optional[str] = typer.Option(None, "--task-type", help="Filter by task type"),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filter by tag (repeatable; record must contain all tags)",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -2403,7 +2441,13 @@ def analytics_domains(
     manager = AnalyticsManager()
 
     with console.status("[cyan]Analyzing domains..."):
-        domain_stats = manager.get_domain_breakdown(days=days)
+        domain_stats = manager.get_domain_breakdown(
+            days=days,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
+        )
 
     if not domain_stats:
         console.print("[yellow]No data available[/yellow]")
@@ -2443,6 +2487,13 @@ def analytics_list(
     limit: int = typer.Option(20, help="Number of records to show"),
     domain: Optional[str] = typer.Option(None, help="Filter by domain"),
     persona: Optional[str] = typer.Option(None, help="Filter by persona"),
+    user_level: Optional[str] = typer.Option(None, "--user-level", help="Filter by user level"),
+    task_type: Optional[str] = typer.Option(None, "--task-type", help="Filter by task type"),
+    tags: List[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filter by tag (repeatable; record must contain all tags)",
+    ),
     min_score: Optional[float] = typer.Option(None, help="Minimum score"),
     max_score: Optional[float] = typer.Option(None, help="Maximum score"),
 ):
@@ -2457,7 +2508,14 @@ def analytics_list(
     manager = AnalyticsManager()
 
     records = manager.get_records(
-        limit=limit, domain=domain, persona=persona, min_score=min_score, max_score=max_score
+        limit=limit,
+        domain=domain,
+        persona=persona,
+        user_level=user_level,
+        task_type=task_type,
+        tags=tags,
+        min_score=min_score,
+        max_score=max_score,
     )
 
     if not records:

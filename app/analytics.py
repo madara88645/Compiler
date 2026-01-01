@@ -200,6 +200,9 @@ class AnalyticsManager:
         offset: int = 0,
         domain: Optional[str] = None,
         persona: Optional[str] = None,
+        user_level: Optional[str] = None,
+        task_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         start_date: Optional[str] = None,
@@ -235,6 +238,21 @@ class AnalyticsManager:
         if persona:
             query += " AND persona = ?"
             params.append(persona)
+
+        if user_level:
+            query += " AND user_level = ?"
+            params.append(user_level)
+
+        if task_type:
+            query += " AND task_type = ?"
+            params.append(task_type)
+
+        if tags:
+            # Stored as JSON text; filter using a safe substring match.
+            # Note: this is not as strong as JSON1 queries, but works without extensions.
+            for tag in tags:
+                query += " AND tags LIKE ?"
+                params.append(f"%{json.dumps(tag)}%")
 
         if min_score is not None:
             query += " AND validation_score >= ?"
@@ -295,6 +313,9 @@ class AnalyticsManager:
         days: int = 30,
         domain: Optional[str] = None,
         persona: Optional[str] = None,
+        user_level: Optional[str] = None,
+        task_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
     ) -> AnalyticsSummary:
         """
         Get analytics summary for a time period
@@ -309,7 +330,13 @@ class AnalyticsManager:
         """
         start_date = (datetime.now() - timedelta(days=days)).isoformat()
         records = self.get_records(
-            limit=10000, start_date=start_date, domain=domain, persona=persona
+            limit=10000,
+            start_date=start_date,
+            domain=domain,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
         )
 
         if not records:
@@ -378,7 +405,17 @@ class AnalyticsManager:
             most_improved_domain=most_improved,
         )
 
-    def get_score_trends(self, days: int = 30, bucket_size: int = 1) -> List[Dict[str, Any]]:
+    def get_score_trends(
+        self,
+        days: int = 30,
+        bucket_size: int = 1,
+        *,
+        domain: Optional[str] = None,
+        persona: Optional[str] = None,
+        user_level: Optional[str] = None,
+        task_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Get score trends over time
 
@@ -390,7 +427,15 @@ class AnalyticsManager:
             List of {date, avg_score, count} dicts
         """
         start_date = (datetime.now() - timedelta(days=days)).isoformat()
-        records = self.get_records(limit=10000, start_date=start_date)
+        records = self.get_records(
+            limit=10000,
+            start_date=start_date,
+            domain=domain,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
+        )
 
         if not records:
             return []
@@ -422,7 +467,15 @@ class AnalyticsManager:
 
         return trends
 
-    def get_domain_breakdown(self, days: int = 30) -> Dict[str, Dict[str, Any]]:
+    def get_domain_breakdown(
+        self,
+        days: int = 30,
+        *,
+        persona: Optional[str] = None,
+        user_level: Optional[str] = None,
+        task_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Get detailed breakdown by domain
 
@@ -433,7 +486,14 @@ class AnalyticsManager:
             Dict of domain -> stats
         """
         start_date = (datetime.now() - timedelta(days=days)).isoformat()
-        records = self.get_records(limit=10000, start_date=start_date)
+        records = self.get_records(
+            limit=10000,
+            start_date=start_date,
+            persona=persona,
+            user_level=user_level,
+            task_type=task_type,
+            tags=tags,
+        )
 
         domain_stats = {}
 
