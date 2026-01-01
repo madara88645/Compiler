@@ -1,8 +1,8 @@
 [project]
 name = "promptc"
-version = "2.0.39"
+version = "2.0.45"
 description = "Prompt Compiler App: compile free-text prompts into structured IR + prompts + plan"
-authors = [ { name = "Your Name" } ]
+authors = [ { name = "madara88645" } ]
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
@@ -11,6 +11,7 @@ dependencies = [
 	"uvicorn==0.23.2",
 	"pydantic==2.8.2",
 	"typer==0.9.0",
+	"click==8.1.7",
 	"jsonschema==4.21.1",
 	"rich==13.7.0",
 	"textual==0.47.1",
@@ -19,8 +20,18 @@ dependencies = [
 
 [tool.setuptools]
 package-dir = {"" = "."}
-packages = ["app", "api", "cli"]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*", "docs*", "examples*", "promptc.egg-info*"]
+
+[tool.setuptools.package-data]
+app = [
+	"_schemas/*.json",
+	"_builtin_templates/*.yaml",
+	"_builtin_templates/*.yml",
+]
 
 [project.scripts]
 promptc = "cli.main:app"
@@ -28,9 +39,15 @@ promptc = "cli.main:app"
 [project.optional-dependencies]
 dev = [
 	"pytest==8.0.0",
+	"pytest-cov>=5.0.0",
+	"build>=1.2.0",
 	"ruff==0.6.5",
 	"pre-commit==3.7.1",
 	"httpx<0.28",
+]
+
+openai = [
+	"openai>=1.30.0",
 ]
 
 [build-system]

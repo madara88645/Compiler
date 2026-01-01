@@ -195,22 +195,25 @@ async def compile_endpoint(req: CompileRequest):
 
 @app.get("/schema")
 async def schema_endpoint():
-    path = Path("schema/ir.schema.json")
-    return {"schema": path.read_text(encoding="utf-8")}
+    from app.resources import get_ir_schema_text
+
+    return {"schema": get_ir_schema_text(v2=False)}
 
 
 @app.get("/schema/ir_v1")
 async def schema_ir_v1():
     """Return IR v1 JSON schema (same as /schema legacy)."""
-    path = Path("schema/ir.schema.json")
-    return {"schema": path.read_text(encoding="utf-8")}
+    from app.resources import get_ir_schema_text
+
+    return {"schema": get_ir_schema_text(v2=False)}
 
 
 @app.get("/schema/ir_v2")
 async def schema_ir_v2():
     """Return IR v2 JSON schema."""
-    path = Path("schema/ir_v2.schema.json")
-    return {"schema": path.read_text(encoding="utf-8")}
+    from app.resources import get_ir_schema_text
+
+    return {"schema": get_ir_schema_text(v2=True)}
 
 
 INDEX_HTML = """<!DOCTYPE html>

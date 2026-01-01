@@ -1386,6 +1386,8 @@ def json_diff(
 def validate(
     files: List[Path] = typer.Argument(..., help="JSON files to validate (v1 or v2)"),
 ):
+    from app.resources import get_ir_schema_json
+
     ok = 0
     fail = 0
     for p in files:
@@ -1397,9 +1399,8 @@ def validate(
             continue
         # Choose schema by version
         v2 = isinstance(data, dict) and data.get("version") == "2.0"
-        schema_path = Path("schema/ir_v2.schema.json" if v2 else "schema/ir.schema.json")
         try:
-            schema = _json.loads(schema_path.read_text(encoding="utf-8"))
+            schema = get_ir_schema_json(v2=v2)
             Draft202012Validator(schema).validate(data)
             ok += 1
             typer.secho(f"[ok] {p}", fg=typer.colors.GREEN)

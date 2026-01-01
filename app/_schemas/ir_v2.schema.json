@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version","language","persona","role","domain","goals","tasks","constraints","style","tone","output_format","length_hint","steps","examples","banned","tools","metadata","intents"],
+  "properties": {
+    "version": { "const": "2.0" },
+  "language": { "enum": ["tr","en","es"] },
+    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor"] },
+    "role": { "type": "string" },
+    "domain": { "type": "string" },
+    "intents": { "type": "array", "items": { "enum": ["teaching","summary","compare","variants","recency","risk","code","ambiguous"] } },
+    "goals": { "type": "array", "items": { "type": "string" } },
+    "tasks": { "type": "array", "items": { "type": "string" } },
+    "inputs": { "type": "object", "additionalProperties": { "type": "string" } },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id","text","origin","priority"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" },
+          "origin": { "type": "string" },
+          "priority": { "enum": [10,20,30,40,50,60,65,70,80,90] },
+          "rationale": { "type": ["string","null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "style": { "type": "array", "items": { "type": "string" } },
+    "tone": { "type": "array", "items": { "type": "string" } },
+    "output_format": { "enum": ["markdown","json","yaml","table","text"] },
+    "length_hint": { "enum": ["short","medium","long"] },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type","text"],
+        "properties": {
+          "type": { "enum": ["task","teach","research","compare","plan"] },
+          "text": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "examples": { "type": "array", "items": { "type": "string" } },
+    "banned": { "type": "array", "items": { "type": "string" } },
+    "tools": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

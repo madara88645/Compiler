@@ -1409,9 +1409,11 @@ class PromptCompilerUI:
 
     def on_show_schema(self):
         try:
-            text = Path("schema/ir.schema.json").read_text(encoding="utf-8")
-        except FileNotFoundError:
-            messagebox.showerror("Schema", "schema/ir.schema.json not found")
+            from app.resources import get_ir_schema_text
+
+            text = get_ir_schema_text(v2=False)
+        except Exception:
+            messagebox.showerror("Schema", "IR schema not available")
             return
         win = tk.Toplevel(self.root)
         win.title("IR JSON Schema")
@@ -5643,15 +5645,12 @@ class PromptCompilerUI:
     def _copy_schema(self):
         """Copy JSON schema to clipboard."""
         try:
-            # Read schema file
-            schema_path = Path("schema/ir.schema.json")
-            if schema_path.exists():
-                content = schema_path.read_text(encoding="utf-8")
-                self.root.clipboard_clear()
-                self.root.clipboard_append(content)
-                self.status_var.set("📋 JSON schema copied to clipboard")
-            else:
-                messagebox.showwarning("Warning", "Schema file not found")
+            from app.resources import get_ir_schema_text
+
+            content = get_ir_schema_text(v2=False)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(content)
+            self.status_var.set("📋 JSON schema copied to clipboard")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy schema: {e}")
 

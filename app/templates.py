@@ -6,6 +6,7 @@ Provides reusable prompt templates with variable substitution.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -116,10 +117,34 @@ class TemplateRegistry:
     """Manages loading and accessing prompt templates."""
 
     def __init__(self, builtin_path: Optional[Path] = None, user_path: Optional[Path] = None):
-        self.builtin_path = builtin_path or Path(__file__).parent.parent / "templates"
+        # If builtin_path is None, built-in templates are loaded from packaged resources.
+        # If provided, built-in templates are loaded from that filesystem directory.
+        self.builtin_path = builtin_path
         self.user_path = user_path or Path.home() / ".promptc" / "templates"
         self._templates: Dict[str, PromptTemplate] = {}
         self._loaded = False
+
+    def _load_builtin_templates_from_package(self) -> None:
+        """Load built-in templates shipped in the installed package."""
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for template support")
+
+        root = resources.files("app").joinpath("_builtin_templates")
+        if not root.is_dir():
+            return
+
+        for entry in root.iterdir():
+            if not entry.name.endswith((".yaml", ".yml")):
+                continue
+            try:
+                data = yaml.safe_load(entry.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    template = PromptTemplate.from_dict(data)
+                    self._templates[template.id] = template
+            except Exception as e:  # pragma: no cover
+                import warnings
+
+                warnings.warn(f"Failed to load built-in template {entry.name}: {e}")
 
     def _ensure_loaded(self) -> None:
         """Lazy load templates on first access."""
@@ -127,22 +152,25 @@ class TemplateRegistry:
             return
 
         # Load built-in templates
-        if self.builtin_path.exists():
-            for file_path in self.builtin_path.glob("*.yaml"):
-                try:
-                    self._load_template_file(file_path)
-                except Exception as e:  # pragma: no cover
-                    import warnings
+        if self.builtin_path is not None:
+            if self.builtin_path.exists():
+                for file_path in self.builtin_path.glob("*.yaml"):
+                    try:
+                        self._load_template_file(file_path)
+                    except Exception as e:  # pragma: no cover
+                        import warnings
 
-                    warnings.warn(f"Failed to load template {file_path}: {e}")
+                        warnings.warn(f"Failed to load template {file_path}: {e}")
 
-            for file_path in self.builtin_path.glob("*.yml"):
-                try:
-                    self._load_template_file(file_path)
-                except Exception as e:  # pragma: no cover
-                    import warnings
+                for file_path in self.builtin_path.glob("*.yml"):
+                    try:
+                        self._load_template_file(file_path)
+                    except Exception as e:  # pragma: no cover
+                        import warnings
 
-                    warnings.warn(f"Failed to load template {file_path}: {e}")
+                        warnings.warn(f"Failed to load template {file_path}: {e}")
+        else:
+            self._load_builtin_templates_from_package()
 
         # Load user templates
         if self.user_path.exists():
@@ -204,7 +232,11 @@ class TemplateRegistry:
         if yaml is None:
             raise RuntimeError("PyYAML is required for template support")
 
+        if not user_template and self.builtin_path is None:
+            raise ValueError("Built-in templates are read-only in installed packages")
+
         target_dir = self.user_path if user_template else self.builtin_path
+        assert target_dir is not None
         target_dir.mkdir(parents=True, exist_ok=True)
 
         file_path = target_dir / f"{template.id}.yaml"

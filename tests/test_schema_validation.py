@@ -1,9 +1,9 @@
 import json
 from jsonschema import validate
-from pathlib import Path
 from app.compiler import compile_text
+from app.resources import get_ir_schema_text
 
-schema = json.loads(Path("schema/ir.schema.json").read_text(encoding="utf-8"))
+schema = json.loads(get_ir_schema_text(v2=False))
 
 
 def test_schema_validation():

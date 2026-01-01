@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "required": ["language","persona","role","domain","goals","tasks","constraints","style","tone",
+               "output_format","length_hint","steps","examples","banned","tools","metadata"],
+  "properties": {
+  "language": { "enum": ["tr","en","es"] },
+    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor"] },
+    "role": { "type": "string" },
+    "domain": { "type": "string" },
+    "goals": { "type": "array", "items": { "type": "string" } },
+    "tasks": { "type": "array", "items": { "type": "string" } },
+    "inputs": { "type": "object", "additionalProperties": { "type": "string" } },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "style": { "type": "array", "items": { "type": "string" } },
+    "tone": { "type": "array", "items": { "type": "string" } },
+    "output_format": { "enum": ["markdown","json","yaml","table","text"] },
+    "length_hint": { "enum": ["short","medium","long"] },
+    "steps": { "type": "array", "items": { "type": "string" } },
+    "examples": { "type": "array", "items": { "type": "string" } },
+    "banned": { "type": "array", "items": { "type": "string" } },
+    "tools": { "type": "array", "items": { "type": "string" } },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "conflicts": { "type": "array", "items": { "type": "string" } },
+        "detected_domain_evidence": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "heuristic_version": { "type": ["string","null"] },
+        "ir_signature": { "type": ["string","null"] },
+        "domain_candidates": { "type": "array", "items": { "type": "string" } },
+        "domain_scores": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "domain_confidence": { "type": ["number","null"] },
+        "domain_score_mode": { "type": ["string","null"] },
+        "risk_flags": { "type": "array", "items": { "type": "string" } },
+        "entities": { "type": "array", "items": { "type": "string" } },
+        "complexity": { "type": ["string","null"] },
+        "ambiguous_terms": { "type": "array", "items": { "type": "string" } },
+        "clarify_questions": { "type": "array", "items": { "type": "string" } },
+        "clarify_questions_struct": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "term": { "type": ["string","null"] },
+              "category": { "type": ["string","null"] },
+              "question": { "type": "string" }
+            },
+            "required": ["question"],
+            "additionalProperties": true
+          }
+        },
+        "code_request": { "type": ["boolean","null"] },
+        "pii_flags": { "type": "array", "items": { "type": "string" } },
+        "temporal_flags": { "type": "array", "items": { "type": "string" } },
+        "quantities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "unit": { "type": "string" }
+            },
+            "required": ["value","unit"],
+            "additionalProperties": false
+          }
+        },
+        "summary": { "type": ["string","boolean","null"] },
+        "summary_limit": { "type": ["integer","string","null"] },
+        "comparison_items": { "type": "array", "items": { "type": "string" } },
+        "variant_count": { "type": ["integer","null"] },
+        "persona_evidence": { "type": ["object","null"] },
+        "constraint_origins": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

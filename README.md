@@ -1,6 +1,7 @@
 # Prompt Compiler App (promptc)
 
 [![CI](https://github.com/madara88645/Compiler/actions/workflows/ci.yml/badge.svg)](https://github.com/madara88645/Compiler/actions)
+[![Coverage](https://codecov.io/gh/madara88645/Compiler/branch/main/graph/badge.svg)](https://codecov.io/gh/madara88645/Compiler)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
