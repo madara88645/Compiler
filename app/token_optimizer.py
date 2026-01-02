@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from app.text_utils import estimate_tokens
 
@@ -63,7 +63,9 @@ def optimize_text(
         if candidate == out:
             # No further progress possible at this level.
             # Only escalate if we have a budget and still haven't met it.
-            if has_budget and not _meets_budget(out, max_chars=derived_max_chars, max_tokens=max_tokens):
+            if has_budget and not _meets_budget(
+                out, max_chars=derived_max_chars, max_tokens=max_tokens
+            ):
                 if level >= 3:
                     break
                 level += 1
