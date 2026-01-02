@@ -887,6 +887,83 @@ def compile(
     )
 
 
+@app.command("optimize")
+def optimize_command(
+    text: List[str] = typer.Argument(
+        None, help="Prompt text (wrap in quotes for multi-word)", show_default=False
+    ),
+    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
+    stdin: bool = typer.Option(
+        False, "--stdin", help="Read prompt text from STDIN (overrides TEXT and --from-file)"
+    ),
+    max_chars: Optional[int] = typer.Option(
+        None, "--max-chars", help="Character budget (best-effort, no truncation)"
+    ),
+    max_tokens: Optional[int] = typer.Option(
+        None, "--max-tokens", help="Approximate token budget (best-effort, no truncation)"
+    ),
+    token_ratio: float = typer.Option(4.0, "--token-ratio", help="Chars per token heuristic"),
+    stats: bool = typer.Option(False, "--stats", help="Print before/after stats to stderr"),
+    json_out: bool = typer.Option(
+        False, "--json", help="Emit JSON output (optimized text + stats)"
+    ),
+    out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
+):
+    """Shorten prompt text to reduce token cost (deterministic, Markdown-safe)."""
+
+    if not text and not from_file and not stdin:
+        raise typer.BadParameter("Provide TEXT, --from-file, or --stdin")
+
+    if stdin:
+        try:
+            full_text = sys.stdin.read()
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read from STDIN: {e}")
+    elif from_file is not None:
+        try:
+            full_text = from_file.read_text(encoding="utf-8")
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
+    else:
+        full_text = " ".join(text)
+
+    from app.token_optimizer import optimize_text
+
+    optimized, st = optimize_text(
+        full_text,
+        max_chars=max_chars,
+        max_tokens=max_tokens,
+        token_ratio=token_ratio,
+    )
+
+    if stats:
+        met = "yes" if (st.met_max_chars and st.met_max_tokens) else "no"
+        print(
+            f"[optimize] chars {st.before_chars}->{st.after_chars} tokens {st.before_tokens}->{st.after_tokens} met_budget={met} passes={st.passes}",
+            file=sys.stderr,
+        )
+
+    if json_out:
+        payload = json.dumps(
+            {
+                "text": optimized,
+                "before": {"chars": st.before_chars, "tokens": st.before_tokens},
+                "after": {"chars": st.after_chars, "tokens": st.after_tokens},
+                "met_budget": bool(st.met_max_chars and st.met_max_tokens),
+                "passes": st.passes,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    else:
+        payload = optimized
+
+    if out:
+        _write_output(payload, out, None, default_name="optimized.txt")
+    else:
+        typer.echo(payload)
+
+
 @app.command()
 def version():
     """Print package version."""

@@ -260,6 +260,24 @@ promptc compile --from-file .\examples\example_tr.txt --out-dir .\outputs --form
 promptc "compare llama3 vs gpt-4o for code generation" --render-v2
 ```
 
+#### Prompt Optimization (token cost)
+
+Shorten prompts deterministically to reduce token cost while preserving Markdown structure (fenced code blocks are preserved verbatim).
+
+```powershell
+# Optimize from text
+promptc optimize "Write a clean, detailed code review for this PR" --stats
+
+# Optimize from file and save output
+promptc optimize --from-file .\prompt.txt --out .\prompt_optimized.txt --stats
+
+# Approximate token budget (uses the same chars/token heuristic as RAG by default)
+promptc optimize --from-file .\prompt.txt --max-tokens 1200 --token-ratio 4.0 --stats
+
+# JSON output (text + before/after stats)
+promptc optimize --from-file .\prompt.txt --json
+```
+
 #### Prompt Validation (new)
 
 Validate prompt quality and get actionable suggestions before sending to LLMs:
