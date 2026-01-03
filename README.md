@@ -1696,6 +1696,32 @@ curl -X POST http://127.0.0.1:8000/compile \
 ```
 The default response includes `ir_v2` and `heuristic2_version`. See `schema/ir_v2.schema.json` for the IR v2 schema.
 
+#### POST /optimize (token cost)
+Deterministically shorten text to reduce token cost while preserving Markdown structure (fenced code blocks are preserved verbatim).
+
+**Request:**
+```bash
+curl -X POST http://127.0.0.1:8000/optimize \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Write a thorough code review with actionable feedback.","max_tokens":800,"token_ratio":4.0}'
+```
+
+**Response:**
+```json
+{
+  "text": "Write a thorough code review with actionable feedback.",
+  "before_chars": 55,
+  "after_chars": 55,
+  "before_tokens": 14,
+  "after_tokens": 14,
+  "passes": 1,
+  "met_max_chars": true,
+  "met_max_tokens": true,
+  "met_budget": true,
+  "changed": false
+}
+```
+
 #### GET /health
 ```json
 {"status": "ok"}

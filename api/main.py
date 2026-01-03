@@ -65,6 +65,33 @@ class CompileResponse(BaseModel):
     trace: list[str] | None = None
 
 
+class OptimizeRequest(BaseModel):
+    text: str
+    max_chars: Optional[int] = Field(
+        default=None, description="Character budget (best-effort; the server will not truncate)"
+    )
+    max_tokens: Optional[int] = Field(
+        default=None,
+        description="Approximate token budget (best-effort; the server will not truncate)",
+    )
+    token_ratio: float = Field(
+        default=4.0, description="Chars per token heuristic (same convention as RAG)"
+    )
+
+
+class OptimizeResponse(BaseModel):
+    text: str
+    before_chars: int
+    after_chars: int
+    before_tokens: int
+    after_tokens: int
+    passes: int
+    met_max_chars: bool
+    met_max_tokens: bool
+    met_budget: bool
+    changed: bool
+
+
 class RagIngestRequest(BaseModel):
     paths: List[str]
     exts: Optional[List[str]] = Field(
@@ -190,6 +217,32 @@ async def compile_endpoint(req: CompileRequest):
         heuristic_version=HEURISTIC_VERSION,
         heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
         trace=trace_lines,
+    )
+
+
+@app.post("/optimize", response_model=OptimizeResponse)
+async def optimize_endpoint(req: OptimizeRequest):
+    """Deterministically shorten prompt text to reduce token cost."""
+
+    from app.token_optimizer import optimize_text
+
+    optimized, st = optimize_text(
+        req.text,
+        max_chars=req.max_chars,
+        max_tokens=req.max_tokens,
+        token_ratio=req.token_ratio,
+    )
+    return OptimizeResponse(
+        text=optimized,
+        before_chars=st.before_chars,
+        after_chars=st.after_chars,
+        before_tokens=st.before_tokens,
+        after_tokens=st.after_tokens,
+        passes=st.passes,
+        met_max_chars=st.met_max_chars,
+        met_max_tokens=st.met_max_tokens,
+        met_budget=bool(st.met_max_chars and st.met_max_tokens),
+        changed=st.changed,
     )
 
 

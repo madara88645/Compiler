@@ -21,6 +21,24 @@ def test_optimize_preserves_fenced_code_block_verbatim():
     assert "```\n" in optimized
 
 
+def test_optimize_preserves_fenced_code_block_even_when_budget_forces_multiple_passes():
+    text = (
+        "Intro  with   spaces\n\n"
+        "```python\n"
+        "def  foo():\n"
+        "    return  1\n"
+        "```\n\n"
+        "Outro  with   spaces\n"
+    )
+
+    optimized, _ = optimize_text(text, max_tokens=1)
+
+    assert "```python\n" in optimized
+    assert "def  foo():\n" in optimized
+    assert "    return  1\n" in optimized
+    assert "```\n" in optimized
+
+
 def test_optimize_reduces_tokens_for_whitespace_heavy_text():
     # Token estimation is char-sensitive in this repo; make chars dominate.
     text = "hello" + (" " * 400) + "world"

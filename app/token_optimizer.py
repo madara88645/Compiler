@@ -117,6 +117,9 @@ def _meets_budget(text: str, *, max_chars: Optional[int], max_tokens: Optional[i
 
 
 def _optimize_once(text: str, *, level: int) -> str:
+    # Keep fenced code blocks splittable even if earlier passes removed blank lines
+    # that previously separated text and fences.
+    text = _normalize_fence_boundaries(text)
     parts = _split_fenced_code(text)
     out_parts: List[str] = []
     for kind, chunk in parts:
@@ -128,6 +131,24 @@ def _optimize_once(text: str, *, level: int) -> str:
     # Normalize stray whitespace around code fences.
     combined = combined.replace("\r\n", "\n")
     return combined
+
+
+_FENCE_LINE_RE = re.compile(r"(```+|~~~+)[^\n]*\n")
+
+
+def _normalize_fence_boundaries(text: str) -> str:
+    """Ensure fence lines start at beginning of a line.
+
+    This prevents a multi-pass optimizer from accidentally merging a fence line
+    into a previous paragraph (e.g., removing the newline before ```), which
+    would break fence detection on subsequent passes.
+    """
+
+    s = (text or "").replace("\r\n", "\n")
+    # Insert a newline before a fence line when it is preceded by a non-newline.
+    # Example: "Intro```python\n" -> "Intro\n```python\n"
+    s = re.sub(r"([^\n])(```+|~~~+)([^\n]*\n)", r"\1\n\2\3", s)
+    return s
 
 
 def _split_fenced_code(text: str) -> List[Tuple[str, str]]:
