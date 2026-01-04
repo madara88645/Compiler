@@ -256,6 +256,13 @@ class PromptCompilerUI:
             self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)"
         )
 
+        btn_optimize = ttk.Button(opts, text="🧹 Optimize", command=self.on_optimize_prompt)
+        btn_optimize.pack(side=tk.LEFT, padx=4)
+        self._add_tooltip(
+            btn_optimize,
+            "Shorten prompt deterministically to reduce token cost (preserves fenced code blocks)",
+        )
+
         btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
         btn_schema.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_schema, "View IR JSON schema structure")
@@ -1406,6 +1413,33 @@ class PromptCompilerUI:
         if hasattr(self, "tree_constraints"):
             for i in self.tree_constraints.get_children():
                 self.tree_constraints.delete(i)
+
+    def on_optimize_prompt(self):
+        text = self.txt_prompt.get("1.0", tk.END)
+        if not (text or "").strip():
+            self.status_var.set("Enter a prompt to optimize")
+            return
+
+        try:
+            from app.token_optimizer import optimize_text
+
+            optimized, st = optimize_text(text)
+        except Exception as exc:
+            messagebox.showerror("Optimize", f"Failed to optimize prompt: {exc}")
+            return
+
+        if optimized == text:
+            self.status_var.set(
+                f"Already optimized (chars {st.before_chars} | ≈ tokens {st.before_tokens})"
+            )
+            return
+
+        self.txt_prompt.delete("1.0", tk.END)
+        self.txt_prompt.insert("1.0", optimized)
+        self._update_prompt_stats()
+        self.status_var.set(
+            f"Optimized: chars {st.before_chars}→{st.after_chars} | ≈ tokens {st.before_tokens}→{st.after_tokens}"
+        )
 
     def on_show_schema(self):
         try:
