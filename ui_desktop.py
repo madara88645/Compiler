@@ -263,6 +263,20 @@ class PromptCompilerUI:
             "Shorten prompt deterministically to reduce token cost (preserves fenced code blocks)",
         )
 
+        self.var_opt_max_chars = tk.StringVar(value="")
+        self.var_opt_max_tokens = tk.StringVar(value="")
+        ttk.Label(opts, text="Max chars:").pack(side=tk.LEFT, padx=(10, 2))
+        ent_max_chars = ttk.Entry(opts, textvariable=self.var_opt_max_chars, width=8)
+        ent_max_chars.pack(side=tk.LEFT)
+        self._add_tooltip(ent_max_chars, "Optional: target maximum characters for Optimize")
+        ttk.Label(opts, text="Max tokens:").pack(side=tk.LEFT, padx=(8, 2))
+        ent_max_tokens = ttk.Entry(opts, textvariable=self.var_opt_max_tokens, width=8)
+        ent_max_tokens.pack(side=tk.LEFT)
+        self._add_tooltip(
+            ent_max_tokens,
+            "Optional: target maximum tokens (approx) for Optimize",
+        )
+
         btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
         btn_schema.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_schema, "View IR JSON schema structure")
@@ -1420,10 +1434,29 @@ class PromptCompilerUI:
             self.status_var.set("Enter a prompt to optimize")
             return
 
+        def _parse_optional_int(raw: str, field_name: str) -> Optional[int]:
+            raw = (raw or "").strip()
+            if not raw:
+                return None
+            try:
+                value = int(raw)
+            except ValueError:
+                raise ValueError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be > 0")
+            return value
+
+        try:
+            max_chars = _parse_optional_int(self.var_opt_max_chars.get(), "Max chars")
+            max_tokens = _parse_optional_int(self.var_opt_max_tokens.get(), "Max tokens")
+        except Exception as exc:
+            messagebox.showerror("Optimize", str(exc))
+            return
+
         try:
             from app.token_optimizer import optimize_text
 
-            optimized, st = optimize_text(text)
+            optimized, st = optimize_text(text, max_chars=max_chars, max_tokens=max_tokens)
         except Exception as exc:
             messagebox.showerror("Optimize", f"Failed to optimize prompt: {exc}")
             return
@@ -1437,8 +1470,11 @@ class PromptCompilerUI:
         self.txt_prompt.delete("1.0", tk.END)
         self.txt_prompt.insert("1.0", optimized)
         self._update_prompt_stats()
+        budget_note = ""
+        if (max_chars is not None or max_tokens is not None) and not st.budget_met:
+            budget_note = " (budget not met)"
         self.status_var.set(
-            f"Optimized: chars {st.before_chars}→{st.after_chars} | ≈ tokens {st.before_tokens}→{st.after_tokens}"
+            f"Optimized: chars {st.before_chars}→{st.after_chars} | ≈ tokens {st.before_tokens}→{st.after_tokens}{budget_note}"
         )
 
     def on_show_schema(self):
