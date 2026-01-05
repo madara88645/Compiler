@@ -11,10 +11,18 @@ import pytest
 from ui_desktop import PromptCompilerUI
 
 
+def _create_root():
+    """Create a Tk root suitable for the desktop UI.
+
+    Use plain tk.Tk for tests to avoid theme/style lifecycle issues.
+    """
+    return tk.Tk()
+
+
 def _can_create_tk_window():
     """Check if we can create a Tkinter window."""
     try:
-        root = tk.Tk()
+        root = _create_root()
         root.destroy()
         return True
     except Exception:
@@ -32,7 +40,7 @@ pytestmark = pytest.mark.skipif(
 def ui_app(tmp_path):
     """Create a UI instance for testing."""
     try:
-        root = tk.Tk()
+        root = _create_root()
         app = PromptCompilerUI(root)
         app.config_path = tmp_path / "promptc_ui.json"
         app.command_palette_favorites = set()
@@ -424,7 +432,7 @@ class TestShortcutDataModel:
 )
 def test_shortcuts_feature_complete():
     """Meta test to ensure shortcuts feature is complete."""
-    root = tk.Tk()
+    root = _create_root()
     app = PromptCompilerUI(root)
 
     # Check all required methods exist
