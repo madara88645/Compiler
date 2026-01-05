@@ -15,7 +15,8 @@ dependencies = [
 	"jsonschema==4.21.1",
 	"rich==13.7.0",
 	"textual==0.47.1",
-	"pyyaml>=6.0"
+	"pyyaml>=6.0",
+	"ttkbootstrap>=1.10.1"
 ]
 
 [tool.setuptools]

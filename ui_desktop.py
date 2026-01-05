@@ -18,11 +18,21 @@ import json
 import os
 import re
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, simpledialog
+from tkinter import messagebox, filedialog, simpledialog
 import time
 from pathlib import Path
 from datetime import datetime
 from typing import Callable, Optional, List
+
+# Optional modern theming for Tk
+try:  # pragma: no cover - UI dependency
+    import ttkbootstrap as ttk  # type: ignore
+
+    _HAS_TTKBOOTSTRAP = True
+except Exception:  # pragma: no cover - fallback
+    from tkinter import ttk  # type: ignore
+
+    _HAS_TTKBOOTSTRAP = False
 
 import httpx
 from app.analytics import AnalyticsManager, create_record_from_ir
@@ -75,6 +85,12 @@ class PromptCompilerUI:
         self.root.geometry("1200x780")
         self.root.minsize(1000, 650)
         self.current_theme = "light"
+
+        # ttk style (bootstrapped if available)
+        try:
+            self._style = getattr(self.root, "style", None) or ttk.Style()
+        except Exception:  # pragma: no cover
+            self._style = None
 
         # UI Customization settings
         self.accent_color = "#3b82f6"  # Default blue
@@ -252,12 +268,20 @@ class PromptCompilerUI:
 
         self.btn_generate = ttk.Button(opts, text="⚡ Generate", command=self.on_generate)
         self.btn_generate.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            self.btn_generate.configure(bootstyle="primary")
+        except Exception:
+            pass
         self._add_tooltip(
             self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)"
         )
 
         btn_optimize = ttk.Button(opts, text="🧹 Optimize", command=self.on_optimize_prompt)
         btn_optimize.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            btn_optimize.configure(bootstyle="info")
+        except Exception:
+            pass
         self._add_tooltip(
             btn_optimize,
             "Shorten prompt deterministically to reduce token cost (preserves fenced code blocks)",
@@ -279,18 +303,34 @@ class PromptCompilerUI:
 
         btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
         btn_schema.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            btn_schema.configure(bootstyle="secondary")
+        except Exception:
+            pass
         self._add_tooltip(btn_schema, "View IR JSON schema structure")
 
         btn_clear = ttk.Button(opts, text="🗑️ Clear", command=self.on_clear)
         btn_clear.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            btn_clear.configure(bootstyle="danger")
+        except Exception:
+            pass
         self._add_tooltip(btn_clear, "Clear all outputs and reset interface")
 
         btn_save = ttk.Button(opts, text="💾 Save", command=self.on_save)
         btn_save.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            btn_save.configure(bootstyle="success")
+        except Exception:
+            pass
         self._add_tooltip(btn_save, "Save outputs to file (Ctrl+S)")
 
         self.btn_theme = ttk.Button(opts, text="🌙 Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
+        try:  # ttkbootstrap only
+            self.btn_theme.configure(bootstyle="secondary")
+        except Exception:
+            pass
         self._add_tooltip(self.btn_theme, "Toggle light/dark theme")
 
         btn_settings = ttk.Button(opts, text="⚙️ Settings", command=self._show_settings)
@@ -1100,6 +1140,81 @@ class PromptCompilerUI:
     def apply_theme(self, theme: str):
         self.current_theme = theme
         dark = theme == "dark"
+
+        # Prefer ttkbootstrap theming when available for a more modern look
+        if _HAS_TTKBOOTSTRAP and self._style is not None:
+            try:
+                self._style.theme_use("darkly" if dark else "flatly")
+            except Exception:
+                pass
+
+            # Align tk.Text widgets with the active ttkbootstrap palette
+            try:
+                colors = getattr(self._style, "colors", None)
+                bg = getattr(colors, "bg", "#1a1a1a" if dark else "#fafafa")
+                fg = getattr(colors, "fg", "#e4e4e7" if dark else "#18181b")
+                text_bg = getattr(colors, "inputbg", "#18181b" if dark else "#ffffff")
+                accent = getattr(colors, "primary", "#3b82f6")
+                border = getattr(colors, "border", "#3f3f46" if dark else "#e4e4e7")
+            except Exception:
+                bg = "#1a1a1a" if dark else "#fafafa"
+                fg = "#e4e4e7" if dark else "#18181b"
+                text_bg = "#18181b" if dark else "#ffffff"
+                accent = "#3b82f6"
+                border = "#3f3f46" if dark else "#e4e4e7"
+
+            try:
+                self.root.configure(bg=bg)
+            except Exception:
+                pass
+
+            for t in [
+                self.txt_prompt,
+                getattr(self, "txt_context", None),
+                self.txt_system,
+                self.txt_user,
+                self.txt_plan,
+                self.txt_expanded,
+                self.txt_ir,
+                self.txt_ir2,
+                self.txt_trace,
+                getattr(self, "txt_llm", None),
+                getattr(self, "txt_diff", None),
+                getattr(self, "txt_quality_report", None),
+                getattr(self, "txt_quality_fix", None),
+            ]:
+                if t is None:
+                    continue
+                try:
+                    t.configure(
+                        bg=text_bg,
+                        fg=fg,
+                        insertbackground=accent,
+                        relief=tk.FLAT,
+                        borderwidth=1,
+                        highlightthickness=0,
+                        highlightbackground=border,
+                        font=("Consolas", 10),
+                    )
+                except Exception:
+                    pass
+
+            # Update theme button label
+            try:
+                self.btn_theme.config(text="☀️ Light" if dark else "🌙 Dark")
+            except Exception:
+                pass
+
+            # Re-apply JSON highlighting if tabs exist
+            try:
+                if hasattr(self, "txt_ir") and self.txt_ir.get("1.0", tk.END).strip():
+                    self._apply_json_highlighting(self.txt_ir, self.txt_ir.get("1.0", tk.END))
+                if hasattr(self, "txt_ir2") and self.txt_ir2.get("1.0", tk.END).strip():
+                    self._apply_json_highlighting(self.txt_ir2, self.txt_ir2.get("1.0", tk.END))
+            except Exception:
+                pass
+
+            return
 
         # Modern color palette
         if dark:
@@ -6700,7 +6815,13 @@ class PromptCompilerUI:
 
 
 def main():  # pragma: no cover
-    root = tk.Tk()
+    if _HAS_TTKBOOTSTRAP:
+        try:
+            root = ttk.Window(themename="flatly")
+        except Exception:
+            root = tk.Tk()
+    else:
+        root = tk.Tk()
     PromptCompilerUI(root)
     root.mainloop()
 
