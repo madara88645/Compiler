@@ -92,6 +92,20 @@ class PromptCompilerUI:
         except Exception:  # pragma: no cover
             self._style = None
 
+        # Typography: use modern system UI font for ttk widgets
+        try:
+            if self._style is not None:
+                ui_font = ("Segoe UI", 10)
+                self._style.configure("TLabel", font=ui_font)
+                self._style.configure("TButton", font=ui_font)
+                self._style.configure("TCheckbutton", font=ui_font)
+                self._style.configure("TRadiobutton", font=ui_font)
+                self._style.configure("TEntry", font=ui_font)
+                self._style.configure("TCombobox", font=ui_font)
+                self._style.configure("TMenubutton", font=ui_font)
+        except Exception:
+            pass
+
         # UI Customization settings
         self.accent_color = "#3b82f6"  # Default blue
         self.font_size = "medium"  # small, medium, large
@@ -248,25 +262,29 @@ class PromptCompilerUI:
             ctx_row, text="Include context in prompts", variable=self.var_include_context
         ).pack(anchor=tk.W)
 
-        # Options row
-        opts = ttk.Frame(top)
-        opts.pack(fill=tk.X)
+        # Controls rows (split to reduce crowding)
+        opts_primary = ttk.Frame(top)
+        opts_primary.pack(fill=tk.X, pady=(4, 0))
+        opts_secondary = ttk.Frame(top)
+        opts_secondary.pack(fill=tk.X, pady=(4, 0))
         self.var_diag = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT)
+        ttk.Checkbutton(opts_primary, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT)
         self.var_trace = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Trace", variable=self.var_trace).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Checkbutton(opts_primary, text="Trace", variable=self.var_trace).pack(
+            side=tk.LEFT, padx=(6, 0)
+        )
         # Toggle: render prompts using IR v2 emitters
         self.var_render_v2 = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Use IR v2 emitters", variable=self.var_render_v2).pack(
+        ttk.Checkbutton(opts_primary, text="Use IR v2 emitters", variable=self.var_render_v2).pack(
             side=tk.LEFT, padx=(6, 0)
         )
         # Toggle: wrap long lines in output panes
         self.var_wrap = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Wrap output", variable=self.var_wrap).pack(
+        ttk.Checkbutton(opts_primary, text="Wrap output", variable=self.var_wrap).pack(
             side=tk.LEFT, padx=(6, 0)
         )
 
-        self.btn_generate = ttk.Button(opts, text="⚡ Generate", command=self.on_generate)
+        self.btn_generate = ttk.Button(opts_primary, text="⚡ Generate", command=self.on_generate)
         self.btn_generate.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             self.btn_generate.configure(bootstyle="primary")
@@ -276,7 +294,7 @@ class PromptCompilerUI:
             self.btn_generate, "Compile prompt and generate outputs (Ctrl+Enter or F5)"
         )
 
-        btn_optimize = ttk.Button(opts, text="🧹 Optimize", command=self.on_optimize_prompt)
+        btn_optimize = ttk.Button(opts_primary, text="🧹 Optimize", command=self.on_optimize_prompt)
         btn_optimize.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             btn_optimize.configure(bootstyle="info")
@@ -289,19 +307,19 @@ class PromptCompilerUI:
 
         self.var_opt_max_chars = tk.StringVar(value="")
         self.var_opt_max_tokens = tk.StringVar(value="")
-        ttk.Label(opts, text="Max chars:").pack(side=tk.LEFT, padx=(10, 2))
-        ent_max_chars = ttk.Entry(opts, textvariable=self.var_opt_max_chars, width=8)
+        ttk.Label(opts_primary, text="Max chars:").pack(side=tk.LEFT, padx=(10, 2))
+        ent_max_chars = ttk.Entry(opts_primary, textvariable=self.var_opt_max_chars, width=8)
         ent_max_chars.pack(side=tk.LEFT)
         self._add_tooltip(ent_max_chars, "Optional: target maximum characters for Optimize")
-        ttk.Label(opts, text="Max tokens:").pack(side=tk.LEFT, padx=(8, 2))
-        ent_max_tokens = ttk.Entry(opts, textvariable=self.var_opt_max_tokens, width=8)
+        ttk.Label(opts_primary, text="Max tokens:").pack(side=tk.LEFT, padx=(8, 2))
+        ent_max_tokens = ttk.Entry(opts_primary, textvariable=self.var_opt_max_tokens, width=8)
         ent_max_tokens.pack(side=tk.LEFT)
         self._add_tooltip(
             ent_max_tokens,
             "Optional: target maximum tokens (approx) for Optimize",
         )
 
-        btn_schema = ttk.Button(opts, text="📄 Schema", command=self.on_show_schema)
+        btn_schema = ttk.Button(opts_primary, text="📄 Schema", command=self.on_show_schema)
         btn_schema.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             btn_schema.configure(bootstyle="secondary")
@@ -309,7 +327,7 @@ class PromptCompilerUI:
             pass
         self._add_tooltip(btn_schema, "View IR JSON schema structure")
 
-        btn_clear = ttk.Button(opts, text="🗑️ Clear", command=self.on_clear)
+        btn_clear = ttk.Button(opts_primary, text="🗑️ Clear", command=self.on_clear)
         btn_clear.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             btn_clear.configure(bootstyle="danger")
@@ -317,7 +335,7 @@ class PromptCompilerUI:
             pass
         self._add_tooltip(btn_clear, "Clear all outputs and reset interface")
 
-        btn_save = ttk.Button(opts, text="💾 Save", command=self.on_save)
+        btn_save = ttk.Button(opts_primary, text="💾 Save", command=self.on_save)
         btn_save.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             btn_save.configure(bootstyle="success")
@@ -325,7 +343,7 @@ class PromptCompilerUI:
             pass
         self._add_tooltip(btn_save, "Save outputs to file (Ctrl+S)")
 
-        self.btn_theme = ttk.Button(opts, text="🌙 Dark", command=self.toggle_theme)
+        self.btn_theme = ttk.Button(opts_primary, text="🌙 Dark", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=4)
         try:  # ttkbootstrap only
             self.btn_theme.configure(bootstyle="secondary")
@@ -333,21 +351,25 @@ class PromptCompilerUI:
             pass
         self._add_tooltip(self.btn_theme, "Toggle light/dark theme")
 
-        btn_settings = ttk.Button(opts, text="⚙️ Settings", command=self._show_settings)
+        btn_settings = ttk.Button(opts_primary, text="⚙️ Settings", command=self._show_settings)
         btn_settings.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_settings, "Customize UI appearance and behavior")
 
-        btn_templates = ttk.Button(opts, text="📋 Templates", command=self._show_template_manager)
+        btn_templates = ttk.Button(
+            opts_primary, text="📋 Templates", command=self._show_template_manager
+        )
         btn_templates.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_templates, "Manage and use prompt templates")
 
-        self.btn_palette = ttk.Button(opts, text="🧭 Palette", command=self._show_command_palette)
+        self.btn_palette = ttk.Button(
+            opts_primary, text="🧭 Palette", command=self._show_command_palette
+        )
         self.btn_palette.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(self.btn_palette, "Open Command Palette (Ctrl+Shift+P)")
         self.palette_badge_var = tk.StringVar(value="")
         self.palette_badge_label = None
 
-        btn_chat = ttk.Button(opts, text="💬 Chat (beta)", command=self._show_chat_window)
+        btn_chat = ttk.Button(opts_primary, text="💬 Chat (beta)", command=self._show_chat_window)
         btn_chat.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_chat, "Chat directly with your selected LLM without copy/paste")
 
@@ -358,10 +380,10 @@ class PromptCompilerUI:
             ex_files = []
         self._examples_map = {p.name: p for p in ex_files}
         if self._examples_map:
-            ttk.Label(opts, text="Examples:").pack(side=tk.LEFT, padx=(12, 2))
+            ttk.Label(opts_secondary, text="Examples:").pack(side=tk.LEFT, padx=(0, 2))
             self.var_example = tk.StringVar(value="<select>")
             self.cmb_examples = ttk.Combobox(
-                opts,
+                opts_secondary,
                 textvariable=self.var_example,
                 width=24,
                 state="readonly",
@@ -371,15 +393,15 @@ class PromptCompilerUI:
             self.cmb_examples.bind("<<ComboboxSelected>>", self._on_example_selected)
             # Toggle: auto-generate after loading an example
             self.var_autogen_example = tk.BooleanVar(value=False)
-            ttk.Checkbutton(opts, text="Auto-generate", variable=self.var_autogen_example).pack(
-                side=tk.LEFT, padx=(6, 0)
-            )
+            ttk.Checkbutton(
+                opts_secondary, text="Auto-generate", variable=self.var_autogen_example
+            ).pack(side=tk.LEFT, padx=(6, 0))
 
         # LLM quick-send controls
-        ttk.Label(opts, text="Provider:").pack(side=tk.LEFT, padx=(12, 2))
+        ttk.Label(opts_secondary, text="Provider:").pack(side=tk.LEFT, padx=(12, 2))
         self.var_llm_provider = tk.StringVar(value="OpenAI")
         self.cmb_llm_provider = ttk.Combobox(
-            opts,
+            opts_secondary,
             textvariable=self.var_llm_provider,
             width=12,
             state="readonly",
@@ -387,7 +409,7 @@ class PromptCompilerUI:
         )
         self.cmb_llm_provider.pack(side=tk.LEFT)
         self.cmb_llm_provider.bind("<<ComboboxSelected>>", lambda _e: self._update_llm_controls())
-        ttk.Label(opts, text="Model:").pack(side=tk.LEFT, padx=(8, 2))
+        ttk.Label(opts_secondary, text="Model:").pack(side=tk.LEFT, padx=(8, 2))
         self._openai_models = (
             "gpt-4o-mini",
             "gpt-4o",
@@ -402,7 +424,7 @@ class PromptCompilerUI:
         )
         self.var_model = tk.StringVar(value="gpt-4o-mini")
         self.cmb_model = ttk.Combobox(
-            opts,
+            opts_secondary,
             textvariable=self.var_model,
             width=18,
             state="normal",
@@ -410,26 +432,28 @@ class PromptCompilerUI:
         )
         self.cmb_model.pack(side=tk.LEFT)
         self.var_openai_expanded = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Use Expanded", variable=self.var_openai_expanded).pack(
-            side=tk.LEFT, padx=(6, 0)
+        ttk.Checkbutton(
+            opts_secondary, text="Use Expanded", variable=self.var_openai_expanded
+        ).pack(side=tk.LEFT, padx=(6, 0))
+        self.btn_send_llm = ttk.Button(
+            opts_secondary, text="🤖 Send to OpenAI", command=self.on_send_openai
         )
-        self.btn_send_llm = ttk.Button(opts, text="🤖 Send to OpenAI", command=self.on_send_openai)
-        self.btn_send_llm.pack(side=tk.LEFT, padx=6)
+        self.btn_send_llm.pack(side=tk.LEFT, padx=(8, 0))
         self._add_tooltip(self.btn_send_llm, "Send compiled prompt directly to OpenAI API")
 
         # User metadata controls
-        ttk.Label(opts, text="User Level:").pack(side=tk.LEFT, padx=(12, 2))
+        ttk.Label(opts_secondary, text="User Level:").pack(side=tk.LEFT, padx=(12, 2))
         self.cmb_user_level = ttk.Combobox(
-            opts,
+            opts_secondary,
             textvariable=self.var_user_level,
             width=12,
             state="readonly",
             values=("beginner", "intermediate", "advanced"),
         )
         self.cmb_user_level.pack(side=tk.LEFT)
-        ttk.Label(opts, text="Task Type:").pack(side=tk.LEFT, padx=(8, 2))
+        ttk.Label(opts_secondary, text="Task Type:").pack(side=tk.LEFT, padx=(8, 2))
         self.cmb_task_type = ttk.Combobox(
-            opts,
+            opts_secondary,
             textvariable=self.var_task_type,
             width=12,
             state="readonly",
@@ -463,7 +487,7 @@ class PromptCompilerUI:
         self._update_llm_controls()
 
         self.status_var = tk.StringVar(value="Idle")
-        ttk.Label(opts, textvariable=self.status_var, foreground="#555").pack(side=tk.RIGHT)
+        ttk.Label(opts_secondary, textvariable=self.status_var).pack(side=tk.RIGHT)
 
         # Summary line + cognitive load indicator
         self.summary_var = tk.StringVar(value="")
