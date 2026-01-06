@@ -17,22 +17,13 @@ import difflib
 import json
 import os
 import re
+import sys
 import tkinter as tk
 from tkinter import messagebox, filedialog, simpledialog
 import time
 from pathlib import Path
 from datetime import datetime
 from typing import Callable, Optional, List
-
-# Optional modern theming for Tk
-try:  # pragma: no cover - UI dependency
-    import ttkbootstrap as ttk  # type: ignore
-
-    _HAS_TTKBOOTSTRAP = True
-except Exception:  # pragma: no cover - fallback
-    from tkinter import ttk  # type: ignore
-
-    _HAS_TTKBOOTSTRAP = False
 
 import httpx
 from app.analytics import AnalyticsManager, create_record_from_ir
@@ -78,6 +69,33 @@ except Exception:  # pragma: no cover - optional dep
     OpenAI = None  # type: ignore
 
 
+# Optional modern theming for Tk
+# Note: in pytest runs we force stdlib ttk to avoid ttkbootstrap global Style
+# state issues across multiple create/destroy cycles of Tk roots.
+_RUNNING_UNDER_PYTEST = bool(os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in sys.modules)
+
+try:  # pragma: no cover - UI dependency
+    if _RUNNING_UNDER_PYTEST:
+        raise ImportError("Disable ttkbootstrap under pytest")
+    import ttkbootstrap as ttk  # type: ignore
+
+    _HAS_TTKBOOTSTRAP = True
+except Exception:  # pragma: no cover - fallback
+    from tkinter import ttk  # type: ignore
+
+    _HAS_TTKBOOTSTRAP = False
+
+
+# ttkbootstrap compatibility: keep stdlib ttk class names working
+if _HAS_TTKBOOTSTRAP:
+    if not hasattr(ttk, "PanedWindow") and hasattr(ttk, "Panedwindow"):
+        ttk.PanedWindow = ttk.Panedwindow  # type: ignore[attr-defined]
+    # Some ttkbootstrap builds expose LabelFrame but wire it to tk's labelframe,
+    # which doesn't support the ttk-style "padding" option.
+    if hasattr(ttk, "Labelframe"):
+        ttk.LabelFrame = ttk.Labelframe  # type: ignore[attr-defined]
+
+
 class PromptCompilerUI:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -88,9 +106,20 @@ class PromptCompilerUI:
 
         # ttk style (bootstrapped if available)
         try:
-            self._style = getattr(self.root, "style", None) or ttk.Style()
+            root_style = getattr(self.root, "style", None)
+            if root_style is not None:
+                self._style = root_style
+            else:
+                self._style = ttk.Style()
         except Exception:  # pragma: no cover
             self._style = None
+
+        # Only use ttkbootstrap theme switching when running under ttkbootstrap.Window.
+        # Some ttkbootstrap theme changes can crash when the root is a plain tk.Tk
+        # (notably in automated GUI tests).
+        self._can_bootstrap_theme_switch = bool(
+            _HAS_TTKBOOTSTRAP and getattr(self.root, "style", None)
+        )
 
         # Typography: use modern system UI font for ttk widgets
         try:
@@ -143,6 +172,8 @@ class PromptCompilerUI:
 
         # Tags and snippets data
         self.available_tags = []
+        # Back-compat: some parts of the UI expect `self.tags`
+        self.tags = self.available_tags
         self.snippets = []
         self.active_tag_filter = []
 
@@ -1166,7 +1197,7 @@ class PromptCompilerUI:
         dark = theme == "dark"
 
         # Prefer ttkbootstrap theming when available for a more modern look
-        if _HAS_TTKBOOTSTRAP and self._style is not None:
+        if _HAS_TTKBOOTSTRAP and self._style is not None and self._can_bootstrap_theme_switch:
             try:
                 self._style.theme_use("darkly" if dark else "flatly")
             except Exception:
@@ -1259,14 +1290,16 @@ class PromptCompilerUI:
             text_bg = "#ffffff"
 
         self.root.configure(bg=bg)
-        style = ttk.Style()
-        try:
-            if dark:
-                style.theme_use("clam")
-            else:
-                style.theme_use("default")
-        except Exception:
-            pass
+        style = self._style or ttk.Style()
+        # Avoid switching ttk themes unless we're on a ttkbootstrap Window.
+        if self._can_bootstrap_theme_switch:
+            try:
+                if dark:
+                    style.theme_use("clam")
+                else:
+                    style.theme_use("default")
+            except Exception:
+                pass
 
         # Modern styling with better contrast
         for elem in ["TFrame", "TLabel", "TCheckbutton"]:
@@ -1606,15 +1639,98 @@ class PromptCompilerUI:
             )
             return
 
-        self.txt_prompt.delete("1.0", tk.END)
-        self.txt_prompt.insert("1.0", optimized)
-        self._update_prompt_stats()
-        budget_note = ""
-        if (max_chars is not None or max_tokens is not None) and not st.budget_met:
-            budget_note = " (budget not met)"
-        self.status_var.set(
-            f"Optimized: chars {st.before_chars}→{st.after_chars} | ≈ tokens {st.before_tokens}→{st.after_tokens}{budget_note}"
+        self._show_optimize_preview(
+            original=text,
+            optimized=optimized,
+            stats=st,
+            max_chars=max_chars,
+            max_tokens=max_tokens,
         )
+
+    def _show_optimize_preview(
+        self,
+        *,
+        original: str,
+        optimized: str,
+        stats,
+        max_chars: Optional[int],
+        max_tokens: Optional[int],
+    ) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("🧹 Optimize Preview")
+        win.geometry("1050x720")
+        win.transient(self.root)
+        try:
+            win.grab_set()
+        except Exception:
+            pass
+
+        header = ttk.Frame(win)
+        header.pack(fill=tk.X, padx=10, pady=(10, 6))
+
+        budget_bits = []
+        if max_chars is not None:
+            budget_bits.append(f"max chars={max_chars}")
+        if max_tokens is not None:
+            budget_bits.append(f"max tokens≈{max_tokens}")
+        budget_text = f" • Budget: {', '.join(budget_bits)}" if budget_bits else ""
+
+        met_text = "met" if getattr(stats, "budget_met", True) else "not met"
+        stats_text = (
+            f"Chars {stats.before_chars}→{stats.after_chars}"
+            f" • ≈ Tokens {stats.before_tokens}→{stats.after_tokens}"
+            f" • Passes {getattr(stats, 'passes', 1)}"
+            f" • Budget {met_text}{budget_text}"
+        )
+        ttk.Label(header, text=stats_text).pack(side=tk.LEFT)
+
+        body = ttk.PanedWindow(win, orient=tk.HORIZONTAL)
+        body.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
+
+        left = ttk.Frame(body)
+        right = ttk.Frame(body)
+        body.add(left, weight=1)
+        body.add(right, weight=1)
+
+        ttk.Label(left, text="Before", font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
+        txt_before = tk.Text(left, wrap=tk.WORD)
+        txt_before.pack(fill=tk.BOTH, expand=True)
+        txt_before.insert("1.0", (original or "").rstrip("\n") + "\n")
+        txt_before.configure(state="disabled")
+
+        ttk.Label(right, text="After", font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
+        txt_after = tk.Text(right, wrap=tk.WORD)
+        txt_after.pack(fill=tk.BOTH, expand=True)
+        txt_after.insert("1.0", (optimized or "").rstrip("\n") + "\n")
+        txt_after.configure(state="disabled")
+
+        footer = ttk.Frame(win)
+        footer.pack(fill=tk.X, padx=10, pady=(6, 10))
+
+        def apply_changes() -> None:
+            self.txt_prompt.delete("1.0", tk.END)
+            self.txt_prompt.insert("1.0", optimized)
+            self._update_prompt_stats()
+
+            budget_note = ""
+            if (max_chars is not None or max_tokens is not None) and not stats.budget_met:
+                budget_note = " (budget not met)"
+            self.status_var.set(
+                f"Optimized: chars {stats.before_chars}→{stats.after_chars} | ≈ tokens {stats.before_tokens}→{stats.after_tokens}{budget_note}"
+            )
+            try:
+                win.destroy()
+            except Exception:
+                pass
+
+        btn_cancel = ttk.Button(footer, text="Cancel", command=win.destroy)
+        btn_cancel.pack(side=tk.RIGHT)
+        btn_apply = ttk.Button(footer, text="Apply", command=apply_changes)
+        btn_apply.pack(side=tk.RIGHT, padx=(0, 8))
+        try:  # ttkbootstrap only
+            btn_apply.configure(bootstyle="primary")
+        except Exception:
+            pass
 
     def on_show_schema(self):
         try:
@@ -3760,9 +3876,11 @@ class PromptCompilerUI:
                     {"name": "docs", "color": "#84cc16"},
                 ]
                 self._save_tags()
+            self.tags = self.available_tags
         except Exception as e:
             print(f"Failed to load tags: {e}")
             self.available_tags = []
+            self.tags = self.available_tags
 
     def _save_tags(self):
         """Save tags to JSON file."""
@@ -4314,7 +4432,7 @@ class PromptCompilerUI:
                     "version": "2.0.43",
                     "export_date": datetime.now().isoformat(),
                     "history": self.history_items,
-                    "tags": self.tags,
+                    "tags": self.available_tags,
                     "snippets": self.snippets,
                     "ui_settings": {
                         "theme": self.current_theme,
@@ -4336,7 +4454,7 @@ class PromptCompilerUI:
                 export_data = {
                     "version": "2.0.43",
                     "export_date": datetime.now().isoformat(),
-                    "tags": self.tags,
+                    "tags": self.available_tags,
                 }
                 default_filename = f"promptc_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 title = "Export Tags"
@@ -4451,18 +4569,18 @@ class PromptCompilerUI:
 
                 if merge_mode:
                     # Merge: Add only new tags
-                    existing_names = {tag["name"] for tag in self.tags}
+                    existing_names = {tag["name"] for tag in self.available_tags}
                     new_tags = [tag for tag in imported_tags if tag["name"] not in existing_names]
-                    self.tags.extend(new_tags)
+                    self.available_tags.extend(new_tags)
                     tags_added = len(new_tags)
                 else:
                     # Replace
-                    self.tags = imported_tags
+                    self.available_tags = imported_tags
                     tags_added = len(imported_tags)
 
                 # Save to file
-                with open(self.tags_path, "w", encoding="utf-8") as f:
-                    json.dump(self.tags, f, indent=2, ensure_ascii=False)
+                self.tags = self.available_tags
+                self._save_tags()
 
                 self._update_tag_filters()
 
@@ -4530,7 +4648,7 @@ class PromptCompilerUI:
                 "backup_date": datetime.now().isoformat(),
                 "backup_type": "auto",
                 "history": self.history_items,
-                "tags": self.tags,
+                "tags": self.available_tags,
                 "snippets": self.snippets,
                 "ui_settings": {
                     "theme": self.current_theme,
@@ -4667,9 +4785,9 @@ class PromptCompilerUI:
 
                     # Restore tags
                     if "tags" in backup_data:
-                        self.tags = backup_data["tags"]
-                        with open(self.tags_path, "w", encoding="utf-8") as f:
-                            json.dump(self.tags, f, indent=2, ensure_ascii=False)
+                        self.available_tags = backup_data["tags"]
+                        self.tags = self.available_tags
+                        self._save_tags()
                         self._update_tag_filters()
 
                     # Restore snippets
