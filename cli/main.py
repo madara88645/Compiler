@@ -966,6 +966,148 @@ def optimize_command(
         typer.echo(payload)
 
 
+def _indent_as_md_code_block(text: str) -> str:
+    lines = (text or "").splitlines()
+    if not lines:
+        return ""
+    # Use indented code block to avoid code fence collisions (``` inside prompts).
+    return "\n".join("    " + (line if line else "") for line in lines)
+
+
+def _render_prompt_pack_md(
+    system_prompt: str,
+    user_prompt: str,
+    plan: str,
+    expanded_prompt: str,
+    *,
+    title: str = "Prompt Pack",
+) -> str:
+    parts: list[str] = [f"# {title}"]
+    parts.append("\n\n## System Prompt\n\n" + _indent_as_md_code_block(system_prompt))
+    parts.append("\n\n## User Prompt\n\n" + _indent_as_md_code_block(user_prompt))
+    parts.append("\n\n## Plan\n\n" + _indent_as_md_code_block(plan))
+    parts.append("\n\n## Expanded Prompt\n\n" + _indent_as_md_code_block(expanded_prompt))
+    return "".join(parts).strip() + "\n"
+
+
+def _render_prompt_pack_txt(
+    system_prompt: str,
+    user_prompt: str,
+    plan: str,
+    expanded_prompt: str,
+) -> str:
+    return (
+        "=== System Prompt ===\n"
+        + (system_prompt or "")
+        + "\n\n=== User Prompt ===\n"
+        + (user_prompt or "")
+        + "\n\n=== Plan ===\n"
+        + (plan or "")
+        + "\n\n=== Expanded Prompt ===\n"
+        + (expanded_prompt or "")
+        + "\n"
+    )
+
+
+@app.command("pack")
+def pack_command(
+    text: List[str] = typer.Argument(
+        None, help="Prompt text (wrap in quotes for multi-word)", show_default=False
+    ),
+    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
+    stdin: bool = typer.Option(
+        False, "--stdin", help="Read prompt text from STDIN (overrides TEXT and --from-file)"
+    ),
+    fail_on_empty: bool = typer.Option(
+        False,
+        "--fail-on-empty",
+        help="Exit with non-zero status if input is empty/whitespace",
+    ),
+    diagnostics: bool = typer.Option(
+        False, "--diagnostics", help="Include diagnostics (risk & ambiguity) in expanded prompt"
+    ),
+    v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 and v1 prompt renderers"),
+    format: str = typer.Option(
+        "md",
+        "--format",
+        "-f",
+        help="Output format: md|json|txt (default: md)",
+    ),
+    out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
+    out_dir: Path = typer.Option(
+        None, "--out-dir", help="Write output to a directory (creates if missing)"
+    ),
+):
+    """Export a single-file prompt pack (System/User/Plan/Expanded) for easy copy/paste."""
+
+    if not text and not from_file and not stdin:
+        raise typer.BadParameter("Provide TEXT, --from-file, or --stdin")
+
+    if stdin:
+        try:
+            full_text = sys.stdin.read()
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read from STDIN: {e}")
+    elif from_file is not None:
+        try:
+            full_text = from_file.read_text(encoding="utf-8")
+        except Exception as e:
+            raise typer.BadParameter(f"Cannot read file: {from_file} ({e})")
+    else:
+        full_text = " ".join(text)
+
+    if fail_on_empty and not (full_text or "").strip():
+        typer.secho("Input is empty", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if v1:
+        ir = optimize_ir(compile_text(full_text))
+        system_prompt = emit_system_prompt(ir)
+        user_prompt = emit_user_prompt(ir)
+        plan = emit_plan(ir)
+        expanded = emit_expanded_prompt(ir, diagnostics=diagnostics)
+        heur = HEURISTIC_VERSION
+        ir_ver = "v1"
+    else:
+        ir2 = compile_text_v2(full_text)
+        system_prompt = emit_system_prompt_v2(ir2)
+        user_prompt = emit_user_prompt_v2(ir2)
+        plan = emit_plan_v2(ir2)
+        expanded = emit_expanded_prompt_v2(ir2, diagnostics=diagnostics)
+        heur = HEURISTIC2_VERSION
+        ir_ver = "v2"
+
+    fmt_l = (format or "md").lower()
+    if fmt_l in {"md", "markdown"}:
+        payload = _render_prompt_pack_md(system_prompt, user_prompt, plan, expanded)
+        default_name = "prompt_pack.md"
+    elif fmt_l == "txt":
+        payload = _render_prompt_pack_txt(system_prompt, user_prompt, plan, expanded)
+        default_name = "prompt_pack.txt"
+    elif fmt_l == "json":
+        payload = json.dumps(
+            {
+                "ir_version": ir_ver,
+                "heuristic_version": heur,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "plan": plan,
+                "expanded_prompt": expanded,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        default_name = "prompt_pack.json"
+    else:
+        raise typer.BadParameter("Unknown --format. Use md|json|txt")
+
+    if out or out_dir:
+        _write_output(payload, out, out_dir, default_name=default_name)
+        return
+
+    typer.echo(payload)
+
+
 @app.command()
 def version():
     """Print package version."""

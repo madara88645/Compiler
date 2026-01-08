@@ -190,6 +190,31 @@ Health: http://127.0.0.1:8000/health (alias: `/healthz`)  •  Version: http://1
 
 ## Usage
 
+### Export a Prompt Pack (new)
+
+If you want a single file that contains **System Prompt + User Prompt + Plan + Expanded Prompt** (easy to copy into an LLM), use:
+
+```powershell
+# Print a Markdown pack to stdout
+promptc pack "Write a short tutorial about recursion" --format md
+
+# Save a Markdown pack to a file
+promptc pack --from-file .\examples\example_en.txt --format md --out .\out\prompt_pack.md
+
+# PowerShell-safe (recommended when your prompt contains ``` fences): use STDIN
+@'
+Write a short tutorial about recursion.
+
+```py
+def f(n):
+  return 1 if n <= 1 else n * f(n-1)
+```
+'@ | promptc pack --stdin --format md --out .\out\prompt_pack.md
+
+# JSON output (for tooling)
+promptc pack "Write a short tutorial about recursion" --format json --out .\out\prompt_pack.json
+```
+
 ### Terminal User Interface (TUI) - NEW! 🎨
 
 **Modern, interactive terminal UI** for searching and browsing your prompts:
