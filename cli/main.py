@@ -1014,7 +1014,9 @@ def pack_command(
     text: List[str] = typer.Argument(
         None, help="Prompt text (wrap in quotes for multi-word)", show_default=False
     ),
-    from_file: Path = typer.Option(None, "--from-file", help="Read prompt text from a file (UTF-8)"),
+    from_file: Path = typer.Option(
+        None, "--from-file", help="Read prompt text from a file (UTF-8)"
+    ),
     stdin: bool = typer.Option(
         False, "--stdin", help="Read prompt text from STDIN (overrides TEXT and --from-file)"
     ),
