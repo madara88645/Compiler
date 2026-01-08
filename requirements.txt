@@ -1,16 +1,16 @@
-fastapi==0.110.0
-uvicorn==0.23.2
-pydantic==2.8.2
-typer==0.9.0
-click==8.1.7  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
-jsonschema==4.21.1
-rich==13.7.0
-textual==0.47.1  # modern terminal UI framework
+fastapi==0.128.0
+uvicorn==0.40.0
+pydantic==2.12.5
+typer==0.21.1
+click==8.3.1  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
+jsonschema==4.26.0
+rich==14.2.0
+textual==7.0.1  # modern terminal UI framework
 pyyaml>=6.0  # required for template system
 ttkbootstrap>=1.10.1  # modern theming for Tk desktop UI
-pytest==8.0.0
+pytest==9.0.2
 openai>=1.30.0  # optional for examples/openai_pipe.py
-httpx<0.28  # pin: Starlette TestClient older style requires httpx<0.28
+httpx<0.29  # pin: Starlette TestClient older style requires httpx<0.29
 h11>=0.16.0 # not directly required, pinned by Snyk to avoid a vulnerability
 anyio>=4.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
 zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
