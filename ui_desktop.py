@@ -1049,6 +1049,9 @@ class PromptCompilerUI:
             ttk.Button(
                 bar, text="Export MD", command=lambda: self._export_markdown_combined()
             ).pack(side=tk.LEFT, padx=2, pady=2)
+            ttk.Button(bar, text="📦 Export Pack", command=self._export_prompt_pack).pack(
+                side=tk.LEFT, padx=2, pady=2
+            )
         if title == "Expanded Prompt":
             ttk.Label(bar, text="(Diagnostics appear here if enabled)", foreground="#666").pack(
                 side=tk.RIGHT
@@ -2867,6 +2870,87 @@ class PromptCompilerUI:
         content.append("\n\n# Expanded Prompt\n\n" + self.txt_expanded.get("1.0", tk.END).strip())
         try:
             Path(path).write_text("\n".join(content), encoding="utf-8")
+            messagebox.showinfo("Export", f"Saved: {path}")
+        except Exception as e:
+            messagebox.showerror("Export", str(e))
+
+    def _export_prompt_pack(self):
+        """Export a single-file pack containing System/User/Plan/Expanded.
+
+        Uses indented Markdown blocks to avoid ``` fence collisions.
+        """
+
+        def _indent_md_block(text: str) -> str:
+            lines = (text or "").splitlines()
+            if not lines:
+                return ""
+            return "\n".join("    " + (line if line else "") for line in lines)
+
+        sys_txt = self.txt_system.get("1.0", tk.END).strip()
+        user_txt = self.txt_user.get("1.0", tk.END).strip()
+        plan_txt = self.txt_plan.get("1.0", tk.END).strip()
+        exp_txt = self.txt_expanded.get("1.0", tk.END).strip()
+
+        if not any([sys_txt, user_txt, plan_txt, exp_txt]):
+            messagebox.showinfo("Export", "No prompt outputs to export. Compile first.")
+            return
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".md",
+            filetypes=[
+                ("Markdown", "*.md"),
+                ("JSON", "*.json"),
+                ("Text", "*.txt"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+
+        p = Path(path)
+        ext = p.suffix.lower()
+
+        try:
+            if ext in {".json"}:
+                payload = json.dumps(
+                    {
+                        "system_prompt": sys_txt,
+                        "user_prompt": user_txt,
+                        "plan": plan_txt,
+                        "expanded_prompt": exp_txt,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                p.write_text(payload + "\n", encoding="utf-8")
+            elif ext in {".txt"}:
+                payload = (
+                    "=== System Prompt ===\n"
+                    + sys_txt
+                    + "\n\n=== User Prompt ===\n"
+                    + user_txt
+                    + "\n\n=== Plan ===\n"
+                    + plan_txt
+                    + "\n\n=== Expanded Prompt ===\n"
+                    + exp_txt
+                    + "\n"
+                )
+                p.write_text(payload, encoding="utf-8")
+            else:
+                payload = (
+                    "# Prompt Pack\n\n"
+                    + "## System Prompt\n\n"
+                    + _indent_md_block(sys_txt)
+                    + "\n\n## User Prompt\n\n"
+                    + _indent_md_block(user_txt)
+                    + "\n\n## Plan\n\n"
+                    + _indent_md_block(plan_txt)
+                    + "\n\n## Expanded Prompt\n\n"
+                    + _indent_md_block(exp_txt)
+                    + "\n"
+                )
+                p.write_text(payload, encoding="utf-8")
+
             messagebox.showinfo("Export", f"Saved: {path}")
         except Exception as e:
             messagebox.showerror("Export", str(e))
