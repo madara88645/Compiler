@@ -14,6 +14,9 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 
+# Local exports / artifacts
+out/
+
 # VS Code
 .vscode/
 
