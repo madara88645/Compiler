@@ -164,6 +164,16 @@ class TestKeyboardShortcuts:
         clipboard_content = ui_app.root.clipboard_get()
         assert clipboard_content == test_content
 
+    def test_copy_plan_prompt(self, ui_app):
+        """Test copy plan prompt to clipboard."""
+        test_content = "Plan prompt test content"
+        ui_app.txt_plan.insert("1.0", test_content)
+
+        ui_app._copy_plan_prompt()
+
+        clipboard_content = ui_app.root.clipboard_get()
+        assert clipboard_content == test_content
+
     def test_copy_schema(self, ui_app):
         """Test copy JSON schema to clipboard."""
         # Schema is read from file, not from a text widget
@@ -248,6 +258,7 @@ class TestShortcutWrappers:
             "_clear_input",
             "_copy_system_prompt",
             "_copy_user_prompt",
+            "_copy_plan_prompt",
             "_copy_expanded_prompt",
             "_copy_schema",
             "_save_current_prompt",

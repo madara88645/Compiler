@@ -696,6 +696,9 @@ class PromptCompilerUI:
         self._load_snippets()
         self._refresh_context_presets_menu()
 
+        # Ephemeral status message timer (used for small toasts like clipboard copy)
+        self._status_after_id = None
+
     # Quality coach operations
 
     def _run_quality_check(self):
@@ -1563,7 +1566,43 @@ class PromptCompilerUI:
             return
         self.root.clipboard_clear()
         self.root.clipboard_append(data)
-        self.status_var.set("Copied")
+        self._flash_status("📋 Copied", timeout_ms=1200)
+
+    def _flash_status(self, message: str, timeout_ms: int = 1500) -> None:
+        """Show a temporary status message without clobbering later updates."""
+
+        try:
+            prev = (self.status_var.get() or "Ready").strip() or "Ready"
+        except Exception:
+            prev = "Ready"
+
+        try:
+            if self._status_after_id is not None:
+                try:
+                    self.root.after_cancel(self._status_after_id)
+                except Exception:
+                    pass
+                self._status_after_id = None
+        except Exception:
+            pass
+
+        try:
+            self.status_var.set(message)
+        except Exception:
+            return
+
+        def _revert():
+            try:
+                # Only revert if nothing else changed the status.
+                if (self.status_var.get() or "").strip() == message:
+                    self.status_var.set(prev)
+            except Exception:
+                pass
+
+        try:
+            self._status_after_id = self.root.after(int(timeout_ms), _revert)
+        except Exception:
+            self._status_after_id = None
 
     def on_clear(self):
         for t in [
@@ -5198,6 +5237,7 @@ class PromptCompilerUI:
             "📋 Clipboard": [
                 ("Ctrl+Shift+C", "Copy System Prompt"),
                 ("Ctrl+Shift+U", "Copy User Prompt"),
+                ("Ctrl+Shift+L", "Copy Plan"),
                 ("Ctrl+Shift+E", "Copy Expanded Prompt"),
                 ("Ctrl+Shift+S", "Copy JSON Schema"),
             ],
@@ -6027,7 +6067,7 @@ class PromptCompilerUI:
             if content:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(content)
-                self.status_var.set("📋 System prompt copied to clipboard")
+                self._flash_status("📋 System prompt copied", timeout_ms=1500)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy: {e}")
 
@@ -6038,7 +6078,18 @@ class PromptCompilerUI:
             if content:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(content)
-                self.status_var.set("📋 User prompt copied to clipboard")
+                self._flash_status("📋 User prompt copied", timeout_ms=1500)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to copy: {e}")
+
+    def _copy_plan_prompt(self):
+        """Copy plan output to clipboard."""
+        try:
+            content = self.txt_plan.get("1.0", tk.END).strip()
+            if content:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self._flash_status("📋 Plan copied", timeout_ms=1500)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy: {e}")
 
@@ -6049,7 +6100,7 @@ class PromptCompilerUI:
             if content:
                 self.root.clipboard_clear()
                 self.root.clipboard_append(content)
-                self.status_var.set("📋 Expanded prompt copied to clipboard")
+                self._flash_status("📋 Expanded prompt copied", timeout_ms=1500)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy: {e}")
 
@@ -6061,7 +6112,7 @@ class PromptCompilerUI:
             content = get_ir_schema_text(v2=False)
             self.root.clipboard_clear()
             self.root.clipboard_append(content)
-            self.status_var.set("📋 JSON schema copied to clipboard")
+            self._flash_status("📋 JSON schema copied", timeout_ms=1500)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy schema: {e}")
 
@@ -6143,6 +6194,8 @@ class PromptCompilerUI:
             self.root.bind("<Control-Shift-c>", lambda e: self._copy_system_prompt())
             self.root.bind("<Control-Shift-U>", lambda e: self._copy_user_prompt())
             self.root.bind("<Control-Shift-u>", lambda e: self._copy_user_prompt())
+            self.root.bind("<Control-Shift-L>", lambda e: self._copy_plan_prompt())
+            self.root.bind("<Control-Shift-l>", lambda e: self._copy_plan_prompt())
             self.root.bind("<Control-Shift-E>", lambda e: self._copy_expanded_prompt())
             self.root.bind("<Control-Shift-e>", lambda e: self._copy_expanded_prompt())
             self.root.bind("<Control-Shift-S>", lambda e: self._copy_schema())
