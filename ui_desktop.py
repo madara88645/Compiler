@@ -5667,6 +5667,12 @@ class PromptCompilerUI:
             # Store filtered commands
             current_commands = []
 
+            # Footer buttons are created later, but the list population runs early.
+            # Initialize to avoid closure access errors during the first refresh.
+            fav_button = None
+            move_up_button = None
+            move_down_button = None
+
             def update_command_list(search_term=""):
                 """Update command list based on search term."""
                 commands_listbox.delete(0, tk.END)
@@ -5729,6 +5735,8 @@ class PromptCompilerUI:
                 update_command_list(search_var.get())
 
             def refresh_favorite_button():
+                if fav_button is None or move_up_button is None or move_down_button is None:
+                    return
                 selection = commands_listbox.curselection()
                 if not selection or selection[0] >= len(current_commands):
                     fav_button.config(state=tk.DISABLED, text="☆ Add Favorite")
@@ -5820,6 +5828,9 @@ class PromptCompilerUI:
                 foreground="#666",
                 font=("", 9),
             ).pack(side=tk.RIGHT)
+
+            # Now that footer buttons exist, ensure their state matches the current selection.
+            refresh_favorite_button()
 
             def prune_stale_and_refresh():
                 removed = self._prune_stale_command_palette_favorites(all_command_ids)
