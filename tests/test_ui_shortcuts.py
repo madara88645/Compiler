@@ -16,7 +16,13 @@ def _create_root():
 
     Use plain tk.Tk for tests to avoid theme/style lifecycle issues.
     """
-    return tk.Tk()
+    root = tk.Tk()
+    # Prevent GUI windows from popping up during test runs.
+    try:
+        root.withdraw()
+    except Exception:
+        pass
+    return root
 
 
 def _can_create_tk_window():
@@ -31,7 +37,9 @@ def _can_create_tk_window():
 
 # Skip all tests in this file if running in CI or if Tkinter is not available
 pytestmark = pytest.mark.skipif(
-    os.environ.get("CI") == "true" or not _can_create_tk_window(),
+    os.environ.get("CI") == "true"
+    or os.environ.get("PROMPTC_SKIP_GUI_TESTS") == "1"
+    or not _can_create_tk_window(),
     reason="Skipping GUI tests in headless environment or when Tkinter is unavailable",
 )
 
