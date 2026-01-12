@@ -154,6 +154,9 @@ class PromptCompilerUI:
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
+        self.settings_profiles: dict[str, dict[str, object]] = {}
+        self.active_settings_profile: str | None = None
+        self.settings_profile_menu = None
         self.analytics_manager = AnalyticsManager()
 
         # RAG settings (defaults)
@@ -403,6 +406,12 @@ class PromptCompilerUI:
         btn_chat = ttk.Button(opts_primary, text="💬 Chat (beta)", command=self._show_chat_window)
         btn_chat.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_chat, "Chat directly with your selected LLM without copy/paste")
+
+        btn_profiles = ttk.Menubutton(opts_primary, text="🎛️ Profiles", width=10)
+        btn_profiles.pack(side=tk.LEFT, padx=4)
+        self.settings_profile_menu = tk.Menu(btn_profiles, tearoff=0)
+        btn_profiles["menu"] = self.settings_profile_menu
+        self._add_tooltip(btn_profiles, "Save/load settings profiles")
 
         # Examples dropdown
         try:
@@ -695,6 +704,7 @@ class PromptCompilerUI:
         self._load_tags()
         self._load_snippets()
         self._refresh_context_presets_menu()
+        self._refresh_settings_profiles_menu()
 
         # Ephemeral status message timer (used for small toasts like clipboard copy)
         self._status_after_id = None
@@ -1408,6 +1418,31 @@ class PromptCompilerUI:
             self.command_palette_favorites = get_saved_palette_favorites_list(data)
         except Exception:
             self.command_palette_favorites = []
+
+        # Settings profiles
+        try:
+            profiles = data.get("settings_profiles") or {}
+            if isinstance(profiles, dict):
+                cleaned: dict[str, dict[str, object]] = {}
+                for k, v in profiles.items():
+                    if not isinstance(v, dict):
+                        continue
+                    name = str(k).strip()
+                    if not name:
+                        continue
+                    cleaned[name] = dict(v)
+                self.settings_profiles = cleaned
+            else:
+                self.settings_profiles = {}
+        except Exception:
+            self.settings_profiles = {}
+        try:
+            raw_active = data.get("active_settings_profile")
+            active = str(raw_active).strip() if raw_active else ""
+            self.active_settings_profile = active or None
+        except Exception:
+            self.active_settings_profile = None
+
         # Theme
         theme = data.get("theme")
         if theme in ("light", "dark"):
@@ -1497,6 +1532,16 @@ class PromptCompilerUI:
         except Exception:
             pass
 
+        # Apply active profile (if present) after setting base variables.
+        try:
+            if (
+                self.active_settings_profile
+                and self.active_settings_profile in self.settings_profiles
+            ):
+                self._apply_settings_profile(self.active_settings_profile, persist=False)
+        except Exception:
+            pass
+
     def _save_settings(self):  # pragma: no cover - simple IO
         try:
             try:
@@ -1531,6 +1576,8 @@ class PromptCompilerUI:
                 "rag_db_path": self.rag_db_path,
                 "rag_embed_dim": self.rag_embed_dim,
                 "rag_method": self.rag_method,
+                "settings_profiles": self.settings_profiles,
+                "active_settings_profile": self.active_settings_profile,
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
                 "command_palette_favorites": list(self.command_palette_favorites),
@@ -2004,6 +2051,314 @@ class PromptCompilerUI:
             if messagebox.askyesno("Delete Preset", f"Delete '{name}'?"):
                 self.context_presets_store.delete(name)
                 self._refresh_context_presets_menu()
+                refresh_list()
+
+        ttk.Button(btns, text="Load", command=apply_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Rename", command=rename_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Delete", command=delete_selected).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btns, text="Close", command=dialog.destroy).pack(side=tk.RIGHT, padx=4)
+
+        listbox.bind("<<ListboxSelect>>", update_preview)
+        refresh_list()
+
+    def _get_current_settings_profile_payload(self) -> dict[str, object]:
+        return {
+            "diagnostics": bool(self.var_diag.get()),
+            "trace": bool(self.var_trace.get()),
+            "use_expanded": bool(self.var_openai_expanded.get()),
+            "render_v2_emitters": bool(
+                getattr(self, "var_render_v2", tk.BooleanVar(value=False)).get()
+            ),
+            "only_live_debug": bool(
+                getattr(self, "var_only_live_debug", tk.BooleanVar(value=False)).get()
+            ),
+            "wrap": bool(getattr(self, "var_wrap", tk.BooleanVar(value=False)).get()),
+            "auto_generate_example": bool(
+                getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).get()
+            ),
+            "min_priority": getattr(self, "var_min_priority", tk.StringVar(value="Any")).get(),
+            "model": (self.var_model.get() or "gpt-4o-mini").strip(),
+            "llm_provider": (self.var_llm_provider.get() or "OpenAI").strip(),
+            "local_endpoint": (self.var_local_endpoint.get() or "").strip(),
+            "local_api_key": (self.var_local_api_key.get() or "").strip(),
+            "user_level": (self.var_user_level.get() or "intermediate").strip(),
+            "task_type": (self.var_task_type.get() or "general").strip(),
+            "rag_db_path": self.rag_db_path,
+            "rag_embed_dim": self.rag_embed_dim,
+            "rag_method": self.rag_method,
+            "optimize_max_chars": (
+                getattr(self, "var_opt_max_chars", tk.StringVar(value="")).get() or ""
+            ).strip(),
+            "optimize_max_tokens": (
+                getattr(self, "var_opt_max_tokens", tk.StringVar(value="")).get() or ""
+            ).strip(),
+        }
+
+    def _save_settings_profile(self, name: str) -> None:
+        cleaned = (name or "").strip()
+        if not cleaned:
+            raise ValueError("Profile name is required")
+        self.settings_profiles[cleaned] = self._get_current_settings_profile_payload()
+        self.active_settings_profile = cleaned
+        try:
+            self._refresh_settings_profiles_menu()
+        except Exception:
+            pass
+        try:
+            self._save_settings()
+        except Exception:
+            pass
+
+    def _apply_settings_profile(self, name: str, persist: bool = True) -> None:
+        profile = self.settings_profiles.get(name)
+        if not profile:
+            messagebox.showerror("Profiles", f"Profile '{name}' not found.")
+            return
+
+        try:
+            if "diagnostics" in profile:
+                self.var_diag.set(bool(profile.get("diagnostics")))
+            if "trace" in profile:
+                self.var_trace.set(bool(profile.get("trace")))
+            if "use_expanded" in profile:
+                self.var_openai_expanded.set(bool(profile.get("use_expanded")))
+            if "render_v2_emitters" in profile:
+                self.var_render_v2.set(bool(profile.get("render_v2_emitters")))
+            if "only_live_debug" in profile:
+                self.var_only_live_debug.set(bool(profile.get("only_live_debug")))
+            if "wrap" in profile:
+                self.var_wrap.set(bool(profile.get("wrap")))
+            if "auto_generate_example" in profile:
+                try:
+                    getattr(self, "var_autogen_example", tk.BooleanVar(value=False)).set(
+                        bool(profile.get("auto_generate_example"))
+                    )
+                except Exception:
+                    pass
+            if "min_priority" in profile:
+                try:
+                    val = profile.get("min_priority")
+                    self.var_min_priority.set(str(val) if val is not None else "Any")
+                except Exception:
+                    pass
+
+            if "llm_provider" in profile:
+                provider = str(profile.get("llm_provider") or "OpenAI")
+                if provider in ("OpenAI", "Local HTTP"):
+                    self.var_llm_provider.set(provider)
+
+            if "model" in profile:
+                val = str(profile.get("model") or "gpt-4o-mini")
+                try:
+                    allowed = list(self.cmb_model["values"])  # type: ignore[attr-defined]
+                except Exception:
+                    allowed = []
+                if not allowed or val in allowed:
+                    self.var_model.set(val)
+                else:
+                    self.var_model.set(val)
+
+            if "local_endpoint" in profile:
+                self.var_local_endpoint.set(str(profile.get("local_endpoint") or ""))
+            if "local_api_key" in profile:
+                self.var_local_api_key.set(str(profile.get("local_api_key") or ""))
+            if "user_level" in profile:
+                lvl = str(profile.get("user_level") or "intermediate")
+                if lvl in ("beginner", "intermediate", "advanced"):
+                    self.var_user_level.set(lvl)
+            if "task_type" in profile:
+                self.var_task_type.set(str(profile.get("task_type") or "general"))
+
+            if "rag_db_path" in profile:
+                self.rag_db_path = profile.get("rag_db_path")  # type: ignore[assignment]
+            if "rag_embed_dim" in profile:
+                try:
+                    self.rag_embed_dim = int(profile.get("rag_embed_dim") or 64)
+                except Exception:
+                    pass
+            if "rag_method" in profile:
+                method = profile.get("rag_method")
+                if method in ("fts", "embed", "hybrid"):
+                    self.rag_method = method
+
+            if "optimize_max_chars" in profile:
+                try:
+                    self.var_opt_max_chars.set(str(profile.get("optimize_max_chars") or ""))
+                except Exception:
+                    pass
+            if "optimize_max_tokens" in profile:
+                try:
+                    self.var_opt_max_tokens.set(str(profile.get("optimize_max_tokens") or ""))
+                except Exception:
+                    pass
+        finally:
+            try:
+                self._update_llm_controls()
+            except Exception:
+                pass
+            try:
+                self._apply_wrap()
+            except Exception:
+                pass
+
+        self.active_settings_profile = name
+        try:
+            self._refresh_settings_profiles_menu()
+        except Exception:
+            pass
+        if persist:
+            try:
+                self._save_settings()
+            except Exception:
+                pass
+        self.status_var.set(f"🎛️ Loaded profile '{name}'")
+
+    def _clear_active_settings_profile(self) -> None:
+        self.active_settings_profile = None
+        try:
+            self._refresh_settings_profiles_menu()
+        except Exception:
+            pass
+        try:
+            self._save_settings()
+        except Exception:
+            pass
+        self.status_var.set("🎛️ Cleared active profile")
+
+    def _refresh_settings_profiles_menu(self) -> None:
+        try:
+            if not self.settings_profile_menu:
+                return
+            self.settings_profile_menu.delete(0, tk.END)
+            names = sorted(self.settings_profiles.keys(), key=lambda s: s.lower())
+            if names:
+                for name in names:
+                    label = f"✓ {name}" if name == self.active_settings_profile else name
+                    self.settings_profile_menu.add_command(
+                        label=label,
+                        command=lambda n=name: self._apply_settings_profile(n),
+                    )
+            else:
+                self.settings_profile_menu.add_command(label="(No profiles yet)", state=tk.DISABLED)
+
+            self.settings_profile_menu.add_separator()
+            self.settings_profile_menu.add_command(
+                label="💾 Save current as…", command=self._prompt_save_settings_profile
+            )
+            self.settings_profile_menu.add_command(
+                label="🛠️ Manage profiles…", command=self._show_settings_profiles_dialog
+            )
+            if self.active_settings_profile:
+                self.settings_profile_menu.add_command(
+                    label="↩️ Clear active profile", command=self._clear_active_settings_profile
+                )
+        except Exception:
+            pass
+
+    def _prompt_save_settings_profile(self) -> None:
+        default = self.active_settings_profile or f"Profile {len(self.settings_profiles) + 1}"
+        name = simpledialog.askstring(
+            "Save Profile",
+            "Profile name:",
+            parent=self.root,
+            initialvalue=default,
+        )
+        if not name:
+            return
+        try:
+            self._save_settings_profile(name)
+            self.status_var.set(f"💾 Saved profile '{name.strip()}'")
+        except Exception as exc:
+            messagebox.showerror("Save Profile", str(exc))
+
+    def _show_settings_profiles_dialog(self) -> None:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Settings Profiles")
+        dialog.geometry("540x440")
+        dialog.transient(self.root)
+
+        frame = ttk.Frame(dialog, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        listbox = tk.Listbox(frame, height=10)
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar = ttk.Scrollbar(frame, command=listbox.yview)
+        scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+        listbox.config(yscrollcommand=scrollbar.set)
+
+        preview = tk.Text(dialog, height=10, wrap=tk.WORD)
+        preview.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        preview.config(state=tk.DISABLED)
+
+        btns = ttk.Frame(dialog)
+        btns.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        def refresh_list() -> None:
+            listbox.delete(0, tk.END)
+            for name in sorted(self.settings_profiles.keys(), key=lambda s: s.lower()):
+                listbox.insert(tk.END, name)
+            update_preview()
+
+        def get_selected_name() -> str | None:
+            selection = listbox.curselection()
+            if not selection:
+                return None
+            return listbox.get(selection[0])
+
+        def update_preview(_event=None) -> None:
+            try:
+                name = get_selected_name()
+                payload = self.settings_profiles.get(name) if name else None
+                preview.config(state=tk.NORMAL)
+                preview.delete("1.0", tk.END)
+                if payload:
+                    preview.insert("1.0", json.dumps(payload, ensure_ascii=False, indent=2))
+                preview.config(state=tk.DISABLED)
+            except Exception:
+                pass
+
+        def apply_selected() -> None:
+            name = get_selected_name()
+            if not name:
+                messagebox.showinfo("Profiles", "Select a profile to load.")
+                return
+            self._apply_settings_profile(name)
+            dialog.destroy()
+
+        def rename_selected() -> None:
+            name = get_selected_name()
+            if not name:
+                return
+            new_name = simpledialog.askstring(
+                "Rename Profile", "New name:", parent=dialog, initialvalue=name
+            )
+            if not new_name:
+                return
+            cleaned = new_name.strip()
+            if not cleaned:
+                return
+            if cleaned == name:
+                return
+            if cleaned in self.settings_profiles:
+                messagebox.showerror("Rename Profile", f"'{cleaned}' already exists.")
+                return
+            self.settings_profiles[cleaned] = self.settings_profiles.pop(name)
+            if self.active_settings_profile == name:
+                self.active_settings_profile = cleaned
+            self._refresh_settings_profiles_menu()
+            self._save_settings()
+            refresh_list()
+
+        def delete_selected() -> None:
+            name = get_selected_name()
+            if not name:
+                return
+            if messagebox.askyesno("Delete Profile", f"Delete '{name}'?"):
+                self.settings_profiles.pop(name, None)
+                if self.active_settings_profile == name:
+                    self.active_settings_profile = None
+                self._refresh_settings_profiles_menu()
+                self._save_settings()
                 refresh_list()
 
         ttk.Button(btns, text="Load", command=apply_selected).pack(side=tk.LEFT, padx=4)
