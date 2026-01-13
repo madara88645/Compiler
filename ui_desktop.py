@@ -1453,6 +1453,15 @@ class PromptCompilerUI:
         self.font_size = data.get("font_size", "medium")
         self.view_mode = data.get("view_mode", "comfortable")
 
+        # Optimize budgets
+        try:
+            if "optimize_max_chars" in data:
+                self.var_opt_max_chars.set(str(data.get("optimize_max_chars") or ""))
+            if "optimize_max_tokens" in data:
+                self.var_opt_max_tokens.set(str(data.get("optimize_max_tokens") or ""))
+        except Exception:
+            pass
+
         # Variables
         try:
             if "diagnostics" in data:
@@ -1576,6 +1585,8 @@ class PromptCompilerUI:
                 "rag_db_path": self.rag_db_path,
                 "rag_embed_dim": self.rag_embed_dim,
                 "rag_method": self.rag_method,
+                "optimize_max_chars": (self.var_opt_max_chars.get() or "").strip(),
+                "optimize_max_tokens": (self.var_opt_max_tokens.get() or "").strip(),
                 "settings_profiles": self.settings_profiles,
                 "active_settings_profile": self.active_settings_profile,
                 "geometry": self.root.winfo_geometry(),

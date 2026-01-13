@@ -68,6 +68,15 @@ from app.command_palette import (
     load_exported_palette_favorites,
     persist_palette_favorites,
 )
+from app.settings_profiles import (
+    delete_profile as delete_settings_profile,
+    duplicate_active_profile,
+    get_profile as get_settings_profile,
+    load_profiles_snapshot,
+    rename_profile as rename_settings_profile,
+    set_active_profile as set_active_settings_profile,
+    snapshot_current_settings_as_profile,
+)
 
 app = typer.Typer(help="Prompt Compiler CLI")
 rag_app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
@@ -80,6 +89,7 @@ favorites_app = typer.Typer(help="Favorite prompts and bookmarks")
 snippets_app = typer.Typer(help="Quick reusable prompt snippets")
 collections_app = typer.Typer(help="Collections/workspaces for organizing prompts")
 palette_app = typer.Typer(help="Command palette favorites and metadata")
+profiles_app = typer.Typer(help="Settings profiles shared with the desktop UI")
 app.add_typer(rag_app, name="rag")
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(template_app, name="template")
@@ -90,6 +100,134 @@ app.add_typer(favorites_app, name="favorites")
 app.add_typer(snippets_app, name="snippets")
 app.add_typer(collections_app, name="collections")
 app.add_typer(palette_app, name="palette")
+app.add_typer(profiles_app, name="profile")
+
+
+_PROFILE_SNAPSHOT_KEYS = [
+    "diagnostics",
+    "trace",
+    "use_expanded",
+    "render_v2_emitters",
+    "only_live_debug",
+    "wrap",
+    "auto_generate_example",
+    "min_priority",
+    "model",
+    "llm_provider",
+    "local_endpoint",
+    "local_api_key",
+    "user_level",
+    "task_type",
+    "rag_db_path",
+    "rag_embed_dim",
+    "rag_method",
+    "optimize_max_chars",
+    "optimize_max_tokens",
+]
+
+
+@profiles_app.command("list")
+def profile_list(json_output: bool = typer.Option(False, "--json", help="Output JSON")):
+    """List available settings profiles."""
+
+    snap = load_profiles_snapshot()
+    names = sorted(snap.profiles.keys(), key=lambda s: s.lower())
+
+    if json_output:
+        print(_json.dumps({"active": snap.active, "profiles": names}, ensure_ascii=False, indent=2))
+        return
+
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table(title="Settings Profiles")
+    table.add_column("Name", style="cyan")
+    table.add_column("Active", style="green")
+    if not names:
+        console.print("(No profiles yet)")
+        return
+    for name in names:
+        table.add_row(name, "✓" if snap.active == name else "")
+    console.print(table)
+
+
+@profiles_app.command("show")
+def profile_show(
+    name: str = typer.Argument(..., help="Profile name"),
+):
+    """Show a profile payload as JSON."""
+
+    profile = get_settings_profile(name)
+    if not profile:
+        raise typer.Exit(code=1)
+    print(_json.dumps(profile, ensure_ascii=False, indent=2))
+
+
+@profiles_app.command("save")
+def profile_save(
+    name: str = typer.Argument(..., help="Profile name"),
+    from_active: bool = typer.Option(
+        False, "--from-active", help="Duplicate the currently active profile"
+    ),
+):
+    """Save a new profile.
+
+    By default, snapshots the current UI config settings (last saved UI state).
+    """
+
+    cleaned = (name or "").strip()
+    if not cleaned:
+        raise typer.Exit(code=1)
+
+    if from_active:
+        try:
+            duplicate_active_profile(cleaned)
+            return
+        except Exception:
+            raise typer.Exit(code=1)
+
+    snapshot_current_settings_as_profile(cleaned, _PROFILE_SNAPSHOT_KEYS)
+
+
+@profiles_app.command("activate")
+def profile_activate(
+    name: str = typer.Argument(..., help="Profile name to set as active"),
+):
+    """Set the active profile (the desktop UI will load it on startup)."""
+
+    try:
+        set_active_settings_profile(name)
+    except KeyError:
+        raise typer.Exit(code=1)
+
+
+@profiles_app.command("clear")
+def profile_clear_active():
+    """Clear the active profile."""
+
+    set_active_settings_profile(None)
+
+
+@profiles_app.command("delete")
+def profile_delete(
+    name: str = typer.Argument(..., help="Profile name"),
+):
+    """Delete a profile."""
+
+    if not delete_settings_profile(name):
+        raise typer.Exit(code=1)
+
+
+@profiles_app.command("rename")
+def profile_rename(
+    old: str = typer.Argument(..., help="Old profile name"),
+    new: str = typer.Argument(..., help="New profile name"),
+):
+    """Rename a profile."""
+
+    if not rename_settings_profile(old, new):
+        raise typer.Exit(code=1)
 
 
 @app.command("edit")
