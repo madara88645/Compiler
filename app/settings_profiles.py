@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.command_palette import load_ui_config, save_ui_config
@@ -142,3 +143,43 @@ def duplicate_active_profile(new_name: str) -> None:
     if not active_payload:
         raise ValueError("Active profile payload not found")
     upsert_profile(new_name, dict(active_payload), set_active=True)
+
+
+def export_profile_to_path(name: str, path: Path) -> dict[str, Any]:
+    cleaned = _normalize_name(name)
+    if not cleaned:
+        raise ValueError("Profile name is required")
+    profile = get_profile(cleaned)
+    if not profile:
+        raise KeyError(f"Profile not found: {cleaned}")
+    payload: dict[str, Any] = {
+        "schema": "promptc.settings_profile",
+        "version": 1,
+        "name": cleaned,
+        "profile": profile,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import json
+
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def import_profile_from_path(path: Path, *, name_override: str | None = None) -> str:
+    import json
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Profile export must be a JSON object")
+    schema = data.get("schema")
+    if schema != "promptc.settings_profile":
+        raise ValueError("Unsupported profile schema")
+    raw_name = name_override if name_override is not None else data.get("name")
+    name = _normalize_name(str(raw_name or ""))
+    if not name:
+        raise ValueError("Profile name missing")
+    profile = data.get("profile")
+    if not isinstance(profile, dict):
+        raise ValueError("Profile payload missing or invalid")
+    upsert_profile(name, dict(profile), set_active=True)
+    return name

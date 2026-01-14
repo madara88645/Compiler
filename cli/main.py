@@ -71,7 +71,9 @@ from app.command_palette import (
 from app.settings_profiles import (
     delete_profile as delete_settings_profile,
     duplicate_active_profile,
+    export_profile_to_path,
     get_profile as get_settings_profile,
+    import_profile_from_path,
     load_profiles_snapshot,
     rename_profile as rename_settings_profile,
     set_active_profile as set_active_settings_profile,
@@ -228,6 +230,33 @@ def profile_rename(
 
     if not rename_settings_profile(old, new):
         raise typer.Exit(code=1)
+
+
+@profiles_app.command("export")
+def profile_export(
+    name: str = typer.Argument(..., help="Profile name"),
+    output: Path = typer.Option(..., "--output", "-o", help="Output JSON file"),
+):
+    """Export a profile to a JSON file (portable)."""
+
+    try:
+        export_profile_to_path(name, output)
+    except Exception:
+        raise typer.Exit(code=1)
+
+
+@profiles_app.command("import")
+def profile_import(
+    path: Path = typer.Argument(..., help="Path to exported profile JSON"),
+    name: Optional[str] = typer.Option(None, "--name", help="Override name on import"),
+):
+    """Import a profile from a JSON file (portable)."""
+
+    try:
+        imported = import_profile_from_path(path, name_override=name)
+    except Exception:
+        raise typer.Exit(code=1)
+    print(imported)
 
 
 @app.command("edit")

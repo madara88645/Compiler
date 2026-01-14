@@ -2257,6 +2257,12 @@ class PromptCompilerUI:
                 label="💾 Save current as…", command=self._prompt_save_settings_profile
             )
             self.settings_profile_menu.add_command(
+                label="📤 Export profile…", command=self._export_settings_profile_dialog
+            )
+            self.settings_profile_menu.add_command(
+                label="📥 Import profile…", command=self._import_settings_profile_dialog
+            )
+            self.settings_profile_menu.add_command(
                 label="🛠️ Manage profiles…", command=self._show_settings_profiles_dialog
             )
             if self.active_settings_profile:
@@ -2265,6 +2271,87 @@ class PromptCompilerUI:
                 )
         except Exception:
             pass
+
+    def _export_settings_profile_dialog(self) -> None:
+        try:
+            names = sorted(self.settings_profiles.keys(), key=lambda s: s.lower())
+            if not names:
+                messagebox.showinfo("Export Profile", "No profiles to export yet.")
+                return
+
+            default_name = self.active_settings_profile or names[0]
+            name = simpledialog.askstring(
+                "Export Profile",
+                "Profile name to export:",
+                parent=self.root,
+                initialvalue=default_name,
+            )
+            if not name:
+                return
+            cleaned = name.strip()
+            if cleaned not in self.settings_profiles:
+                messagebox.showerror("Export Profile", f"Profile '{cleaned}' not found.")
+                return
+
+            path = filedialog.asksaveasfilename(
+                parent=self.root,
+                title="Export Profile",
+                defaultextension=".json",
+                filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+                initialfile=f"promptc-profile-{cleaned}.json",
+            )
+            if not path:
+                return
+
+            payload = {
+                "schema": "promptc.settings_profile",
+                "version": 1,
+                "name": cleaned,
+                "profile": dict(self.settings_profiles.get(cleaned, {})),
+            }
+            Path(path).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            self.status_var.set(f"📤 Exported profile '{cleaned}'")
+        except Exception as exc:
+            messagebox.showerror("Export Profile", str(exc))
+
+    def _import_settings_profile_dialog(self) -> None:
+        try:
+            path = filedialog.askopenfilename(
+                parent=self.root,
+                title="Import Profile",
+                filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+            )
+            if not path:
+                return
+
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or data.get("schema") != "promptc.settings_profile":
+                messagebox.showerror("Import Profile", "Unsupported profile JSON.")
+                return
+
+            name = str(data.get("name") or "").strip()
+            profile = data.get("profile")
+            if not name or not isinstance(profile, dict):
+                messagebox.showerror("Import Profile", "Invalid profile JSON.")
+                return
+
+            # If name exists, confirm overwrite.
+            if name in self.settings_profiles:
+                if not messagebox.askyesno(
+                    "Import Profile",
+                    f"Profile '{name}' already exists. Overwrite?",
+                ):
+                    return
+
+            self.settings_profiles[name] = dict(profile)
+            self.active_settings_profile = name
+            self._refresh_settings_profiles_menu()
+            self._save_settings()
+            self.status_var.set(f"📥 Imported profile '{name}'")
+        except Exception as exc:
+            messagebox.showerror("Import Profile", str(exc))
 
     def _prompt_save_settings_profile(self) -> None:
         default = self.active_settings_profile or f"Profile {len(self.settings_profiles) + 1}"
