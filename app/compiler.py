@@ -4,7 +4,7 @@ import hashlib
 import re
 from typing import Any, Dict, List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
-from .models_v2 import IRv2, ConstraintV2, StepV2
+from .models_v2 import IRv2, StepV2
 from app import get_version
 from .plugins import PluginContext, apply_plugins_ir, apply_plugins_ir_v2
 from .heuristics import (
