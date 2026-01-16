@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from app.models import IR
 from app.models_v2 import IRv2
 
+
 class BaseHandler(ABC):
     @abstractmethod
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:

@@ -93,7 +93,7 @@ class RagSettingItem(ListItem):
     def render(self) -> Text:
         """Render the setting with checkbox-like state."""
         text = Text()
-        
+
         if isinstance(self.value, bool):
             state = "✅" if self.value else "❌"
         else:
@@ -220,7 +220,6 @@ class SearchApp(App):
         Binding("f5", "show_tags", "Tags", show=True),
         Binding("f6", "show_stats", "Stats", show=True),
         Binding("f7", "show_categories", "Categories", show=True),
-
         Binding("f8", "show_advanced_search", "Adv.Search", show=True),
         Binding("f9", "show_rag_settings", "RAG Settings", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
@@ -754,6 +753,7 @@ class SearchApp(App):
                 "[dim]Use CLI with filters for advanced features[/]"
             )
         )
+
     def action_show_rag_settings(self, refresh: bool = False) -> None:
         """Show RAG settings panel (F9)."""
         if self.rag_settings_mode and not refresh:
@@ -801,17 +801,17 @@ class SearchApp(App):
             "[bold white]Current Settings:[/]",
             "",
         ]
-        
+
         for key, val, desc in items:
             icon = "✅" if val is True else ("❌" if val is False else "#️⃣")
             content.append(f"  {icon} [cyan]{desc}:[/] [yellow]{val}[/]")
-            
+
         content.append("")
         content.append("[dim]Select an item to toggle or change.[/dim]")
         content.append("[dim]Changes affect current session.[/dim]")
 
         preview_pane.update("\n".join(content))
-        
+
         # Focus choice
         if items:
             results_list.focus()

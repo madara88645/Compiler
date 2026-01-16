@@ -1446,8 +1446,13 @@ def rag_pack(
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
     packed = pack_context(
-        q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio,
-        dedup=dedup, token_aware=token_aware
+        q,
+        res,
+        max_chars=max_chars,
+        max_tokens=max_tokens,
+        token_chars=token_ratio,
+        dedup=dedup,
+        token_aware=token_aware,
     )
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
