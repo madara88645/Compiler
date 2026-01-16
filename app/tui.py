@@ -81,6 +81,30 @@ class CategoryItem(ListItem):
         return text
 
 
+class RagSettingItem(ListItem):
+    """Custom list item for RAG settings."""
+
+    def __init__(self, key: str, value: bool | int, description: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.key = key
+        self.value = value
+        self.description = description
+
+    def render(self) -> Text:
+        """Render the setting with checkbox-like state."""
+        text = Text()
+        
+        if isinstance(self.value, bool):
+            state = "✅" if self.value else "❌"
+        else:
+            state = f"[{self.value}]"
+
+        text.append(f"{state} ", style="bold yellow")
+        text.append(f"{self.description:25}", style="cyan")
+        text.append(f" ({self.key})", style="dim")
+        return text
+
+
 class PreviewPane(Static):
     """Preview pane showing detailed information about selected result."""
 
@@ -196,7 +220,9 @@ class SearchApp(App):
         Binding("f5", "show_tags", "Tags", show=True),
         Binding("f6", "show_stats", "Stats", show=True),
         Binding("f7", "show_categories", "Categories", show=True),
+
         Binding("f8", "show_advanced_search", "Adv.Search", show=True),
+        Binding("f9", "show_rag_settings", "RAG Settings", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
 
@@ -208,7 +234,10 @@ class SearchApp(App):
         self.tags_mode = False
         self.categories_mode = False
         self.stats_mode = False
+
         self.advanced_search_mode = False
+        self.rag_settings_mode = False
+        self.rag_params = {"dedup": False, "token_aware": False, "max_tokens": 2048}
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -309,6 +338,25 @@ class SearchApp(App):
             elif isinstance(event.item, CategoryItem):
                 # Show templates in selected category
                 self._show_category_templates(event.item.category)
+            elif isinstance(event.item, RagSettingItem):
+                # Toggle setting
+                key = event.item.key
+                val = self.rag_params[key]
+                if isinstance(val, bool):
+                    self.rag_params[key] = not val
+                    # Refresh view
+                    self.action_show_rag_settings(refresh=True)
+                else:
+                    # For int, just cycle for demo for now (or prompt input if we had it)
+                    if key == "max_tokens":
+                        options = [1024, 2048, 4096, 8192]
+                        try:
+                            # find next
+                            idx = options.index(val)
+                            self.rag_params[key] = options[(idx + 1) % len(options)]
+                        except ValueError:
+                            self.rag_params[key] = 1024
+                    self.action_show_rag_settings(refresh=True)
 
     def action_search_focus(self) -> None:
         """Focus on search input."""
@@ -706,7 +754,67 @@ class SearchApp(App):
                 "[dim]Use CLI with filters for advanced features[/]"
             )
         )
-        list_view.append(search_item)
+    def action_show_rag_settings(self, refresh: bool = False) -> None:
+        """Show RAG settings panel (F9)."""
+        if self.rag_settings_mode and not refresh:
+            # Switch back to search mode
+            self.rag_settings_mode = False
+            self.query_one("#results-label", Label).update("Results (0)")
+            self.query_one("#status-bar", Static).update("Ready | Press F1-F9 for actions")
+            results_list = self.query_one("#results-list", ListView)
+            results_list.clear()
+            return
+
+        # Switch to settings mode
+        self.rag_settings_mode = True
+        self.tags_mode = False
+        self.categories_mode = False
+        self.stats_mode = False
+        self.advanced_search_mode = False
+
+        self.query_one("#status-bar", Static).update(
+            "⚙️ RAG Settings | Select items to toggle/change"
+        )
+
+        # Update results list
+        results_list = self.query_one("#results-list", ListView)
+        results_list.clear()
+
+        # Add items
+        items = [
+            ("dedup", self.rag_params["dedup"], "De-duplication"),
+            ("token_aware", self.rag_params["token_aware"], "Token-Aware Packing"),
+            ("max_tokens", self.rag_params["max_tokens"], "Max Tokens Limit"),
+        ]
+
+        for key, val, desc in items:
+            results_list.append(RagSettingItem(key, val, desc))
+
+        # Update label
+        self.query_one("#results-label", Label).update("RAG Settings")
+
+        # Update preview
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        content = [
+            "[bold cyan]⚙️ RAG Configuration[/]",
+            "",
+            "[bold white]Current Settings:[/]",
+            "",
+        ]
+        
+        for key, val, desc in items:
+            icon = "✅" if val is True else ("❌" if val is False else "#️⃣")
+            content.append(f"  {icon} [cyan]{desc}:[/] [yellow]{val}[/]")
+            
+        content.append("")
+        content.append("[dim]Select an item to toggle or change.[/dim]")
+        content.append("[dim]Changes affect current session.[/dim]")
+
+        preview_pane.update("\n".join(content))
+        
+        # Focus choice
+        if items:
+            results_list.focus()
 
 
 def run_tui():

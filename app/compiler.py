@@ -34,6 +34,12 @@ from .heuristics import (
     generate_clarify_questions_struct,
 )
 from .heuristics import detect_coding_context, detect_live_debug
+from .heuristics.handlers.content import ContentHandler
+from .heuristics.handlers.risk import RiskHandler
+from .heuristics.handlers.teaching import TeachingHandler
+from .heuristics.handlers.debug import LiveDebugHandler
+from .heuristics.handlers.constraints import ConstraintHandler
+
 
 GENERIC_GOAL = {
     "tr": "İsteği yerine getir ve faydalı, doğru bir cevap üret.",
@@ -128,51 +134,6 @@ def _mk_id(text: str) -> str:
 def compile_text_v2(text: str) -> IRv2:
     # Reuse v1 heuristics to keep behavior; map to richer IRv2 model
     ir1 = compile_text(text)
-    intents: list[str] = []
-    md = ir1.metadata or {}
-    if md.get("summary") == "true":
-        intents.append("summary")
-    if md.get("comparison_items"):
-        intents.append("compare")
-    if md.get("variant_count", 1) > 1:
-        intents.append("variants")
-    if md.get("risk_flags"):
-        intents.append("risk")
-    if md.get("code_request"):
-        intents.append("code")
-    if md.get("ambiguous_terms"):
-        intents.append("ambiguous")
-    if "web" in (ir1.tools or []):
-        intents.append("recency")
-    if ir1.persona == "teacher":
-        intents.append("teaching")
-    # live debug marker from persona_evidence.flags
-    flags = (md.get("persona_evidence") or {}).get("flags") or {}
-    if flags.get("live_debug"):
-        intents.append("debug")
-
-    # Prioritize constraints by origin
-    origins = md.get("constraint_origins") or {}
-    prio_map = {
-        "recency": 80,
-        "risk_flags": 70,
-        "live_debug": 80,
-        "pii": 60,
-        "teaching_duration": 65,
-        "teaching_level": 60,
-        "teaching": 60,
-        "comparison": 50,
-        "variants": 50,
-        "summary": 40,
-        "summary_limit": 40,
-        "ambiguous_terms": 30,
-        "code_request": 30,
-    }
-    c_v2: list[ConstraintV2] = []
-    for c in ir1.constraints:
-        origin = origins.get(c, "")
-        pr = prio_map.get(origin, 40)
-        c_v2.append(ConstraintV2(id=_mk_id(c), text=c, origin=origin or "unknown", priority=pr))
 
     # Typed steps: keep as 'task' for now
     steps_v2: list[StepV2] = [StepV2(type="task", text=s) for s in (ir1.steps or [])]
@@ -182,11 +143,11 @@ def compile_text_v2(text: str) -> IRv2:
         persona=ir1.persona,
         role=ir1.role,
         domain=ir1.domain,
-        intents=intents,
+        intents=[],
         goals=ir1.goals,
         tasks=ir1.tasks,
         inputs=ir1.inputs,
-        constraints=c_v2,
+        constraints=[],  # Will be populated by ConstraintHandler
         style=ir1.style,
         tone=ir1.tone,
         output_format=ir1.output_format,
@@ -203,12 +164,24 @@ def compile_text_v2(text: str) -> IRv2:
         },
     )
 
+    # Chain of Responsibility
+    handlers = [
+        ContentHandler(),
+        RiskHandler(),
+        TeachingHandler(),
+        LiveDebugHandler(),
+        ConstraintHandler(),
+    ]
+
+    for handler in handlers:
+        handler.handle(ir2, ir1)
+
     plugin_ctx = PluginContext(
         text=text,
         language=ir2.language,
         domain=ir2.domain,
         heuristics={
-            "intents": intents,
+            "intents": ir2.intents,
             "ir_v1_metadata": ir1.metadata,
         },
         ir_metadata=ir2.metadata,

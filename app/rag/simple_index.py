@@ -339,43 +339,81 @@ def search_hybrid(
     return ranked[:k]
 
 
+
+# Optional tiktoken support for accurate token counting
+_tiktoken_enc = None
+
+def _count_tokens(text: str, ratio: float = 4.0) -> int:
+    """Count tokens using tiktoken (if available) or fallback to char ratio."""
+    global _tiktoken_enc
+    try:
+        if _tiktoken_enc is None:
+            import tiktoken
+            _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+        return len(_tiktoken_enc.encode(text))
+    except ImportError:
+        return int(len(text) / ratio)
+
+
 def pack(
     query: str,
     results: List[dict],
     max_chars: int = 4000,
     *,
     max_tokens: Optional[int] = None,
-    token_chars: float = 4.0,
+    token_chars: float = 4.0, # Used only for fallback
+
+    dedup: bool = False,
+    token_aware: bool = False,
 ) -> dict:
     """Pack ordered retrieval results into a context block respecting budget.
 
     Budgets:
       - max_chars: upper bound by character count
       - max_tokens: approximate token budget (tokens ≈ len(text)/token_chars)
-
-    Returns dict with combined text and list of included chunk metadata.
+    
+    Args:
+        dedup: If True, skip chunks with identical content.
     """
     included = []
     buf_parts: List[str] = []
     total = 0
     total_tokens = 0
+    seen_content = set()
+
     for r in results:
-        header = f"# {Path(r['path']).name} chunk={r['chunk_index']}\n"
         # fetch full content for chunk (we only stored snippet); simplest approach: re-query chunk content
         # For minimal implementation we skip refetch and just use snippet (already representative)
         chunk_text = r.get("snippet", "")
+        
+        if dedup:
+            # Normalize for dedup checks (strip whitespace)
+            norm = chunk_text.strip()
+            if norm in seen_content:
+                continue
+            seen_content.add(norm)
+
+        score_val = r.get("hybrid_score") or r.get("score")
+        score_str = f" score={score_val:.3f}" if score_val is not None else ""
+        header = f"# {Path(r['path']).name} chunk={r['chunk_index']}{score_str}\n"
+        
         block = header + chunk_text + "\n\n"
-        next_chars = total + len(block)
-        next_tokens = int(next_chars / token_chars)
-        if max_tokens is not None:
-            if total_tokens + int(len(block) / token_chars) > max_tokens:
-                break
+        
+        block_len = len(block)
+        block_tokens = _count_tokens(block, token_chars)
+
+        if max_tokens is not None and (total_tokens + block_tokens) > max_tokens:
+            break
+            
+        next_chars = total + block_len
         if next_chars > max_chars:
             break
+            
         buf_parts.append(block)
         total = next_chars
-        total_tokens = next_tokens
-        included.append({k: r[k] for k in ("path", "chunk_index", "chunk_id")})
+        total_tokens += block_tokens
+        included.append({k: r[k] for k in ("path", "chunk_index", "chunk_id") if k in r})
+        
     return {
         "packed": "".join(buf_parts).rstrip(),
         "included": included,

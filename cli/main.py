@@ -1416,6 +1416,8 @@ def rag_pack(
     max_tokens: Optional[int] = typer.Option(
         None, "--max-tokens", help="Approximate token budget (overrides chars)"
     ),
+    dedup: bool = typer.Option(False, "--dedup", help="De-duplicate chunks"),
+    token_aware: bool = typer.Option(False, "--token-aware", help="Enable token-aware packing"),
     token_ratio: float = typer.Option(4.0, "--token-ratio", help="Chars per token heuristic"),
     method: str = typer.Option("hybrid", "--method", help="fts|embed|hybrid"),
     embed_dim: int = typer.Option(64, "--embed-dim", help="Embedding dimension for embed/hybrid"),
@@ -1444,7 +1446,8 @@ def rag_pack(
     else:
         res = search(q, k=k, db_path=str(db_path) if db_path else None)
     packed = pack_context(
-        q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio
+        q, res, max_chars=max_chars, max_tokens=max_tokens, token_chars=token_ratio,
+        dedup=dedup, token_aware=token_aware
     )
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
