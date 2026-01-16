@@ -703,7 +703,7 @@ class SearchApp(App):
         # Get list view and preview pane
         list_view = self.query_one("#results-list", ListView)
         list_view.clear()
-        preview_pane = self.query_one("#preview", PreviewPane)
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
 
         # Show advanced search help
         content = [
