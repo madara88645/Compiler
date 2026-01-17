@@ -21,8 +21,6 @@ from app.smart_tags import get_smart_tagger
 from app.testing.runner import TestRunner, TestSuite
 from pathlib import Path
 import yaml
-import threading
-
 
 
 class SearchResultItem(ListItem):
@@ -847,7 +845,7 @@ class SearchApp(App):
     def action_show_test_mode(self) -> None:
         """Show Test Mode (F10)."""
         if self.test_mode:
-             # Toggle off
+            # Toggle off
             self.test_mode = False
             self.query_one("#results-label", Label).update("Results (0)")
             self.query_one("#status-bar", Static).update("Ready | Press F1-F10 for actions")
@@ -862,9 +860,7 @@ class SearchApp(App):
         self.advanced_search_mode = False
         self.rag_settings_mode = False
 
-        self.query_one("#status-bar", Static).update(
-            "🧪 Test Mode | Select a suite to run (Enter)"
-        )
+        self.query_one("#status-bar", Static).update("🧪 Test Mode | Select a suite to run (Enter)")
 
         results_list = self.query_one("#results-list", ListView)
         results_list.clear()
@@ -872,38 +868,40 @@ class SearchApp(App):
         # Scan for tests
         root = Path(".")
         # Look for test_*.yml/json or *_test.yml/json in tests/ or examples/
-        candidates = list(root.glob("tests/**/test_*.yml")) + \
-                     list(root.glob("tests/**/test_*.json")) + \
-                     list(root.glob("examples/**/test_*.yml")) + \
-                     list(root.glob("examples/**/test_*.json"))
-        
+        candidates = (
+            list(root.glob("tests/**/test_*.yml"))
+            + list(root.glob("tests/**/test_*.json"))
+            + list(root.glob("examples/**/test_*.yml"))
+            + list(root.glob("examples/**/test_*.json"))
+        )
+
         for p in candidates:
-             results_list.append(TestFileItem(p))
+            results_list.append(TestFileItem(p))
 
         self.query_one("#results-label", Label).update(f"Test Suites ({len(candidates)})")
-        
+
         preview_pane = self.query_one("#preview-pane", PreviewPane)
         preview_pane.update(
             "[bold cyan]🧪 Test Runner[/]\n\n"
             "Select a test suite from the left panel and press Enter to run it.\n"
             "Results will appear here."
         )
-        
+
         if candidates:
             results_list.focus()
 
     def _run_test_suite(self, suite_path: Path) -> None:
         """Run the selected test suite."""
         self.query_one("#status-bar", Static).update(f"⏳ Running {suite_path.name}...")
-        
+
         try:
             # Parse suite
             data = yaml.safe_load(suite_path.read_text(encoding="utf-8"))
             suite = TestSuite(**data)
-            
+
             # Run
             result = self.test_runner.run_suite(suite, base_dir=suite_path.parent)
-            
+
             # Show results
             content = [
                 f"[bold cyan]Test Results: {suite.name}[/]",
@@ -911,9 +909,9 @@ class SearchApp(App):
                 "",
                 f"[green]Passed: {result.passed}[/] | [red]Failed: {result.failed}[/] | [bold red]Errors: {result.errors}[/]",
                 "",
-                "[bold white]Details:[/]"
+                "[bold white]Details:[/]",
             ]
-            
+
             for res in result.results:
                 icon = "✅" if res.passed else "❌"
                 style = "green" if res.passed else "red"
@@ -925,12 +923,16 @@ class SearchApp(App):
                     if res.error:
                         content.append(f"  [bold red]Error:[/] {res.error}")
                 content.append("")
-                
+
             self.query_one("#preview-pane", PreviewPane).update("\n".join(content))
-            self.query_one("#status-bar", Static).update(f"✅ Test run complete: {result.passed}/{len(result.results)} passed.")
-            
+            self.query_one("#status-bar", Static).update(
+                f"✅ Test run complete: {result.passed}/{len(result.results)} passed."
+            )
+
         except Exception as e:
-            self.query_one("#preview-pane", PreviewPane).update(f"[bold red]Error running suite:[/]\n{e}")
+            self.query_one("#preview-pane", PreviewPane).update(
+                f"[bold red]Error running suite:[/]\n{e}"
+            )
             self.query_one("#status-bar", Static).update("❌ Error running test suite")
 
 

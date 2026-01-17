@@ -3,7 +3,6 @@ import sys
 import json
 import time
 from pathlib import Path
-from typing import Optional
 import typer
 from rich import print
 
@@ -32,6 +31,7 @@ from app.emitters import (
 from app.validator import validate_prompt
 from app.analytics import AnalyticsManager, create_record_from_ir
 
+
 def _write_output(
     content: str, out: Path | None, out_dir: Path | None, default_name: str = "output.txt"
 ):
@@ -47,6 +47,7 @@ def _write_output(
     else:
         # Default to stdout
         print(content)
+
 
 def _run_compile(
     full_text: str,
@@ -76,7 +77,7 @@ def _run_compile(
     else:
         ir2 = compile_text_v2(full_text)
         ir = None
-    
+
     if persona and (ir is not None):
         ir.persona = persona.strip().lower()
 
@@ -93,7 +94,8 @@ def _run_compile(
                 validation_result = validate_prompt(ir2, full_text)
                 score_total = (
                     validation_result.score.total
-                    if hasattr(validation_result, "score") and hasattr(validation_result.score, "total")
+                    if hasattr(validation_result, "score")
+                    and hasattr(validation_result.score, "total")
                     else None
                 )
                 if score_total is not None:
@@ -129,7 +131,7 @@ def _run_compile(
 
     if json_only and quiet:
         quiet = False
-        
+
     system_prompt = (
         emit_system_prompt(ir)
         if ir
@@ -148,7 +150,7 @@ def _run_compile(
         if ir
         else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if (ir2 and render_v2) else "")
     )
-    
+
     if json_only:
         data = ir_json
         fmt_l = (fmt or "json").lower()
@@ -158,12 +160,12 @@ def _run_compile(
                 payload = json.dumps(data, ensure_ascii=False, indent=2)
                 default_name = "ir.json"
             else:
-                payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True) # type: ignore
+                payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)  # type: ignore
                 default_name = "ir.yaml"
         else:
             payload = json.dumps(data, ensure_ascii=False, indent=2)
             default_name = "ir.json"
-            
+
         if out or out_dir:
             if fmt_l == "md" and (ir or (ir2 and render_v2)):
                 md_parts = []
@@ -189,17 +191,23 @@ def _run_compile(
         # Standard rich output
         from rich.panel import Panel
         from rich.syntax import Syntax
-        
-        console = typer.main.get_console() # type: ignore
-        
+
+        console = typer.main.get_console()  # type: ignore
+
         if system_prompt:
-            console.print(Panel(Syntax(system_prompt, "markdown"), title="System Prompt", border_style="blue"))
+            console.print(
+                Panel(Syntax(system_prompt, "markdown"), title="System Prompt", border_style="blue")
+            )
         if user_prompt:
-            console.print(Panel(Syntax(user_prompt, "markdown"), title="User Prompt", border_style="green"))
+            console.print(
+                Panel(Syntax(user_prompt, "markdown"), title="User Prompt", border_style="green")
+            )
         if plan:
             console.print(Panel(plan, title="Plan", border_style="yellow"))
         if expanded:
-            console.print(Panel(Syntax(expanded, "markdown"), title="Expanded", border_style="magenta"))
-            
+            console.print(
+                Panel(Syntax(expanded, "markdown"), title="Expanded", border_style="magenta")
+            )
+
         if out or out_dir:
             _write_output(expanded, out, out_dir, "expanded.txt")

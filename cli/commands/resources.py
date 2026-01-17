@@ -35,7 +35,9 @@ palette_app = typer.Typer(help="Command palette favorites and metadata")
 @favorites_app.command("list")
 def favorites_list(
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Filter by domain"),
-    tags: Optional[str] = typer.Option(None, "--tags", "-t", help="Filter by tags (comma-separated)"),
+    tags: Optional[str] = typer.Option(
+        None, "--tags", "-t", help="Filter by tags (comma-separated)"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """List favorite prompts."""
@@ -113,14 +115,14 @@ def favorites_show(favorite_id: str = typer.Argument(..., help="Favorite ID")):
 [bold]Language:[/bold] {entry.language.upper()}
 [bold]Score:[/bold] {entry.score:.1f}
 [bold]Use Count:[/bold] {entry.use_count}
-[bold]Tags:[/bold] {', '.join(entry.tags) if entry.tags else 'none'}
+[bold]Tags:[/bold] {", ".join(entry.tags) if entry.tags else "none"}
 [bold]Added:[/bold] {entry.timestamp}
 
 [bold]Prompt:[/bold]
 {entry.prompt_text}
 
 [bold]Notes:[/bold]
-{entry.notes if entry.notes else '(no notes)'}"""
+{entry.notes if entry.notes else "(no notes)"}"""
 
     console.print(
         Panel(info, title=f"[bold cyan]Favorite: {entry.id}[/bold cyan]", border_style="cyan")
@@ -282,9 +284,9 @@ def favorites_stats():
         console.print("[yellow]No favorites yet[/yellow]")
         return
 
-    info = f"""[bold]Total Favorites:[/bold] {stats['total']}
-[bold]Total Uses:[/bold] {stats['total_uses']}
-[bold]Avg Score:[/bold] {stats['avg_score']:.1f}
+    info = f"""[bold]Total Favorites:[/bold] {stats["total"]}
+[bold]Total Uses:[/bold] {stats["total_uses"]}
+[bold]Avg Score:[/bold] {stats["avg_score"]:.1f}
 
 [bold]Top Domains:[/bold]"""
 
@@ -300,9 +302,7 @@ def favorites_stats():
     for lang, count in stats["languages"].items():
         info += f"\n  {lang}: {count}"
 
-    console.print(
-        Panel(info, title="[bold cyan]Favorites Stats[/bold cyan]", border_style="cyan")
-    )
+    console.print(Panel(info, title="[bold cyan]Favorites Stats[/bold cyan]", border_style="cyan"))
 
 
 @favorites_app.command("most-used")
@@ -373,7 +373,11 @@ def favorites_use(
         raise typer.Exit(code=1)
 
     console.print(
-        Panel(text, title=f"[bold green]Favorite Used: {favorite_id}[/bold green]", border_style="green")
+        Panel(
+            text,
+            title=f"[bold green]Favorite Used: {favorite_id}[/bold green]",
+            border_style="green",
+        )
     )
 
     if copy:
@@ -470,7 +474,7 @@ def snippets_add(
         info = f"""[bold]ID:[/bold] {snippet.id}
 [bold]Title:[/bold] {snippet.title}
 [bold]Category:[/bold] {snippet.category}
-[bold]Tags:[/bold] {', '.join(snippet.tags) or 'None'}
+[bold]Tags:[/bold] {", ".join(snippet.tags) or "None"}
 [bold]Language:[/bold] {snippet.language}
 
 [bold]Content:[/bold]
@@ -560,12 +564,12 @@ def snippets_show(
     info = f"""[bold]ID:[/bold] {snippet.id}
 [bold]Title:[/bold] {snippet.title}
 [bold]Category:[/bold] {snippet.category}
-[bold]Description:[/bold] {snippet.description or 'None'}
-[bold]Tags:[/bold] {', '.join(snippet.tags) or 'None'}
+[bold]Description:[/bold] {snippet.description or "None"}
+[bold]Tags:[/bold] {", ".join(snippet.tags) or "None"}
 [bold]Language:[/bold] {snippet.language}
 [bold]Use Count:[/bold] {snippet.use_count}
-[bold]Created:[/bold] {snippet.created_at.split('T')[0]}
-[bold]Last Used:[/bold] {snippet.last_used.split('T')[0] if snippet.last_used else 'Never'}"""
+[bold]Created:[/bold] {snippet.created_at.split("T")[0]}
+[bold]Last Used:[/bold] {snippet.last_used.split("T")[0] if snippet.last_used else "Never"}"""
 
     console.print(
         Panel(info, title="[bold cyan]Snippet Information[/bold cyan]", border_style="cyan")
@@ -689,7 +693,7 @@ def snippets_edit(
             info = f"""[bold]ID:[/bold] {updated.id}
 [bold]Title:[/bold] {updated.title}
 [bold]Category:[/bold] {updated.category}
-[bold]Tags:[/bold] {', '.join(updated.tags) or 'None'}"""
+[bold]Tags:[/bold] {", ".join(updated.tags) or "None"}"""
 
             console.print(
                 Panel(
@@ -822,8 +826,8 @@ def snippets_stats():
 
     stats = manager.get_stats()
 
-    info = f"""[bold]Total Snippets:[/bold] {stats['total_snippets']}
-[bold]Total Uses:[/bold] {stats['total_uses']}"""
+    info = f"""[bold]Total Snippets:[/bold] {stats["total_snippets"]}
+[bold]Total Uses:[/bold] {stats["total_uses"]}"""
 
     console.print(
         Panel(info, title="[bold cyan]Snippet Statistics[/bold cyan]", border_style="cyan")
@@ -1462,7 +1466,9 @@ def collections_clear(
     collections_mgr = get_collections_manager()
 
     if not force:
-        console.print("[bold red]DANGER: This will delete ALL collections and their items![/bold red]")
+        console.print(
+            "[bold red]DANGER: This will delete ALL collections and their items![/bold red]"
+        )
         confirm = typer.confirm("Are you really sure?")
         if not confirm:
             console.print("Cancelled")

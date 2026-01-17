@@ -1,10 +1,10 @@
-
 import typer
 from typing import Optional
 from pathlib import Path
 from app.tui import SearchApp
 
 app = typer.Typer(help="TUI")
+
 
 @app.command("tui")
 def tui_launch(

@@ -43,7 +43,6 @@ def test_rag_pack_cli_args(monkeypatch):
     # Patch the function as imported in cli.commands.rag
     monkeypatch.setattr(cli.commands.rag, "pack_context", mock_pack)
 
-
     # Run command
     result = runner.invoke(
         app, ["rag", "pack", "test search", "--dedup", "--token-aware", "--max-tokens", "100"]

@@ -1,6 +1,4 @@
-
 from __future__ import annotations
-import typer
 from cli.commands.core import app as core_app
 from cli.commands.rag import app as rag_app
 from cli.commands.templates import app as templates_app
@@ -30,7 +28,7 @@ app.add_typer(templates_app, name="template")
 app.add_typer(analytics_app, name="analytics")
 app.add_typer(history_app, name="history")
 app.add_typer(testing_app, name="test")
-app.add_typer(tui_app) # tui command is "tui" inside this app
+app.add_typer(tui_app)  # tui command is "tui" inside this app
 
 # Mount legacy modules
 app.add_typer(plugins_app, name="plugins")

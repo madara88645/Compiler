@@ -86,7 +86,7 @@ class TemplatePreview:
         # Show template info
         self.console.print(
             Panel(
-                f"[bold cyan]{template.name}[/bold cyan]\n" f"[dim]{template.description}[/dim]",
+                f"[bold cyan]{template.name}[/bold cyan]\n[dim]{template.description}[/dim]",
                 title="📄 Template",
                 border_style="cyan",
             )
@@ -155,8 +155,7 @@ class TemplatePreview:
 
         self.console.print(
             Panel(
-                f"[bold cyan]{template.name}[/bold cyan]\n"
-                f"[dim]Fill in the variables below[/dim]",
+                f"[bold cyan]{template.name}[/bold cyan]\n[dim]Fill in the variables below[/dim]",
                 title="📝 Interactive Template Fill",
                 border_style="cyan",
             )

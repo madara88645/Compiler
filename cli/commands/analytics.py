@@ -632,13 +632,13 @@ def history_stats():
     if stats["total"] == 0:
         console.print("[yellow]No history entries[/yellow]")
         return
-    
+
     info = (
         f"Total Entries: {stats['total']}\n"
         f"First Entry: {stats.get('first', 'N/A')}\n"
         f"Last Entry: {stats.get('last', 'N/A')}"
     )
-    
+
     console.print(Panel(info, title="[bold cyan]History Stats[/bold cyan]", border_style="cyan"))
 
     # Domain breakdown if available (simple version)

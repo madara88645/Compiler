@@ -1,4 +1,3 @@
-
 import typer
 from typing import List, Optional
 from pathlib import Path
@@ -17,6 +16,7 @@ from app.rag.simple_index import (
 
 app = typer.Typer(help="Lightweight local RAG (SQLite FTS5)")
 
+
 def _write_output(content: str, out: Optional[Path], out_dir: Optional[Path], default_name: str):
     """Refactored helper for output writing (duplicated for now or shared later)."""
     if out:
@@ -30,6 +30,7 @@ def _write_output(content: str, out: Optional[Path], out_dir: Optional[Path], de
         typer.echo(f"Wrote to {path}")
     else:
         typer.echo(content)
+
 
 @app.command("index")
 def rag_index(
@@ -54,8 +55,9 @@ def rag_index(
         embed_dim=embed_dim,
     )
     print(
-        f"[indexed] docs={docs} chunks={chunks} in {int(secs*1000)} ms -> {(db_path or Path(DEFAULT_DB_PATH))}"
+        f"[indexed] docs={docs} chunks={chunks} in {int(secs * 1000)} ms -> {(db_path or Path(DEFAULT_DB_PATH))}"
     )
+
 
 @app.command("query")
 def rag_query(
@@ -149,6 +151,7 @@ def rag_query(
                 f"{i}. {Path(r['path']).name} #{r['chunk_index']} {score} {' '.join(meta)}\n   {r['snippet']}"
             )
 
+
 @app.command("pack")
 def rag_pack(
     query: List[str] = typer.Argument(..., help="Query text"),
@@ -189,13 +192,14 @@ def rag_pack(
                 else json.dumps(packed, ensure_ascii=False, indent=2)
             )
             ext = "yaml" if use_yaml else "json"
-        
+
         if out or out_dir:
-             _write_output(payload, out, out_dir, default_name=f"rag_pack.{ext}")
+            _write_output(payload, out, out_dir, default_name=f"rag_pack.{ext}")
         else:
             typer.echo(payload)
     else:
         typer.echo(packed["packed"])
+
 
 @app.command("stats")
 def rag_stats(
@@ -229,6 +233,7 @@ def rag_stats(
             print("largest:")
             for it in s["largest"]:
                 print(f" - {it['path']} ({it['size']})")
+
 
 @app.command("prune")
 def rag_prune(

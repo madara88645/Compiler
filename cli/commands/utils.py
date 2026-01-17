@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 import typer
 from rich import print
-from typing import Optional, List
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -55,6 +55,7 @@ _PROFILE_SNAPSHOT_KEYS = [
 
 # --- PLUGINS ---
 
+
 @plugins_app.command("list")
 def plugins_list(
     refresh: bool = typer.Option(False, "--refresh", help="Reload plugin entry points"),
@@ -85,6 +86,7 @@ def plugins_list(
 
 
 # --- PROFILES ---
+
 
 @profiles_app.command("list")
 def profile_list(json_output: bool = typer.Option(False, "--json", help="Output JSON")):
@@ -219,6 +221,7 @@ def profile_import(
 
 # --- EXPORT / IMPORT (Data) ---
 
+
 @export_app.command("data")
 def export_data(
     output: Path = typer.Argument(..., help="Output file path"),
@@ -260,12 +263,12 @@ def export_data(
         else:
             info = f"""[bold green]✓ Export successful[/bold green]
 
-File: {result['file']}
-Format: {result['format']}
-Type: {result['data_type']}
-Analytics: {result['analytics_count']} records
-History: {result['history_count']} entries
-Export Date: {result['export_date']}"""
+File: {result["file"]}
+Format: {result["format"]}
+Type: {result["data_type"]}
+Analytics: {result["analytics_count"]} records
+History: {result["history_count"]} entries
+Export Date: {result["export_date"]}"""
 
             if format == "csv" and data_type == "both":
                 info += "\n\n[yellow]Note: CSV export created separate files for analytics and history[/yellow]"
@@ -321,11 +324,11 @@ def import_data(
             mode = "Merged" if merge else "Replaced"
             info = f"""[bold green]✓ Import successful[/bold green]
 
-File: {result['file']}
-Format: {result['format']}
+File: {result["file"]}
+Format: {result["format"]}
 Mode: {mode}
-Analytics: {result['analytics_imported']} records imported
-History: {result['history_imported']} entries imported"""
+Analytics: {result["analytics_imported"]} records imported
+History: {result["history_imported"]} entries imported"""
 
             console.print(
                 Panel(info, title="[bold cyan]Import Complete[/bold cyan]", border_style="cyan")
@@ -373,11 +376,11 @@ def backup_all(
 
         info = f"""[bold green]✓ Backup created[/bold green]
 
-Location: {result['file']}
-Format: {result['format']}
-Analytics: {result['analytics_count']} records
-History: {result['history_count']} entries
-Backup Date: {result['export_date']}"""
+Location: {result["file"]}
+Format: {result["format"]}
+Analytics: {result["analytics_count"]} records
+History: {result["history_count"]} entries
+Backup Date: {result["export_date"]}"""
 
         console.print(
             Panel(info, title="[bold cyan]Backup Complete[/bold cyan]", border_style="cyan")

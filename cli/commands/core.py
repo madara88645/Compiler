@@ -12,7 +12,6 @@ from rich import print
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.columns import Columns
 from rich.markdown import Markdown
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -50,6 +49,7 @@ HEURISTIC2_VERSION = "2.0.0"
 
 app = typer.Typer(help="Core compiler and utility commands")
 
+
 def _write_output(
     content: str, out: Optional[Path], out_dir: Optional[Path], default_name: str = "output.txt"
 ):
@@ -66,15 +66,16 @@ def _write_output(
     else:
         typer.echo(content)
 
+
 # ============================================================================
 # Core Compass Commands
 # ============================================================================
+
 
 @app.command()
 def version():
     """Print package version."""
     print(get_version())
-
 
 
 def _run_compile(
@@ -392,7 +393,7 @@ def compile_cmd(
     if fail_on_empty and not (full_text or "").strip():
         typer.secho("Input is empty", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    
+
     _run_compile(
         full_text,
         diagnostics,
@@ -424,7 +425,9 @@ def validate(
     try:
         from jsonschema import Draft202012Validator
     except ImportError:
-        typer.secho("jsonschema not installed. Install with 'pip install jsonschema'", fg=typer.colors.RED)
+        typer.secho(
+            "jsonschema not installed. Install with 'pip install jsonschema'", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
 
     ok = 0
@@ -446,7 +449,7 @@ def validate(
         except Exception as e:
             fail += 1
             typer.secho(f"[fail] {p}: {e}", fg=typer.colors.RED)
-            
+
     total = ok + fail
     summary = f"Summary: OK={ok} Failed={fail} Total={total}"
     typer.echo(summary)
@@ -473,7 +476,7 @@ def fix_prompt_command(
     out: Optional[Path] = typer.Option(None, "--out", help="Write fixed prompt to file"),
 ):
     """Automatically fix prompt based on validation issues."""
-    
+
     # Get prompt text
     if stdin:
         full_text = sys.stdin.read()
@@ -711,7 +714,7 @@ def batch(
     if jsonl and fmt != "json":
         raise typer.BadParameter("--jsonl requires --format json")
     out_ext = "json" if fmt == "json" else ("md" if fmt == "md" else "yaml")
-    
+
     # Suppress per-file saved logs for cleaner output
     setattr(_write_output, "_suppress_log", True)
 
@@ -728,7 +731,7 @@ def batch(
                     if p.is_file():
                         file_set.add(p)
         files = sorted(file_set)
-        
+
         start = time.perf_counter()
         jsonl_file = None
         if jsonl:
@@ -796,16 +799,16 @@ def batch(
                 futures = {ex.submit(process_file, src): src for src in files}
                 for fut in as_completed(futures):
                     if fail_fast and fut.exception() is not None:
-                         for other in futures:
-                             other.cancel()
-                         break
-        
+                        for other in futures:
+                            other.cancel()
+                        break
+
         if jsonl_file:
             jsonl_file.close()
 
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         avg_ms = elapsed_ms / max(1, len(files))
-        
+
         if summary_json:
             summary = {
                 "files": len(files),
@@ -833,7 +836,9 @@ def batch(
             else:  # md
                 typer.echo("\n".join(stdout_chunks))
         else:
-            print(f"[done] {len(files)} files -> outputs in {int(elapsed_ms)} ms (avg {avg_ms:.1f} ms) jobs={jobs}")
+            print(
+                f"[done] {len(files)} files -> outputs in {int(elapsed_ms)} ms (avg {avg_ms:.1f} ms) jobs={jobs}"
+            )
             if errors:
                 for p, msg in errors[:5]:
                     typer.secho(f"[error] {p}: {msg}", fg=typer.colors.RED)
@@ -844,7 +849,6 @@ def batch(
         raise typer.Exit(code=1)
     finally:
         setattr(_write_output, "_suppress_log", False)
-
 
 
 @app.command("pack")
@@ -1011,6 +1015,7 @@ def json_path(
                 raise typer.Exit(code=1)
 
     if show_type:
+
         def _jtype(v: Any) -> str:
             if v is None:
                 return "null"
@@ -1069,18 +1074,22 @@ def json_diff(
     # Optionally delete ignored paths
     if ignore_path:
         # (Simplified path deletion logic for brevity)
-        pass 
+        pass
 
     if brief:
         if ja == jb:
             return
         raise typer.Exit(code=1)
 
-    sa = json.dumps(ja, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(keepends=False)
-    sb = json.dumps(jb, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(keepends=False)
-    
+    sa = json.dumps(ja, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+        keepends=False
+    )
+    sb = json.dumps(jb, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+        keepends=False
+    )
+
     diff = difflib.unified_diff(sa, sb, fromfile=str(a), tofile=str(b), n=context)
-    
+
     if not color:
         txt = "".join(line + "\n" if not line.endswith("\n") else line for line in diff)
         if out:
@@ -1102,7 +1111,7 @@ def json_diff(
                 colored_lines.append(f"[red]{ln.rstrip()}[/red]")
             else:
                 colored_lines.append(ln.rstrip())
-        
+
         if out:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text("\n".join(colored_lines) + "\n", encoding="utf-8")

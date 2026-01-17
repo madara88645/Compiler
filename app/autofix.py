@@ -347,7 +347,7 @@ def explain_fixes(result: AutoFixResult) -> str:
     lines.append(f"Original Score: {result.original_score:.1f}/100")
     lines.append(f"Fixed Score:    {result.fixed_score:.1f}/100")
     lines.append(
-        f"Improvement:    +{result.improvement:.1f} ({result.improvement/result.original_score*100:.1f}%)\n"
+        f"Improvement:    +{result.improvement:.1f} ({result.improvement / result.original_score * 100:.1f}%)\n"
     )
 
     if result.fixes_applied:

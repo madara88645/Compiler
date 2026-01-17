@@ -1,6 +1,5 @@
 from __future__ import annotations
-from pathlib import Path
-from typing import Optional
+
 
 def _render_prompt_pack_md(
     system_prompt: str,
@@ -22,9 +21,7 @@ def _render_prompt_pack_md(
     return "".join(parts).strip()
 
 
-def _render_prompt_pack_txt(
-    system_prompt: str, user_prompt: str, plan: str, expanded: str
-) -> str:
+def _render_prompt_pack_txt(system_prompt: str, user_prompt: str, plan: str, expanded: str) -> str:
     """Render a prompt pack in Plain Text format."""
     parts = []
     if system_prompt:

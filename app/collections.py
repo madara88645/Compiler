@@ -533,8 +533,7 @@ class CollectionsManager:
         # For now, we just export the IDs
         if include_content:
             export_data["_note"] = (
-                "Content export requires integration with "
-                "history, templates, and snippets managers"
+                "Content export requires integration with history, templates, and snippets managers"
             )
 
         return export_data
@@ -558,7 +557,7 @@ class CollectionsManager:
 
         if collection_id in self.collections and not overwrite:
             raise ValueError(
-                f"Collection '{collection_id}' already exists. " f"Use overwrite=True to replace."
+                f"Collection '{collection_id}' already exists. Use overwrite=True to replace."
             )
 
         # Remove export metadata
