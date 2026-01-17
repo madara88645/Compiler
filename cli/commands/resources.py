@@ -1552,7 +1552,6 @@ def palette_manage_favorites(
     export_result_path: Path | None = None
     import_ids: list[str] = []
     import_source: Path | None = None
-    import_applied = False
     pruned_any = False
     reordered_ids: list[str] = []
 
