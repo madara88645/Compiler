@@ -9,14 +9,16 @@ from cli.commands.tui import app as tui_app
 from cli.commands.testing import app as testing_app
 
 # Import legacy apps from the renamed file
-from cli.main_legacy import (
+from cli.commands.utils import (
     plugins_app,
+    profiles_app,
     export_app,
+)
+from cli.commands.resources import (
     favorites_app,
     snippets_app,
     collections_app,
     palette_app,
-    profiles_app,
 )
 
 # Main entry point uses core commands
