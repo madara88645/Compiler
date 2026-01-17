@@ -1,0 +1,15 @@
+
+name: E2E Demo Suite
+prompt_file: demo_prompt.txt
+defaults:
+  role: generic assistant
+test_cases:
+  - id: case_1
+    input_variables:
+      topic: cats
+      format: poem
+    assertions:
+      - type: not_contains
+        value: error
+      - type: min_length
+        value: 10

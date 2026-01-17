@@ -1,5 +1,5 @@
 from typer.testing import CliRunner
-import cli.main
+import cli.commands.rag
 from cli.main import app
 
 runner = CliRunner()
@@ -10,15 +10,15 @@ def test_rag_pack_cli_args(monkeypatch):
 
     captured_args = {}
 
-    # We need to mock search/search_hybrid in cli.main or simple_index?
-    # cli.main imports search, search_hybrid. So we must patch cli.main.search_hybrid
+    # We need to mock search/search_hybrid in cli.commands.rag?
+    # cli.commands.rag imports search, search_hybrid. So we must patch cli.commands.rag.search_hybrid
 
     def mock_search(*args, **kwargs):
         return []
 
-    monkeypatch.setattr(cli.main, "search", mock_search)
-    monkeypatch.setattr(cli.main, "search_hybrid", mock_search)
-    monkeypatch.setattr(cli.main, "search_embed", mock_search)
+    monkeypatch.setattr(cli.commands.rag, "search", mock_search)
+    monkeypatch.setattr(cli.commands.rag, "search_hybrid", mock_search)
+    monkeypatch.setattr(cli.commands.rag, "search_embed", mock_search)
 
     def mock_pack(
         query,
@@ -40,8 +40,9 @@ def test_rag_pack_cli_args(monkeypatch):
             "budget": {},
         }
 
-    # Patch the function as imported in cli.main
-    monkeypatch.setattr(cli.main, "pack_context", mock_pack)
+    # Patch the function as imported in cli.commands.rag
+    monkeypatch.setattr(cli.commands.rag, "pack_context", mock_pack)
+
 
     # Run command
     result = runner.invoke(
@@ -62,8 +63,8 @@ def test_rag_pack_defaults(monkeypatch):
     def mock_search(*args, **kwargs):
         return []
 
-    monkeypatch.setattr(cli.main, "search", mock_search)
-    monkeypatch.setattr(cli.main, "search_hybrid", mock_search)
+    monkeypatch.setattr(cli.commands.rag, "search", mock_search)
+    monkeypatch.setattr(cli.commands.rag, "search_hybrid", mock_search)
 
     def mock_pack(
         query,
@@ -78,7 +79,7 @@ def test_rag_pack_defaults(monkeypatch):
         captured_args["token_aware"] = token_aware
         return {"packed": "mock", "included": [], "chars": 0, "tokens": 0, "budget": {}}
 
-    monkeypatch.setattr(cli.main, "pack_context", mock_pack)
+    monkeypatch.setattr(cli.commands.rag, "pack_context", mock_pack)
 
     result = runner.invoke(app, ["rag", "pack", "test defaults"])
     assert result.exit_code == 0

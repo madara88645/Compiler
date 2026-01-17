@@ -4,7 +4,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-import cli.main as cli_main
+import cli.commands.core as cli_core
 from cli.main import app as cli_app
 
 
@@ -16,14 +16,14 @@ def _capture_analytics(monkeypatch):
     captured = []
 
     # Avoid creating ~/.promptc/analytics.db in tests.
-    monkeypatch.setattr(cli_main.AnalyticsManager, "__init__", lambda self, db_path=None: None)
+    monkeypatch.setattr(cli_core.AnalyticsManager, "__init__", lambda self, db_path=None: None)
 
     def _record_prompt(self, record):
         captured.append(record)
         return 1
 
     monkeypatch.setattr(
-        cli_main.AnalyticsManager,
+        cli_core.AnalyticsManager,
         "record_prompt",
         _record_prompt,
     )
@@ -132,7 +132,7 @@ def test_cli_compile_validate_affects_analytics(monkeypatch):
             self.warnings = 0
             self.errors = 0
 
-    monkeypatch.setattr(cli_main, "validate_prompt", lambda ir, original_text=None: _Validation())
+    monkeypatch.setattr(cli_core, "validate_prompt", lambda ir, original_text=None: _Validation())
 
     result = runner.invoke(
         cli_app,

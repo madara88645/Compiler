@@ -18,6 +18,11 @@ from typing import Optional, List
 
 from app.search import get_search_engine, SearchResult, SearchResultType
 from app.smart_tags import get_smart_tagger
+from app.testing.runner import TestRunner, TestSuite
+from pathlib import Path
+import yaml
+import threading
+
 
 
 class SearchResultItem(ListItem):
@@ -102,6 +107,22 @@ class RagSettingItem(ListItem):
         text.append(f"{state} ", style="bold yellow")
         text.append(f"{self.description:25}", style="cyan")
         text.append(f" ({self.key})", style="dim")
+        return text
+
+
+class TestFileItem(ListItem):
+    """Custom list item for Test Suites."""
+
+    def __init__(self, path: Path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.path = path
+        self.filename = path.name
+
+    def render(self) -> Text:
+        text = Text()
+        text.append("🧪 ", style="bold red")
+        text.append(f"{self.filename:30}", style="cyan")
+        text.append(f" ({self.path.parent.name})", style="dim")
         return text
 
 
@@ -222,6 +243,7 @@ class SearchApp(App):
         Binding("f7", "show_categories", "Categories", show=True),
         Binding("f8", "show_advanced_search", "Adv.Search", show=True),
         Binding("f9", "show_rag_settings", "RAG Settings", show=True),
+        Binding("f10", "show_test_mode", "Test Mode", show=True),
         Binding("escape", "search_focus", "Focus Search", show=False),
     ]
 
@@ -237,6 +259,9 @@ class SearchApp(App):
         self.advanced_search_mode = False
         self.rag_settings_mode = False
         self.rag_params = {"dedup": False, "token_aware": False, "max_tokens": 2048}
+
+        self.test_mode = False
+        self.test_runner = TestRunner()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -356,6 +381,9 @@ class SearchApp(App):
                         except ValueError:
                             self.rag_params[key] = 1024
                     self.action_show_rag_settings(refresh=True)
+            elif isinstance(event.item, TestFileItem):
+                # Run the selected test suite
+                self._run_test_suite(event.item.path)
 
     def action_search_focus(self) -> None:
         """Focus on search input."""
@@ -815,6 +843,95 @@ class SearchApp(App):
         # Focus choice
         if items:
             results_list.focus()
+
+    def action_show_test_mode(self) -> None:
+        """Show Test Mode (F10)."""
+        if self.test_mode:
+             # Toggle off
+            self.test_mode = False
+            self.query_one("#results-label", Label).update("Results (0)")
+            self.query_one("#status-bar", Static).update("Ready | Press F1-F10 for actions")
+            results_list = self.query_one("#results-list", ListView)
+            results_list.clear()
+            return
+
+        self.test_mode = True
+        self.tags_mode = False
+        self.categories_mode = False
+        self.stats_mode = False
+        self.advanced_search_mode = False
+        self.rag_settings_mode = False
+
+        self.query_one("#status-bar", Static).update(
+            "🧪 Test Mode | Select a suite to run (Enter)"
+        )
+
+        results_list = self.query_one("#results-list", ListView)
+        results_list.clear()
+
+        # Scan for tests
+        root = Path(".")
+        # Look for test_*.yml/json or *_test.yml/json in tests/ or examples/
+        candidates = list(root.glob("tests/**/test_*.yml")) + \
+                     list(root.glob("tests/**/test_*.json")) + \
+                     list(root.glob("examples/**/test_*.yml")) + \
+                     list(root.glob("examples/**/test_*.json"))
+        
+        for p in candidates:
+             results_list.append(TestFileItem(p))
+
+        self.query_one("#results-label", Label).update(f"Test Suites ({len(candidates)})")
+        
+        preview_pane = self.query_one("#preview-pane", PreviewPane)
+        preview_pane.update(
+            "[bold cyan]🧪 Test Runner[/]\n\n"
+            "Select a test suite from the left panel and press Enter to run it.\n"
+            "Results will appear here."
+        )
+        
+        if candidates:
+            results_list.focus()
+
+    def _run_test_suite(self, suite_path: Path) -> None:
+        """Run the selected test suite."""
+        self.query_one("#status-bar", Static).update(f"⏳ Running {suite_path.name}...")
+        
+        try:
+            # Parse suite
+            data = yaml.safe_load(suite_path.read_text(encoding="utf-8"))
+            suite = TestSuite(**data)
+            
+            # Run
+            result = self.test_runner.run_suite(suite, base_dir=suite_path.parent)
+            
+            # Show results
+            content = [
+                f"[bold cyan]Test Results: {suite.name}[/]",
+                f"Duration: {result.total_duration_ms:.2f}ms",
+                "",
+                f"[green]Passed: {result.passed}[/] | [red]Failed: {result.failed}[/] | [bold red]Errors: {result.errors}[/]",
+                "",
+                "[bold white]Details:[/]"
+            ]
+            
+            for res in result.results:
+                icon = "✅" if res.passed else "❌"
+                style = "green" if res.passed else "red"
+                content.append(f"{icon} [bold {style}]{res.test_case_id}[/]")
+                if not res.passed:
+                    if res.failures:
+                        for f in res.failures:
+                            content.append(f"  - {f}")
+                    if res.error:
+                        content.append(f"  [bold red]Error:[/] {res.error}")
+                content.append("")
+                
+            self.query_one("#preview-pane", PreviewPane).update("\n".join(content))
+            self.query_one("#status-bar", Static).update(f"✅ Test run complete: {result.passed}/{len(result.results)} passed.")
+            
+        except Exception as e:
+            self.query_one("#preview-pane", PreviewPane).update(f"[bold red]Error running suite:[/]\n{e}")
+            self.query_one("#status-bar", Static).update("❌ Error running test suite")
 
 
 def run_tui():
