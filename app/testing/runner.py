@@ -156,6 +156,6 @@ class TestRunner:
             try:
                 json.loads(output)
                 return True # TODO: Validate against schema if value is a schema dict
-            except:
+            except Exception:
                 return False
         return False

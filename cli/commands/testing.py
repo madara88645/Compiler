@@ -45,7 +45,7 @@ def test_run(
         TextColumn("[progress.description]{task.description}"),
         transient=True,
     ) as progress:
-        task = progress.add_task(description="Running tests...", total=len(suite.test_cases))
+        progress.add_task(description="Running tests...", total=len(suite.test_cases))
         # Note: run_suite runs all at once, we might want to run individually for progress
         # But for now, let's just run it.
         result = runner.run_suite(suite, base_dir=suite_file.parent)

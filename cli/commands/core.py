@@ -1012,12 +1012,18 @@ def json_path(
 
     if show_type:
         def _jtype(v: Any) -> str:
-            if v is None: return "null"
-            if isinstance(v, bool): return "bool"
-            if isinstance(v, (int, float)): return "number"
-            if isinstance(v, str): return "string"
-            if isinstance(v, list): return "array"
-            if isinstance(v, dict): return "object"
+            if v is None:
+                return "null"
+            if isinstance(v, bool):
+                return "bool"
+            if isinstance(v, (int, float)):
+                return "number"
+            if isinstance(v, str):
+                return "string"
+            if isinstance(v, list):
+                return "array"
+            if isinstance(v, dict):
+                return "object"
             return type(v).__name__
 
         typer.echo(_jtype(cur))

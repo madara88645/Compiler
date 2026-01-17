@@ -1595,7 +1595,6 @@ def palette_manage_favorites(
             if cmd_id not in favorites_set:
                 favorites_list.append(cmd_id)
                 favorites_set.add(cmd_id)
-                import_applied = True
 
     for cmd_id in add or []:
         ensure_command(cmd_id)
