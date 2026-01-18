@@ -1,0 +1,10 @@
+name: Optimization Demo
+description: Constraints for the poem
+prompt_file: opt_prompt.txt
+test_cases:
+  - id: c1
+    input_variables:
+      topic: "Rust programming"
+    assertions:
+      - type: contains
+        value: "memory safety"

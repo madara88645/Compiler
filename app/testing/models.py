@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 class Assertion(BaseModel):
     """A single assertion to run against the output."""
 
-    type: Literal["contains", "not_contains", "regex", "max_length", "min_length", "json_schema"]
+    type: Literal[
+        "contains", "not_contains", "regex", "max_length", "min_length", "json_schema", "llm_judge"
+    ]
     value: Union[str, int, float, Dict[str, Any]]
     threshold: Optional[float] = None  # For similarity or fuzzy matching if added later
     error_message: Optional[str] = None

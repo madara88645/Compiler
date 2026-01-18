@@ -4,6 +4,7 @@ import json
 from typing import Dict, Any, Optional
 from pathlib import Path
 from .models import TestSuite, TestCase, TestResult, SuiteResult, Assertion
+from .judge import LLMJudge
 from app.compiler import compile_text
 from app.emitters import emit_expanded_prompt
 
@@ -16,13 +17,17 @@ class Executor:
 
 class MockExecutor(Executor):
     def execute(self, prompt: str, config: Dict[str, Any]) -> str:
-        # Simple deterministic mock: returns the prompt itself or a configured response
-        return f"MOCKED RESPONSE. Input was: {prompt[:50]}..."
+        # Simple deterministic mock: returns the prompt itself so assertions can check for injected content.
+        # This allows the Optimizer to "win" by injecting the required keywords into the prompt.
+        return f"MOCKED RESPONSE. Prompt info: {prompt}"
 
 
 class TestRunner:
     def __init__(self, executor: Optional[Executor] = None):
         self.executor = executor or MockExecutor()
+        # Only pass real executors to judge, not MockExecutor
+        judge_executor = executor if executor is not None else None
+        self.judge = LLMJudge(executor=judge_executor)
 
     def run_suite(self, suite: TestSuite, base_dir: Path) -> SuiteResult:
         """Run all cases in a suite."""
@@ -182,4 +187,11 @@ class TestRunner:
                 return True  # TODO: Validate against schema if value is a schema dict
             except Exception:
                 return False
+        elif assertion.type == "llm_judge":
+            # Use LLM Judge to evaluate
+            requirement = str(assertion.value)
+            result = self.judge.evaluate(requirement, output)
+            # Use threshold if provided, otherwise require score >= 0.5
+            threshold = assertion.threshold if assertion.threshold is not None else 0.5
+            return result.score >= threshold
         return False
