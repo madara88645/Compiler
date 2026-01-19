@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 import json
-from typing import Any, Optional
+from typing import Optional, Any
 from pydantic import BaseModel
+from app.llm.base import LLMProvider
 
 
 class JudgeResult(BaseModel):
@@ -34,9 +35,15 @@ Return JSON:
   "score": float (0.0 to 1.0)
 }"""
 
-    def __init__(self, executor: Optional[Any] = None):
-        """Initialize with an optional executor for LLM calls."""
-        self.executor = executor
+    def __init__(self, provider: Optional[LLMProvider] = None, executor: Optional[Any] = None):
+        """Initialize with an optional LLM provider for calls."""
+        if provider:
+            self.provider = provider
+        elif executor:
+            from app.llm.adapter import ExecutorProvider
+            self.provider = ExecutorProvider(executor)
+        else:
+            self.provider = None
 
     def evaluate(self, requirement: str, output: str) -> JudgeResult:
         """Evaluate the output against the requirement.
@@ -48,7 +55,7 @@ Return JSON:
         Returns:
             JudgeResult with passed status, reason, and score.
         """
-        if self.executor is None:
+        if self.provider is None:
             # Mock evaluation for testing without LLM
             return self._mock_evaluate(requirement, output)
 
@@ -61,13 +68,10 @@ Output:
 Evaluate the output against the requirement and return your verdict as JSON."""
 
         try:
-            response = self.executor.execute(
-                prompt=f"{self.SYSTEM_PROMPT}\n\n{user_prompt}",
-                config={"temperature": 0.0},  # Deterministic for consistency
-            )
+            response = self.provider.generate(user_prompt, system_prompt=self.SYSTEM_PROMPT)
 
             # Parse JSON response
-            result = self._parse_response(response)
+            result = self._parse_response(response.content)
             return result
 
         except Exception as e:

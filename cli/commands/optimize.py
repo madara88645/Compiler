@@ -8,6 +8,7 @@ from app.optimizer.judge import JudgeAgent
 from app.optimizer.mutator import MutatorAgent
 from app.optimizer.evolution import EvolutionEngine
 from app.testing.models import TestSuite
+from app.llm.factory import get_provider
 
 app = typer.Typer(help="Evolutionary Prompt Optimization")
 console = Console()
@@ -20,6 +21,12 @@ def optimize_run(
     generations: int = typer.Option(3, "--generations", "-g", help="Max generations"),
     target_score: float = typer.Option(1.0, "--target", "-t", help="Target score (0.0-1.0)"),
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Save best prompt to file"),
+    provider: str = typer.Option(
+        "mock", "--provider", "-p", help="LLM provider: openai, ollama, or mock"
+    ),
+    model: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Model identifier (e.g., gpt-4o, llama3)"
+    ),
 ):
     """
     Optimize a prompt using evolutionary algorithms and test feedback.
@@ -42,13 +49,25 @@ def optimize_run(
         console.print(f"[red]Error parsing suite:[/red] {e}")
         raise typer.Exit(1)
 
+    # Initialize LLM Provider
+    llm_provider = None
+    if provider.lower() != "mock":
+        try:
+            llm_provider = get_provider(provider, model)
+            console.print(f"[cyan]Using LLM provider:[/cyan] {provider} ({model or 'default'})")
+        except Exception as e:
+            console.print(f"[yellow]Failed to initialize provider '{provider}': {e}[/yellow]")
+            console.print("[yellow]Falling back to mock provider[/yellow]")
+    else:
+        console.print("[dim]Using mock provider (no LLM calls)[/dim]")
+
     # Config
     config = OptimizationConfig(max_generations=generations, target_score=target_score)
 
-    # Initialize Agents
+    # Initialize Agents with provider
     console.print("[bold cyan]Initializing Optimization Agents...[/bold cyan]")
-    judge = JudgeAgent()
-    mutator = MutatorAgent(config)
+    judge = JudgeAgent(provider=llm_provider)
+    mutator = MutatorAgent(config, provider=llm_provider)
     engine = EvolutionEngine(config, judge, mutator)
 
     # Run Loop

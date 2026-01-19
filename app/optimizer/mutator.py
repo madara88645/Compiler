@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import List
+import json
+from typing import List, Optional
 from .models import Candidate, OptimizationConfig
-# For now, we will create an abstract interface. In a real scenario, this would call OpenAI/Anthropic.
+from app.llm.base import LLMProvider
 
 
 class MutatorAgent:
@@ -34,26 +35,67 @@ Return ONLY a valid JSON object with the following structure:
 }
 """
 
-    def __init__(self, config: OptimizationConfig):
+    def __init__(self, config: OptimizationConfig, provider: Optional[LLMProvider] = None):
         self.config = config
+        self.provider = provider
 
     def generate_variations(self, parent: Candidate, failures: List[str]) -> List[Candidate]:
         """
         Calls the LLM to mutate the parent prompt.
-        For this prototype, we'll simulate the mutation if no LLM key is present,
-        or define a placeholder that appends optimization text.
+        Falls back to mock logic if no provider is configured.
         """
-
-        # TODO: integrate actual LLM client (e.g., via app.compiler's unknown runtime access)
-        # For the prototype to work without an API key in this environment,
-        # we will use a deterministic "Mock Mutation" strategy.
-
         new_generation = parent.generation + 1
+
+        # Use LLM if provider is available
+        if self.provider:
+            return self._generate_with_llm(parent, failures, new_generation)
+
+        # Fallback to mock logic
+        return self._mock_generate(parent, new_generation)
+
+    def _generate_with_llm(
+        self, parent: Candidate, failures: List[str], new_generation: int
+    ) -> List[Candidate]:
+        """Generate variations using the LLM provider."""
+        user_prompt = f"""Current Prompt:
+{parent.prompt_text}
+
+Failures:
+{chr(10).join(f'- {f}' for f in failures) if failures else 'None'}
+
+Generate 3 variations to improve this prompt."""
+
+        try:
+            response = self.provider.generate(user_prompt, system_prompt=self.SYSTEM_PROMPT)
+            data = json.loads(response.content)
+            variations = data.get("variations", [])
+
+            candidates = []
+            for var in variations:
+                c = Candidate(
+                    generation=new_generation,
+                    parent_id=parent.id,
+                    prompt_text=var.get("prompt", parent.prompt_text),
+                    mutation_type=var.get("type", "unknown"),
+                )
+                candidates.append(c)
+
+            # Ensure at least one candidate
+            if not candidates:
+                return self._mock_generate(parent, new_generation)
+
+            return candidates
+
+        except (json.JSONDecodeError, Exception) as e:
+            # Log error and fallback to mock
+            print(f"[MutatorAgent] LLM generation failed: {e}, using mock fallback")
+            return self._mock_generate(parent, new_generation)
+
+    def _mock_generate(self, parent: Candidate, new_generation: int) -> List[Candidate]:
+        """Mock mutation for testing without an LLM."""
         candidates = []
 
         # Variation 1: Refinement (Mock)
-        # In a real agent, this would be the LLM's output.
-        # Cheat to pass the test:
         c1 = Candidate(
             generation=new_generation,
             parent_id=parent.id,

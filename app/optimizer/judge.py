@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from app.testing.models import TestSuite
 from app.testing.runner import TestRunner
+from app.llm.base import LLMProvider
 from .models import Candidate, EvaluationResult
 
 
@@ -11,8 +12,15 @@ class JudgeAgent:
     Wraps the TestRunner to evaluate a candidate prompt.
     """
 
-    def __init__(self, runner: TestRunner = None):
-        self.runner = runner or TestRunner()  # Uses default executor (Mock) if not provided
+    def __init__(self, runner: TestRunner = None, provider: LLMProvider = None):
+        if runner:
+            self.runner = runner
+        elif provider:
+            from app.llm.adapter import ProviderExecutor
+            executor = ProviderExecutor(provider)
+            self.runner = TestRunner(executor=executor)
+        else:
+            self.runner = TestRunner()  # Uses default executor (Mock)
 
     def evaluate(self, candidate: Candidate, suite: TestSuite, base_dir: Path) -> EvaluationResult:
         """
