@@ -41,7 +41,6 @@ class OllamaProvider(LLMProvider):
         base_url = self.config.base_url or "http://localhost:11434"
         url = f"{base_url}/api/generate"
         
-        full_prompt = prompt
         if system_prompt:
             # Ollama supports system prompts in modelfile or via template, 
             # but simplest is often just prepending for raw mode.
