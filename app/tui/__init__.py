@@ -836,6 +836,9 @@ class SearchApp(App):
         content.append("")
         content.append("[dim]Select an item to toggle or change.[/dim]")
         content.append("[dim]Changes affect current session.[/dim]")
+
+        preview_pane.update("\n".join(content))
+
         # Focus choice
         if items:
             results_list.focus()

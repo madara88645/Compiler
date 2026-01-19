@@ -3,7 +3,10 @@ from textual.screen import Screen
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Header, Footer, Tree, Static, Button, Digits, Log
 from textual.reactive import reactive
-from typing import Optional, List, Dict, Any
+from typing import List
+
+from app.optimizer.models import Candidate, EvaluationResult
+
 
 class EvolutionTree(Tree):
     """Tree widget showing the lineage of prompt generations."""
@@ -156,8 +159,6 @@ class OptimizationScreen(Screen):
         self.query_one("#activity-log").write(f"[bold red]Error: {msg}[/bold red]")
         self.query_one("#btn-start", Button).disabled = False
 
-from app.optimizer.callbacks import EvolutionCallback
-from app.optimizer.models import Candidate, EvaluationResult
 
 class TUIEvolutionCallback:
     """Adapter to push updates to the OptimizationScreen."""
