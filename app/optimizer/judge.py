@@ -17,6 +17,7 @@ class JudgeAgent:
             self.runner = runner
         elif provider:
             from app.llm.adapter import ProviderExecutor
+
             executor = ProviderExecutor(provider)
             self.runner = TestRunner(executor=executor)
         else:

@@ -41,6 +41,7 @@ Return JSON:
             self.provider = provider
         elif executor:
             from app.llm.adapter import ExecutorProvider
+
             self.provider = ExecutorProvider(executor)
         else:
             self.provider = None

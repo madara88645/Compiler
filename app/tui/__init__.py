@@ -846,6 +846,7 @@ class SearchApp(App):
     def action_show_optimizer(self) -> None:
         """Show optimizer screen (F11)."""
         from app.tui.screens.optimize import OptimizationScreen
+
         self.push_screen(OptimizationScreen())
 
     def action_show_test_mode(self) -> None:

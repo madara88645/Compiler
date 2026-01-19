@@ -134,7 +134,7 @@ def history_show(run_id: str):
     from app.optimizer.history import HistoryManager
 
     manager = HistoryManager()
-    
+
     # Try exact match first
     run = manager.load_run(run_id)
     if not run:
@@ -144,18 +144,22 @@ def history_show(run_id: str):
         if len(matches) == 1:
             run = manager.load_run(matches[0]["id"])
         elif len(matches) > 1:
-            console.print(f"[red]Ambiguous ID '{run_id}'. Matches: {', '.join(m['id'][:8] for m in matches)}[/red]")
+            console.print(
+                f"[red]Ambiguous ID '{run_id}'. Matches: {', '.join(m['id'][:8] for m in matches)}[/red]"
+            )
             raise typer.Exit(1)
-            
+
     if not run:
         console.print(f"[red]Run not found: {run_id}[/red]")
         raise typer.Exit(1)
 
     console.print(f"\n[bold cyan]Run Details: {run.id}[/bold cyan]")
-    console.print(f"Date: [green]{run.id}[/green] (TODO: Fix date in model)") # Model doesn't have date yet, relying on ID/file
+    console.print(
+        f"Date: [green]{run.id}[/green] (TODO: Fix date in model)"
+    )  # Model doesn't have date yet, relying on ID/file
     console.print(f"Target Score: {run.config.target_score}")
     console.print(f"Generations: {len(run.generations)}")
-    
+
     if run.best_candidate:
         console.print(f"\n[bold]Best Candidate (Score: {run.best_candidate.score:.2f})[/bold]")
         console.print(f"Type: {run.best_candidate.mutation_type}")

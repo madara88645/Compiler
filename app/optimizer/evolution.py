@@ -20,16 +20,23 @@ class EvolutionEngine:
         self.judge = judge
         self.mutator = mutator
         self.run_history = OptimizationRun(config=config)
-        
+
         # Initialize HistoryManager
         from .history import HistoryManager
+
         self.history_manager = HistoryManager()
 
-    def run(self, initial_prompt: str, suite: TestSuite, base_dir: Path, callback: Optional[EvolutionCallback] = None) -> Candidate:
+    def run(
+        self,
+        initial_prompt: str,
+        suite: TestSuite,
+        base_dir: Path,
+        callback: Optional[EvolutionCallback] = None,
+    ) -> Candidate:
         """
         Execute the evolutionary optimization loop.
         """
-        
+
         if callback:
             callback.on_start(initial_prompt, self.config.target_score)
 
@@ -38,7 +45,7 @@ class EvolutionEngine:
 
         # Evaluate Baseline
         self._evaluate_candidate(baseline, suite, base_dir)
-        
+
         if callback:
             callback.on_candidate_evaluated(baseline, baseline.result)
 
@@ -57,7 +64,7 @@ class EvolutionEngine:
         for gen in range(1, self.config.max_generations + 1):
             if callback:
                 callback.on_generation_start(gen)
-                
+
             if best.score >= self.config.target_score:
                 print("Target score reached!")
                 break
@@ -78,7 +85,7 @@ class EvolutionEngine:
             for cand in new_candidates:
                 self._evaluate_candidate(cand, suite, base_dir)
                 evaluated_candidates.append(cand)
-                
+
                 if callback:
                     callback.on_candidate_evaluated(cand, cand.result)
 
@@ -102,10 +109,10 @@ class EvolutionEngine:
             print(f"Optimization run saved to: {saved_path}")
         except Exception as e:
             print(f"Failed to save optimization run: {e}")
-        
+
         if callback:
             callback.on_complete(best)
-            
+
         return best
 
     def _evaluate_candidate(self, candidate: Candidate, suite: TestSuite, base_dir: Path):
