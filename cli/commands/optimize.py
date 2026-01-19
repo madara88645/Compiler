@@ -11,6 +11,9 @@ from app.testing.models import TestSuite
 from app.llm.factory import get_provider
 
 app = typer.Typer(help="Evolutionary Prompt Optimization")
+history_app = typer.Typer(help="Manage optimization history")
+app.add_typer(history_app, name="history")
+
 console = Console()
 
 
@@ -91,3 +94,71 @@ def optimize_run(
     else:
         console.print("\n[bold]Best Prompt Content:[/bold]")
         console.print(best.prompt_text)
+
+
+@history_app.command("list")
+def history_list(limit: int = typer.Option(10, "--limit", "-l", help="Number of runs to show")):
+    """List past optimization runs."""
+    from app.optimizer.history import HistoryManager
+    from rich.table import Table
+
+    manager = HistoryManager()
+    runs = manager.list_runs()
+
+    if not runs:
+        console.print("[yellow]No history found.[/yellow]")
+        return
+
+    table = Table(title="Optimization History")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Date", style="green")
+    table.add_column("Score", justify="right")
+    table.add_column("Model", style="magenta")
+    table.add_column("Gens", justify="right")
+
+    for run in runs[:limit]:
+        table.add_row(
+            run["id"][:8],
+            run["date"],
+            f"{run['best_score']:.2f}",
+            run["model"],
+            str(run["generations"]),
+        )
+
+    console.print(table)
+
+
+@history_app.command("show")
+def history_show(run_id: str):
+    """Show details of a specific run."""
+    from app.optimizer.history import HistoryManager
+
+    manager = HistoryManager()
+    
+    # Try exact match first
+    run = manager.load_run(run_id)
+    if not run:
+        # Try prefix search
+        runs = manager.list_runs()
+        matches = [r for r in runs if r["id"].startswith(run_id)]
+        if len(matches) == 1:
+            run = manager.load_run(matches[0]["id"])
+        elif len(matches) > 1:
+            console.print(f"[red]Ambiguous ID '{run_id}'. Matches: {', '.join(m['id'][:8] for m in matches)}[/red]")
+            raise typer.Exit(1)
+            
+    if not run:
+        console.print(f"[red]Run not found: {run_id}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold cyan]Run Details: {run.id}[/bold cyan]")
+    console.print(f"Date: [green]{run.id}[/green] (TODO: Fix date in model)") # Model doesn't have date yet, relying on ID/file
+    console.print(f"Target Score: {run.config.target_score}")
+    console.print(f"Generations: {len(run.generations)}")
+    
+    if run.best_candidate:
+        console.print(f"\n[bold]Best Candidate (Score: {run.best_candidate.score:.2f})[/bold]")
+        console.print(f"Type: {run.best_candidate.mutation_type}")
+        console.print("-" * 20)
+        console.print(run.best_candidate.prompt_text)
+        console.print("-" * 20)

@@ -20,6 +20,10 @@ class EvolutionEngine:
         self.judge = judge
         self.mutator = mutator
         self.run_history = OptimizationRun(config=config)
+        
+        # Initialize HistoryManager
+        from .history import HistoryManager
+        self.history_manager = HistoryManager()
 
     def run(self, initial_prompt: str, suite: TestSuite, base_dir: Path, callback: Optional[EvolutionCallback] = None) -> Candidate:
         """
@@ -91,6 +95,13 @@ class EvolutionEngine:
             print(f"gen {gen}: Top Score in Generation = {top_gen_score:.2f}")
 
         self.run_history.best_candidate = best
+
+        # Save History
+        try:
+            saved_path = self.history_manager.save_run(self.run_history)
+            print(f"Optimization run saved to: {saved_path}")
+        except Exception as e:
+            print(f"Failed to save optimization run: {e}")
         
         if callback:
             callback.on_complete(best)
