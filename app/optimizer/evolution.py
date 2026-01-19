@@ -1,10 +1,12 @@
 from __future__ import annotations
 from pathlib import Path
 
+from typing import Optional
 from app.testing.models import TestSuite
 from .models import Candidate, OptimizationConfig, OptimizationRun
 from .mutator import MutatorAgent
 from .judge import JudgeAgent
+from .callbacks import EvolutionCallback
 
 
 class EvolutionEngine:
@@ -19,21 +21,29 @@ class EvolutionEngine:
         self.mutator = mutator
         self.run_history = OptimizationRun(config=config)
 
-    def run(self, initial_prompt: str, suite: TestSuite, base_dir: Path) -> Candidate:
+    def run(self, initial_prompt: str, suite: TestSuite, base_dir: Path, callback: Optional[EvolutionCallback] = None) -> Candidate:
         """
         Execute the evolutionary optimization loop.
         """
+        
+        if callback:
+            callback.on_start(initial_prompt, self.config.target_score)
 
         # Generation 0: The Baseline
         baseline = Candidate(generation=0, prompt_text=initial_prompt, mutation_type="baseline")
 
         # Evaluate Baseline
         self._evaluate_candidate(baseline, suite, base_dir)
+        
+        if callback:
+            callback.on_candidate_evaluated(baseline, baseline.result)
 
         current_pool = [baseline]
         self.run_history.generations.append(current_pool)
 
         best = baseline
+        if callback:
+            callback.on_new_best(best, best.score)
 
         print(
             f"gen 0: Baseline Score = {baseline.score:.2f} ({baseline.result.passed_count}/{len(suite.test_cases)})"
@@ -41,6 +51,9 @@ class EvolutionEngine:
 
         # Evolution Loop
         for gen in range(1, self.config.max_generations + 1):
+            if callback:
+                callback.on_generation_start(gen)
+                
             if best.score >= self.config.target_score:
                 print("Target score reached!")
                 break
@@ -61,9 +74,14 @@ class EvolutionEngine:
             for cand in new_candidates:
                 self._evaluate_candidate(cand, suite, base_dir)
                 evaluated_candidates.append(cand)
+                
+                if callback:
+                    callback.on_candidate_evaluated(cand, cand.result)
 
                 if cand.score > best.score:
                     best = cand
+                    if callback:
+                        callback.on_new_best(best, best.score)
 
             current_pool = evaluated_candidates
             self.run_history.generations.append(current_pool)
@@ -73,6 +91,10 @@ class EvolutionEngine:
             print(f"gen {gen}: Top Score in Generation = {top_gen_score:.2f}")
 
         self.run_history.best_candidate = best
+        
+        if callback:
+            callback.on_complete(best)
+            
         return best
 
     def _evaluate_candidate(self, candidate: Candidate, suite: TestSuite, base_dir: Path):
