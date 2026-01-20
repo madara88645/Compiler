@@ -96,7 +96,111 @@ def optimize_run(
         console.print(best.prompt_text)
 
 
-@history_app.command("list")
+@app.command("resume")
+def optimize_resume(
+    run_id: str = typer.Argument(..., help="ID (or prefix) of the run to resume"),
+    suite_file: Path = typer.Option(..., "--suite", "-s", help="Path to test suite YAML"),
+    generations: int = typer.Option(3, "--generations", "-g", help="Additional generations to run"),
+    target_score: float = typer.Option(1.0, "--target", "-t", help="Target score (0.0-1.0)"),
+    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Save best prompt to file"),
+    provider: str = typer.Option(
+        "mock", "--provider", "-p", help="LLM provider: openai, ollama, or mock"
+    ),
+    model: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Model identifier (e.g., gpt-4o, llama3)"
+    ),
+):
+    """
+    Resume an existing optimization run.
+    """
+    from app.optimizer.history import HistoryManager
+
+    if not suite_file.exists():
+        console.print(f"[red]Suite file not found: {suite_file}[/red]")
+        raise typer.Exit(1)
+
+    # Load Suite
+    try:
+        suite_data = yaml.safe_load(suite_file.read_text(encoding="utf-8"))
+        suite = TestSuite(**suite_data)
+    except Exception as e:
+        console.print(f"[red]Error parsing suite:[/red] {e}")
+        raise typer.Exit(1)
+
+    # Resolve Run ID
+    manager = HistoryManager()
+
+    # Simple prefix matching logic
+    target_run_id = run_id
+    if not manager.load_run(run_id):
+        runs = manager.list_runs()
+        matches = [r for r in runs if r["id"].startswith(run_id)]
+        if len(matches) == 1:
+            target_run_id = matches[0]["id"]
+        elif len(matches) > 1:
+            console.print(
+                f"[red]Ambiguous ID '{run_id}'. Matches: {', '.join(m['id'][:8] for m in matches)}[/red]"
+            )
+            raise typer.Exit(1)
+        else:
+            console.print(f"[red]Run not found: {run_id}[/red]")
+            raise typer.Exit(1)
+
+    # Load the run just to get config for initialization?
+    # Actually EvolutionEngine.resume_from loads it.
+    # But we need to initialize Agents first.
+    # The config passed to Mutator/Engine init will be overwritten by resume_from (mostly),
+    # except Mutator uses it. We should probably load it here.
+
+    run = manager.load_run(target_run_id)
+    if not run:
+        console.print(f"[red]Failed to load run: {target_run_id}[/red]")
+        raise typer.Exit(1)
+
+    # Initialize LLM Provider (Allow override)
+    llm_provider = None
+    if provider.lower() != "mock":
+        try:
+            llm_provider = get_provider(provider, model)
+            console.print(f"[cyan]Using LLM provider:[/cyan] {provider} ({model or 'default'})")
+        except Exception as e:
+            console.print(f"[yellow]Failed to initialize provider '{provider}': {e}[/yellow]")
+            console.print("[yellow]Falling back to mock provider[/yellow]")
+    else:
+        console.print("[dim]Using mock provider (no LLM calls)[/dim]")
+
+    # Initialize Agents
+    # Note: run.config might be stale if we assume we can upgrade config params (like model).
+    updated_config = run.config
+    updated_config.target_score = target_score  # Allow target update
+
+    console.print(f"[bold cyan]Resuming Run {target_run_id}...[/bold cyan]")
+    judge = JudgeAgent(provider=llm_provider)
+    mutator = MutatorAgent(updated_config, provider=llm_provider)
+    engine = EvolutionEngine(updated_config, judge, mutator)
+
+    # Resume Loop
+    best = engine.resume_from(
+        target_run_id, suite, base_dir=suite_file.parent, extra_generations=generations
+    )
+
+    # Report Results
+    console.print("\n[bold cyan]Optimization Complete![/bold cyan]")
+    console.print(f"Best Score: [green]{best.score:.2f}[/green]")
+    console.print(f"Generation: {best.generation}")
+    console.print(f"Type: {best.mutation_type}")
+
+    if best.result and best.result.failures:
+        console.print(f"[yellow]Remaining Failures: {best.result.failed_count}[/yellow]")
+
+    if out:
+        out.write_text(best.prompt_text, encoding="utf-8")
+        console.print(f"Saved best prompt to: {out}")
+    else:
+        console.print("\n[bold]Best Prompt Content:[/bold]")
+        console.print(best.prompt_text)
+
+
 def history_list(limit: int = typer.Option(10, "--limit", "-l", help="Number of runs to show")):
     """List past optimization runs."""
     from app.optimizer.history import HistoryManager
