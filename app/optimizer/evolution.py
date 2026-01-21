@@ -114,6 +114,54 @@ class EvolutionEngine:
             callback=callback,
         )
 
+    def _request_human_intervention(
+        self,
+        current_best: Candidate,
+        generation: int,
+        suite: TestSuite,
+        base_dir: Path,
+        callback: Optional[EvolutionCallback],
+    ) -> Optional[Candidate]:
+        """
+        Hook for human-in-the-loop intervention.
+
+        Returns a new Candidate if human provided input, None otherwise.
+        """
+        if not callback:
+            return None
+
+        # Check if callback has the method (Protocol compliance)
+        if not hasattr(callback, "on_human_intervention_needed"):
+            return None
+
+        print(f"\n>>> Human intervention requested at generation {generation} <<<")
+        print(f"Current best score: {current_best.score:.2f}")
+
+        # Request human input via callback
+        new_prompt = callback.on_human_intervention_needed(current_best)
+
+        if new_prompt and new_prompt.strip():
+            # Create new candidate from human input
+            human_candidate = Candidate(
+                generation=generation,
+                parent_id=current_best.id,
+                prompt_text=new_prompt.strip(),
+                mutation_type="human_intervention",
+            )
+
+            # Evaluate the human-provided candidate
+            self._evaluate_candidate(human_candidate, suite, base_dir)
+
+            print(f"Human candidate evaluated: score={human_candidate.score:.2f}")
+
+            if callback:
+                callback.on_candidate_evaluated(human_candidate, human_candidate.result)
+
+            return human_candidate
+
+        print("No human input provided, continuing...")
+        return None
+
     def _run_evolution_loop(
         self,
         start_gen: int,
@@ -169,6 +217,27 @@ class EvolutionEngine:
                 print(f"gen {gen}: Top Score in Generation = {top_gen_score:.2f}")
             else:
                 print(f"gen {gen}: No valid candidates generated.")
+
+            # Human-in-the-loop check
+            if (
+                self.config.interactive_interval
+                and gen > 0
+                and gen % self.config.interactive_interval == 0
+            ):
+                human_candidate = self._request_human_intervention(
+                    current_best=best,
+                    generation=gen,
+                    suite=suite,
+                    base_dir=base_dir,
+                    callback=callback,
+                )
+                if human_candidate:
+                    # Inject into pool and potentially update best
+                    current_pool.append(human_candidate)
+                    if human_candidate.score > best.score:
+                        best = human_candidate
+                        if callback:
+                            callback.on_new_best(best, best.score)
 
         self.run_history.best_candidate = best
 

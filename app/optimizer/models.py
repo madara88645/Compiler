@@ -12,6 +12,8 @@ class OptimizationConfig(BaseModel):
     target_score: float = 1.0  # Stop if this score is reached
     model: str = "gpt-4o"  # Model used for the Mutation Agent
     custom_system_prompt: Optional[str] = None
+    interactive_every: int = 0  # Pause for human input every N generations (0 = never)
+    interactive_interval: Optional[int] = None  # Pause every N generations for human input
 
 
 class EvaluationResult(BaseModel):
