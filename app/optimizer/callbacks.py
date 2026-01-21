@@ -112,39 +112,46 @@ class InteractiveCallback:
         # Capture multi-line input
         console.print()
         console.print("[bold yellow]Enter your modified prompt below.[/bold yellow]")
-        console.print("[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]")
-        console.print()
-
         lines = []
-        try:
-            while True:
-                line = input()
-                if line.strip().upper() == "END":
-                    break
-                if line.strip().upper() == "CANCEL":
-                    console.print("[dim]Modification cancelled. Continuing evolution...[/dim]")
+        while True:
+            console.print("[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]")
+            current_lines = []
+            try:
+                while True:
+                    line = input()
+                    if line.strip().upper() == "END":
+                        break
+                    if line.strip().upper() == "CANCEL":
+                        console.print("[dim]Modification cancelled. Continuing evolution...[/dim]")
+                        return None
+                    current_lines.append(line)
+            except EOFError:
+                pass
+
+            new_prompt = "\n".join(current_lines)
+
+            if not new_prompt.strip():
+                console.print("[dim]Empty input. Continuing with original prompt...[/dim]")
+                return None
+
+            # Validate
+            from app.optimizer.utils import validate_human_input
+            if validate_human_input(current_best.prompt_text, new_prompt):
+                console.print()
+                console.print(
+                    Panel(
+                        new_prompt,
+                        title="[bold green]✓ New Prompt Accepted[/bold green]",
+                        border_style="green",
+                    )
+                )
+                console.print()
+                return new_prompt
+            else:
+                console.print("[bold red]❌ Validation Failed: You removed required {{variables}}.[/bold red]")
+                if not Confirm.ask("Do you want to try again?", default=True):
                     return None
-                lines.append(line)
-        except EOFError:
-            pass
-
-        new_prompt = "\n".join(lines)
-
-        if not new_prompt.strip():
-            console.print("[dim]Empty input. Continuing with original prompt...[/dim]")
-            return None
-
-        console.print()
-        console.print(
-            Panel(
-                new_prompt,
-                title="[bold green]✓ New Prompt Accepted[/bold green]",
-                border_style="green",
-            )
-        )
-        console.print()
-
-        return new_prompt
+                console.print("[bold yellow]Please enter the prompt again (correctly):[/bold yellow]")
 
     def should_pause(self, generation: int) -> bool:
         """Check if we should pause for human input at this generation."""

@@ -134,11 +134,8 @@ class EvolutionEngine:
         if not hasattr(callback, "on_human_intervention_needed"):
             return None
 
-        print(f"\n>>> Human intervention requested at generation {generation} <<<")
-        print(f"Current best score: {current_best.score:.2f}")
-
         # Request human input via callback
-        new_prompt = callback.on_human_intervention_needed(current_best)
+        new_prompt = callback.on_human_intervention_needed(current_best, generation)
 
         if new_prompt and new_prompt.strip():
             # Create new candidate from human input
@@ -159,7 +156,6 @@ class EvolutionEngine:
 
             return human_candidate
 
-        print("No human input provided, continuing...")
         return None
 
     def _run_evolution_loop(
@@ -220,9 +216,9 @@ class EvolutionEngine:
 
             # Human-in-the-loop check
             if (
-                self.config.interactive_interval
+                self.config.interactive_every > 0
                 and gen > 0
-                and gen % self.config.interactive_interval == 0
+                and gen % self.config.interactive_every == 0
             ):
                 human_candidate = self._request_human_intervention(
                     current_best=best,

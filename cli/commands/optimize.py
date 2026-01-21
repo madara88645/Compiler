@@ -30,10 +30,14 @@ def optimize_run(
     model: Optional[str] = typer.Option(
         None, "--model", "-m", help="Model identifier (e.g., gpt-4o, llama3)"
     ),
+    interactive_every: int = typer.Option(
+        0, "--interactive-every", "-i", help="Pause every N generations for human input (0 = never)"
+    ),
 ):
     """
     Optimize a prompt using evolutionary algorithms and test feedback.
     """
+    from app.optimizer.callbacks import InteractiveCallback
 
     if not prompt_file.exists():
         console.print(f"[red]Prompt file not found: {prompt_file}[/red]")
@@ -65,7 +69,16 @@ def optimize_run(
         console.print("[dim]Using mock provider (no LLM calls)[/dim]")
 
     # Config
-    config = OptimizationConfig(max_generations=generations, target_score=target_score)
+    config = OptimizationConfig(
+        max_generations=generations,
+        target_score=target_score,
+        interactive_every=interactive_every,
+    )
+
+    # Initialize Callback
+    callback = InteractiveCallback(interactive_every=interactive_every)
+    if interactive_every > 0:
+        console.print(f"[yellow]Interactive mode: Pausing every {interactive_every} generation(s)[/yellow]")
 
     # Initialize Agents with provider
     console.print("[bold cyan]Initializing Optimization Agents...[/bold cyan]")
@@ -73,11 +86,11 @@ def optimize_run(
     mutator = MutatorAgent(config, provider=llm_provider)
     engine = EvolutionEngine(config, judge, mutator)
 
-    # Run Loop
+    # Run Loop with callback
     console.print(
         f"[bold green]Starting Optimization Loop[/bold green] (Gen: {generations}, Target: {target_score})"
     )
-    best = engine.run(initial_prompt, suite, base_dir=suite_file.parent)
+    best = engine.run(initial_prompt, suite, base_dir=suite_file.parent, callback=callback)
 
     # Report Results
     console.print("\n[bold cyan]Optimization Complete![/bold cyan]")
