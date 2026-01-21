@@ -112,7 +112,6 @@ class InteractiveCallback:
         # Capture multi-line input
         console.print()
         console.print("[bold yellow]Enter your modified prompt below.[/bold yellow]")
-        lines = []
         while True:
             console.print("[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]")
             current_lines = []
