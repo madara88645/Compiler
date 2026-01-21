@@ -61,7 +61,7 @@ Return ONLY a valid JSON object with the following structure:
 {parent.prompt_text}
 
 Failures:
-{chr(10).join(f'- {f}' for f in failures) if failures else 'None'}
+{chr(10).join(f"- {f}" for f in failures) if failures else "None"}
 
 Generate 3 variations to improve this prompt."""
 

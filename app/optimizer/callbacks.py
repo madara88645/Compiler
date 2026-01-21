@@ -113,7 +113,9 @@ class InteractiveCallback:
         console.print()
         console.print("[bold yellow]Enter your modified prompt below.[/bold yellow]")
         while True:
-            console.print("[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]")
+            console.print(
+                "[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]"
+            )
             current_lines = []
             try:
                 while True:
@@ -135,6 +137,7 @@ class InteractiveCallback:
 
             # Validate
             from app.optimizer.utils import validate_human_input
+
             if validate_human_input(current_best.prompt_text, new_prompt):
                 console.print()
                 console.print(
@@ -147,10 +150,14 @@ class InteractiveCallback:
                 console.print()
                 return new_prompt
             else:
-                console.print("[bold red]❌ Validation Failed: You removed required {{variables}}.[/bold red]")
+                console.print(
+                    "[bold red]❌ Validation Failed: You removed required {{variables}}.[/bold red]"
+                )
                 if not Confirm.ask("Do you want to try again?", default=True):
                     return None
-                console.print("[bold yellow]Please enter the prompt again (correctly):[/bold yellow]")
+                console.print(
+                    "[bold yellow]Please enter the prompt again (correctly):[/bold yellow]"
+                )
 
     def should_pause(self, generation: int) -> bool:
         """Check if we should pause for human input at this generation."""

@@ -78,7 +78,9 @@ def optimize_run(
     # Initialize Callback
     callback = InteractiveCallback(interactive_every=interactive_every)
     if interactive_every > 0:
-        console.print(f"[yellow]Interactive mode: Pausing every {interactive_every} generation(s)[/yellow]")
+        console.print(
+            f"[yellow]Interactive mode: Pausing every {interactive_every} generation(s)[/yellow]"
+        )
 
     # Initialize Agents with provider
     console.print("[bold cyan]Initializing Optimization Agents...[/bold cyan]")
