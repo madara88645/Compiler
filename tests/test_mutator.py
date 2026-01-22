@@ -1,7 +1,4 @@
-"""Tests for MutatorAgent and Mutation Strategies."""
-
 import pytest
-from unittest.mock import MagicMock
 from app.optimizer.mutator import MutatorAgent
 from app.optimizer.models import OptimizationConfig, Candidate
 from app.optimizer.strategies import (
@@ -9,9 +6,7 @@ from app.optimizer.strategies import (
     CoTStrategy,
     PersonaStrategy,
     get_strategy,
-    STRATEGY_REGISTRY,
 )
-from app.llm.base import LLMProvider, LLMResponse, ProviderConfig
 
 
 @pytest.fixture

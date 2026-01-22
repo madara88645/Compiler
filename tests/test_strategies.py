@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock
 from app.optimizer.models import OptimizationConfig, Candidate
 from app.optimizer.mutator import MutatorAgent
-from app.optimizer.strategies import CompressorStrategy, CoTStrategy, PersonaStrategy
+from app.optimizer.strategies import CompressorStrategy, CoTStrategy
 
 
 class TestSmartStrategies(unittest.TestCase):
