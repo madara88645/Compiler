@@ -5,7 +5,7 @@ typer==0.21.1
 click==8.3.1  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
 jsonschema==4.26.0
 rich==14.2.0
-textual==7.0.1  # modern terminal UI framework
+textual==7.3.0  # modern terminal UI framework
 pyyaml>=6.0  # required for template system
 ttkbootstrap>=1.10.1  # modern theming for Tk desktop UI
 pytest==9.0.2
