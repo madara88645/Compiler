@@ -6,6 +6,7 @@ from app.testing.models import TestSuite
 from .models import Candidate, OptimizationConfig, OptimizationRun
 from .mutator import MutatorAgent
 from .judge import JudgeAgent
+from app.testing.adversarial import AdversarialGenerator
 from .callbacks import EvolutionCallback
 
 
@@ -20,6 +21,10 @@ class EvolutionEngine:
         self.judge = judge
         self.mutator = mutator
         self.run_history = OptimizationRun(config=config)
+
+        # Initialize Adversarial Generator (borrowing provider from mutator if possible)
+        provider = getattr(mutator, "provider", None)
+        self.adversarial = AdversarialGenerator(provider=provider)
 
         # Initialize HistoryManager
         from .history import HistoryManager
@@ -234,6 +239,42 @@ class EvolutionEngine:
                         best = human_candidate
                         if callback:
                             callback.on_new_best(best, best.score)
+
+            # Adversarial Testing Check
+            if (
+                self.config.adversarial_every > 0
+                and gen > 0
+                and gen % self.config.adversarial_every == 0
+            ):
+                print(f"gen {gen}: Generating adversarial test cases...")
+                adv_cases = self.adversarial.generate(best.prompt_text)
+                if adv_cases:
+                    print(f"gen {gen}: Running {len(adv_cases)} adversarial cases.")
+                    # Create a temporary suite with these cases
+                    # Note: In a real system we might merge them into the main suite or run separately.
+                    # Here we just run them against the best candidate to see if it survives.
+
+                    # For metrics, we could track 'adversarial_score'.
+                    # For now, let's just log them or potentially penalize?
+                    # The prompt implies 'Adversarial Testing workflow' validation.
+                    # We will run them and print results.
+
+                    adv_suite = TestSuite(
+                        name=f"Adversarial-Gen{gen}",
+                        prompt_file=suite.prompt_file,  # Reuse
+                        test_cases=adv_cases,
+                        defaults=suite.defaults,
+                    )
+
+                    # Run evaluation
+                    # We create a temporary candidate clone to avoid polluting the main result stats immediately
+                    # unless we want to track it.
+                    adv_res = self.judge.evaluate(best, adv_suite, base_dir)
+                    print(
+                        f"Adversarial Score: {adv_res.score:.2f} ({adv_res.passed_count}/{len(adv_cases)})"
+                    )
+
+                    # TODO: If score is low, maybe we should mutate specifically to fix these?
 
         self.run_history.best_candidate = best
 

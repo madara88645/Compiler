@@ -13,6 +13,7 @@ class OptimizationConfig(BaseModel):
     model: str = "gpt-4o"  # Model used for the Mutation Agent
     custom_system_prompt: Optional[str] = None
     interactive_every: int = 0  # Pause for human input every N generations (0 = never)
+    adversarial_every: int = 0  # Run adversarial generation every N generations (0 = never)
     available_strategies: List[str] = ["compressor", "chain_of_thought", "persona"]
 
 
