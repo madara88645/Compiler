@@ -7,7 +7,7 @@ from pathlib import Path
 from app.testing.adversarial import AdversarialGenerator
 from app.optimizer.evolution import EvolutionEngine
 from app.optimizer.models import OptimizationConfig, Candidate
-from app.testing.models import TestSuite, TestCase, SuiteResult, TestResult
+from app.testing.models import TestSuite, TestCase
 from app.llm.base import LLMProvider, LLMResponse
 
 

@@ -5,7 +5,7 @@ Uses an LLM to generate tricky test inputs designed to break prompts.
 
 from __future__ import annotations
 import json
-from typing import List, Optional
+from typing import List
 from uuid import uuid4
 
 from app.llm.base import LLMProvider
