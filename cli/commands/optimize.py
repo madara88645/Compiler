@@ -9,6 +9,9 @@ from app.optimizer.mutator import MutatorAgent
 from app.optimizer.evolution import EvolutionEngine
 from app.testing.models import TestSuite
 from app.llm.factory import get_provider
+from app.reporting import ReportGenerator
+import webbrowser
+import os
 
 app = typer.Typer(help="Evolutionary Prompt Optimization")
 history_app = typer.Typer(help="Manage optimization history")
@@ -92,7 +95,17 @@ def optimize_run(
     console.print(
         f"[bold green]Starting Optimization Loop[/bold green] (Gen: {generations}, Target: {target_score})"
     )
-    best = engine.run(initial_prompt, suite, base_dir=suite_file.parent, callback=callback)
+    opt_run = engine.run(initial_prompt, suite, base_dir=suite_file.parent, callback=callback)
+    best = opt_run.best_candidate
+
+    # Generate Report
+    report_path = Path.home() / ".promptc" / "reports" / f"report_{opt_run.id}.html"
+    try:
+        ReportGenerator().generate_report(opt_run, report_path)
+        console.print(f"📊 Detailed Report generated at: [blue]{report_path}[/blue]")
+        webbrowser.open(report_path.as_uri())
+    except Exception as e:
+        console.print(f"[red]Failed to generate report:[/red] {e}")
 
     # Report Results
     console.print("\n[bold cyan]Optimization Complete![/bold cyan]")
@@ -195,9 +208,19 @@ def optimize_resume(
     engine = EvolutionEngine(updated_config, judge, mutator)
 
     # Resume Loop
-    best = engine.resume_from(
+    opt_run = engine.resume_from(
         target_run_id, suite, base_dir=suite_file.parent, extra_generations=generations
     )
+    best = opt_run.best_candidate
+
+    # Generate Report
+    report_path = Path.home() / ".promptc" / "reports" / f"report_{opt_run.id}.html"
+    try:
+        ReportGenerator().generate_report(opt_run, report_path)
+        console.print(f"📊 Detailed Report generated at: [blue]{report_path}[/blue]")
+        webbrowser.open(report_path.as_uri())
+    except Exception as e:
+        console.print(f"[red]Failed to generate report:[/red] {e}")
 
     # Report Results
     console.print("\n[bold cyan]Optimization Complete![/bold cyan]")

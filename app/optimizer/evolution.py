@@ -37,7 +37,7 @@ class EvolutionEngine:
         suite: TestSuite,
         base_dir: Path,
         callback: Optional[EvolutionCallback] = None,
-    ) -> Candidate:
+    ) -> OptimizationRun:
         """
         Start a new optimization run.
         """
@@ -75,7 +75,7 @@ class EvolutionEngine:
         base_dir: Path,
         callback: Optional[EvolutionCallback] = None,
         extra_generations: int = 0,
-    ) -> Candidate:
+    ) -> OptimizationRun:
         """
         Resume an existing optimization run.
         """
@@ -170,7 +170,7 @@ class EvolutionEngine:
         suite: TestSuite,
         base_dir: Path,
         callback: Optional[EvolutionCallback],
-    ) -> Candidate:
+    ) -> OptimizationRun:
         """
         Shared evolution loop.
         """
@@ -288,7 +288,7 @@ class EvolutionEngine:
         if callback:
             callback.on_complete(best)
 
-        return best
+        return self.run_history
 
     def _evaluate_candidate(self, candidate: Candidate, suite: TestSuite, base_dir: Path):
         """Helper to run the judge and attach result to candidate."""
