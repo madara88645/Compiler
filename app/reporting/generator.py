@@ -1,11 +1,10 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Any
 import json
 from datetime import datetime
 from jinja2 import Template
 
-from app.optimizer.models import OptimizationRun, Candidate
+from app.optimizer.models import OptimizationRun
 
 REPORT_TEMPLATE = """
 <!DOCTYPE html>

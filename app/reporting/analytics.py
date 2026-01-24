@@ -4,7 +4,7 @@ Prepares data for visualization libraries like Chart.js.
 """
 
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Dict, Any
 from collections import defaultdict
 import statistics
 
@@ -75,13 +75,7 @@ def analyze_strategy_performance(run: OptimizationRun) -> Dict[str, Any]:
             if cand.mutation_type in ("initial", "baseline", "human_intervention"):
                 continue
 
-            # Calculate improvement over parent
-            improvement = 0.0
-            if cand.parent_id and cand.parent_id in candidate_map:
-                parent = candidate_map[cand.parent_id]
-                improvement = cand.score - parent.score
-
-            # Or just use raw score? Improvement is better for strategy effectiveness.
+            # Feature: Improvement tracking disabled for now to simplify charts.
             # But high scores matter more. Let's track both if needed, but for the chart
             # let's map "Average Score" per strategy.
             strategy_stats[cand.mutation_type].append(cand.score)

@@ -11,7 +11,7 @@ from app.testing.models import TestSuite
 from app.llm.factory import get_provider
 from app.reporting import ReportGenerator
 import webbrowser
-import os
+
 
 app = typer.Typer(help="Evolutionary Prompt Optimization")
 history_app = typer.Typer(help="Manage optimization history")
