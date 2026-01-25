@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from typing import Optional
+from typing import Optional, List
 from app.testing.models import TestSuite
 from .models import Candidate, OptimizationConfig, OptimizationRun
 from .mutator import MutatorAgent
@@ -126,42 +126,66 @@ class EvolutionEngine:
         suite: TestSuite,
         base_dir: Path,
         callback: Optional[EvolutionCallback],
-    ) -> Optional[Candidate]:
+    ) -> List[Candidate]:
         """
         Hook for human-in-the-loop intervention.
-
-        Returns a new Candidate if human provided input, None otherwise.
+        Handles both direct edits and high-level feedback ("Director Mode").
         """
-        if not callback:
-            return None
+        if not callback or not hasattr(callback, "on_human_intervention_needed"):
+            return []
 
-        # Check if callback has the method (Protocol compliance)
-        if not hasattr(callback, "on_human_intervention_needed"):
-            return None
+        # Request user input
+        # Note: Callback might return a str (edit) or a dict (structured command)
+        response = callback.on_human_intervention_needed(current_best, generation)
 
-        # Request human input via callback
-        new_prompt = callback.on_human_intervention_needed(current_best, generation)
+        if not response:
+            return []
 
-        if new_prompt and new_prompt.strip():
-            # Create new candidate from human input
-            human_candidate = Candidate(
-                generation=generation,
-                parent_id=current_best.id,
-                prompt_text=new_prompt.strip(),
-                mutation_type="human_intervention",
+        new_candidates = []
+
+        # Case A: Structured Response (Dict)
+        if isinstance(response, dict):
+            resp_type = response.get("type")
+            content = response.get("content")
+
+            if resp_type == "feedback" and content:
+                print(f"🎬 Director Mode: Applying feedback '{content[:50]}...'")
+                # Use Mutator to generate variations based on feedback
+                generated = self.mutator.apply_director_feedback(current_best, content)
+                new_candidates.extend(generated)
+
+            elif resp_type == "edit" and content:
+                print("Manual edit received.")
+                # Create candidate directly
+                new_candidates.append(
+                    Candidate(
+                        generation=generation,
+                        parent_id=current_best.id,
+                        prompt_text=content.strip(),
+                        mutation_type="human_edit",
+                    )
+                )
+
+        # Case B: Legacy String Response (Direct Edit)
+        elif isinstance(response, str) and response.strip():
+            print("Manual edit received.")
+            new_candidates.append(
+                Candidate(
+                    generation=generation,
+                    parent_id=current_best.id,
+                    prompt_text=response.strip(),
+                    mutation_type="human_edit",
+                )
             )
 
-            # Evaluate the human-provided candidate
-            self._evaluate_candidate(human_candidate, suite, base_dir)
-
-            print(f"Human candidate evaluated: score={human_candidate.score:.2f}")
-
+        # Evaluate all new candidates
+        for cand in new_candidates:
+            self._evaluate_candidate(cand, suite, base_dir)
             if callback:
-                callback.on_candidate_evaluated(human_candidate, human_candidate.result)
+                callback.on_candidate_evaluated(cand, cand.result)
+            print(f"Human intervention candidate evaluated: score={cand.score:.2f}")
 
-            return human_candidate
-
-        return None
+        return new_candidates
 
     def _run_evolution_loop(
         self,
@@ -225,20 +249,24 @@ class EvolutionEngine:
                 and gen > 0
                 and gen % self.config.interactive_every == 0
             ):
-                human_candidate = self._request_human_intervention(
+                human_candidates = self._request_human_intervention(
                     current_best=best,
                     generation=gen,
                     suite=suite,
                     base_dir=base_dir,
                     callback=callback,
                 )
-                if human_candidate:
-                    # Inject into pool and potentially update best
-                    current_pool.append(human_candidate)
-                    if human_candidate.score > best.score:
-                        best = human_candidate
-                        if callback:
-                            callback.on_new_best(best, best.score)
+
+                if human_candidates:
+                    # Inject into pool
+                    current_pool.extend(human_candidates)
+
+                    # Update best if any new candidate is better
+                    for hc in human_candidates:
+                        if hc.score > best.score:
+                            best = hc
+                            if callback:
+                                callback.on_new_best(best, best.score)
 
             # Adversarial Testing Check
             if (

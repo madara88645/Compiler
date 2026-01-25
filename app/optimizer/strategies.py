@@ -100,11 +100,32 @@ class RefinementStrategy(MutationStrategy):
         return parent.prompt_text
 
 
+# Director Mode Constants
+DIRECTOR_TEMPLATE = """You are an AI Prompt Editor.
+Original Prompt: {{ prompt }}
+User Instruction: {{ feedback }}
+Task: Rewrite the prompt to strictly follow the user's instruction while keeping its original strengths."""
+
+
+class DirectorStrategy(MutationStrategy):
+    NAME = "director"
+    SYSTEM_PROMPT = "You are an AI Prompt Editor. Follow user instructions to modify the prompt."
+
+    # Note: DirectorStrategy is usually called explicitly with feedback, not via the standard loop.
+    # But we implement mutate for consistency/fallback.
+    def mutate(
+        self, parent: Candidate, provider: Optional[LLMProvider], failures: List[str] = None
+    ) -> str:
+        # Without explicit feedback, we can't do much.
+        return parent.prompt_text
+
+
 STRATEGY_REGISTRY = {
     "compressor": CompressorStrategy(),
     "chain_of_thought": CoTStrategy(),
     "persona": PersonaStrategy(),
     "refinement": RefinementStrategy(),
+    "director": DirectorStrategy(),
 }
 
 

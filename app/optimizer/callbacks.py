@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Protocol
+from typing import Protocol, Optional, Union, Dict, Any
 from .models import Candidate, EvaluationResult
 
 
@@ -28,11 +28,20 @@ class EvolutionCallback(Protocol):
 
     def on_human_intervention_needed(
         self, current_best: Candidate, generation: int
-    ) -> Optional[str]:
-        """Called when human input is requested.
+    ) -> Optional[Union[str, Dict[str, Any]]]:
+        """
+        Called when human intervention is requested.
+
+        Args:
+            current_best: The current best candidate.
+            generation: The current generation number.
 
         Returns:
-            The modified prompt text, or None to skip modification.
+            - None: Continue without changes.
+            - str: A new prompt string (legacy support).
+            - dict: Structured instruction, e.g.:
+                {"type": "feedback", "content": "Make it shorter"}
+                {"type": "edit", "content": "New prompt text..."}
         """
         ...
 
@@ -52,37 +61,29 @@ class InteractiveCallback:
         self._generation_count = 0
 
     def on_start(self, initial_prompt: str, target_score: float) -> None:
-        """Called when optimization starts."""
         pass
 
     def on_generation_start(self, generation: int) -> None:
-        """Called when a new generation begins."""
         self._generation_count = generation
 
     def on_candidate_evaluated(self, candidate: Candidate, result: EvaluationResult) -> None:
-        """Called after a candidate is scored."""
         pass
 
     def on_new_best(self, candidate: Candidate, score: float) -> None:
-        """Called when a new global best score is found."""
         pass
 
     def on_complete(self, best_candidate: Candidate) -> None:
-        """Called when optimization finishes."""
         pass
 
     def on_human_intervention_needed(
         self, current_best: Candidate, generation: int
-    ) -> Optional[str]:
+    ) -> Optional[Union[str, Dict[str, Any]]]:
         """
         Pause and prompt the user for modifications.
-
-        Returns:
-            The modified prompt text, or None to skip modification.
         """
         from rich.console import Console
         from rich.panel import Panel
-        from rich.prompt import Confirm
+        from rich.prompt import Prompt
 
         console = Console()
 
@@ -102,20 +103,36 @@ class InteractiveCallback:
         )
         console.print()
 
-        # Ask user
-        modify = Confirm.ask("[bold]Do you want to modify this prompt?[/bold]", default=False)
+        # Menu
+        console.print("[bold]Options:[/bold]")
+        console.print("[1] Continue (No change)")
+        console.print("[2] Give Feedback (Steer with words)")
+        console.print("[3] Manual Edit (Rewrite code)")
+        console.print()
 
-        if not modify:
+        choice = Prompt.ask("Select an option", choices=["1", "2", "3"], default="1")
+
+        if choice == "1":
             console.print("[dim]Continuing evolution...[/dim]")
             return None
 
-        # Capture multi-line input
-        console.print()
-        console.print("[bold yellow]Enter your modified prompt below.[/bold yellow]")
-        while True:
+        elif choice == "2":
+            # Steering
+            feedback = Prompt.ask("[bold yellow]Enter your instructions/feedback[/bold yellow]")
+            if not feedback.strip():
+                console.print("[dim]Empty feedback. Continuing...[/dim]")
+                return None
+            return {"type": "feedback", "content": feedback.strip()}
+
+        elif choice == "3":
+            # Manual Edit
+            console.print()
+            console.print("[bold yellow]Enter your modified prompt below.[/bold yellow]")
+
             console.print(
                 "[dim]Type 'END' on a line by itself to finish, or 'CANCEL' to abort.[/dim]"
             )
+
             current_lines = []
             try:
                 while True:
@@ -123,7 +140,7 @@ class InteractiveCallback:
                     if line.strip().upper() == "END":
                         break
                     if line.strip().upper() == "CANCEL":
-                        console.print("[dim]Modification cancelled. Continuing evolution...[/dim]")
+                        console.print("[dim]Modification cancelled.[/dim]")
                         return None
                     current_lines.append(line)
             except EOFError:
@@ -132,14 +149,13 @@ class InteractiveCallback:
             new_prompt = "\n".join(current_lines)
 
             if not new_prompt.strip():
-                console.print("[dim]Empty input. Continuing with original prompt...[/dim]")
+                console.print("[dim]Empty input. Continuing...[/dim]")
                 return None
 
             # Validate
             from app.optimizer.utils import validate_human_input
 
             if validate_human_input(current_best.prompt_text, new_prompt):
-                console.print()
                 console.print(
                     Panel(
                         new_prompt,
@@ -147,44 +163,16 @@ class InteractiveCallback:
                         border_style="green",
                     )
                 )
-                console.print()
-                return new_prompt
+                return {"type": "edit", "content": new_prompt}
             else:
-                console.print(
-                    "[bold red]❌ Validation Failed: You removed required {{variables}}.[/bold red]"
-                )
-                if not Confirm.ask("Do you want to try again?", default=True):
-                    return None
-                console.print(
-                    "[bold yellow]Please enter the prompt again (correctly):[/bold yellow]"
-                )
+                console.print("[bold red]❌ Validation Failed: Missing variables.[/bold red]")
+                console.print("[dim]Validation failed. Continuing with original...[/dim]")
+                return None
+
+        return None
 
     def should_pause(self, generation: int) -> bool:
         """Check if we should pause for human input at this generation."""
         if self.interactive_every <= 0:
             return False
         return generation > 0 and generation % self.interactive_every == 0
-
-
-class SilentCallback:
-    """A no-op callback for non-interactive runs."""
-
-    def on_start(self, initial_prompt: str, target_score: float) -> None:
-        pass
-
-    def on_generation_start(self, generation: int) -> None:
-        pass
-
-    def on_candidate_evaluated(self, candidate: Candidate, result: EvaluationResult) -> None:
-        pass
-
-    def on_new_best(self, candidate: Candidate, score: float) -> None:
-        pass
-
-    def on_complete(self, best_candidate: Candidate) -> None:
-        pass
-
-    def on_human_intervention_needed(
-        self, current_best: Candidate, generation: int
-    ) -> Optional[str]:
-        return None
