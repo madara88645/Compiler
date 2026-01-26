@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 import yaml
 from rich.console import Console
+from rich.panel import Panel
 from app.optimizer.models import OptimizationConfig
 from app.optimizer.judge import JudgeAgent
 from app.optimizer.mutator import MutatorAgent
@@ -10,6 +11,7 @@ from app.optimizer.evolution import EvolutionEngine
 from app.testing.models import TestSuite
 from app.llm.factory import get_provider
 from app.reporting import ReportGenerator
+from app.optimizer.estimator import estimate_run_cost
 import webbrowser
 
 
@@ -36,6 +38,8 @@ def optimize_run(
     interactive_every: int = typer.Option(
         0, "--interactive-every", "-i", help="Pause every N generations for human input (0 = never)"
     ),
+    budget: Optional[float] = typer.Option(None, "--budget", "-b", help="Max budget in USD"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Estimate cost and exit"),
 ):
     """
     Optimize a prompt using evolutionary algorithms and test feedback.
@@ -76,7 +80,14 @@ def optimize_run(
         max_generations=generations,
         target_score=target_score,
         interactive_every=interactive_every,
+        budget_limit=budget,
     )
+
+    if dry_run:
+        console.print("[bold cyan]Running Cost Estimation...[/bold cyan]")
+        estimate = estimate_run_cost(config, initial_prompt)
+        console.print(Panel(estimate["message"], title="💰 Dry Run Estimate", border_style="green"))
+        return
 
     # Initialize Callback
     callback = InteractiveCallback(interactive_every=interactive_every)

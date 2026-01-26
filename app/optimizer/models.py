@@ -15,6 +15,7 @@ class OptimizationConfig(BaseModel):
     interactive_every: int = 0  # Pause for human input every N generations (0 = never)
     adversarial_every: int = 0  # Run adversarial generation every N generations (0 = never)
     available_strategies: List[str] = ["compressor", "chain_of_thought", "persona"]
+    budget_limit: Optional[float] = None  # Max budget in USD (None = unlimited)
 
 
 class EvaluationResult(BaseModel):

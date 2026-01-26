@@ -8,6 +8,7 @@ from .mutator import MutatorAgent
 from .judge import JudgeAgent
 from app.testing.adversarial import AdversarialGenerator
 from .callbacks import EvolutionCallback
+from .costs import CostTracker, TokenCounter
 
 
 class EvolutionEngine:
@@ -30,6 +31,7 @@ class EvolutionEngine:
         from .history import HistoryManager
 
         self.history_manager = HistoryManager()
+        self.cost_tracker = CostTracker()
 
     def run(
         self,
@@ -209,7 +211,15 @@ class EvolutionEngine:
                 print("Target score reached!")
                 break
 
-            print(f"gen {gen}: Evolving from best candidate (score={best.score:.2f})...")
+            # Budget Check
+            current_cost = self.cost_tracker.estimated_cost()
+            if self.config.budget_limit and current_cost >= self.config.budget_limit:
+                print(f"🛑 Budget Limit of ${self.config.budget_limit} reached! Stopping.")
+                break
+
+            print(
+                f"gen {gen}: Evolving from best candidate (score={best.score:.2f})... [Cost so far: ${current_cost:.4f}]"
+            )
 
             # Selection: Pick top K candidates to mutate (Steepest Ascent for now, just top 1)
             parent = best
@@ -217,6 +227,14 @@ class EvolutionEngine:
             # Mutation
             failures = parent.result.failures if parent.result else []
             new_candidates = self.mutator.generate_variations(parent, failures)
+
+            # Track Cost
+            # Estimate: Input = Parent + System Prompt(~500), Output = New Candidates
+            in_tokens = TokenCounter.count(parent.prompt_text, self.config.model) + 500
+            out_tokens = sum(
+                TokenCounter.count(c.prompt_text, self.config.model) for c in new_candidates
+            )
+            self.cost_tracker.add_usage(in_tokens, out_tokens, self.config.model)
 
             # Evaluation
             evaluated_candidates = []
