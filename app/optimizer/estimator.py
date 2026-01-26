@@ -4,7 +4,7 @@ Predicts token usage and cost based on configuration and initial prompt.
 """
 
 from __future__ import annotations
-from typing import Dict, Any, Union
+from typing import Dict, Union
 import math
 from .models import OptimizationConfig
 

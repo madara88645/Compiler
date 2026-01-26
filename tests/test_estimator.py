@@ -1,6 +1,6 @@
 """Tests for Cost Estimator."""
 
-import pytest
+
 from app.optimizer.estimator import estimate_run_cost
 from app.optimizer.models import OptimizationConfig
 
