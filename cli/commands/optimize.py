@@ -39,6 +39,12 @@ def optimize_run(
         0, "--interactive-every", "-i", help="Pause every N generations for human input (0 = never)"
     ),
     budget: Optional[float] = typer.Option(None, "--budget", "-b", help="Max budget in USD"),
+    validation_models: Optional[str] = typer.Option(
+        None,
+        "--validation-models",
+        "-v",
+        help="Comma-separated list of validation models (e.g. 'openai:gpt-4,claude-3-5-sonnet')",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Estimate cost and exit"),
 ):
     """
@@ -75,12 +81,18 @@ def optimize_run(
     else:
         console.print("[dim]Using mock provider (no LLM calls)[/dim]")
 
+    # Parse Validation Models
+    val_models_list = []
+    if validation_models:
+        val_models_list = [m.strip() for m in validation_models.split(",") if m.strip()]
+
     # Config
     config = OptimizationConfig(
         max_generations=generations,
         target_score=target_score,
         interactive_every=interactive_every,
         budget_limit=budget,
+        validation_models=val_models_list,
     )
 
     if dry_run:
@@ -117,6 +129,42 @@ def optimize_run(
         webbrowser.open(report_path.as_uri())
     except Exception as e:
         console.print(f"[red]Failed to generate report:[/red] {e}")
+
+    # Robustness Check Summary (CLI)
+    robustness_data = []
+    for gen in opt_run.generations:
+        for cand in gen:
+            if cand.metadata and "validation_scores" in cand.metadata:
+                robustness_data.append(cand)
+
+    if robustness_data:
+        from rich.table import Table
+
+        console.print()
+        table = Table(title="🛡️ Cross-Model Robustness Check")
+        table.add_column("Prompt ID", style="cyan")
+        table.add_column("Main Score", style="green")
+        table.add_column("Validation Scores", style="yellow")
+        table.add_column("Status", style="bold")
+
+        # Sort by main score
+        robustness_data.sort(key=lambda x: x.score, reverse=True)
+
+        for cand in robustness_data[:5]:  # Top 5
+            val_scores = cand.metadata["validation_scores"]
+            val_str = ", ".join([f"{k}: {v:.2f}" for k, v in val_scores.items()])
+
+            # Check overfit
+            is_overfit = False
+            for v in val_scores.values():
+                if cand.score - v > 0.2:
+                    is_overfit = True
+                    break
+
+            status = "[red]OVERFIT[/red]" if is_overfit else "[green]ROBUST[/green]"
+            table.add_row(cand.id[:8], f"{cand.score:.2f}", val_str, status)
+
+        console.print(table)
 
     # Report Results
     console.print("\n[bold cyan]Optimization Complete![/bold cyan]")

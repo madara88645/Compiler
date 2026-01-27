@@ -16,6 +16,7 @@ class OptimizationConfig(BaseModel):
     adversarial_every: int = 0  # Run adversarial generation every N generations (0 = never)
     available_strategies: List[str] = ["compressor", "chain_of_thought", "persona"]
     budget_limit: Optional[float] = None  # Max budget in USD (None = unlimited)
+    validation_models: List[str] = Field(default_factory=list)  # Models to use for cross-validation
 
 
 class EvaluationResult(BaseModel):
@@ -37,6 +38,7 @@ class Candidate(BaseModel):
     parent_id: Optional[str] = None
     prompt_text: str
     mutation_type: str = "initial"  # e.g., "refinement", "creative"
+    metadata: dict = Field(default_factory=dict)  # Arbitrary metadata (e.g., validation scores)
 
     # Evaluation state
     result: Optional[EvaluationResult] = None
@@ -53,3 +55,4 @@ class OptimizationRun(BaseModel):
     config: OptimizationConfig
     generations: List[List[Candidate]] = Field(default_factory=list)
     best_candidate: Optional[Candidate] = None
+    total_cost: float = 0.0  # Accumulated cost across all sessions

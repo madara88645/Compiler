@@ -73,6 +73,61 @@ REPORT_TEMPLATE = """
             </div>
         </div>
 
+        {% if robustness_data %}
+        <!-- Robustness Matrix -->
+        <section class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-indigo-50">
+                <h2 class="text-lg font-medium text-indigo-900">🛡️ Cross-Model Robustness Matrix</h2>
+            </div>
+            <div class="p-6 overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500">
+                            <th class="px-4 py-2 text-left">Prompt ID</th>
+                            <th class="px-4 py-2 text-center text-indigo-600 font-bold">Main ({{ run.config.model }})</th>
+                            <th class="px-4 py-2 text-left">Validation Models</th>
+                            <th class="px-4 py-2 text-left">Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for row in robustness_data %}
+                        <tr>
+                            <td class="px-4 py-3 font-mono text-xs text-gray-600">
+                                {{ row.id }} <span class="text-gray-400">({{ row.mutation_type }})</span>
+                            </td>
+                            <td class="px-4 py-3 text-center font-bold text-gray-900">
+                                {{ "%.2f"|format(row.main_score) }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex space-x-4">
+                                {% for val in row.validations %}
+                                    <div class="text-xs">
+                                        <span class="text-gray-500">{{ val.model }}:</span>
+                                        <span class="font-medium {{ 'text-red-600 font-bold' if val.is_overfit else 'text-gray-700' }}">
+                                            {{ "%.2f"|format(val.score) }}
+                                        </span>
+                                        {% if val.is_overfit %}
+                                        <span class="text-[10px] text-red-500 bg-red-50 px-1 rounded border border-red-100 ml-1">OVERFIT</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if row.robustness_label == 'Low' %}
+                                <span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-bold">Low</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-bold">High</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+
         <!-- Best Prompt Section -->
         <section class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 bg-indigo-50 flex justify-between items-center">
@@ -83,7 +138,7 @@ REPORT_TEMPLATE = """
             </div>
             <div class="p-6">
                 <pre class="bg-gray-800 text-gray-100 p-4 rounded-md text-sm font-mono overflow-auto max-h-[500px]">{{ best_candidate.prompt_text }}</pre>
-
+                
                 {% if best_candidate.result and best_candidate.result.failures %}
                 <div class="mt-4 p-4 bg-yellow-50 rounded-md border border-yellow-200">
                     <h4 class="text-sm font-bold text-yellow-800 mb-2">Remaining Failures ({{ best_candidate.result.failed_count }})</h4>
@@ -121,7 +176,7 @@ REPORT_TEMPLATE = """
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
-
+                    
                     <div id="gen-{{ loop.index0 }}" class="hidden mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 gap-4">
                         {% for cand in gen %}
                         <div class="text-sm border-l-2 {{ 'border-green-500' if cand.id == top_cand.id else 'border-gray-300' }} pl-3">
@@ -152,7 +207,7 @@ REPORT_TEMPLATE = """
         const ctx = document.getElementById('scoreChart').getContext('2d');
         const scores = {{ scores_json }};
         const labels = {{ labels_json }};
-
+        
         new Chart(ctx, {
             type: 'line',
             data: {
@@ -214,6 +269,44 @@ class ReportGenerator:
         # Get max score for each generation
         scores = [max(c.score for c in gen) if gen else 0.0 for gen in run.generations]
 
+        # Robustness Data Preparation
+        robustness_data = []
+        for gen in run.generations:
+            for cand in gen:
+                # Check for validations
+                if cand.metadata and "validation_scores" in cand.metadata:
+                    val_scores = cand.metadata["validation_scores"]
+                    if not val_scores:
+                        continue
+
+                    validations = []
+                    any_overfit = False
+
+                    for model, score in val_scores.items():
+                        # Detect Overfit
+                        diff = cand.score - score
+                        is_overfit = diff > 0.2
+                        if is_overfit:
+                            any_overfit = True
+
+                        validations.append(
+                            {"model": model, "score": score, "is_overfit": is_overfit}
+                        )
+
+                    robustness_data.append(
+                        {
+                            "id": cand.id,
+                            "mutation_type": cand.mutation_type,
+                            "main_score": cand.score,
+                            "validations": validations,
+                            "robustness_label": "Low" if any_overfit else "High",
+                        }
+                    )
+
+        # Sort robustness data by main score descending and take top 10
+        robustness_data.sort(key=lambda x: x["main_score"], reverse=True)
+        robustness_data = robustness_data[:10]
+
         # Render Template
         template = Template(REPORT_TEMPLATE)
         html_content = template.render(
@@ -223,6 +316,7 @@ class ReportGenerator:
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             scores_json=json.dumps(scores),
             labels_json=json.dumps(labels),
+            robustness_data=robustness_data,
         )
 
         # Write to file

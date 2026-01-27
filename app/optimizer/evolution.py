@@ -9,6 +9,9 @@ from .judge import JudgeAgent
 from app.testing.adversarial import AdversarialGenerator
 from .callbacks import EvolutionCallback
 from .costs import CostTracker, TokenCounter
+from .validator import CrossModelValidator
+from app.llm.factory import get_provider
+from app.llm.base import ProviderConfig
 
 
 class EvolutionEngine:
@@ -31,7 +34,45 @@ class EvolutionEngine:
         from .history import HistoryManager
 
         self.history_manager = HistoryManager()
+        self.history_manager = HistoryManager()
         self.cost_tracker = CostTracker()
+
+        # Initialize Cross-Model Validator
+        self.validator = None
+        if config.validation_models:
+            print(f"Initializing Cross-Model Validator with: {config.validation_models}")
+            val_providers = {}
+            for model_spec in config.validation_models:
+                # Simple heuristic to determine provider
+                # Format could be "provider:model" or just "model"
+                if ":" in model_spec:
+                    provider_name, model_name = model_spec.split(":", 1)
+                else:
+                    # Guess provider
+                    model_lower = model_spec.lower()
+                    if "gpt" in model_lower or "o1" in model_lower:
+                        provider_name = "openai"
+                    elif "claude" in model_lower:
+                        provider_name = "anthropic"  # Not in factory yet, fallback or error?
+                        # Using openai for compatible endpoints or error if not valid
+                        # Assuming factory handles unknown names gracefully or we catch it
+                        # For this impl, map commonly known ones, else default to ollama
+                        pass
+                    else:
+                        provider_name = "ollama"
+                    model_name = model_spec
+
+                try:
+                    # Create separate config for validation model
+                    # For simplicty, reuse env vars for API keys but change model
+                    p_config = ProviderConfig(model=model_name)
+                    provider = get_provider(provider_name, config=p_config)
+                    val_providers[model_spec] = provider
+                except Exception as e:
+                    print(f"Warning: Failed to load validation model {model_spec}: {e}")
+
+            if val_providers:
+                self.validator = CrossModelValidator(val_providers)
 
     def run(
         self,
@@ -55,12 +96,12 @@ class EvolutionEngine:
         if callback:
             callback.on_candidate_evaluated(baseline, baseline.result)
 
-        current_pool = [baseline]
-        self.run_history.generations.append(current_pool)
-
         best = baseline
         if callback:
             callback.on_new_best(best, best.score)
+
+        # Initialize cost tracking
+        self.run_history.total_cost = 0.0
 
         print(
             f"gen 0: Baseline Score = {baseline.score:.2f} ({baseline.result.passed_count}/{len(suite.test_cases)})"
@@ -96,6 +137,10 @@ class EvolutionEngine:
             print(f"Resuming run {run_id}: Extending to {self.config.max_generations} generations.")
         else:
             print(f"Resuming run {run_id}")
+
+        # Restore Cost State
+        self.cost_tracker.total_cost = run.total_cost
+        print(f"Resuming with accumulated cost: ${run.total_cost:.4f}")
 
         # Find best candidate so far
         # We could rely on run.best_candidate, but let's re-scan generations to be safe/robust
@@ -248,8 +293,12 @@ class EvolutionEngine:
 
                 if cand.score > best.score:
                     best = cand
+                    best = cand
                     if callback:
                         callback.on_new_best(best, best.score)
+
+                    # Trigger Cross-Model Validation for new best
+                    self._run_cross_validation(best, suite)
 
             current_pool = evaluated_candidates
             self.run_history.generations.append(current_pool)
@@ -323,6 +372,7 @@ class EvolutionEngine:
                     # TODO: If score is low, maybe we should mutate specifically to fix these?
 
         self.run_history.best_candidate = best
+        self.run_history.total_cost = self.cost_tracker.total_cost
 
         # Save History (Update existing run file)
         try:
@@ -340,3 +390,16 @@ class EvolutionEngine:
         """Helper to run the judge and attach result to candidate."""
         result = self.judge.evaluate(candidate, suite, base_dir)
         candidate.result = result
+
+    def _run_cross_validation(self, candidate: Candidate, suite: TestSuite):
+        """Run cross-model validation on the candidate."""
+        if not self.validator:
+            return
+
+        print(f"⚡ Running Cross-Model Validation on candidate {candidate.id}...")
+        try:
+            results = self.validator.validate(candidate.prompt_text, suite.test_cases)
+            candidate.metadata["validation_scores"] = results.scores
+            print(f"   Validation Scores: {results.scores}")
+        except Exception as e:
+            print(f"   ❌ Validation failed: {e}")
