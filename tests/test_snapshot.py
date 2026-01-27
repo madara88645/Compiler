@@ -45,9 +45,9 @@ def test_snapshots_minimal():
         exp = EXPECTED[name]
         assert data["language"] == exp["language"]
         domain = data["domain"]
-        assert domain in exp["domain_anyof"], (
-            f"domain {domain} not in allowed {exp['domain_anyof']}"
-        )
+        assert (
+            domain in exp["domain_anyof"]
+        ), f"domain {domain} not in allowed {exp['domain_anyof']}"
         summary_flag = _get(data, "metadata.summary")
         if "metadata.summary" in exp:
             assert summary_flag == exp["metadata.summary"]

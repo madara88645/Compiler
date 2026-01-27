@@ -138,7 +138,7 @@ REPORT_TEMPLATE = """
             </div>
             <div class="p-6">
                 <pre class="bg-gray-800 text-gray-100 p-4 rounded-md text-sm font-mono overflow-auto max-h-[500px]">{{ best_candidate.prompt_text }}</pre>
-                
+
                 {% if best_candidate.result and best_candidate.result.failures %}
                 <div class="mt-4 p-4 bg-yellow-50 rounded-md border border-yellow-200">
                     <h4 class="text-sm font-bold text-yellow-800 mb-2">Remaining Failures ({{ best_candidate.result.failed_count }})</h4>
@@ -176,7 +176,7 @@ REPORT_TEMPLATE = """
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
-                    
+
                     <div id="gen-{{ loop.index0 }}" class="hidden mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 gap-4">
                         {% for cand in gen %}
                         <div class="text-sm border-l-2 {{ 'border-green-500' if cand.id == top_cand.id else 'border-gray-300' }} pl-3">
@@ -207,7 +207,7 @@ REPORT_TEMPLATE = """
         const ctx = document.getElementById('scoreChart').getContext('2d');
         const scores = {{ scores_json }};
         const labels = {{ labels_json }};
-        
+
         new Chart(ctx, {
             type: 'line',
             data: {
