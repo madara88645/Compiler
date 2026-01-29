@@ -26,41 +26,17 @@ from datetime import datetime
 from typing import Callable, Optional, List
 
 import httpx
-from app.analytics import AnalyticsManager, create_record_from_ir
-
-from app.compiler import (
-    compile_text,
-    compile_text_v2,
-    optimize_ir,
-    HEURISTIC_VERSION,
-    HEURISTIC2_VERSION,
-    generate_trace,
-)
-from app.emitters import (
-    emit_system_prompt,
-    emit_user_prompt,
-    emit_plan,
-    emit_expanded_prompt,
-    emit_system_prompt_v2,
-    emit_user_prompt_v2,
-    emit_plan_v2,
-    emit_expanded_prompt_v2,
-)
-from app.autofix import auto_fix_prompt, explain_fixes
-from app.validator import PromptValidator
-from app.templates import get_registry, PromptTemplate
-from app.rag.simple_index import search, search_embed, search_hybrid
-from app.context_presets import ContextPresetStore
-from app.text_utils import estimate_tokens, compress_text_block
 from app.rag.history_store import RAGHistoryStore
-from app.command_palette import (
-    CONFIG_ENV_VAR,
-    compute_stale_favorites,
-    get_command_palette_commands,
-    get_saved_palette_favorites_list,
-    get_ui_config_path,
-    persist_palette_favorites,
-)
+
+CONFIG_ENV_VAR = "PROMPTC_UI_CONFIG"
+DEFAULT_CONFIG_FILENAME = ".promptc_ui.json"
+
+def get_ui_config_path() -> Path:
+    override = os.environ.get(CONFIG_ENV_VAR)
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / DEFAULT_CONFIG_FILENAME
+
 
 # Optional OpenAI client (only used when sending directly from UI)
 try:  # openai>=1.0 style client
@@ -144,20 +120,15 @@ class PromptCompilerUI:
         self.cognitive_load_var = tk.StringVar(value="Load: —")
 
         # Settings file (per-user)
+        # Settings file (per-user)
         self.config_path = get_ui_config_path()
-        self.history_path = Path.home() / ".promptc_history.json"
-        self.favorites_path = Path.home() / ".promptc_favorites.json"
-        self.tags_path = Path.home() / ".promptc_tags.json"
-        self.snippets_path = Path.home() / ".promptc_snippets.json"
-        self.command_palette_favorites: list[str] = []
-        self.command_palette_recent: list[str] = []
         self.rag_history_store = RAGHistoryStore()
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
         self.settings_profiles: dict[str, dict[str, object]] = {}
         self.active_settings_profile: str | None = None
         self.settings_profile_menu = None
-        self.analytics_manager = AnalyticsManager()
+
 
         # RAG settings (defaults)
         self.rag_db_path = None  # None = use default ~/.promptc_index.db
@@ -202,18 +173,15 @@ class PromptCompilerUI:
         self.template_registry = get_registry()
         self.current_template = None
 
-        # Main container with sidebar
-        main_container = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        # Main container
+        main_container = ttk.Frame(self.root)
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        # Left sidebar
-        self.sidebar = ttk.Frame(main_container, width=250)
-        main_container.add(self.sidebar, weight=0)
-        self._create_sidebar()
 
-        # Right content area
+        # Content area
         content = ttk.Frame(main_container)
-        main_container.add(content, weight=1)
+        content.pack(fill=tk.BOTH, expand=True)
+
 
         # Progress bar at the top of content area
         self.progress_frame = ttk.Frame(content)
@@ -395,11 +363,7 @@ class PromptCompilerUI:
         btn_templates.pack(side=tk.LEFT, padx=4)
         self._add_tooltip(btn_templates, "Manage and use prompt templates")
 
-        self.btn_palette = ttk.Button(
-            opts_primary, text="🧭 Palette", command=self._show_command_palette
-        )
-        self.btn_palette.pack(side=tk.LEFT, padx=4)
-        self._add_tooltip(self.btn_palette, "Open Command Palette (Ctrl+Shift+P)")
+
         self.palette_badge_var = tk.StringVar(value="")
         self.palette_badge_label = None
 
@@ -635,7 +599,7 @@ class PromptCompilerUI:
         # Load settings (theme, toggles, model, geometry) and apply
         self._load_settings()
         self.apply_theme(self.current_theme)
-        self._update_palette_badge()
+
 
         # Persist on change
         self.var_diag.trace_add("write", lambda *_: self._save_settings())
@@ -700,10 +664,8 @@ class PromptCompilerUI:
             pass
 
         # Load history, tags, snippets
-        self._load_history()
-        self._load_tags()
-        self._load_snippets()
         self._refresh_context_presets_menu()
+
         self._refresh_settings_profiles_menu()
 
         # Ephemeral status message timer (used for small toasts like clipboard copy)
@@ -810,216 +772,9 @@ class PromptCompilerUI:
         self.btn_quality_apply_fix.config(state="disabled")
         self.quality_status_var.set("Applied auto-fix suggestions to prompt")
 
-    def _create_sidebar(self):
-        """Create the sidebar with recent prompts and favorites."""
-        # Header with title and toggle button
-        header_frame = ttk.Frame(self.sidebar)
-        header_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        title_label = ttk.Label(header_frame, text="📜 Recent", font=("Segoe UI", 10, "bold"))
-        title_label.pack(side=tk.LEFT)
 
-        toggle_btn = ttk.Button(header_frame, text="◀", width=3, command=self._toggle_sidebar)
-        toggle_btn.pack(side=tk.RIGHT)
-        self.sidebar_toggle_btn = toggle_btn
 
-        # Search/filter box
-        search_frame = ttk.Frame(self.sidebar)
-        search_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-
-        ttk.Label(search_frame, text="🔍").pack(side=tk.LEFT, padx=(0, 3))
-        self.search_var = tk.StringVar()
-        self.search_var.trace_add("write", lambda *_: self._filter_history())
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        # Tags filter section
-        tags_frame = ttk.Frame(self.sidebar)
-        tags_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-
-        ttk.Label(tags_frame, text="🏷️ Tags:", font=("", 9, "bold")).pack(anchor=tk.W)
-
-        self.tags_filter_frame = ttk.Frame(tags_frame)
-        self.tags_filter_frame.pack(fill=tk.X, pady=(2, 0))
-        self._update_tag_filters()
-
-        # Advanced Filters section
-        adv_filters_frame = ttk.Frame(self.sidebar)
-        adv_filters_frame.pack(fill=tk.X, padx=5, pady=(5, 5))
-
-        ttk.Label(adv_filters_frame, text="🔧 Filters:", font=("", 9, "bold")).pack(anchor=tk.W)
-
-        # Favorites only
-        self.filter_favorites_only = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            adv_filters_frame,
-            text="⭐ Favorites only",
-            variable=self.filter_favorites_only,
-            command=self._filter_history,
-        ).pack(anchor=tk.W, pady=2)
-
-        # Length filter
-        length_frame = ttk.Frame(adv_filters_frame)
-        length_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(length_frame, text="📏 Length:", font=("", 8)).pack(side=tk.LEFT)
-        self.filter_length = tk.StringVar(value="all")
-        length_combo = ttk.Combobox(
-            length_frame,
-            textvariable=self.filter_length,
-            values=["all", "short (<100)", "medium (100-500)", "long (>500)"],
-            state="readonly",
-            width=15,
-        )
-        length_combo.pack(side=tk.LEFT, padx=(5, 0))
-        length_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
-
-        # Date range filter
-        date_frame = ttk.Frame(adv_filters_frame)
-        date_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(date_frame, text="📅 Date:", font=("", 8)).pack(side=tk.LEFT)
-        self.filter_date_range = tk.StringVar(value="all")
-        date_combo = ttk.Combobox(
-            date_frame,
-            textvariable=self.filter_date_range,
-            values=["all", "today", "last 7 days", "last 30 days", "last 90 days"],
-            state="readonly",
-            width=15,
-        )
-        date_combo.pack(side=tk.LEFT, padx=(5, 0))
-        date_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
-
-        # Sort options
-        sort_frame = ttk.Frame(adv_filters_frame)
-        sort_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(sort_frame, text="↕️ Sort:", font=("", 8)).pack(side=tk.LEFT)
-        self.filter_sort = tk.StringVar(value="date (newest)")
-        sort_combo = ttk.Combobox(
-            sort_frame,
-            textvariable=self.filter_sort,
-            values=[
-                "date (newest)",
-                "date (oldest)",
-                "length (short)",
-                "length (long)",
-                "most used",
-            ],
-            state="readonly",
-            width=15,
-        )
-        sort_combo.pack(side=tk.LEFT, padx=(5, 0))
-        sort_combo.bind("<<ComboboxSelected>>", lambda e: self._filter_history())
-
-        # Clear filters button
-        ttk.Button(
-            adv_filters_frame, text="🔄 Clear Filters", command=self._clear_all_filters
-        ).pack(fill=tk.X, pady=(5, 0))
-
-        # Analytics button
-        ttk.Button(adv_filters_frame, text="📊 View Analytics", command=self._show_analytics).pack(
-            fill=tk.X, pady=(2, 0)
-        )
-
-        # Export/Import section
-        export_frame = ttk.LabelFrame(self.sidebar, text="📤 Backup & Restore", padding=5)
-        export_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
-
-        export_btn_frame = ttk.Frame(export_frame)
-        export_btn_frame.pack(fill=tk.X)
-
-        ttk.Button(
-            export_btn_frame, text="💾 Export All", command=self._export_data, width=15
-        ).pack(side=tk.LEFT, padx=(0, 2))
-
-        ttk.Button(export_btn_frame, text="📥 Import", command=self._import_data, width=15).pack(
-            side=tk.LEFT, padx=(2, 0)
-        )
-
-        # Quick export options
-        quick_export_frame = ttk.Frame(export_frame)
-        quick_export_frame.pack(fill=tk.X, pady=(5, 0))
-
-        ttk.Button(
-            quick_export_frame,
-            text="📋 Export History",
-            command=lambda: self._export_data("history"),
-            width=15,
-        ).pack(side=tk.LEFT, padx=(0, 2))
-
-        ttk.Button(
-            quick_export_frame,
-            text="🏷️ Export Tags",
-            command=lambda: self._export_data("tags"),
-            width=15,
-        ).pack(side=tk.LEFT, padx=(2, 0))
-
-        # Restore backup button
-        ttk.Button(
-            export_frame, text="♻️ Restore Backup", command=self._restore_backup, width=32
-        ).pack(fill=tk.X, pady=(5, 0))
-
-        # Snippets section
-        snippets_label_frame = ttk.Frame(self.sidebar)
-        snippets_label_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
-
-        ttk.Label(snippets_label_frame, text="✂️ Snippets:", font=("", 9, "bold")).pack(side=tk.LEFT)
-        ttk.Button(snippets_label_frame, text="+", width=3, command=self._add_snippet).pack(
-            side=tk.RIGHT
-        )
-
-        snippets_list_frame = ttk.Frame(self.sidebar)
-        snippets_list_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-
-        snippets_scroll = ttk.Scrollbar(snippets_list_frame)
-        snippets_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.snippets_listbox = tk.Listbox(
-            snippets_list_frame,
-            yscrollcommand=snippets_scroll.set,
-            selectmode=tk.SINGLE,
-            height=4,
-            activestyle="dotbox",
-        )
-        self.snippets_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        snippets_scroll.config(command=self.snippets_listbox.yview)
-
-        self.snippets_listbox.bind("<Double-Button-1>", lambda e: self._insert_snippet())
-        self.snippets_listbox.bind("<Return>", lambda e: self._insert_snippet())
-        self.snippets_listbox.bind("<Button-3>", self._show_snippet_context_menu)
-
-        self._refresh_snippets()
-
-        # Listbox with scrollbar
-        list_frame = ttk.Frame(self.sidebar)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
-
-        scrollbar = ttk.Scrollbar(list_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.history_listbox = tk.Listbox(
-            list_frame, yscrollcommand=scrollbar.set, selectmode=tk.SINGLE, activestyle="dotbox"
-        )
-        self.history_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.history_listbox.yview)
-
-        # Event bindings
-        self.history_listbox.bind("<Double-Button-1>", lambda e: self._load_prompt_from_history())
-        self.history_listbox.bind("<Return>", lambda e: self._load_prompt_from_history())
-        self.history_listbox.bind("<Delete>", lambda e: self._delete_history_item())
-        self.history_listbox.bind("<Button-3>", self._show_history_context_menu)
-
-        # Action buttons
-        btn_frame = ttk.Frame(self.sidebar)
-        btn_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
-
-        ttk.Button(btn_frame, text="🔄 Refresh", command=self._refresh_history).pack(
-            fill=tk.X, pady=1
-        )
-        ttk.Button(btn_frame, text="🗑️ Clear All", command=self._clear_history).pack(
-            fill=tk.X, pady=1
-        )
-
-        # Load initial history
-        self._refresh_history()
 
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
@@ -1414,14 +1169,11 @@ class PromptCompilerUI:
                 data = json.loads(self.config_path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
-        try:
-            self.command_palette_favorites = get_saved_palette_favorites_list(data)
-        except Exception:
-            self.command_palette_favorites = []
 
         # Settings profiles
         try:
             profiles = data.get("settings_profiles") or {}
+
             if isinstance(profiles, dict):
                 cleaned: dict[str, dict[str, object]] = {}
                 for k, v in profiles.items():
@@ -1591,17 +1343,11 @@ class PromptCompilerUI:
                 "active_settings_profile": self.active_settings_profile,
                 "geometry": self.root.winfo_geometry(),
                 "selected_tab": selected_idx,
-                "command_palette_favorites": list(self.command_palette_favorites),
             }
-            original_env = os.environ.get(CONFIG_ENV_VAR)
             try:
-                os.environ[CONFIG_ENV_VAR] = str(self.config_path)
-                persist_palette_favorites(self.command_palette_favorites, base_config=payload)
-            finally:
-                if original_env is None:
-                    os.environ.pop(CONFIG_ENV_VAR, None)
-                else:
-                    os.environ[CONFIG_ENV_VAR] = original_env
+                self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
         except Exception:
             pass
 

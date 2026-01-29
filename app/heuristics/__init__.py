@@ -328,7 +328,17 @@ RISK_KEYWORDS = {
         r"medical",
         r"diagnosis",
         r"supplement",
-    ],
+        # Added missing TR keywords
+        r"ağrı",
+        r"semptom",
+        r"ilaç",
+        r"doktor",
+        r"hastane",
+        r"tedavi",
+        r"karnım",
+        r"midem",
+        r"başım",
+],
     "legal": [
         r"sözleşme",
         r"contract",
