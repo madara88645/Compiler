@@ -13,8 +13,8 @@ dependencies = [
 	"typer==0.21.1",
 	"click==8.3.1",
 	"jsonschema==4.26.0",
-	"rich==14.2.0",
-	"textual==7.0.1",
+	"rich==14.3.1",
+	"textual==7.4.0",
 	"pyyaml>=6.0",
 	"ttkbootstrap>=1.10.1"
 ]
@@ -42,7 +42,7 @@ dev = [
 	"pytest==9.0.2",
 	"pytest-cov>=5.0.0",
 	"build>=1.2.0",
-	"ruff==0.14.10",
+	"ruff==0.14.14",
 	"pre-commit==4.5.1",
 	"httpx<0.29",
 ]
