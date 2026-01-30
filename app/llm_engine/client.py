@@ -1,0 +1,138 @@
+import os
+from pathlib import Path
+from typing import Optional, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+# Load .env file if it exists (for API keys)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from openai import OpenAI, APIError
+from .schemas import WorkerResponse, QualityReport
+
+# Default settings
+DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_BASE_URL = "https://api.deepseek.com"
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
+COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
+
+# Timeouts
+HARD_TIMEOUT_SECONDS = 90  # Increased for DeepSeek latency
+COACH_TIMEOUT_SECONDS = 45
+
+class WorkerClient:
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or "missing_key"
+        self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or DEFAULT_BASE_URL
+        self.model = model
+        
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.system_prompt = self._load_prompt(WORKER_PROMPT_PATH)
+        self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
+        self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
+
+    def _load_prompt(self, path: Path) -> str:
+        if not path.exists():
+            return ""
+        return path.read_text(encoding="utf-8")
+
+    def _call_api(self, messages: list, max_tokens: int = 2048, json_mode: bool = True) -> str:
+        """Internal: Makes the actual API call."""
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+            
+        completion = self.client.chat.completions.create(**kwargs)
+        content = completion.choices[0].message.content
+        if not content:
+            raise ValueError("Empty response from DeepSeek")
+        return content
+
+    def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
+        """Compile user text into structured prompt components."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_text}
+        ]
+        
+        if context:
+            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
+            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self._call_api, messages)
+            try:
+                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"DeepSeek API did not respond within {HARD_TIMEOUT_SECONDS} seconds.")
+            except APIError as e:
+                raise RuntimeError(f"DeepSeek API failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"DeepSeek error: {e}") from e
+
+        return WorkerResponse.model_validate_json(content)
+
+    def analyze_prompt(self, user_text: str) -> QualityReport:
+        """Analyze prompt quality and return score/feedback."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.coach_prompt:
+            raise RuntimeError("Quality Coach prompt not found.")
+
+        messages = [
+            {"role": "system", "content": self.coach_prompt},
+            {"role": "user", "content": f"Analyze this prompt:\n\n{user_text}"}
+        ]
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self._call_api, messages, 1024)
+            try:
+                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Quality analysis timed out after {COACH_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Quality analysis error: {e}") from e
+
+        return QualityReport.model_validate_json(content)
+
+    def optimize_prompt(self, user_text: str) -> str:
+        """Optimize prompt for token usage directly via DeepSeek."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.optimizer_prompt:
+             # Fallback if file missing
+             self.optimizer_prompt = "You are a specialized Prompt Optimizer. Your goal is to reduce token usage by at least 20% while preserving the exact intent, core constraints, and variables. Remove fluff, conversational filler, and redundancy. Return ONLY the optimized prompt text."
+
+        messages = [
+            {"role": "system", "content": self.optimizer_prompt},
+            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"}
+        ]
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            # json_mode=False because we want raw text back
+            future = executor.submit(self._call_api, messages, 2048, json_mode=False)
+            try:
+                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Optimization timed out after {COACH_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Optimization error: {e}") from e
+
+        return content
