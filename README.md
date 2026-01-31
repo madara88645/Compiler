@@ -17,16 +17,15 @@ The engine now uses **DeepSeek-V3** to analyze your intent. It automatically gen
 - **User Prompts**: Structured and clear task definitions.
 - **Execution Plans**: Step-by-step logic for complex tasks.
 
-### 🎨 Modern UI
-A completely redesigned, distraction-free desktop interface:
-- **Clean Layout**: Focused purely on input and output.
-- **Live Mode**: Real-time feedback and generation as you type.
-- **Diagnostics**: Auto-detects risks, ambiguity, and missing context.
+### 🎨 Modern Web UI (New!)
+A premium Next.js 14 + TailwindCSS interface:
+- **Clean Layout**: A split-screen editor aimed at focus.
+- **DeepSeek Live Mode**: Auto-compiles your prompt as you type.
+- **Diagnostics**: Real-time health checks for your prompt structure.
+- **Dark Mode**: By default, because we are developers.
 
-### 📉 Token Optimization (New!)
-Save money and context window space. The **"Optimize"** feature uses AI to compress your prompt by **20-30%** without losing any meaning, logic, or variables.
-- view a **Diff** of changes before applying.
-- preserving code blocks and key constraints.
+### 📉 Token Optimization
+Save money and context window space. The **"Magic Optimize"** feature uses AI to compress your prompt by **20-30%** without losing any meaning, logic, or variables.
 
 ---
 
@@ -36,53 +35,59 @@ Save money and context window space. The **"Optimize"** feature uses AI to compr
    ```bash
    git clone https://github.com/madara88645/Compiler.git
    cd Compiler
+   # Install Backend
    pip install -r requirements.txt
+   # Install Frontend
+   cd web && npm install && cd ..
    ```
 
 2. **Setup API Key**:
    Create a `.env` file in the root directory:
    ```env
-   OPENAI_API_KEY=sk-your-key-here
+   OPENAI_API_KEY=sk-your-deepseek-key
    OPENAI_BASE_URL=https://api.deepseek.com
    ```
 
-3. **Run the UI**:
+3. **Run the App (One-Click)**:
+   Double-click `start_app.bat` (Windows).
+
+   *Or manually:*
    ```bash
-   python ui_desktop.py
+   # Terminal 1
+   python -m uvicorn api.main:app --reload --port 8080
+
+   # Terminal 2
+   cd web && npm run dev
    ```
 
 ---
 
 ## 🧩 Workflow
 
-1. **Type your idea** in the "Prompt" box.
+1. **Type your idea** in the "Input" box.
    * *Example: "Create a python script to scrape data from a website, handle errors, and save to CSV."*
-2. **Click "Generate"** (or use `Ctrl+Enter`).
-   * The system generates specific System and User prompts in seconds.
-3. **Review & Refine**:
-   * Check the **System Prompt** tab for the persona.
-   * Check the **Plan** tab for the logic.
-   * Use **"Optimize"** if the prompt feels too long.
-4. **Copy & Go**:
-   * Click "Copy" and paste it into your favorite LLM (ChatGPT, Claude, etc.).
+2. **Click "Generate"** or enable **Live Mode**.
+   * DeepSeek V3 will analyze your intent and produce a structured prompt.
+3. **Review**:
+   * **System**: The persona and constraints.
+   * **Plan**: The step-by-step logic.
+   * **Expanded**: The final combined prompt ready for use.
+4. **Copy**:
+   * Click the "Copy" icon in the output area.
 
 ---
 
 ## 📦 Project Structure
 
-* `app/llm_engine/`: **Core Logic**. Handles DeepSeek interaction (`client.py`) and prompt templates.
-* `ui_desktop.py`: **The Interface**. Tkinter-based modern GUI.
+* `web/`: **Frontend**. Next.js 14, React, TailwindCSS.
+* `api/`: **Backend**. FastAPI, Pydantic, Uvicorn.
+* `app/llm_engine/`: **Intelligence**. DeepSeek client, HybridCompiler.
+* `start_app.bat`: **Launcher**. Convenience script for dev environment.
 * `app/heuristics/`: **Safety Net**. Local algorithms for risk detection and offline analysis.
 
 ---
 
-## 🤝 Contributing
 
-This is the `feature/pruned-version` branch, focused on simplicity and performance.
-1. Fork the repo.
-2. Create your feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes.
-4. Open a Pull Request.
 
 ---
 *Built with ❤️ for Prompt Engineers.*

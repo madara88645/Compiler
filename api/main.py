@@ -28,11 +28,20 @@ from app.rag.simple_index import (
     prune as rag_prune,
 )
 from app.validator import validate_prompt
-from app.analytics import AnalyticsManager, create_record_from_ir
 from typing import List, Optional
 from pydantic import Field
 
 app = FastAPI(title="Prompt Compiler API")
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class CompileRequest(BaseModel):
@@ -173,34 +182,33 @@ async def compile_endpoint(req: CompileRequest):
     ir = optimize_ir(compile_text(req.text))
     elapsed = int((time.time() - t0) * 1000)
     trace_lines = generate_trace(ir) if req.trace else None
-    ir2 = compile_text_v2(req.text) if req.v2 else None
-    # Optional: render prompts with IR v2 emitters
+    
+    ir2 = None
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
+    
+    if req.v2:
+        from app.llm_engine.hybrid import HybridCompiler
+        # Instantiate HybridCompiler (could be cached globally in a real app)
+        compiler_v2 = HybridCompiler()
+        worker_res = compiler_v2.compile(req.text)
+        ir2 = worker_res.ir
+        
+        # If the worker returned optimized content directly (DeepSeek), use it
+        # Otherwise, fall back to rendering from IR (if worker failed or is heuristic)
+        if worker_res.optimized_content:
+             # If "optimized_content" is just one block, we might map it to "expanded_prompt"
+             # But HybridCompiler usually does IR-based generation.
+             # Let's rely on emitting from IR2 unless we want to bypass emitters.
+             pass
+
+    # Optional: render prompts with IR v2 emitters
     if req.render_v2_prompts and ir2 is not None:
         sys_v2 = emit_system_prompt_v2(ir2)
         user_v2 = emit_user_prompt_v2(ir2)
         plan_v2 = emit_plan_v2(ir2)
         exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
-    # Best-effort analytics capture (API) - opt-in via request
-    if req.record_analytics:
-        try:
-            analytics_ir = ir2.model_dump() if ir2 is not None else ir.model_dump()
-            record = create_record_from_ir(
-                req.text,
-                analytics_ir,
-                None,
-                interface_type="api",
-                user_level=(req.user_level or "intermediate").strip(),
-                task_type=(req.task_type or "general").strip(),
-                time_ms=elapsed,
-                iteration_count=1,
-                tags=req.tags or [],
-            )
-            AnalyticsManager().record_prompt(record)
-        except Exception:
-            # Never fail the request due to analytics.
-            pass
+
     return CompileResponse(
         ir=ir.model_dump(),
         ir_v2=(ir2.model_dump() if ir2 else None),
@@ -676,290 +684,3 @@ class AnalyticsRecordRequest(BaseModel):
     prompt_text: str
     run_validation: bool = True
 
-
-class AnalyticsRecordResponse(BaseModel):
-    record_id: int
-    validation_score: float
-    domain: str
-    language: str
-    issues_count: int
-
-
-class AnalyticsSummaryRequest(BaseModel):
-    days: int = 30
-    domain: Optional[str] = None
-    persona: Optional[str] = None
-
-
-class AnalyticsSummaryResponse(BaseModel):
-    total_prompts: int
-    avg_score: float
-    min_score: float
-    max_score: float
-    score_std: float
-    top_domains: List[tuple]
-    top_personas: List[tuple]
-    top_intents: List[tuple]
-    language_distribution: dict
-    avg_issues: float
-    avg_prompt_length: int
-    improvement_rate: float
-    most_improved_domain: Optional[str]
-
-
-class AnalyticsTrendsRequest(BaseModel):
-    days: int = 30
-
-
-class AnalyticsTrendsResponse(BaseModel):
-    trends: List[dict]
-
-
-class AnalyticsDomainsRequest(BaseModel):
-    days: int = 30
-
-
-class AnalyticsDomainsResponse(BaseModel):
-    domains: dict
-
-
-class AnalyticsStatsResponse(BaseModel):
-    total_records: int
-    overall_avg_score: float
-    first_record: Optional[str]
-    last_record: Optional[str]
-    database_path: str
-
-
-@app.post("/analytics/record", response_model=AnalyticsRecordResponse)
-async def analytics_record(req: AnalyticsRecordRequest):
-    """
-    Record a prompt compilation in analytics database
-    """
-    from app.compiler import compile_text_v2
-
-    # Compile prompt
-    ir = compile_text_v2(req.prompt_text)
-
-    # Validate if requested
-    validation_result = None
-    if req.run_validation:
-        validation_result = validate_prompt(ir, req.prompt_text)
-
-    # Create record
-    record = create_record_from_ir(
-        req.prompt_text,
-        ir.model_dump(),
-        validation_result,
-        interface_type="api",
-    )
-
-    # Save
-    manager = AnalyticsManager()
-    record_id = manager.record_prompt(record)
-
-    return AnalyticsRecordResponse(
-        record_id=record_id,
-        validation_score=record.validation_score,
-        domain=record.domain,
-        language=record.language,
-        issues_count=record.issues_count,
-    )
-
-
-@app.post("/analytics/summary", response_model=AnalyticsSummaryResponse)
-async def analytics_summary(req: AnalyticsSummaryRequest):
-    """
-    Get analytics summary for a time period
-    """
-    manager = AnalyticsManager()
-    summary = manager.get_summary(days=req.days, domain=req.domain, persona=req.persona)
-
-    return AnalyticsSummaryResponse(
-        total_prompts=summary.total_prompts,
-        avg_score=summary.avg_score,
-        min_score=summary.min_score,
-        max_score=summary.max_score,
-        score_std=summary.score_std,
-        top_domains=summary.top_domains,
-        top_personas=summary.top_personas,
-        top_intents=summary.top_intents,
-        language_distribution=summary.language_distribution,
-        avg_issues=summary.avg_issues,
-        avg_prompt_length=summary.avg_prompt_length,
-        improvement_rate=summary.improvement_rate,
-        most_improved_domain=summary.most_improved_domain,
-    )
-
-
-@app.post("/analytics/trends", response_model=AnalyticsTrendsResponse)
-async def analytics_trends(req: AnalyticsTrendsRequest):
-    """
-    Get score trends over time
-    """
-    manager = AnalyticsManager()
-    trends = manager.get_score_trends(days=req.days)
-
-    return AnalyticsTrendsResponse(trends=trends)
-
-
-@app.post("/analytics/domains", response_model=AnalyticsDomainsResponse)
-async def analytics_domains(req: AnalyticsDomainsRequest):
-    """
-    Get domain breakdown and statistics
-    """
-    manager = AnalyticsManager()
-    domains = manager.get_domain_breakdown(days=req.days)
-
-    return AnalyticsDomainsResponse(domains=domains)
-
-
-@app.get("/analytics/stats", response_model=AnalyticsStatsResponse)
-async def analytics_stats():
-    """
-    Get overall database statistics
-    """
-    manager = AnalyticsManager()
-    stats = manager.get_stats()
-
-    return AnalyticsStatsResponse(
-        total_records=stats["total_records"],
-        overall_avg_score=stats["overall_avg_score"],
-        first_record=stats["first_record"],
-        last_record=stats["last_record"],
-        database_path=stats["database_path"],
-    )
-
-
-# ============================================================================
-# Export/Import Endpoints
-# ============================================================================
-
-
-class ExportRequest(BaseModel):
-    data_type: str = Field(
-        default="both", description="Data to export: analytics, history, or both"
-    )
-    format: str = Field(default="json", description="Export format: json, csv, or yaml")
-    start_date: Optional[str] = Field(default=None, description="Start date filter (ISO format)")
-    end_date: Optional[str] = Field(default=None, description="End date filter (ISO format)")
-
-
-class ExportResponse(BaseModel):
-    success: bool
-    format: str
-    data_type: str
-    analytics_count: int
-    history_count: int
-    export_date: str
-    data: dict
-
-
-class ImportRequest(BaseModel):
-    data: dict
-    data_type: str = Field(
-        default="both", description="Data to import: analytics, history, or both"
-    )
-    merge: bool = Field(default=True, description="Merge with existing data or replace")
-
-
-class ImportResponse(BaseModel):
-    success: bool
-    format: str
-    merge_mode: bool
-    analytics_imported: int
-    history_imported: int
-
-
-@app.post("/export", response_model=ExportResponse)
-async def export_data(req: ExportRequest):
-    """
-    Export analytics and/or history data
-
-    This endpoint generates export data in memory and returns it.
-    For file exports, use the CLI commands.
-    """
-    from app.export_import import get_export_import_manager
-    import tempfile
-
-    manager = get_export_import_manager()
-
-    # Create temporary file for export
-    with tempfile.NamedTemporaryFile(mode="w", suffix=f".{req.format}", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-
-    try:
-        result = manager.export_data(
-            output_file=tmp_path,
-            data_type=req.data_type,  # type: ignore
-            format=req.format,  # type: ignore
-            start_date=req.start_date,
-            end_date=req.end_date,
-        )
-
-        # Read the exported data
-        import json
-
-        if req.format == "json":
-            with open(tmp_path) as f:
-                export_data = json.load(f)
-        elif req.format == "yaml":
-            import yaml
-
-            with open(tmp_path) as f:
-                export_data = yaml.safe_load(f)
-        else:
-            # For CSV, return metadata only
-            export_data = {"note": "CSV format not supported for API export, use CLI"}
-
-        return ExportResponse(
-            success=True,
-            format=result["format"],
-            data_type=result["data_type"],
-            analytics_count=result["analytics_count"],
-            history_count=result["history_count"],
-            export_date=result["export_date"],
-            data=export_data,
-        )
-    finally:
-        # Cleanup temp file
-        if tmp_path.exists():
-            tmp_path.unlink()
-
-
-@app.post("/import", response_model=ImportResponse)
-async def import_data(req: ImportRequest):
-    """
-    Import analytics and/or history data
-
-    Send exported data structure to import it into the system.
-    """
-    from app.export_import import get_export_import_manager
-    import tempfile
-    import json
-
-    manager = get_export_import_manager()
-
-    # Create temporary file for import
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-        json.dump(req.data, tmp)
-        tmp_path = Path(tmp.name)
-
-    try:
-        result = manager.import_data(
-            input_file=tmp_path,
-            data_type=req.data_type,
-            merge=req.merge,  # type: ignore
-        )
-
-        return ImportResponse(
-            success=True,
-            format=result["format"],
-            merge_mode=result["merge_mode"],
-            analytics_imported=result["analytics_imported"],
-            history_imported=result["history_imported"],
-        )
-    finally:
-        # Cleanup temp file
-        if tmp_path.exists():
-            tmp_path.unlink()

@@ -40,12 +40,12 @@ class WorkerClient:
             return ""
         return path.read_text(encoding="utf-8")
 
-    def _call_api(self, messages: list, max_tokens: int = 2048, json_mode: bool = True) -> str:
+    def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "temperature": 0.2,
+            "temperature": 0.2,  # Low temp for deterministic structure
             "max_tokens": max_tokens,
         }
         if json_mode:
@@ -72,7 +72,8 @@ class WorkerClient:
             messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self._call_api, messages)
+            # Increased max tokens to prevent JSON truncation (reliability > speed cap)
+            future = executor.submit(self._call_api, messages, max_tokens=3000)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
             except FuturesTimeoutError:
@@ -83,7 +84,21 @@ class WorkerClient:
             except Exception as e:
                 raise RuntimeError(f"DeepSeek error: {e}") from e
 
-        return WorkerResponse.model_validate_json(content)
+        response = WorkerResponse.model_validate_json(content)
+        
+        # Auto-construct optimized_content (Expanded Prompt) if missing
+        # This saves the LLM from generating redundant text
+        if not response.optimized_content or len(response.optimized_content) < 50:
+            parts = []
+            if response.system_prompt:
+                parts.append(response.system_prompt)
+            if response.user_prompt:
+                parts.append(response.user_prompt)
+            if response.plan:
+                parts.append(response.plan)
+            response.optimized_content = "\n\n---\n\n".join(parts)
+            
+        return response
 
     def analyze_prompt(self, user_text: str) -> QualityReport:
         """Analyze prompt quality and return score/feedback."""

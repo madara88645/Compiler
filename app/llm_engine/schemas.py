@@ -22,7 +22,7 @@ class WorkerResponse(BaseModel):
     ir: IRv2 = Field(..., description="Structured IR of the prompt")
     diagnostics: List[DiagnosticItem] = Field(default_factory=list)
     thought_process: str = Field(default="", description="Chain-of-thought reasoning")
-    optimized_content: str = Field(default="", description="Expanded prompt (legacy)")
+    optimized_content: str = Field(default="", description="Expanded prompt (legacy or auto-generated)")
     
     # NEW: Direct prompt outputs (DeepSeek generates these)
     system_prompt: str = Field(default="", description="Ready-to-use system prompt")

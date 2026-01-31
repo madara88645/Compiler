@@ -41,8 +41,7 @@ Return ONLY valid JSON (no markdown code blocks):
   ],
   "system_prompt": "# Role: Expert Assistant\n\nYou are a [role]. Your task is to...\n\n## Guidelines\n- Constraint 1\n- Constraint 2\n\n## Output Format\n...",
   "user_prompt": "The refined, clear version of what the user asked for.",
-  "plan": "## Approach\n1. First, do X\n2. Then, do Y\n3. Finally, Z",
-  "optimized_content": "Full expanded mega-prompt combining everything above"
+  "plan": "## Approach\n1. First, do X\n2. Then, do Y\n3. Finally, Z"
 }
 ```
 
