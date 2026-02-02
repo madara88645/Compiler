@@ -14,7 +14,6 @@ Return ONLY valid JSON (no markdown code blocks):
 
 ```json
 {
-  "thought_process": "Brief reasoning about the user's request...",
   "ir": {
     "version": "2.0",
     "language": "en",

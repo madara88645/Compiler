@@ -35,9 +35,19 @@ class WorkerResponse(BaseModel):
 class QualityReport(BaseModel):
     """Quality Coach analysis result from DeepSeek."""
     score: int = Field(default=50, ge=0, le=100, description="Overall quality score 0-100")
+    category_scores: dict = Field(default_factory=lambda: {"clarity": 0, "specificity": 0, "completeness": 0, "consistency": 0}, description="Score breakdown by category")
     strengths: List[str] = Field(default_factory=list, description="What's good about the prompt")
     weaknesses: List[str] = Field(default_factory=list, description="What needs improvement")
     suggestions: List[str] = Field(default_factory=list, description="Actionable improvements")
     summary: str = Field(default="", description="Brief overall assessment")
     
+    model_config = ConfigDict(extra="ignore")
+
+
+class LLMFixResponse(BaseModel):
+    """Auto-fix result from DeepSeek Editor."""
+    fixed_text: str = Field(..., description="The improved prompt text")
+    explanation: str = Field(default="", description="What changed and why")
+    changes: List[str] = Field(default_factory=list, description="List of specific changes applied")
+
     model_config = ConfigDict(extra="ignore")

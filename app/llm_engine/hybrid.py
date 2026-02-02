@@ -4,9 +4,13 @@ from .schemas import DiagnosticItem
 from app.compiler import compile_text_v2
 from app.models_v2 import IRv2
 
+from cachetools import TTLCache
+
 class HybridCompiler:
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.worker = WorkerClient(api_key=api_key, base_url=base_url, model=model)
+        # Cache: 100 items, expires in 1 hour
+        self.cache = TTLCache(maxsize=100, ttl=3600)
 
     def compile(self, text: str) -> WorkerResponse:
         """
@@ -15,12 +19,17 @@ class HybridCompiler:
         """
         # 1. Fast Checks (Heuristic Guardrails)
         if not text or not text.strip():
-            # Let the heuristic engine handle empty text logic or return a default
             return self._fallback(text, "Input was empty")
+            
+        # 2. Check Cache
+        if text in self.cache:
+            return self.cache[text]
 
-        # 2. Worker LLM (Slow but Smart)
+        # 3. Worker LLM (Slow but Smart)
         try:
-            return self.worker.process(text)
+            res = self.worker.process(text)
+            self.cache[text] = res
+            return res
         except Exception as e:
             # Log error (in a real app)
             # print(f"Worker LLM failed: {e}")

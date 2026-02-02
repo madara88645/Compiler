@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 from openai import OpenAI, APIError
-from .schemas import WorkerResponse, QualityReport
+from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 
 # Default settings
 DEFAULT_MODEL = "deepseek-chat"
@@ -21,8 +21,8 @@ WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 
 # Timeouts
-HARD_TIMEOUT_SECONDS = 90  # Increased for DeepSeek latency
-COACH_TIMEOUT_SECONDS = 45
+HARD_TIMEOUT_SECONDS = 180  # Increased for DeepSeek latency (3 mins)
+COACH_TIMEOUT_SECONDS = 120 # Quality Coach can also be slow
 
 class WorkerClient:
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
@@ -30,10 +30,16 @@ class WorkerClient:
         self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or DEFAULT_BASE_URL
         self.model = model
         
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        # Explicit timeout for the HTTP client
+        self.client = OpenAI(
+            api_key=self.api_key, 
+            base_url=self.base_url,
+            timeout=HARD_TIMEOUT_SECONDS  # Pass timeout to underlying httpx client
+        )
         self.system_prompt = self._load_prompt(WORKER_PROMPT_PATH)
         self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
         self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
+        self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
 
     def _load_prompt(self, path: Path) -> str:
         if not path.exists():
@@ -42,6 +48,9 @@ class WorkerClient:
 
     def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
+        print(f"[DEBUG] Connecting to DeepSeek (Base URL: {self.base_url})...")
+        print(f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}")
+        
         kwargs = {
             "model": self.model,
             "messages": messages,
@@ -51,11 +60,17 @@ class WorkerClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
             
-        completion = self.client.chat.completions.create(**kwargs)
-        content = completion.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from DeepSeek")
-        return content
+        try:
+            print("[DEBUG] Sending request...")
+            completion = self.client.chat.completions.create(**kwargs)
+            content = completion.choices[0].message.content
+            print(f"[DEBUG] Received response ({len(content)} types)")
+            if not content:
+                raise ValueError("Empty response from DeepSeek")
+            return content
+        except Exception as e:
+            print(f"[DEBUG] API CALL FAILED: {e}")
+            raise e
 
     def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
         """Compile user text into structured prompt components."""
@@ -71,7 +86,7 @@ class WorkerClient:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
             messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             # Increased max tokens to prevent JSON truncation (reliability > speed cap)
             future = executor.submit(self._call_api, messages, max_tokens=3000)
             try:
@@ -113,7 +128,7 @@ class WorkerClient:
             {"role": "user", "content": f"Analyze this prompt:\n\n{user_text}"}
         ]
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             future = executor.submit(self._call_api, messages, 1024)
             try:
                 content = future.result(timeout=COACH_TIMEOUT_SECONDS)
@@ -139,7 +154,7 @@ class WorkerClient:
             {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"}
         ]
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want raw text back
             future = executor.submit(self._call_api, messages, 2048, json_mode=False)
             try:
@@ -151,3 +166,28 @@ class WorkerClient:
                 raise RuntimeError(f"Optimization error: {e}") from e
 
         return content
+
+    def fix_prompt(self, user_text: str) -> LLMFixResponse:
+        """Auto-fix prompt using DeepSeek Editor."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.editor_prompt:
+             self.editor_prompt = "You are an expert editor. Rewrite this prompt to be better. Return JSON: {fixed_text, explanation, changes}"
+
+        messages = [
+            {"role": "system", "content": self.editor_prompt},
+            {"role": "user", "content": f"Fix this prompt:\n\n{user_text}"}
+        ]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future = executor.submit(self._call_api, messages, 1500)
+            try:
+                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Auto-fix timed out after {COACH_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Auto-fix error: {e}") from e
+
+        return LLMFixResponse.model_validate_json(content)

@@ -22,6 +22,12 @@ Return ONLY valid JSON (no markdown):
 ```json
 {
   "score": 75,
+  "category_scores": {
+    "clarity": 80,
+    "specificity": 70,
+    "completeness": 60,
+    "consistency": 90
+  },
   "strengths": [
     "Clear main objective",
     "Specifies target audience"
@@ -35,7 +41,7 @@ Return ONLY valid JSON (no markdown):
     "Specify desired response length",
     "Include example of expected output"
   ],
-  "summary": "A good prompt with clear intent but could benefit from more specific constraints and output formatting instructions."
+  "summary": "A good prompt with clear intent but could benefit from more specific constraints and instructions."
 }
 ```
 

@@ -1,9 +1,13 @@
 from __future__ import annotations
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from pathlib import Path
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
+from app.llm_engine.schemas import QualityReport, LLMFixResponse
+
+# Global Hybrid Compiler Instance (Lazy Load)
+hybrid_compiler = None
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
 import uuid
@@ -37,11 +41,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    global hybrid_compiler
+    from app.llm_engine.hybrid import HybridCompiler
+    hybrid_compiler = HybridCompiler()
+    print(f"[BACKEND] HybridCompiler initialized (v{get_build_info()['version']})")
 
 
 class CompileRequest(BaseModel):
@@ -175,39 +187,40 @@ async def version():
 
 
 @app.post("/compile", response_model=CompileResponse)
-async def compile_endpoint(req: CompileRequest):
+def compile_endpoint(req: CompileRequest):
+    """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
-    # Always produce v1 for backward compatibility; use v2 by default for clients
+
+    # Always compute V1 heuristic IR for backward compatibility
     ir = optimize_ir(compile_text(req.text))
-    elapsed = int((time.time() - t0) * 1000)
     trace_lines = generate_trace(ir) if req.trace else None
-    
+
     ir2 = None
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
-    
     if req.v2:
-        from app.llm_engine.hybrid import HybridCompiler
-        # Instantiate HybridCompiler (could be cached globally in a real app)
-        compiler_v2 = HybridCompiler()
-        worker_res = compiler_v2.compile(req.text)
+        # Use global HybridCompiler (initialized at startup)
+        worker_res = hybrid_compiler.compile(req.text)
         ir2 = worker_res.ir
         
-        # If the worker returned optimized content directly (DeepSeek), use it
-        # Otherwise, fall back to rendering from IR (if worker failed or is heuristic)
+        # Use DeepSeek's direct outputs if available
+        if worker_res.system_prompt:
+            sys_v2 = worker_res.system_prompt
+        if worker_res.user_prompt:
+            user_v2 = worker_res.user_prompt
+        if worker_res.plan:
+            plan_v2 = worker_res.plan
         if worker_res.optimized_content:
-             # If "optimized_content" is just one block, we might map it to "expanded_prompt"
-             # But HybridCompiler usually does IR-based generation.
-             # Let's rely on emitting from IR2 unless we want to bypass emitters.
-             pass
+            exp_v2 = worker_res.optimized_content
 
-    # Optional: render prompts with IR v2 emitters
+    # Optional: render prompts with IR v2 emitters (fallback if DeepSeek didn't provide)
     if req.render_v2_prompts and ir2 is not None:
-        sys_v2 = emit_system_prompt_v2(ir2)
-        user_v2 = emit_user_prompt_v2(ir2)
-        plan_v2 = emit_plan_v2(ir2)
-        exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+        sys_v2 = sys_v2 or emit_system_prompt_v2(ir2)
+        user_v2 = user_v2 or emit_user_prompt_v2(ir2)
+        plan_v2 = plan_v2 or emit_plan_v2(ir2)
+        exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
+    elapsed = int((time.time() - t0) * 1000)
 
     return CompileResponse(
         ir=ir.model_dump(),
@@ -484,48 +497,20 @@ async def rag_prune_endpoint(req: RagPruneRequest):
     return RagPruneResponse(**r)
 
 
-# Validation endpoint
 class ValidateRequest(BaseModel):
     text: str
     include_suggestions: bool = Field(default=True, description="Include improvement suggestions")
     include_strengths: bool = Field(default=True, description="Include identified strengths")
 
 
-class ValidateResponse(BaseModel):
-    score: dict
-    issues: List[dict]
-    strengths: List[str]
-    summary: dict
-
-
-@app.post("/validate", response_model=ValidateResponse)
-async def validate_endpoint(req: ValidateRequest):
-    """Validate a prompt and return quality score with suggestions.
-
-    Returns:
-        - score: Quality breakdown (total, clarity, specificity, completeness, consistency)
-        - issues: List of validation issues with suggestions
-        - strengths: Identified strong points
-        - summary: Counts by severity (errors, warnings, info)
-    """
-    # Compile to IR v2
-    ir2 = compile_text_v2(req.text)
-
-    # Validate
-    result = validate_prompt(ir2, original_text=req.text)
-
-    # Convert to response format
-    response_dict = result.to_dict()
-
-    # Filter based on request options
-    if not req.include_suggestions:
-        for issue in response_dict["issues"]:
-            issue.pop("suggestion", None)
-
-    if not req.include_strengths:
-        response_dict["strengths"] = []
-
-    return ValidateResponse(**response_dict)
+@app.post("/validate", response_model=QualityReport)
+def validate_endpoint(req: ValidateRequest):
+    """Validate a prompt using DeepSeek Quality Coach."""
+    try:
+        report = hybrid_compiler.worker.analyze_prompt(req.text)
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # -------------------------
@@ -541,55 +526,14 @@ class AutoFixRequest(BaseModel):
     )
 
 
-class FixDetail(BaseModel):
-    type: str
-    description: str
-    confidence: float
-
-
-class AutoFixResponse(BaseModel):
-    original_text: str
-    fixed_text: str
-    original_score: float
-    fixed_score: float
-    improvement: float
-    fixes_applied: List[FixDetail]
-    remaining_issues: int
-
-
-@app.post("/fix", response_model=AutoFixResponse)
-async def fix_endpoint(req: AutoFixRequest):
-    """Automatically fix prompt based on validation issues.
-
-    Returns:
-        - original_text: Input prompt
-        - fixed_text: Improved prompt
-        - original_score: Score before fixes
-        - fixed_score: Score after fixes
-        - improvement: Score delta
-        - fixes_applied: List of applied fixes
-        - remaining_issues: Number of unresolved issues
-    """
-    from app.autofix import auto_fix_prompt
-
-    result = auto_fix_prompt(req.text, max_fixes=req.max_fixes, min_score_target=req.target_score)
-
-    return AutoFixResponse(
-        original_text=result.original_text,
-        fixed_text=result.fixed_text,
-        original_score=round(result.original_score, 1),
-        fixed_score=round(result.fixed_score, 1),
-        improvement=round(result.improvement, 1),
-        fixes_applied=[
-            FixDetail(
-                type=fix.fix_type,
-                description=fix.description,
-                confidence=round(fix.confidence, 2),
-            )
-            for fix in result.fixes_applied
-        ],
-        remaining_issues=result.remaining_issues,
-    )
+@app.post("/fix", response_model=LLMFixResponse)
+def fix_endpoint(req: AutoFixRequest):
+    """Automatically fix prompt using DeepSeek Editor."""
+    try:
+        result = hybrid_compiler.worker.fix_prompt(req.text)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ===== Compare Endpoint =====
@@ -674,6 +618,60 @@ async def compare_endpoint(req: CompareRequest):
         },
     )
 
+
+# ============================================================================
+# RAG / Context Endpoints
+# ============================================================================
+
+class IngestRequest(BaseModel):
+    paths: List[str] = Field(..., description="List of file paths or directories to ingest")
+    force: bool = False
+
+class IngestResponse(BaseModel):
+    num_files: int
+    num_chunks: int
+    errors: List[str]
+
+@app.post("/rag/ingest", response_model=IngestResponse)
+async def ingest_endpoint(req: IngestRequest):
+    """Ingest files into the RAG index."""
+    try:
+        # Resolve paths relative to user home or current dir if needed
+        # For security, we might want to restrict this, but for local tool it's fine.
+        count, chunks, errors = ingest_paths(req.paths, force_reindex=req.force)
+        return IngestResponse(num_files=count, num_chunks=chunks, errors=errors)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+    method: str = "hybrid"  # keyword, vector, hybrid
+
+class SearchResult(BaseModel):
+    content: str
+    source: str
+    score: float
+
+@app.post("/rag/search", response_model=List[SearchResult])
+async def search_endpoint(req: SearchRequest):
+    """Search the RAG index."""
+    try:
+        if req.method == "vector":
+            results = rag_search_embed(req.query, k=req.limit)
+        elif req.method == "keyword":
+            results = rag_search(req.query, k=req.limit)
+        else:
+            results = rag_search_hybrid(req.query, k=req.limit)
+            
+        return [
+            SearchResult(content=r.content, source=r.metadata.get("source", "unknown"), score=r.score)
+            for r in results
+        ]
+    except Exception as e:
+        # If index doesn't exist yet
+        print(f"RAG Search failed: {e}")
+        return []
 
 # ============================================================================
 # Analytics Endpoints
