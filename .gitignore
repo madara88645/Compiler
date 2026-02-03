@@ -25,3 +25,7 @@ out/
 env/
 venv/
 ENV/
+
+# Secrets
+.env
+.env.*

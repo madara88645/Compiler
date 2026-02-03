@@ -13,16 +13,16 @@ except ImportError:
 from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 
-# Default settings
-DEFAULT_MODEL = "deepseek-chat"
-DEFAULT_BASE_URL = "https://api.deepseek.com"
+# Default settings - Groq (much faster than DeepSeek)
+DEFAULT_MODEL = "llama-3.1-8b-instant"  # Fast and cheap
+DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 
-# Timeouts
-HARD_TIMEOUT_SECONDS = 180  # Increased for DeepSeek latency (3 mins)
-COACH_TIMEOUT_SECONDS = 120 # Quality Coach can also be slow
+# Timeouts - Much shorter for Groq (300+ tok/s)
+HARD_TIMEOUT_SECONDS = 30  # Groq responds in seconds, not minutes
+COACH_TIMEOUT_SECONDS = 20
 
 class WorkerClient:
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
