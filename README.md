@@ -42,9 +42,15 @@ Save money and context window space. The **"Magic Optimize"** feature uses AI to
    ```
 
 2. **Setup API Key**:
-   Create a `.env` file in the root directory:
+   Copy the example environment file and add your API key:
+   ```bash
+   cp .env.example .env
+   ```
+   Then edit `.env` and replace `sk-your-deepseek-key-here` with your actual DeepSeek API key.
+   
+   Optional: Add the DeepSeek base URL if needed:
    ```env
-   OPENAI_API_KEY=sk-your-deepseek-key
+   OPENAI_API_KEY=sk-your-actual-key
    OPENAI_BASE_URL=https://api.deepseek.com
    ```
 
