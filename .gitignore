@@ -25,3 +25,7 @@ out/
 env/
 venv/
 ENV/
+
+# Environment variables with secrets
+.env
+.env.local
