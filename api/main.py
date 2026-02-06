@@ -196,22 +196,39 @@ def compile_endpoint(req: CompileRequest):
     ir = optimize_ir(compile_text(req.text))
     trace_lines = generate_trace(ir) if req.trace else None
 
-    ir2 = None
+    # Always run V2 Heuristics (Logic, Structure, etc.) locally
+    # this provides advanced features even in Offline Mode
+    ir2 = compile_text_v2(req.text)
+
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
+    
     if req.v2:
-        # Use global HybridCompiler (initialized at startup)
-        worker_res = hybrid_compiler.compile(req.text)
-        ir2 = worker_res.ir
-        
-        # Use DeepSeek's direct outputs if available
-        if worker_res.system_prompt:
-            sys_v2 = worker_res.system_prompt
-        if worker_res.user_prompt:
-            user_v2 = worker_res.user_prompt
-        if worker_res.plan:
-            plan_v2 = worker_res.plan
-        if worker_res.optimized_content:
-            exp_v2 = worker_res.optimized_content
+        # Online Mode: Use HybridCompiler (LLM)
+        # hybrid_compiler.compile likely calls the LLM worker
+        try:
+             worker_res = hybrid_compiler.compile(req.text)
+             # Merge LLM results into ir2 or replace? 
+             # HybridCompiler usually returns its own IR. Let's rely on it for Online.
+             ir2 = worker_res.ir
+             
+             if worker_res.system_prompt:
+                 sys_v2 = worker_res.system_prompt
+             if worker_res.user_prompt:
+                 user_v2 = worker_res.user_prompt
+             if worker_res.plan:
+                 plan_v2 = worker_res.plan
+             if worker_res.optimized_content:
+                 exp_v2 = worker_res.optimized_content
+        except Exception as e:
+             # Fallback to local V2 if LLM fails
+             print(f"LLM Failed, falling back to local V2: {e}")
+             pass
+    else:
+        # Offline Mode: Use Structure Engine output as the "Expanded Prompt"
+        if "structured_view" in ir2.metadata:
+            exp_v2 = ir2.metadata["structured_view"]
+            sys_v2 = "Offline Mode - Heuristic V2"
+            plan_v2 = "Logical Analysis & Formatting Applied."
 
     # Optional: render prompts with IR v2 emitters (fallback if DeepSeek didn't provide)
     if req.render_v2_prompts and ir2 is not None:

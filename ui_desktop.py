@@ -32,6 +32,7 @@ from app.llm_engine.hybrid import HybridCompiler
 from app.ui.live import LiveModeManager
 from app.llm_engine.hybrid import HybridCompiler
 from app.llm_engine.schemas import WorkerResponse
+from app.heuristics.linter import PromptLinter
 from app.compiler import (
     compile_text_v2, 
     optimize_ir, 
@@ -153,6 +154,8 @@ class PromptCompilerUI:
         # Settings file (per-user)
         self.config_path = get_ui_config_path()
         self.rag_history_store = RAGHistoryStore()
+        self.linter = PromptLinter()
+        self.linter_after_id = None
         self.context_presets_store = ContextPresetStore()
         self.context_preset_menu = None
         self.settings_profiles: dict[str, dict[str, object]] = {}
@@ -253,7 +256,30 @@ class PromptCompilerUI:
 
         # Prompt stats (chars/words)
         self.prompt_stats_var = tk.StringVar(value="")
-        ttk.Label(top, textvariable=self.prompt_stats_var, foreground="#666").pack(anchor=tk.W)
+        stats_frame = ttk.Frame(top)
+        stats_frame.pack(fill=tk.X)
+        ttk.Label(stats_frame, textvariable=self.prompt_stats_var, foreground="#666").pack(side=tk.LEFT)
+
+        # --- Linter UI ---
+        self.linter_frame = ttk.Frame(stats_frame)
+        self.linter_frame.pack(side=tk.RIGHT)
+        
+        self.lbl_ambiguity = ttk.Label(self.linter_frame, text="Ambiguity: —", font=("", 9))
+        self.lbl_ambiguity.pack(side=tk.LEFT, padx=8)
+        
+        self.lbl_density = ttk.Label(self.linter_frame, text="Density: —", font=("", 9))
+        self.lbl_density.pack(side=tk.LEFT, padx=8)
+        
+        self.lbl_safety = ttk.Label(self.linter_frame, text="Safety: OK", font=("", 9))
+        self.lbl_safety.pack(side=tk.LEFT, padx=8)
+
+        # Linter Warnings Label
+        self.lbl_linter_warn = ttk.Label(top, text="", foreground="#d97706", font=("", 9), wraplength=700)
+        self.lbl_linter_warn.pack(fill=tk.X, anchor=tk.W, pady=(2,0))
+
+        # Bind event
+        self.txt_prompt.bind("<KeyRelease>", self._on_prompt_change)
+        # -----------------
 
         # Context (optional)
         ctx_row = ttk.Frame(top)
@@ -3849,6 +3875,61 @@ class PromptCompilerUI:
             except Exception:
                 # If DND not available, add file open button as fallback
                 pass
+
+    def _on_prompt_change(self, event=None):
+        """Handle prompt text changes."""
+        self._update_prompt_stats()
+        
+        # Debounce linter
+        if self.linter_after_id:
+            self.root.after_cancel(self.linter_after_id)
+        self.linter_after_id = self.root.after(300, self._run_linter)
+
+    def _run_linter(self):
+        """Run the prompt linter and update UI."""
+        text = self.txt_prompt.get("1.0", tk.END).strip()
+        if not text:
+            self.lbl_ambiguity.config(text="Ambiguity: —", foreground="")
+            self.lbl_density.config(text="Density: —", foreground="")
+            self.lbl_safety.config(text="Safety: OK", foreground="")
+            self.lbl_linter_warn.config(text="")
+            return
+
+        try:
+            report = self.linter.lint(text)
+            
+            # Ambiguity
+            amb_val = int(report.ambiguity_score * 100)
+            if report.ambiguity_score < 0.05:
+                self.lbl_ambiguity.config(text=f"Ambiguity: {amb_val}%", foreground="green")
+            else:
+                self.lbl_ambiguity.config(text=f"Ambiguity: {amb_val}%", foreground="#d97706") # Orange/Red
+            
+            # Density
+            den_val = int(report.density_score * 100)
+            if report.density_score >= 0.3:
+                self.lbl_density.config(text=f"Density: {den_val}%", foreground="green")
+            elif den_val == 0 and len(text) < 10:
+                 self.lbl_density.config(text="Density: —", foreground="")
+            else:
+                self.lbl_density.config(text=f"Density: {den_val}%", foreground="#d97706")
+            
+            # Safety
+            if report.safety_flags:
+                self.lbl_safety.config(text=f"Safety: {len(report.safety_flags)} FLAG(S)", foreground="red")
+            else:
+                self.lbl_safety.config(text="Safety: OK", foreground="green")
+                
+            # Warnings
+            if report.warnings:
+                warn_text = " • ".join([w.message for w in report.warnings[:2]])
+                if len(report.warnings) > 2:
+                    warn_text += f" (+{len(report.warnings)-2} more)"
+                self.lbl_linter_warn.config(text=warn_text)
+            else:
+                self.lbl_linter_warn.config(text="")
+        except Exception as e:
+            pass
 
     def _parse_drop_data(self, data: str) -> list:
         """Parse dropped file data into list of file paths."""

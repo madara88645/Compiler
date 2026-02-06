@@ -39,6 +39,8 @@ from .heuristics.handlers.risk import RiskHandler
 from .heuristics.handlers.teaching import TeachingHandler
 from .heuristics.handlers.debug import LiveDebugHandler
 from .heuristics.handlers.constraints import ConstraintHandler
+from .heuristics.handlers.logic import LogicHandler
+from .heuristics.handlers.structure import StructureHandler
 
 
 GENERIC_GOAL = {
@@ -171,10 +173,18 @@ def compile_text_v2(text: str) -> IRv2:
         TeachingHandler(),
         LiveDebugHandler(),
         ConstraintHandler(),
+        LogicHandler(),
     ]
 
     for handler in handlers:
         handler.handle(ir2, ir1)
+
+    # Structure Engine Integration (Process Output)
+    # Use StructureHandler to create a high-quality "DeepSpec" formatted prompt
+    # storing it in metadata for downstream usage (e.g. offline expanded prompt)
+    structure_engine = StructureHandler()
+    structured_prompt = structure_engine.process(text)
+    ir2.metadata["structured_view"] = structured_prompt
 
     plugin_ctx = PluginContext(
         text=text,

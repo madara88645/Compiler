@@ -79,8 +79,11 @@ class StructureHandler:
         # Split by sentence boundaries (rough heuristic: period followed by space or newline)
         # We replace newlines with a special marker or just treat them as separators
         # Let's split by regex that handles newlines OR sentence endings
-        import re
-        parts = re.split(r'(?<=[.!?])\s+', text)
+        # Normalize newlines and split by sentence
+        clean_text = text.replace("\r\n", "\n").replace("\n", " ")
+        # Insert break markers
+        marked = re.sub(r'([.!?])\s+', r'\1|||', clean_text)
+        parts = marked.split("|||")
         
         current_bucket = "Task" # Default bucket
         
