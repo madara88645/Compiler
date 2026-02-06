@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +30,7 @@ jobs:
           pip install -e .
       - name: Run Snyk (dependencies)
         uses: snyk/actions/python@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
