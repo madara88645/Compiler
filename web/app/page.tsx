@@ -22,9 +22,9 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompileResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "quality">("system");
-  const [liveMode, setLiveMode] = useState(false);
-  const [diagnostics, setDiagnostics] = useState(false);
+  const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "json" | "quality">("system");
+  const [liveMode, setLiveMode] = useState(true);
+  const [diagnostics, setDiagnostics] = useState(true);
   const [status, setStatus] = useState("Ready");
   const [debouncedPrompt, setDebouncedPrompt] = useState("");
 
@@ -61,10 +61,10 @@ export default function Home() {
         if (resV1.ok) {
           const dataV1 = await resV1.json();
           setResult(dataV1);
-          setStatus("Reasoning with DeepSeek...");
+          setStatus("Reasoning with Advanced AI...");
         }
       } else {
-        setStatus("DeepSeek Thinking...");
+        setStatus("AI Thinking...");
       }
 
       // Step B: Slow V2 Request (DeepSeek)
@@ -88,7 +88,7 @@ export default function Home() {
         setStatus(`Done in ${dataV2.processing_ms}ms`);
       } catch (e: any) {
         if (e.name === 'AbortError') {
-          throw new Error("Timeout: DeepSeek took too long to respond.");
+          throw new Error("Timeout: AI Model took too long to respond.");
         }
         throw e;
       }
@@ -101,164 +101,172 @@ export default function Home() {
     }
   }, [prompt, diagnostics, liveMode]);
 
-  const handleOptimize = async () => {
-    if (!prompt.trim()) return;
-    setStatus("Optimizing...");
-    try {
-      const res = await fetch("http://127.0.0.1:8080/optimize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: prompt }),
-      });
-      const data = await res.json();
-      setPrompt(data.text);
-      setStatus(`Optimized! (-${data.before_tokens - data.after_tokens} tokens)`);
-    } catch (e) {
-      setStatus("Optimization error");
-    }
-  };
+
 
   return (
-    <main className="flex min-h-screen flex-col bg-zinc-900 text-zinc-100">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-950 p-4 flex items-center gap-3">
-        <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">P</div>
-        <h1 className="font-semibold text-lg">Prompt Compiler <span className="text-zinc-500 text-sm font-normal ml-2">v2.1</span></h1>
+    <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+      {/* Ambient Background Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
 
-        <div className="ml-6 px-3 py-1 bg-blue-900/30 border border-blue-800 rounded-full text-xs text-blue-300 flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-          </span>
-          DeepSeek V3
-        </div>
+      {/* Floating Main Container */}
+      <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
 
-        <div className="ml-auto text-xs text-zinc-500 font-mono">{status}</div>
-      </header>
-
-      <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-        {/* Left Panel: Input */}
-        <div className="w-full md:w-1/3 p-4 flex flex-col gap-4 border-r border-zinc-800 bg-zinc-900/50">
-          <div className="flex-1 flex flex-col">
-            <textarea
-              className="flex-1 w-full bg-zinc-800 p-4 rounded-xl border border-zinc-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
-              placeholder="Describe your prompt idea here... e.g. 'Act as a senior python dev teaching FastAPI'"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2 items-center justify-between">
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
-                <input type="checkbox" checked={liveMode} onChange={e => setLiveMode(e.target.checked)} className="rounded bg-zinc-700 border-zinc-600 text-blue-600 focus:ring-0" />
-                <span className={liveMode ? "text-green-400 font-bold" : ""}>LIVE Mode</span>
-              </label>
-              <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
-                <input type="checkbox" checked={diagnostics} onChange={e => setDiagnostics(e.target.checked)} className="rounded bg-zinc-700 border-zinc-600" />
-                Diagnostics
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleOptimize}
-                className="px-4 py-2 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300"
-                disabled={loading}
-              >
-                magic optimize
-              </button>
-              <button
-                onClick={() => handleGenerate()}
-                disabled={loading}
-                className="px-6 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {loading ? "Thinking..." : "Generate ⚡"}
-              </button>
+        {/* Header */}
+        <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
+            <div>
+              <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
+              <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">AI Optimized</div>
             </div>
           </div>
 
-          {/* Context Manager */}
-          <ContextManager onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)} />
-        </div>
+          <div className="flex items-center gap-4">
+            <div className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 ${liveMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${liveMode ? 'bg-green-400 animate-pulse' : 'bg-zinc-500'}`} />
+              {liveMode ? 'LIVE SYNC' : 'OFFLINE'}
+            </div>
 
-        {/* Right Panel: Output */}
-        <div className="w-full md:w-2/3 flex flex-col bg-zinc-950 relative">
-          {result ? (
-            <>
-              {/* Tabs */}
-              <div className="flex border-b border-zinc-800 px-2 pt-2 gap-1 bg-zinc-900/30">
-                {(["system", "user", "plan", "expanded", "quality"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors relative ${activeTab === tab
-                      ? "text-blue-400 bg-zinc-900 border-t border-x border-zinc-800"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50"
-                      }`}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    {activeTab === tab && <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500 rounded-t-lg"></div>}
-                  </button>
-                ))}
+            <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
+              {status}
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Left Panel: Input */}
+          <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
+
+            <div className="flex-1 flex flex-col relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+              <textarea
+                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                placeholder="Describe your prompt idea here... e.g. 'Act as a senior python dev teaching FastAPI'"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* Controls */}
+              {/* Controls hidden - Defaults enforced */}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleGenerate()}
+                  disabled={loading}
+                  className="col-span-2 px-4 py-3 text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+                >
+                  {loading ? (
+                    <span className="animate-pulse">Thinking...</span>
+                  ) : (
+                    <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                  )}
+                </button>
               </div>
+            </div>
 
-              {/* Content */}
-              <div className="flex-1 p-0 overflow-hidden relative group flex flex-col">
-                {activeTab !== "quality" && (
-                  <>
-                    <div className="absolute top-2 right-14 z-10">
-                      {result.system_prompt_v2 ? (
-                        <span className="bg-blue-900/50 text-blue-300 text-[10px] px-2 py-1 rounded border border-blue-800 backdrop-blur-sm">
-                          Generated by DeepSeek V3
-                        </span>
-                      ) : (
-                        <span className="bg-zinc-800/50 text-zinc-400 text-[10px] px-2 py-1 rounded border border-zinc-700 backdrop-blur-sm">
-                          Offline Fallback
-                        </span>
-                      )}
-                    </div>
-                    <textarea
-                      className="w-full h-full bg-zinc-950 p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed"
-                      readOnly
-                      value={
-                        activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
-                          activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
-                            activeTab === "plan" ? (result.plan_v2 || result.plan) :
-                              (result.expanded_prompt_v2 || result.expanded_prompt)
-                      }
-                    />
+            {/* Context Manager */}
+            <ContextManager onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)} />
+          </div>
 
+          {/* Right Panel: Output */}
+          <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
+            {result ? (
+              <>
+                {/* Tabs */}
+                <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
+                  {(["system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
-                      onClick={() => navigator.clipboard.writeText(
-                        activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
-                          activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
-                            activeTab === "plan" ? (result.plan_v2 || result.plan) :
-                              (result.expanded_prompt_v2 || result.expanded_prompt)
-                      )}
-                      className="absolute top-4 right-4 bg-zinc-800/80 hover:bg-white hover:text-black hover:scale-110 active:scale-95 text-zinc-400 p-2 rounded-lg transition-all backdrop-blur opacity-0 group-hover:opacity-100 border border-zinc-700"
-                      title="Copy to Clipboard"
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${activeTab === tab
+                        ? "text-white bg-white/5 border-t border-x border-white/5"
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                        }`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
-                  </>
-                )}
+                  ))}
+                </div>
 
-                {/* Quality Coach Overlay/View */}
-                {activeTab === "quality" && (
-                  <div className="absolute inset-0 bg-zinc-950 z-20">
-                    <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />
+                {/* Content */}
+                <div className="flex-1 p-0 overflow-hidden relative group bg-black/20">
+                  {activeTab !== "quality" && activeTab !== "json" && (
+                    <>
+                      <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
+                        {result.system_prompt_v2 ? (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
+                            <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
+                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                            <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <textarea
+                        className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
+                        readOnly
+                        value={
+                          activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
+                            activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
+                              activeTab === "plan" ? (result.plan_v2 || result.plan) :
+                                (result.expanded_prompt_v2 || result.expanded_prompt)
+                        }
+                      />
+
+                      <button
+                        onClick={() => navigator.clipboard.writeText(
+                          activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
+                            activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
+                              activeTab === "plan" ? (result.plan_v2 || result.plan) :
+                                (result.expanded_prompt_v2 || result.expanded_prompt)
+                        )}
+                        className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20"
+                        title="Copy to Clipboard"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                      </button>
+                    </>
+                  )}
+
+                  {/* JSON Structured View */}
+                  {activeTab === "json" && (
+                    <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
+                      <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
+                        {JSON.stringify(result, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Quality Coach Overlay/View */}
+                  {activeTab === "quality" && (
+                    <div className="absolute inset-0 bg-transparent z-20">
+                      <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
+                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
+                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">💠</span>
                   </div>
-                )}
+                </div>
+                <div className="max-w-xs space-y-2">
+                  <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile</h3>
+                  <p className="text-sm text-zinc-500">Enter a prompt to generate optimized system instructions, planning, and structured reasoning.</p>
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-700 gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                <span className="text-2xl">✨</span>
-              </div>
-              <p>Ready to compile your ideas.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </main>

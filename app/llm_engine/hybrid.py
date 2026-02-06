@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import Optional, List
 from .client import WorkerClient, WorkerResponse, DEFAULT_MODEL
 from .schemas import DiagnosticItem
 from app.compiler import compile_text_v2
 from app.models_v2 import IRv2
+from app.heuristics import detect_risk_flags
 
 from cachetools import TTLCache
 
@@ -28,11 +29,32 @@ class HybridCompiler:
         # 3. Worker LLM (Slow but Smart)
         try:
             res = self.worker.process(text)
+            
+            # --- Safety Heuristics Check (Post-Processing) ---
+            # Even if LLM is smart, we enforce safety flags via heuristics
+            try:
+                flags = detect_risk_flags(text)
+                for flag in flags:
+                    diag = None
+                    if flag == "health":
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Medical/Health topic detected.", suggestion="Content for informational use only. No medical advice.", category="safety")
+                    elif flag == "financial":
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Financial/Crypto topic detected.", suggestion="Do not provide investment advice. Treat as general info.", category="safety")
+                    elif flag == "legal":
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Legal topic detected.", suggestion="Do not provide legal counsel. Consult a lawyer.", category="safety")
+                    elif flag == "security":
+                        diag = DiagnosticItem(severity="info", message="🛡️ Security topic detected.", suggestion="Follow ethical hacking guidelines.", category="safety")
+                    
+                    if diag and not any(d.message == diag.message for d in res.diagnostics):
+                        res.diagnostics.append(diag)
+            except Exception:
+                pass # Non-critical logic
+                
             self.cache[text] = res
             return res
         except Exception as e:
             # Log error (in a real app)
-            # print(f"Worker LLM failed: {e}")
+            print(f"Worker LLM failed: {e}")
             return self._fallback(text, str(e))
 
     def _fallback(self, text: str, error_msg: str) -> WorkerResponse:
@@ -40,19 +62,21 @@ class HybridCompiler:
         Generate a partial response using legacy heuristics.
         """
         try:
-            # Use existing heuristic compiler
+            # Use existing heuristic compiler (which runs RiskHandler)
             ir = compile_text_v2(text)
             
             # Create a simple diagnostic for the fallback
-            diag = DiagnosticItem(
+            system_diag = DiagnosticItem(
                 severity="warning",
                 message=f"Running in offline/heuristic mode. LLM Engine error: {error_msg}",
                 suggestion="Check your API Key or network connection.",
                 category="system"
             )
             
+            # Merge diagnostics (IRv2 diagnostics from RiskHandler + System warning)
+            all_diags = ir.diagnostics + [system_diag]
+            
             # Simple Expanded Prompt generation (since we don't have the LLM's optimized content)
-            # We could use a template renderer here, but for now just return a placeholder.
             optimized = (
                 f"# Request Analysis (Offline)\n\n"
                 f"**System Note**: This prompt was compiled using local heuristics because the LLM worker failed.\n\n"
@@ -62,7 +86,7 @@ class HybridCompiler:
 
             return WorkerResponse(
                 ir=ir,
-                diagnostics=[diag],
+                diagnostics=all_diags,
                 thought_process="Fallback to heuristics due to LLM error.",
                 optimized_content=optimized
             )

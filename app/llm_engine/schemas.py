@@ -1,17 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
-from app.models_v2 import IRv2
-
-
-class DiagnosticItem(BaseModel):
-    """Flexible diagnostic - accepts any severity/category."""
-    severity: str = "info"
-    message: str
-    suggestion: Optional[str] = None
-    category: str = "general"
-    
-    model_config = ConfigDict(extra="ignore")
+from app.models_v2 import IRv2, DiagnosticItem
 
 
 class WorkerResponse(BaseModel):

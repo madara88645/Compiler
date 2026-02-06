@@ -48,7 +48,7 @@ class WorkerClient:
 
     def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
-        print(f"[DEBUG] Connecting to DeepSeek (Base URL: {self.base_url})...")
+        print(f"[DEBUG] Connecting to LLM Service (Base URL: {self.base_url})...")
         print(f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}")
         
         kwargs = {
@@ -66,7 +66,7 @@ class WorkerClient:
             content = completion.choices[0].message.content
             print(f"[DEBUG] Received response ({len(content)} types)")
             if not content:
-                raise ValueError("Empty response from DeepSeek")
+                raise ValueError("Empty response from LLM Service")
             return content
         except Exception as e:
             print(f"[DEBUG] API CALL FAILED: {e}")
@@ -93,11 +93,11 @@ class WorkerClient:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
             except FuturesTimeoutError:
                 future.cancel()
-                raise RuntimeError(f"DeepSeek API did not respond within {HARD_TIMEOUT_SECONDS} seconds.")
+                raise RuntimeError(f"LLM API did not respond within {HARD_TIMEOUT_SECONDS} seconds.")
             except APIError as e:
-                raise RuntimeError(f"DeepSeek API failed: {e}") from e
+                raise RuntimeError(f"LLM API failed: {e}") from e
             except Exception as e:
-                raise RuntimeError(f"DeepSeek error: {e}") from e
+                raise RuntimeError(f"LLM error: {e}") from e
 
         response = WorkerResponse.model_validate_json(content)
         
@@ -140,7 +140,7 @@ class WorkerClient:
 
         return QualityReport.model_validate_json(content)
 
-    def optimize_prompt(self, user_text: str) -> str:
+    def optimize_prompt(self, user_text: str, max_tokens: int = None, max_chars: int = None) -> str:
         """Optimize prompt for token usage directly via DeepSeek."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
@@ -148,6 +148,33 @@ class WorkerClient:
         if not self.optimizer_prompt:
              # Fallback if file missing
              self.optimizer_prompt = "You are a specialized Prompt Optimizer. Your goal is to reduce token usage by at least 20% while preserving the exact intent, core constraints, and variables. Remove fluff, conversational filler, and redundancy. Return ONLY the optimized prompt text."
+
+        # Dynamically append constraints
+        sys_prompt = self.optimizer_prompt
+        constraints = []
+        if max_tokens:
+            constraints.append(f"TARGET: Strict maximum of {max_tokens} tokens.")
+        if max_chars:
+            constraints.append(f"TARGET: Strict maximum of {max_chars} characters.")
+        
+        if constraints:
+            sys_prompt += "\n\n" + "\n".join(constraints)
+
+        messages = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"}
+        ]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future = executor.submit(self._call_api, messages, 2048, json_mode=False) # Optimizer output is text not JSON
+            try:
+                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
+                return content.strip()
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Optimization timed out after {COACH_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Optimization error: {e}") from e
 
         messages = [
             {"role": "system", "content": self.optimizer_prompt},

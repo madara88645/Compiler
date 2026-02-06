@@ -5,6 +5,16 @@ from pydantic import field_validator
 from pydantic.config import ConfigDict
 
 
+class DiagnosticItem(BaseModel):
+    """Flexible diagnostic - accepts any severity/category."""
+    severity: str = "info"
+    message: str
+    suggestion: Optional[str] = None
+    category: str = "general"
+    
+    model_config = ConfigDict(extra="ignore")
+
+
 class ConstraintV2(BaseModel):
     """Flexible constraint model - accepts any LLM output."""
     id: str = Field(default="", description="Constraint id")
@@ -47,6 +57,10 @@ class IRv2(BaseModel):
     examples: List[str] = Field(default_factory=list)
     banned: List[str] = Field(default_factory=list)
     tools: List[str] = Field(default_factory=list)
+    
+    # NEW: Diagnostics attached directly to IR for heuristics
+    diagnostics: List[DiagnosticItem] = Field(default_factory=list)
+    
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("constraints", mode="before")

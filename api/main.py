@@ -243,27 +243,50 @@ def compile_endpoint(req: CompileRequest):
 
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(req: OptimizeRequest):
-    """Deterministically shorten prompt text to reduce token cost."""
+    """Deterministically shorten prompt text using DeepSeek LLM."""
+    
+    from app.text_utils import estimate_tokens
+    
+    # Use global hybrid compiler's worker
+    worker = hybrid_compiler.worker
+    
+    # Calculate initial stats
+    before_chars = len(req.text)
+    before_tokens = estimate_tokens(req.text)
+    
+    # Call DeepSeek Optimizer
+    try:
+        optimized = worker.optimize_prompt(
+            req.text, 
+            max_tokens=req.max_tokens, 
+            max_chars=req.max_chars
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    from app.token_optimizer import optimize_text
+    # Calculate final stats
+    after_chars = len(optimized)
+    after_tokens = estimate_tokens(optimized)
+    
+    met_max_tokens = True
+    if req.max_tokens and after_tokens > req.max_tokens:
+        met_max_tokens = False
+        
+    met_max_chars = True
+    if req.max_chars and after_chars > req.max_chars:
+        met_max_chars = False
 
-    optimized, st = optimize_text(
-        req.text,
-        max_chars=req.max_chars,
-        max_tokens=req.max_tokens,
-        token_ratio=req.token_ratio,
-    )
     return OptimizeResponse(
         text=optimized,
-        before_chars=st.before_chars,
-        after_chars=st.after_chars,
-        before_tokens=st.before_tokens,
-        after_tokens=st.after_tokens,
-        passes=st.passes,
-        met_max_chars=st.met_max_chars,
-        met_max_tokens=st.met_max_tokens,
-        met_budget=bool(st.met_max_chars and st.met_max_tokens),
-        changed=st.changed,
+        before_chars=before_chars,
+        after_chars=after_chars,
+        before_tokens=before_tokens,
+        after_tokens=after_tokens,
+        passes=1, # LLM does it in one pass usually
+        met_max_chars=met_max_chars,
+        met_max_tokens=met_max_tokens,
+        met_budget=met_max_chars and met_max_tokens,
+        changed=(optimized != req.text),
     )
 
 
