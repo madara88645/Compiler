@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, DragEvent, useEffect } from "react";
 
 type SearchResult = {
     content: string;
@@ -20,7 +20,37 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
     const [filePath, setFilePath] = useState("");
     const [status, setStatus] = useState("");
     const [isDragging, setIsDragging] = useState(false);
+    const [isConnected, setIsConnected] = useState<boolean | null>(null);
+    const [indexStats, setIndexStats] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Check connectivity on mount
+    useEffect(() => {
+        checkConnection();
+    }, []);
+
+    const checkConnection = async () => {
+        try {
+            const res = await fetch("http://127.0.0.1:8080/docs");
+            if (res.ok) {
+                setIsConnected(true);
+                fetchStats();
+            } else setIsConnected(false);
+        } catch (e) {
+            setIsConnected(false);
+            console.error("Backend connection failed:", e);
+        }
+    };
+
+    const fetchStats = async () => {
+        try {
+            const res = await fetch("http://127.0.0.1:8080/rag/stats");
+            const data = await res.json();
+            setIndexStats(data);
+        } catch (e) {
+            console.error("Stats fetch failed:", e);
+        }
+    };
 
     // Handle file drop
     const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
@@ -74,10 +104,10 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
 
                 const data = await res.json();
                 if (data.success) {
-                    totalChunks += data.num_chunks;
+                    totalChunks += data.num_chunks || 0;
                     successCount++;
                 } else {
-                    console.error(`Failed to upload ${file.name}: ${data.message}`);
+                    console.error(`Failed to upload ${file.name}: ${data.message || data.detail || 'Unknown error'}`);
                 }
             } catch (err) {
                 console.error(`Failed to upload ${file.name}:`, err);
@@ -118,18 +148,28 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
     };
 
     const handleSearch = async () => {
-        if (!query) return;
+        if (!query.trim()) return;
         setSearching(true);
+        setResults([]); // Clear previous results
         try {
+            console.log(`Searching for: '${query.trim()}'`);
             const res = await fetch("http://127.0.0.1:8080/rag/search", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query, limit: 3, method: "hybrid" }),
+                body: JSON.stringify({ query: query.trim(), limit: 5, method: "keyword" }),
             });
             const data = await res.json();
-            setResults(data);
+            console.log("Search results:", data);
+
+            if (Array.isArray(data)) {
+                setResults(data);
+            } else {
+                console.error("Invalid search response:", data);
+                setResults([]);
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Search error:", e);
+            setStatus("Search failed: Connection error");
         } finally {
             setSearching(false);
         }
@@ -137,10 +177,40 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
 
     return (
         <div className="flex flex-col gap-4 border-t border-white/5 pt-4 mt-4">
-            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <span>Context Manager</span>
-                <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
+            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <span>Context Manager</span>
+                    <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
+                </div>
+                {isConnected === false && (
+                    <span className="text-[9px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded animate-pulse">
+                        Backend Offline
+                    </span>
+                )}
+                {isConnected === true && (
+                    <span className="text-[9px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
+                        Connected
+                    </span>
+                )}
             </h3>
+
+            {/* Stats Display */}
+            {indexStats && indexStats.docs > 0 && (
+                <div className="flex gap-4 px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                    <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase">Documents</span>
+                        <span className="text-xs font-mono text-zinc-300">{indexStats.docs}</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase">Chunks</span>
+                        <span className="text-xs font-mono text-zinc-300">{indexStats.chunks}</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase">Size</span>
+                        <span className="text-xs font-mono text-zinc-300">{(indexStats.total_bytes / 1024).toFixed(1)} KB</span>
+                    </div>
+                </div>
+            )}
 
             {/* Drag & Drop Zone */}
             <div
@@ -192,10 +262,10 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
             {/* Status */}
             {status && (
                 <div className={`text-[10px] px-2 py-1.5 rounded-lg ${status.startsWith("✓")
-                        ? "bg-green-500/10 text-green-400"
-                        : status.startsWith("Error")
-                            ? "bg-red-500/10 text-red-400"
-                            : "bg-zinc-800/50 text-zinc-400"
+                    ? "bg-green-500/10 text-green-400"
+                    : status.startsWith("Error")
+                        ? "bg-red-500/10 text-red-400"
+                        : "bg-zinc-800/50 text-zinc-400"
                     }`}>
                     {status}
                 </div>
@@ -246,6 +316,12 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
 
                 {/* Results List */}
                 <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+                    {!searching && query && results.length === 0 && (
+                        <div className="text-[10px] text-zinc-500 text-center py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
+                            No results found for "{query}"
+                        </div>
+                    )}
+
                     {results.map((r, i) => (
                         <div key={i} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
                             <div className="flex justify-between items-center">

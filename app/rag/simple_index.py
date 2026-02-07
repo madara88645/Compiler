@@ -7,6 +7,13 @@ import math
 import json
 from collections import OrderedDict
 
+# Document parser for multi-format support
+try:
+    from app.rag.parsers import parse_file, get_supported_extensions, can_parse
+    _HAS_PARSERS = True
+except ImportError:
+    _HAS_PARSERS = False
+
 # Minimal SQLite FTS5-based retriever. No external deps.
 # Schema:
 #   docs(id INTEGER PRIMARY KEY, path TEXT UNIQUE, mtime REAL, size INTEGER)
@@ -16,6 +23,10 @@ from collections import OrderedDict
 #   Triggers keep fts in sync with chunks.
 
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index.db")
+# Force absolute path for debugging Windows environment
+if os.name == 'nt':
+    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index.db"
+
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
@@ -61,7 +72,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             chunk_index INTEGER,
             content TEXT
         );
-        CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(content, tokenize='porter');
+        CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(content, tokenize="unicode61 tokenchars '_'");
         CREATE TABLE IF NOT EXISTS embeddings (
             chunk_id INTEGER PRIMARY KEY,
             dim INTEGER NOT NULL,
@@ -377,7 +388,11 @@ def ingest_paths(
         _init_schema(conn)
         n_docs = 0
         n_chunks = 0
-        allowed_exts = set(e.lower() for e in (exts or [".txt", ".md", ".py"]))
+        # Use parser-supported extensions if available, else fallback
+        if _HAS_PARSERS and exts is None:
+            allowed_exts = set(get_supported_extensions())
+        else:
+            allowed_exts = set(e.lower() for e in (exts or [".txt", ".md", ".py"]))
         for p in paths:
             pth = Path(p)
             if not pth.exists():
@@ -390,8 +405,14 @@ def ingest_paths(
                             continue
                         if _needs_ingest(conn, fp):
                             try:
-                                content = fp.read_text(encoding="utf-8", errors="ignore")
+                                if _HAS_PARSERS and can_parse(fp):
+                                    result = parse_file(fp)
+                                    content = result.content
+                                else:
+                                    content = fp.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
+                                continue
+                            if not content:
                                 continue
                             _insert_document(conn, fp, content, embed=embed, embed_dim=embed_dim, chunking_strategy=chunking_strategy)
                             n_docs += 1
@@ -400,8 +421,14 @@ def ingest_paths(
                     continue
                 if _needs_ingest(conn, pth):
                     try:
-                        content = pth.read_text(encoding="utf-8", errors="ignore")
+                        if _HAS_PARSERS and can_parse(pth):
+                            result = parse_file(pth)
+                            content = result.content
+                        else:
+                            content = pth.read_text(encoding="utf-8", errors="ignore")
                     except Exception:
+                        continue
+                    if not content:
                         continue
                     _insert_document(conn, pth, content, embed=embed, embed_dim=embed_dim, chunking_strategy=chunking_strategy)
                     n_docs += 1
@@ -422,30 +449,74 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
     conn = _connect(db_path)
     try:
         _init_schema(conn)
-        cur = conn.execute(
-            """
-            SELECT c.id, c.doc_id, d.path, c.chunk_index,
-                   snippet(fts, 0, '[', ']', '…', 10) as snippet,
-                   bm25(fts) as score
-            FROM fts JOIN chunks c ON fts.rowid = c.id
-            JOIN docs d ON d.id = c.doc_id
-            WHERE fts MATCH ?
-            ORDER BY score LIMIT ?
-            """,
-            (query, k),
-        )
-        results = []
-        for row in cur.fetchall():
-            results.append(
-                {
+        # Use simple LIKE for robustness if FTS fails or behaves oddly
+        # 1. Try FTS Search
+        try:
+            cur = conn.execute(
+                """
+                SELECT c.id, c.doc_id, d.path, c.chunk_index,
+                       snippet(fts, 0, '[', ']', '…', 10) as snippet,
+                       bm25(fts) as score
+                FROM fts JOIN chunks c ON fts.rowid = c.id
+                JOIN docs d ON d.id = c.doc_id
+                WHERE fts MATCH ?
+                ORDER BY score LIMIT ?
+                """,
+                (f"{query}*", k),
+            )
+            results = []
+            for row in cur.fetchall():
+                results.append({
                     "chunk_id": row[0],
                     "doc_id": row[1],
                     "path": row[2],
                     "chunk_index": row[3],
                     "snippet": row[4],
                     "score": row[5],
-                }
+                })
+        except Exception as e:
+            print(f"[DEBUG] FTS Search failed or returned error: {e}")
+            results = []
+
+        # 2. Fallback to LIKE if not enough results
+        if len(results) < k:
+            seen_ids = {r["chunk_id"] for r in results}
+            limit_needed = k - len(results)
+            
+            cur = conn.execute(
+                """
+                SELECT c.id, c.doc_id, d.path, c.chunk_index,
+                       c.content,
+                       0.5 as score
+                FROM chunks c
+                JOIN docs d ON d.id = c.doc_id
+                WHERE lower(c.content) LIKE lower(?)
+                LIMIT ?
+                """,
+                (f"%{query}%", limit_needed * 2), # Grab a few more to filter dupes
             )
+            
+            for row in cur.fetchall():
+                if row[0] not in seen_ids:
+                    # Create a simple snippet
+                    content = row[4]
+                    idx = content.lower().find(query.lower())
+                    start = max(0, idx - 20)
+                    end = min(len(content), idx + len(query) + 20)
+                    snippet = f"…{content[start:end]}…"
+                    
+                    results.append({
+                        "chunk_id": row[0],
+                        "doc_id": row[1],
+                        "path": row[2],
+                        "chunk_index": row[3],
+                        "snippet": snippet,
+                        "score": row[5],
+                    })
+                    seen_ids.add(row[0])
+                    if len(results) >= k:
+                        break
+
         _cache_put(cache_key, results)
         return results
     finally:

@@ -51,6 +51,17 @@ openai = [
 	"openai>=1.30.0",
 ]
 
+docs = [
+	"pymupdf>=1.24.0",
+	"python-docx>=1.1.0",
+]
+
+all = [
+	"openai>=1.30.0",
+	"pymupdf>=1.24.0",
+	"python-docx>=1.1.0",
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"

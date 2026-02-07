@@ -718,7 +718,8 @@ async def ingest_endpoint(req: IngestRequest):
     try:
         # Resolve paths relative to user home or current dir if needed
         # For security, we might want to restrict this, but for local tool it's fine.
-        count, chunks, errors = ingest_paths(req.paths, force_reindex=req.force)
+        count, chunks, elapsed = ingest_paths(req.paths)
+        errors = []  # ingest_paths no longer returns errors
         return IngestResponse(num_files=count, num_chunks=chunks, errors=errors)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -747,14 +748,23 @@ async def search_endpoint(req: SearchRequest):
         else:
             results = rag_search_hybrid(req.query, k=req.limit)
 
-        return [
-            SearchResult(
-                content=r.content, source=r.metadata.get("source", "unknown"), score=r.score
-            )
-            for r in results
-        ]
+        response = []
+        for r in results:
+            # Handle both dict (keyword/hybrid) and object (vector/other) results
+            if isinstance(r, dict):
+                content = r.get("snippet") or r.get("content") or ""
+                source = r.get("path") or r.get("metadata", {}).get("source", "unknown")
+                score = r.get("score") or r.get("hybrid_score") or 0.0
+            else:
+                # Assume object has attributes
+                content = getattr(r, "content", "")
+                source = getattr(r, "metadata", {}).get("source", "unknown")
+                score = getattr(r, "score", 0.0)
+            
+            response.append(SearchResult(content=content, source=source, score=score))
+
+        return response
     except Exception as e:
-        # If index doesn't exist yet
         print(f"RAG Search failed: {e}")
         return []
 
@@ -791,7 +801,7 @@ async def upload_file_endpoint(req: FileUploadRequest):
             f.write(req.content)
 
         # Ingest the temporary file
-        count, chunks, errors = ingest_paths([temp_path], force_reindex=req.force)
+        count, chunks, elapsed = ingest_paths([temp_path])
 
         # Clean up temp file
         try:
@@ -800,12 +810,12 @@ async def upload_file_endpoint(req: FileUploadRequest):
         except:
             pass
 
-        if errors:
+        if count == 0:
             return FileUploadResponse(
                 success=False,
                 num_chunks=0,
                 filename=req.filename,
-                message=f"Errors: {', '.join(errors)}",
+                message="Failed to index file",
             )
 
         return FileUploadResponse(
@@ -818,6 +828,61 @@ async def upload_file_endpoint(req: FileUploadRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/rag/stats")
+async def stats_endpoint():
+    """Get RAG index statistics."""
+    try:
+        if rag_stats:
+            return rag_stats()
+        return {"error": "Stats function not available"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/rag/debug_search")
+async def debug_search_endpoint(query: str):
+    """Debug endpoint to run raw SQL checks."""
+    import sqlite3
+    import os
+    try:
+        from app.rag.simple_index import DEFAULT_DB_PATH
+        
+        if not os.path.exists(DEFAULT_DB_PATH):
+            return {"error": f"DB file not found at {DEFAULT_DB_PATH}"}
+            
+        conn = sqlite3.connect(DEFAULT_DB_PATH)
+        debug_info = {
+            "db_path": DEFAULT_DB_PATH,
+            "query": query,
+            "fts_results": [],
+            "like_results": [],
+            "chunks_sample": []
+        }
+        
+        # 1. Check FTS
+        try:
+            cur = conn.execute("SELECT rowid, * FROM fts WHERE fts MATCH ? LIMIT 5", (f"{query}*",))
+            debug_info["fts_results"] = [str(row) for row in cur.fetchall()]
+        except Exception as e:
+            debug_info["fts_error"] = str(e)
+            
+        # 2. Check LIKE
+        try:
+            cur = conn.execute("SELECT id, content FROM chunks WHERE lower(content) LIKE lower(?) LIMIT 5", (f"%{query}%",))
+            debug_info["like_results"] = [str(row) for row in cur.fetchall()]
+        except Exception as e:
+            debug_info["like_error"] = str(e)
+            
+        # 3. Dump random chunks
+        cur = conn.execute("SELECT id, content FROM chunks LIMIT 3")
+        debug_info["chunks_sample"] = [f"{row[0]}: {row[1][:50]}..." for row in cur.fetchall()]
+        
+        conn.close()
+        return debug_info
+        
+    except Exception as e:
+        return {"error": str(e)}
 
 # ============================================================================
 # Analytics Endpoints
