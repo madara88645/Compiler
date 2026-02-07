@@ -223,7 +223,7 @@ class PsycholinguistHandler(BaseHandler):
     """
 
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
-        raw_text = ir_v1.original_text or ""
+        raw_text = (ir_v1.metadata or {}).get("original_text", "")
 
         # 1. Sentiment Detection & Tone Adaptation
         sentiment = detect_sentiment(raw_text)

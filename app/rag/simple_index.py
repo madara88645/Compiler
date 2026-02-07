@@ -90,7 +90,23 @@ def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
     return not row or row[0] != stat.st_mtime or row[1] != stat.st_size
 
 
-def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> List[str]:
+def _split_sentences(text: str) -> List[str]:
+    """Split text into sentences using regex.
+    
+    Handles standard punctuation (.!?) while avoiding splits on abbreviations.
+    """
+    import re
+    # Pattern: Split on .!? followed by whitespace, but not after common abbreviations
+    pattern = r'(?<![A-Z][a-z]\.)'  # Negative lookbehind for abbreviations like "Dr."
+    pattern += r'(?<![A-Z]\.)'       # Negative lookbehind for initials like "J."  
+    pattern += r'(?<=\.|\?|!)\s+'    # Positive lookbehind for sentence-ending punctuation
+    
+    sentences = re.split(pattern, text)
+    return [s.strip() for s in sentences if s.strip()]
+
+
+def _chunk_text_fixed(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> List[str]:
+    """Original fixed character-based chunking."""
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     if len(text) <= chunk_size:
         return [text]
@@ -105,6 +121,185 @@ def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OV
         if i < 0:
             i = 0
     return chunks
+
+
+def _chunk_text_paragraph(text: str, chunk_size: int = CHUNK_SIZE) -> List[str]:
+    """Paragraph-aware chunking with sentence fallback.
+    
+    Strategy:
+    1. Split on paragraph boundaries (\n\n)
+    2. If a paragraph is too large, split on sentence boundaries
+    3. Never split mid-sentence
+    4. Use last sentence as overlap for context continuity
+    """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    paragraphs = text.split("\n\n")
+    
+    chunks: List[str] = []
+    current_chunk = ""
+    last_sentence = ""  # For overlap
+    
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        
+        # Check if paragraph fits in current chunk
+        test_chunk = current_chunk + ("\n\n" if current_chunk else "") + para
+        
+        if len(test_chunk) <= chunk_size:
+            current_chunk = test_chunk
+        else:
+            # Paragraph too large to add - flush current if non-empty
+            if current_chunk:
+                chunks.append(current_chunk)
+                # Get last sentence for overlap
+                sentences = _split_sentences(current_chunk)
+                last_sentence = sentences[-1] if sentences else ""
+            
+            # Check if paragraph itself is too large
+            if len(para) > chunk_size:
+                # Split paragraph into sentences
+                sentences = _split_sentences(para)
+                current_chunk = last_sentence + "\n\n" if last_sentence else ""
+                
+                for sent in sentences:
+                    test = current_chunk + (" " if current_chunk.rstrip() else "") + sent
+                    
+                    if len(test) <= chunk_size:
+                        current_chunk = test
+                    else:
+                        # Flush and start new
+                        if current_chunk.strip():
+                            chunks.append(current_chunk.strip())
+                        current_chunk = sent
+                        last_sentence = ""
+            else:
+                # Start new chunk with overlap
+                current_chunk = (last_sentence + "\n\n" + para) if last_sentence else para
+    
+    # Don't forget the last chunk
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+    
+    return chunks if chunks else [text]
+
+
+def _chunk_text_semantic(text: str, chunk_size: int = CHUNK_SIZE, similarity_threshold: float = 0.3) -> List[str]:
+    """Semantic chunking using simple TF-IDF similarity.
+    
+    Groups sentences by topic similarity:
+    1. Split into sentences
+    2. Compute simple TF-IDF for each sentence
+    3. Group sentences while they remain similar to the first
+    4. Start new chunk when similarity drops below threshold
+    """
+    from collections import Counter
+    import math
+    
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    sentences = _split_sentences(text)
+    
+    if not sentences:
+        return [text] if text.strip() else []
+    
+    if len(sentences) == 1:
+        return sentences
+    
+    # Build vocabulary and compute TF-IDF
+    def tokenize(s: str) -> List[str]:
+        return [w.lower() for w in s.split() if len(w) > 2]
+    
+    # Document frequency
+    doc_freq: Counter = Counter()
+    for sent in sentences:
+        tokens = set(tokenize(sent))
+        for tok in tokens:
+            doc_freq[tok] += 1
+    
+    n_docs = len(sentences)
+    
+    def compute_tfidf(sentence: str) -> Dict[str, float]:
+        tokens = tokenize(sentence)
+        tf = Counter(tokens)
+        tfidf = {}
+        for tok, count in tf.items():
+            idf = math.log((n_docs + 1) / (doc_freq.get(tok, 0) + 1)) + 1
+            tfidf[tok] = (count / len(tokens)) * idf if tokens else 0
+        return tfidf
+    
+    def cosine_similarity(v1: Dict[str, float], v2: Dict[str, float]) -> float:
+        if not v1 or not v2:
+            return 0.0
+        common_keys = set(v1.keys()) & set(v2.keys())
+        dot = sum(v1[k] * v2[k] for k in common_keys)
+        norm1 = math.sqrt(sum(v * v for v in v1.values()))
+        norm2 = math.sqrt(sum(v * v for v in v2.values()))
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        return dot / (norm1 * norm2)
+    
+    # Group sentences
+    chunks = []
+    current_chunk = sentences[0]
+    anchor_tfidf = compute_tfidf(sentences[0])
+    
+    for sent in sentences[1:]:
+        sent_tfidf = compute_tfidf(sent)
+        sim = cosine_similarity(anchor_tfidf, sent_tfidf)
+        
+        test_chunk = current_chunk + " " + sent
+        
+        # Keep grouping if similar and within size
+        if sim >= similarity_threshold and len(test_chunk) <= chunk_size:
+            current_chunk = test_chunk
+        else:
+            # Start new chunk
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+            current_chunk = sent
+            anchor_tfidf = sent_tfidf
+    
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+    
+    return chunks if chunks else [text]
+
+
+def _chunk_text(
+    text: str,
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+    strategy: str = "paragraph"
+) -> List[str]:
+    """Smart text chunking with multiple strategies.
+    
+    Args:
+        text: Input text to chunk
+        chunk_size: Maximum characters per chunk
+        overlap: Character overlap (only used for 'fixed' strategy)
+        strategy: Chunking strategy
+            - "fixed": Original character-based splitting
+            - "paragraph": Split on paragraph boundaries with sentence fallback
+            - "semantic": Group sentences by topic similarity (TF-IDF)
+    
+    Returns:
+        List of text chunks
+    """
+    text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    
+    if not text:
+        return []
+    
+    if len(text) <= chunk_size:
+        return [text]
+    
+    if strategy == "fixed":
+        return _chunk_text_fixed(text, chunk_size, overlap)
+    elif strategy == "semantic":
+        return _chunk_text_semantic(text, chunk_size)
+    else:  # Default to paragraph
+        return _chunk_text_paragraph(text, chunk_size)
 
 
 def _simple_embed(text: str, dim: int = 64) -> List[float]:
@@ -128,7 +323,7 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
 
 
 def _insert_document(
-    conn: sqlite3.Connection, path: Path, content: str, *, embed: bool = False, embed_dim: int = 64
+    conn: sqlite3.Connection, path: Path, content: str, *, embed: bool = False, embed_dim: int = 64, chunking_strategy: str = "paragraph"
 ) -> None:
     stat = path.stat()
     cur = conn.execute(
@@ -137,7 +332,7 @@ def _insert_document(
     )
     doc_id = cur.fetchone()[0]
     conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
-    for idx, chunk in enumerate(_chunk_text(content)):
+    for idx, chunk in enumerate(_chunk_text(content, strategy=chunking_strategy)):
         cur = conn.execute(
             "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?) RETURNING id",
             (doc_id, idx, chunk),
@@ -158,7 +353,24 @@ def ingest_paths(
     *,
     embed: bool = False,
     embed_dim: int = 64,
+    chunking_strategy: str = "paragraph",
 ) -> Tuple[int, int, float]:
+    """Ingest files into the RAG index.
+    
+    Args:
+        paths: File or directory paths to ingest
+        db_path: Database path (defaults to ~/.promptc_index.db)
+        exts: Allowed file extensions
+        embed: Whether to compute embeddings
+        embed_dim: Embedding dimension
+        chunking_strategy: How to split text into chunks
+            - "fixed": Character-based with fixed overlap
+            - "paragraph": Paragraph-aware with sentence fallback (default)
+            - "semantic": TF-IDF based topic grouping
+    
+    Returns:
+        Tuple of (num_docs, num_chunks, elapsed_seconds)
+    """
     start = time.time()
     conn = _connect(db_path)
     try:
@@ -181,7 +393,7 @@ def ingest_paths(
                                 content = fp.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
                                 continue
-                            _insert_document(conn, fp, content, embed=embed, embed_dim=embed_dim)
+                            _insert_document(conn, fp, content, embed=embed, embed_dim=embed_dim, chunking_strategy=chunking_strategy)
                             n_docs += 1
             else:
                 if pth.suffix.lower() not in allowed_exts:
@@ -191,7 +403,7 @@ def ingest_paths(
                         content = pth.read_text(encoding="utf-8", errors="ignore")
                     except Exception:
                         continue
-                    _insert_document(conn, pth, content, embed=embed, embed_dim=embed_dim)
+                    _insert_document(conn, pth, content, embed=embed, embed_dim=embed_dim, chunking_strategy=chunking_strategy)
                     n_docs += 1
         # count chunks
         cur = conn.execute("SELECT COUNT(*) FROM chunks")

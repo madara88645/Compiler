@@ -41,6 +41,9 @@ from .heuristics.handlers.debug import LiveDebugHandler
 from .heuristics.handlers.constraints import ConstraintHandler
 from .heuristics.handlers.logic import LogicHandler
 from .heuristics.handlers.structure import StructureHandler
+from .heuristics.handlers.domain_expert import DomainHandler
+from .heuristics.handlers.strategy import StrategyHandler
+from .heuristics.handlers.psycholinguist import PsycholinguistHandler
 
 
 GENERIC_GOAL = {
@@ -174,6 +177,8 @@ def compile_text_v2(text: str) -> IRv2:
         LiveDebugHandler(),
         ConstraintHandler(),
         LogicHandler(),
+        DomainHandler(),
+        PsycholinguistHandler(),
     ]
 
     for handler in handlers:

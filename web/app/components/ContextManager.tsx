@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, DragEvent } from "react";
 
 type SearchResult = {
     content: string;
@@ -19,6 +19,79 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
     const [results, setResults] = useState<SearchResult[]>([]);
     const [filePath, setFilePath] = useState("");
     const [status, setStatus] = useState("");
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Handle file drop
+    const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length === 0) return;
+
+        await uploadFiles(files);
+    };
+
+    const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    // Handle file input change
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        await uploadFiles(Array.from(files));
+    };
+
+    // Upload files to the backend
+    const uploadFiles = async (files: File[]) => {
+        setIngesting(true);
+        setStatus(`Uploading ${files.length} file(s)...`);
+
+        let totalChunks = 0;
+        let successCount = 0;
+
+        for (const file of files) {
+            try {
+                const content = await file.text();
+
+                const res = await fetch("http://127.0.0.1:8080/rag/upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        filename: file.name,
+                        content: content,
+                        force: true
+                    }),
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    totalChunks += data.num_chunks;
+                    successCount++;
+                } else {
+                    console.error(`Failed to upload ${file.name}: ${data.message}`);
+                }
+            } catch (err) {
+                console.error(`Failed to upload ${file.name}:`, err);
+            }
+        }
+
+        setStatus(`✓ Indexed ${successCount}/${files.length} files (${totalChunks} chunks)`);
+        setIngesting(false);
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
 
     const handleIngest = async () => {
         if (!filePath) return;
@@ -69,24 +142,87 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
                 <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
             </h3>
 
-            {/* Ingest Section */}
-            <div className="flex flex-col gap-2">
+            {/* Drag & Drop Zone */}
+            <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => fileInputRef.current?.click()}
+                className={`
+                    relative flex flex-col items-center justify-center gap-2 p-4 
+                    border-2 border-dashed rounded-xl cursor-pointer
+                    transition-all duration-200
+                    ${isDragging
+                        ? "border-blue-500 bg-blue-500/10 scale-[1.02]"
+                        : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                    }
+                    ${ingesting ? "pointer-events-none opacity-50" : ""}
+                `}
+            >
                 <input
-                    type="text"
-                    className="w-full bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
-                    placeholder="Path to file or folder..."
-                    value={filePath}
-                    onChange={(e) => setFilePath(e.target.value)}
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.py,.js,.ts,.tsx,.json,.yaml,.yml,.html,.css"
+                    onChange={handleFileSelect}
+                    className="hidden"
                 />
-                <button
-                    onClick={handleIngest}
-                    disabled={ingesting || !filePath}
-                    className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"
-                >
-                    {ingesting ? <span className="animate-pulse">Indexing...</span> : "📂 Ingest Files"}
-                </button>
-                {status && <div className="text-[10px] text-zinc-500 truncate pl-1">{status}</div>}
+
+                {ingesting ? (
+                    <div className="flex items-center gap-2 text-blue-400">
+                        <span className="animate-spin">⏳</span>
+                        <span className="text-xs">Indexing...</span>
+                    </div>
+                ) : (
+                    <>
+                        <div className={`text-2xl ${isDragging ? "scale-110" : ""} transition-transform`}>
+                            📂
+                        </div>
+                        <div className="text-xs text-zinc-400 text-center">
+                            <span className="text-blue-400 font-medium">Click to upload</span>
+                            <span className="text-zinc-500"> or drag & drop</span>
+                        </div>
+                        <div className="text-[10px] text-zinc-600">
+                            .txt, .md, .py, .js, .ts, .json, .yaml
+                        </div>
+                    </>
+                )}
             </div>
+
+            {/* Status */}
+            {status && (
+                <div className={`text-[10px] px-2 py-1.5 rounded-lg ${status.startsWith("✓")
+                        ? "bg-green-500/10 text-green-400"
+                        : status.startsWith("Error")
+                            ? "bg-red-500/10 text-red-400"
+                            : "bg-zinc-800/50 text-zinc-400"
+                    }`}>
+                    {status}
+                </div>
+            )}
+
+            {/* Legacy Path Input (Collapsed) */}
+            <details className="group">
+                <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-400 transition-colors">
+                    ⚙️ Advanced: Index by path
+                </summary>
+                <div className="flex flex-col gap-2 mt-2 pl-2 border-l border-white/5">
+                    <input
+                        type="text"
+                        className="w-full bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
+                        placeholder="Path to file or folder..."
+                        value={filePath}
+                        onChange={(e) => setFilePath(e.target.value)}
+                    />
+                    <button
+                        onClick={handleIngest}
+                        disabled={ingesting || !filePath}
+                        className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"
+                    >
+                        {ingesting ? <span className="animate-pulse">Indexing...</span> : "📂 Ingest Path"}
+                    </button>
+                </div>
+            </details>
 
             {/* Search Section */}
             <div className="flex flex-col gap-2">

@@ -52,6 +52,7 @@ app.add_middleware(
 async def startup_event():
     global hybrid_compiler
     from app.llm_engine.hybrid import HybridCompiler
+
     hybrid_compiler = HybridCompiler()
     print(f"[BACKEND] HybridCompiler initialized (v{get_build_info()['version']})")
 
@@ -201,28 +202,28 @@ def compile_endpoint(req: CompileRequest):
     ir2 = compile_text_v2(req.text)
 
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
-    
+
     if req.v2:
         # Online Mode: Use HybridCompiler (LLM)
         # hybrid_compiler.compile likely calls the LLM worker
         try:
-             worker_res = hybrid_compiler.compile(req.text)
-             # Merge LLM results into ir2 or replace? 
-             # HybridCompiler usually returns its own IR. Let's rely on it for Online.
-             ir2 = worker_res.ir
-             
-             if worker_res.system_prompt:
-                 sys_v2 = worker_res.system_prompt
-             if worker_res.user_prompt:
-                 user_v2 = worker_res.user_prompt
-             if worker_res.plan:
-                 plan_v2 = worker_res.plan
-             if worker_res.optimized_content:
-                 exp_v2 = worker_res.optimized_content
+            worker_res = hybrid_compiler.compile(req.text)
+            # Merge LLM results into ir2 or replace?
+            # HybridCompiler usually returns its own IR. Let's rely on it for Online.
+            ir2 = worker_res.ir
+
+            if worker_res.system_prompt:
+                sys_v2 = worker_res.system_prompt
+            if worker_res.user_prompt:
+                user_v2 = worker_res.user_prompt
+            if worker_res.plan:
+                plan_v2 = worker_res.plan
+            if worker_res.optimized_content:
+                exp_v2 = worker_res.optimized_content
         except Exception as e:
-             # Fallback to local V2 if LLM fails
-             print(f"LLM Failed, falling back to local V2: {e}")
-             pass
+            # Fallback to local V2 if LLM fails
+            print(f"LLM Failed, falling back to local V2: {e}")
+            pass
     else:
         # Offline Mode: Use Structure Engine output as the "Expanded Prompt"
         if "structured_view" in ir2.metadata:
@@ -261,22 +262,20 @@ def compile_endpoint(req: CompileRequest):
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(req: OptimizeRequest):
     """Deterministically shorten prompt text using DeepSeek LLM."""
-    
+
     from app.text_utils import estimate_tokens
-    
+
     # Use global hybrid compiler's worker
     worker = hybrid_compiler.worker
-    
+
     # Calculate initial stats
     before_chars = len(req.text)
     before_tokens = estimate_tokens(req.text)
-    
+
     # Call DeepSeek Optimizer
     try:
         optimized = worker.optimize_prompt(
-            req.text, 
-            max_tokens=req.max_tokens, 
-            max_chars=req.max_chars
+            req.text, max_tokens=req.max_tokens, max_chars=req.max_chars
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -284,11 +283,11 @@ async def optimize_endpoint(req: OptimizeRequest):
     # Calculate final stats
     after_chars = len(optimized)
     after_tokens = estimate_tokens(optimized)
-    
+
     met_max_tokens = True
     if req.max_tokens and after_tokens > req.max_tokens:
         met_max_tokens = False
-        
+
     met_max_chars = True
     if req.max_chars and after_chars > req.max_chars:
         met_max_chars = False
@@ -299,7 +298,7 @@ async def optimize_endpoint(req: OptimizeRequest):
         after_chars=after_chars,
         before_tokens=before_tokens,
         after_tokens=after_tokens,
-        passes=1, # LLM does it in one pass usually
+        passes=1,  # LLM does it in one pass usually
         met_max_chars=met_max_chars,
         met_max_tokens=met_max_tokens,
         met_budget=met_max_chars and met_max_tokens,
@@ -537,6 +536,44 @@ async def rag_prune_endpoint(req: RagPruneRequest):
     return RagPruneResponse(**r)
 
 
+# Summarize Endpoint
+class RagSummarizeRequest(BaseModel):
+    text: str = Field(..., description="Document text to summarize")
+    max_tokens: int = Field(default=500, description="Target max tokens for summary")
+
+
+class RagSummarizeResponse(BaseModel):
+    original_tokens: int
+    summary_tokens: int
+    summary: str
+    compression_ratio: float
+
+
+@app.post("/rag/summarize", response_model=RagSummarizeResponse)
+async def rag_summarize_endpoint(req: RagSummarizeRequest):
+    """Summarize a document using LLM compression."""
+    from app.rag.summarizer import summarize_document, count_tokens_approx
+
+    original_tokens = count_tokens_approx(req.text)
+
+    try:
+        summary = summarize_document(req.text, max_tokens=req.max_tokens)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Summarization failed: {e}")
+
+    summary_tokens = count_tokens_approx(summary)
+    compression_ratio = (
+        round(original_tokens / max(summary_tokens, 1), 2) if original_tokens > 0 else 1.0
+    )
+
+    return RagSummarizeResponse(
+        original_tokens=original_tokens,
+        summary_tokens=summary_tokens,
+        summary=summary,
+        compression_ratio=compression_ratio,
+    )
+
+
 class ValidateRequest(BaseModel):
     text: str
     include_suggestions: bool = Field(default=True, description="Include improvement suggestions")
@@ -663,14 +700,17 @@ async def compare_endpoint(req: CompareRequest):
 # RAG / Context Endpoints
 # ============================================================================
 
+
 class IngestRequest(BaseModel):
     paths: List[str] = Field(..., description="List of file paths or directories to ingest")
     force: bool = False
+
 
 class IngestResponse(BaseModel):
     num_files: int
     num_chunks: int
     errors: List[str]
+
 
 @app.post("/rag/ingest", response_model=IngestResponse)
 async def ingest_endpoint(req: IngestRequest):
@@ -683,15 +723,18 @@ async def ingest_endpoint(req: IngestRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 class SearchRequest(BaseModel):
     query: str
     limit: int = 5
     method: str = "hybrid"  # keyword, vector, hybrid
 
+
 class SearchResult(BaseModel):
     content: str
     source: str
     score: float
+
 
 @app.post("/rag/search", response_model=List[SearchResult])
 async def search_endpoint(req: SearchRequest):
@@ -703,15 +746,78 @@ async def search_endpoint(req: SearchRequest):
             results = rag_search(req.query, k=req.limit)
         else:
             results = rag_search_hybrid(req.query, k=req.limit)
-            
+
         return [
-            SearchResult(content=r.content, source=r.metadata.get("source", "unknown"), score=r.score)
+            SearchResult(
+                content=r.content, source=r.metadata.get("source", "unknown"), score=r.score
+            )
             for r in results
         ]
     except Exception as e:
         # If index doesn't exist yet
         print(f"RAG Search failed: {e}")
         return []
+
+
+class FileUploadRequest(BaseModel):
+    filename: str = Field(..., description="Name of the uploaded file")
+    content: str = Field(..., description="File content as text")
+    force: bool = False
+
+
+class FileUploadResponse(BaseModel):
+    success: bool
+    num_chunks: int
+    filename: str
+    message: str
+
+
+@app.post("/rag/upload", response_model=FileUploadResponse)
+async def upload_file_endpoint(req: FileUploadRequest):
+    """Upload a file directly (for drag & drop / paste).
+
+    Accepts file content as text and indexes it into the RAG system.
+    """
+    import tempfile
+    import os
+
+    try:
+        # Create a temporary file with the content
+        # This allows us to reuse the existing ingest_paths logic
+        temp_dir = tempfile.mkdtemp(prefix="rag_upload_")
+        temp_path = os.path.join(temp_dir, req.filename)
+
+        with open(temp_path, "w", encoding="utf-8") as f:
+            f.write(req.content)
+
+        # Ingest the temporary file
+        count, chunks, errors = ingest_paths([temp_path], force_reindex=req.force)
+
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+            os.rmdir(temp_dir)
+        except:
+            pass
+
+        if errors:
+            return FileUploadResponse(
+                success=False,
+                num_chunks=0,
+                filename=req.filename,
+                message=f"Errors: {', '.join(errors)}",
+            )
+
+        return FileUploadResponse(
+            success=True,
+            num_chunks=chunks,
+            filename=req.filename,
+            message=f"Indexed {req.filename} ({chunks} chunks)",
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ============================================================================
 # Analytics Endpoints
@@ -721,4 +827,3 @@ async def search_endpoint(req: SearchRequest):
 class AnalyticsRecordRequest(BaseModel):
     prompt_text: str
     run_validation: bool = True
-
