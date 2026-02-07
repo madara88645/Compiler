@@ -3,6 +3,10 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
+<p align="center">
+  <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Live Sync Mode" width="100%">
+</p>
+
 **Prompt Compiler** is a powerful tool that transforms messy natural language ideas into structured, optimized System Instructions and User Prompts.
 
 > **✨ New in v2.0**: Now powered by **DeepSeek** for superior reasoning, with a fully modernized UI and AI-driven Token Optimization.
@@ -24,8 +28,16 @@ A premium Next.js 14 + TailwindCSS interface:
 - **Diagnostics**: Real-time health checks for your prompt structure.
 - **Dark Mode**: By default, because we are developers.
 
+<p align="center">
+  <img src="docs/images/comp3offlineheuristics.PNG" alt="Offline Compiler - Heuristics Mode" width="80%">
+</p>
+
 ### 📉 Token Optimization
 Save money and context window space. The **"Magic Optimize"** feature uses AI to compress your prompt by **20-30%** without losing any meaning, logic, or variables.
+
+<p align="center">
+  <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
+</p>
 
 ---
 
