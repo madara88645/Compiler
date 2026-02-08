@@ -341,27 +341,31 @@ class PromptCompilerUI:
         self.btn_generate.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             self.btn_generate.configure(bootstyle="primary")
-        except Exception: pass
+        except Exception:
+            pass
         self._add_tooltip(self.btn_generate, "Compile prompt (Ctrl+Enter)")
 
         btn_optimize = ttk.Button(opts_primary, text="🧹 Optimize", command=self.on_optimize_prompt)
         btn_optimize.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_optimize.configure(bootstyle="info-outline")
-        except Exception: pass
+        except Exception:
+            pass
         self._add_tooltip(btn_optimize, "Auto-optimize prompt length")
 
         btn_clear = ttk.Button(opts_primary, text="🗑️ Clear", command=self.on_clear)
         btn_clear.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_clear.configure(bootstyle="danger-outline")
-        except Exception: pass
+        except Exception:
+            pass
 
         btn_save = ttk.Button(opts_primary, text="💾 Save", command=self.on_save)
         btn_save.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_save.configure(bootstyle="success-outline")
-        except Exception: pass
+        except Exception:
+            pass
 
         # Secondary (Collapsible or less visible)
         opts_secondary = ttk.Frame(top)
@@ -371,13 +375,15 @@ class PromptCompilerUI:
         self.btn_theme.pack(side=tk.LEFT, padx=(0, 4))
         try:
              self.btn_theme.configure(bootstyle="link")
-        except Exception: pass
+        except Exception:
+            pass
 
         btn_settings = ttk.Button(opts_secondary, text="⚙️ Settings", command=self._show_settings)
         btn_settings.pack(side=tk.LEFT, padx=4)
         try:
              btn_settings.configure(bootstyle="link")
-        except Exception: pass
+        except Exception:
+            pass
         
         # Hidden/Implicit controls (maintained variables for logic compatibility)
         self.var_trace = tk.BooleanVar(value=False)
@@ -615,12 +621,13 @@ class PromptCompilerUI:
         
         # Helper to safely update text widgets
         def update_widget(widget, text):
-             try:
+            try:
                 widget.delete("1.0", tk.END)
                 widget.insert("1.0", text)
-                if hasattr(self, "_setup_json_highlighting") and "JSON" in widget._name: # hypothetical check
-                     pass 
-             except Exception: pass
+                if hasattr(self, "_setup_json_highlighting") and "JSON" in widget._name:  # hypothetical check
+                    pass
+            except Exception:
+                pass
 
         # Update JSON tabs
         update_widget(self.txt_ir2, result.ir.model_dump_json(indent=2))
