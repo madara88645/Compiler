@@ -192,7 +192,7 @@ promptc optimize --from-file .\examples\example_en.txt --max-tokens 350 --token-
 ### 3.3 Validate prompt quality
 
 ```powershell
-promptc validate-prompt "Write a tutorial about Python"
+promptc validate-prompt "Write a tutorial about Python" 
 promptc validate-prompt "do something with stuff" --json
 promptc validate-prompt --from-file .\examples\example_en.txt --min-score 70
 ```

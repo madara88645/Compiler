@@ -346,7 +346,7 @@ RISK_KEYWORDS = {
         r"karnım",
         r"midem",
         r"başım",
-    ],
+],
     "legal": [
         r"sözleşme",
         r"contract",

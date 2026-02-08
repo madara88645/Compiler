@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from .client import WorkerClient, WorkerResponse, DEFAULT_MODEL
 from .schemas import DiagnosticItem
 from app.compiler import compile_text_v2
@@ -7,14 +7,8 @@ from app.heuristics import detect_risk_flags
 
 from cachetools import TTLCache
 
-
 class HybridCompiler:
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        model: str = DEFAULT_MODEL,
-    ):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.worker = WorkerClient(api_key=api_key, base_url=base_url, model=model)
         # Cache: 100 items, expires in 1 hour
         self.cache = TTLCache(maxsize=100, ttl=3600)
@@ -27,7 +21,7 @@ class HybridCompiler:
         # 1. Fast Checks (Heuristic Guardrails)
         if not text or not text.strip():
             return self._fallback(text, "Input was empty")
-
+            
         # 2. Check Cache
         if text in self.cache:
             return self.cache[text]
@@ -35,7 +29,7 @@ class HybridCompiler:
         # 3. Worker LLM (Slow but Smart)
         try:
             res = self.worker.process(text)
-
+            
             # --- Safety Heuristics Check (Post-Processing) ---
             # Even if LLM is smart, we enforce safety flags via heuristics
             try:
@@ -43,39 +37,19 @@ class HybridCompiler:
                 for flag in flags:
                     diag = None
                     if flag == "health":
-                        diag = DiagnosticItem(
-                            severity="warning",
-                            message="⚠️ Medical/Health topic detected.",
-                            suggestion="Content for informational use only. No medical advice.",
-                            category="safety",
-                        )
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Medical/Health topic detected.", suggestion="Content for informational use only. No medical advice.", category="safety")
                     elif flag == "financial":
-                        diag = DiagnosticItem(
-                            severity="warning",
-                            message="⚠️ Financial/Crypto topic detected.",
-                            suggestion="Do not provide investment advice. Treat as general info.",
-                            category="safety",
-                        )
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Financial/Crypto topic detected.", suggestion="Do not provide investment advice. Treat as general info.", category="safety")
                     elif flag == "legal":
-                        diag = DiagnosticItem(
-                            severity="warning",
-                            message="⚠️ Legal topic detected.",
-                            suggestion="Do not provide legal counsel. Consult a lawyer.",
-                            category="safety",
-                        )
+                        diag = DiagnosticItem(severity="warning", message="⚠️ Legal topic detected.", suggestion="Do not provide legal counsel. Consult a lawyer.", category="safety")
                     elif flag == "security":
-                        diag = DiagnosticItem(
-                            severity="info",
-                            message="🛡️ Security topic detected.",
-                            suggestion="Follow ethical hacking guidelines.",
-                            category="safety",
-                        )
-
+                        diag = DiagnosticItem(severity="info", message="🛡️ Security topic detected.", suggestion="Follow ethical hacking guidelines.", category="safety")
+                    
                     if diag and not any(d.message == diag.message for d in res.diagnostics):
                         res.diagnostics.append(diag)
             except Exception:
-                pass  # Non-critical logic
-
+                pass # Non-critical logic
+                
             self.cache[text] = res
             return res
         except Exception as e:
@@ -90,47 +64,40 @@ class HybridCompiler:
         try:
             # Use existing heuristic compiler (which runs RiskHandler)
             ir = compile_text_v2(text)
-
+            
             # Create a simple diagnostic for the fallback
             system_diag = DiagnosticItem(
                 severity="warning",
                 message=f"Running in offline/heuristic mode. LLM Engine error: {error_msg}",
                 suggestion="Check your API Key or network connection.",
-                category="system",
+                category="system"
             )
-
+            
             # Merge diagnostics (IRv2 diagnostics from RiskHandler + System warning)
             all_diags = ir.diagnostics + [system_diag]
-
+            
             # Simple Expanded Prompt generation (since we don't have the LLM's optimized content)
             optimized = (
-                "# Request Analysis (Offline)\n\n"
-                "**System Note**: This prompt was compiled using local heuristics because the LLM worker failed.\n\n"
-                "## Extracted Constraints\n" + "\n".join([f"- {c.text}" for c in ir.constraints])
+                f"# Request Analysis (Offline)\n\n"
+                f"**System Note**: This prompt was compiled using local heuristics because the LLM worker failed.\n\n"
+                f"## Extracted Constraints\n" +
+                "\n".join([f"- {c.text}" for c in ir.constraints])
             )
 
             return WorkerResponse(
                 ir=ir,
                 diagnostics=all_diags,
                 thought_process="Fallback to heuristics due to LLM error.",
-                optimized_content=optimized,
+                optimized_content=optimized
             )
         except Exception as e:
             # Absolute worst case if heuristics fail too
-            return WorkerResponse(
+             return WorkerResponse(
                 ir=IRv2(
-                    language="en",
-                    persona="assistant",
-                    role="Helpful Assistant",
-                    domain="general",
-                    output_format="text",
-                    length_hint="medium",
+                    language="en", persona="assistant", role="Helpful Assistant", domain="general",
+                    output_format="text", length_hint="medium"
                 ),
-                diagnostics=[
-                    DiagnosticItem(
-                        severity="error", message=f"Critical system failure: {e}", category="system"
-                    )
-                ],
+                diagnostics=[DiagnosticItem(severity="error", message=f"Critical system failure: {e}", category="system")],
                 thought_process="System Failure",
-                optimized_content="Error.",
+                optimized_content="Error."
             )

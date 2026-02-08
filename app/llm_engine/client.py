@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 # Load .env file if it exists (for API keys)
 try:
     from dotenv import load_dotenv
-
     load_dotenv()
 except ImportError:
     pass
@@ -25,23 +24,17 @@ COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 HARD_TIMEOUT_SECONDS = 30  # Groq responds in seconds, not minutes
 COACH_TIMEOUT_SECONDS = 20
 
-
 class WorkerClient:
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        model: str = DEFAULT_MODEL,
-    ):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or "missing_key"
         self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or DEFAULT_BASE_URL
         self.model = model
-
+        
         # Explicit timeout for the HTTP client
         self.client = OpenAI(
-            api_key=self.api_key,
+            api_key=self.api_key, 
             base_url=self.base_url,
-            timeout=HARD_TIMEOUT_SECONDS,  # Pass timeout to underlying httpx client
+            timeout=HARD_TIMEOUT_SECONDS  # Pass timeout to underlying httpx client
         )
         self.system_prompt = self._load_prompt(WORKER_PROMPT_PATH)
         self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
@@ -57,7 +50,7 @@ class WorkerClient:
         """Internal: Makes the actual API call."""
         print(f"[DEBUG] Connecting to LLM Service (Base URL: {self.base_url})...")
         print(f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}")
-
+        
         kwargs = {
             "model": self.model,
             "messages": messages,
@@ -66,7 +59,7 @@ class WorkerClient:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-
+            
         try:
             print("[DEBUG] Sending request...")
             completion = self.client.chat.completions.create(**kwargs)
@@ -86,9 +79,9 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": user_text},
+            {"role": "user", "content": user_text}
         ]
-
+        
         if context:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
             messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
@@ -100,16 +93,14 @@ class WorkerClient:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
             except FuturesTimeoutError:
                 future.cancel()
-                raise RuntimeError(
-                    f"LLM API did not respond within {HARD_TIMEOUT_SECONDS} seconds."
-                )
+                raise RuntimeError(f"LLM API did not respond within {HARD_TIMEOUT_SECONDS} seconds.")
             except APIError as e:
                 raise RuntimeError(f"LLM API failed: {e}") from e
             except Exception as e:
                 raise RuntimeError(f"LLM error: {e}") from e
 
         response = WorkerResponse.model_validate_json(content)
-
+        
         # Auto-construct optimized_content (Expanded Prompt) if missing
         # This saves the LLM from generating redundant text
         if not response.optimized_content or len(response.optimized_content) < 50:
@@ -121,7 +112,7 @@ class WorkerClient:
             if response.plan:
                 parts.append(response.plan)
             response.optimized_content = "\n\n---\n\n".join(parts)
-
+            
         return response
 
     def analyze_prompt(self, user_text: str) -> QualityReport:
@@ -134,7 +125,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.coach_prompt},
-            {"role": "user", "content": f"Analyze this prompt:\n\n{user_text}"},
+            {"role": "user", "content": f"Analyze this prompt:\n\n{user_text}"}
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -155,8 +146,8 @@ class WorkerClient:
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
         if not self.optimizer_prompt:
-            # Fallback if file missing
-            self.optimizer_prompt = "You are a specialized Prompt Optimizer. Your goal is to reduce token usage by at least 20% while preserving the exact intent, core constraints, and variables. Remove fluff, conversational filler, and redundancy. Return ONLY the optimized prompt text."
+             # Fallback if file missing
+             self.optimizer_prompt = "You are a specialized Prompt Optimizer. Your goal is to reduce token usage by at least 20% while preserving the exact intent, core constraints, and variables. Remove fluff, conversational filler, and redundancy. Return ONLY the optimized prompt text."
 
         # Dynamically append constraints
         sys_prompt = self.optimizer_prompt
@@ -165,19 +156,17 @@ class WorkerClient:
             constraints.append(f"TARGET: Strict maximum of {max_tokens} tokens.")
         if max_chars:
             constraints.append(f"TARGET: Strict maximum of {max_chars} characters.")
-
+        
         if constraints:
             sys_prompt += "\n\n" + "\n".join(constraints)
 
         messages = [
             {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"},
+            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"}
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            future = executor.submit(
-                self._call_api, messages, 2048, json_mode=False
-            )  # Optimizer output is text not JSON
+            future = executor.submit(self._call_api, messages, 2048, json_mode=False) # Optimizer output is text not JSON
             try:
                 content = future.result(timeout=COACH_TIMEOUT_SECONDS)
                 return content.strip()
@@ -189,7 +178,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.optimizer_prompt},
-            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"},
+            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"}
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -211,11 +200,11 @@ class WorkerClient:
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
         if not self.editor_prompt:
-            self.editor_prompt = "You are an expert editor. Rewrite this prompt to be better. Return JSON: {fixed_text, explanation, changes}"
+             self.editor_prompt = "You are an expert editor. Rewrite this prompt to be better. Return JSON: {fixed_text, explanation, changes}"
 
         messages = [
             {"role": "system", "content": self.editor_prompt},
-            {"role": "user", "content": f"Fix this prompt:\n\n{user_text}"},
+            {"role": "user", "content": f"Fix this prompt:\n\n{user_text}"}
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:

@@ -1,3 +1,4 @@
+import pytest
 from app.rag.simple_index import (
     _chunk_text,
     _chunk_text_fixed,
@@ -10,7 +11,6 @@ from app.rag.simple_index import (
 # --------------------------------------------------------------------------
 # SENTENCE SPLITTING TESTS
 # --------------------------------------------------------------------------
-
 
 def test_split_sentences_basic():
     text = "Hello world. This is a test. How are you?"
@@ -37,7 +37,6 @@ def test_split_sentences_single():
 # FIXED CHUNKING TESTS
 # --------------------------------------------------------------------------
 
-
 def test_fixed_chunking_small_text():
     """Text smaller than chunk size returns single chunk."""
     text = "Small text"
@@ -60,7 +59,6 @@ def test_fixed_chunking_large_text():
 # PARAGRAPH CHUNKING TESTS
 # --------------------------------------------------------------------------
 
-
 def test_paragraph_chunking_preserves_paragraphs():
     """Paragraph boundaries are preserved when possible."""
     text = "First paragraph here.\n\nSecond paragraph here.\n\nThird paragraph."
@@ -75,10 +73,10 @@ def test_paragraph_chunking_splits_large_paragraphs():
     # Create a paragraph with many sentences
     sentences = ["This is sentence number {}.".format(i) for i in range(20)]
     text = " ".join(sentences)
-
+    
     chunks = _chunk_text_paragraph(text, chunk_size=200)
     assert len(chunks) > 1
-
+    
     # No chunk should exceed size (with some tolerance for overlap)
     for chunk in chunks:
         assert len(chunk) <= 250  # Allow some tolerance
@@ -86,11 +84,9 @@ def test_paragraph_chunking_splits_large_paragraphs():
 
 def test_paragraph_chunking_sentence_overlap():
     """Last sentence is used as overlap for context."""
-    text = (
-        "Para one sentence one. Para one sentence two.\n\nPara two content here. More in para two."
-    )
+    text = "Para one sentence one. Para one sentence two.\n\nPara two content here. More in para two."
     chunks = _chunk_text_paragraph(text, chunk_size=80)
-
+    
     # If split, second chunk should start with overlap from first
     if len(chunks) > 1:
         # The overlap logic should include context
@@ -101,7 +97,6 @@ def test_paragraph_chunking_sentence_overlap():
 # SEMANTIC CHUNKING TESTS
 # --------------------------------------------------------------------------
 
-
 def test_semantic_chunking_groups_similar():
     """Similar sentences are grouped together."""
     text = (
@@ -110,7 +105,7 @@ def test_semantic_chunking_groups_similar():
         "The weather today is sunny. It might rain tomorrow. The forecast looks good."
     )
     chunks = _chunk_text_semantic(text, chunk_size=500, similarity_threshold=0.2)
-
+    
     # Should create at least 2 chunks (programming vs weather)
     assert len(chunks) >= 1
 
@@ -119,7 +114,7 @@ def test_semantic_chunking_respects_size():
     """Chunks don't exceed size limit."""
     sentences = ["Topic {}: some content about this topic here.".format(i) for i in range(50)]
     text = " ".join(sentences)
-
+    
     chunks = _chunk_text_semantic(text, chunk_size=200)
     for chunk in chunks:
         assert len(chunk) <= 220  # Small tolerance
@@ -128,7 +123,6 @@ def test_semantic_chunking_respects_size():
 # --------------------------------------------------------------------------
 # UNIFIED _chunk_text TESTS
 # --------------------------------------------------------------------------
-
 
 def test_chunk_text_strategy_fixed():
     text = "A" * 2000

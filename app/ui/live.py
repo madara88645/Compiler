@@ -1,17 +1,11 @@
 import threading
+import time
 from typing import Callable, Optional
 from app.llm_engine.hybrid import HybridCompiler
 from app.llm_engine.schemas import WorkerResponse
 
-
 class LiveModeManager:
-    def __init__(
-        self,
-        root,
-        on_result: Callable[[WorkerResponse], None],
-        on_start: Callable[[], None],
-        on_error: Callable[[str], None],
-    ):
+    def __init__(self, root, on_result: Callable[[WorkerResponse], None], on_start: Callable[[], None], on_error: Callable[[str], None]):
         self.root = root  # Tkinter root for thread-safe callbacks
         self.on_result = on_result
         self.on_start = on_start
@@ -30,24 +24,22 @@ class LiveModeManager:
     def schedule(self, text: str, delay_ms: int = 1500):
         if not self.enabled:
             return
-
+        
         # Critical: Error out if compiler not initialized, don't silently return
         if not self.compiler:
-            self.root.after(
-                0, lambda: self.on_error("HybridCompiler not initialized. Check API Key.")
-            )
+            self.root.after(0, lambda: self.on_error("HybridCompiler not initialized. Check API Key."))
             return
 
         text = text.strip()
         if text == self._last_text:
             return
-
+        
         self._last_text = text
-
+        
         with self._lock:
             if self._timer:
                 self._timer.cancel()
-
+            
             # Start debounce timer
             self._timer = threading.Timer(delay_ms / 1000.0, self._worker, args=[text])
             self._timer.start()
@@ -57,13 +49,13 @@ class LiveModeManager:
         with self._lock:
             self._latest_request_id += 1
             current_id = self._latest_request_id
-
+        
         # Notify UI: Thinking...
         self.root.after(0, self.on_start)
 
         try:
             if not self.compiler:
-                raise RuntimeError("Compiler not initialized")
+                 raise RuntimeError("Compiler not initialized")
 
             # Run Hybrid Compiler (Slow)
             response = self.compiler.compile(text)
@@ -76,8 +68,8 @@ class LiveModeManager:
 
             # Update UI on main thread
             self.root.after(0, lambda: self.on_result(response))
-
-        except Exception:
+        
+        except Exception as e:
             with self._lock:
                 if current_id != self._latest_request_id:
                     return

@@ -1,11 +1,13 @@
+
 import requests
+import sys
 import time
 
 # Test BOTH ports
 for port in [8080, 8888]:
     BASE_URL = f"http://127.0.0.1:{port}"
     print(f"\n--- Testing PORT {port} ---")
-
+    
     try:
         print(f"Checking {BASE_URL}...")
         r = requests.get(BASE_URL, timeout=3)
@@ -19,7 +21,7 @@ for port in [8080, 8888]:
     except Exception as e:
         print(f"PORT {port}: FAILED: {e}")
         continue
-
+    
     try:
         print(f"Checking {BASE_URL}/compile (V1)...")
         payload = {"text": "test", "v2": False}

@@ -7,7 +7,8 @@ It detects negations, dependencies, missing information, and input/output mappin
 
 from __future__ import annotations
 import re
-from typing import List, Optional
+import hashlib
+from typing import List, Dict, Tuple, Optional, NamedTuple
 from dataclasses import dataclass, field
 
 
@@ -15,21 +16,18 @@ from dataclasses import dataclass, field
 # DATA STRUCTURES
 # ==============================================================================
 
-
 @dataclass
 class NegativeConstraint:
     """Represents a detected negative/restriction constraint."""
-
     original_text: str
     stripped_text: str  # Without the negation word
     negation_word: str
-    anti_pattern: str  # Positive version (what TO do)
+    anti_pattern: str   # Positive version (what TO do)
 
 
 @dataclass
 class DependencyRule:
     """Represents a detected causal/dependency relationship."""
-
     action: str
     reason: str
     full_text: str
@@ -39,7 +37,6 @@ class DependencyRule:
 @dataclass
 class MissingInfo:
     """Represents a detected reference to undefined/missing information."""
-
     entity: str
     context: str
     placeholder: str
@@ -49,7 +46,6 @@ class MissingInfo:
 @dataclass
 class IOMapping:
     """Represents detected input/output structure."""
-
     input_type: str
     process_action: str
     output_format: str
@@ -59,7 +55,6 @@ class IOMapping:
 @dataclass
 class LogicAnalysisResult:
     """Complete result from logic analysis."""
-
     negations: List[NegativeConstraint] = field(default_factory=list)
     dependencies: List[DependencyRule] = field(default_factory=list)
     missing_info: List[MissingInfo] = field(default_factory=list)
@@ -108,20 +103,11 @@ DEPENDENCY_PATTERNS = [
 # Missing information reference patterns
 MISSING_REFERENCE_PATTERNS = [
     # Database/data references
-    (
-        r"\b(?:the|this|that|your|our|my)\s+(database|db|schema|table|data|dataset)\b",
-        "Database Schema",
-    ),
+    (r"\b(?:the|this|that|your|our|my)\s+(database|db|schema|table|data|dataset)\b", "Database Schema"),
     (r"\b(?:the|this|that|your|our|my)\s+(api|endpoint|service|server)\b", "API Specification"),
-    (
-        r"\b(?:the|this|that|your|our|my)\s+(file|document|spreadsheet|csv|json|xml)\b",
-        "File Content",
-    ),
+    (r"\b(?:the|this|that|your|our|my)\s+(file|document|spreadsheet|csv|json|xml)\b", "File Content"),
     (r"\b(?:the|this|that|your|our|my)\s+(code|script|function|class|module)\b", "Code Reference"),
-    (
-        r"\b(?:the|this|that|your|our|my)\s+(config|configuration|settings)\b",
-        "Configuration Details",
-    ),
+    (r"\b(?:the|this|that|your|our|my)\s+(config|configuration|settings)\b", "Configuration Details"),
     # Undefined entity references
     (r"\b(?:use|using|utilize|with)\s+(?:the|this|that)\s+(\w+)\b", "Entity Definition"),
     (r"\b(?:based\s+on|according\s+to)\s+(?:the|this|that)\s+(\w+)\b", "Reference Document"),
@@ -131,20 +117,14 @@ MISSING_REFERENCE_PATTERNS = [
 
 # Input/Output detection patterns
 INPUT_PATTERNS = [
-    (
-        r"\b(?:given|input|receive|accept|take|read)\s+(?:a|an|the)?\s*(\w+(?:\s+\w+)?)\b",
-        "explicit",
-    ),
+    (r"\b(?:given|input|receive|accept|take|read)\s+(?:a|an|the)?\s*(\w+(?:\s+\w+)?)\b", "explicit"),
     (r"\b(?:from|with)\s+(?:a|an|the)?\s*(\w+(?:\s+\w+)?)\s+(?:input|data|source)\b", "source"),
     (r"\b(?:text|code|number|json|xml|csv|image|audio|video)\b", "type"),
     (r"\b(?:user\s+input|prompt|query|request|message)\b", "user_input"),
 ]
 
 OUTPUT_PATTERNS = [
-    (
-        r"\b(?:output|return|generate|produce|create|write)\s+(?:a|an|the)?\s*(\w+(?:\s+\w+)?)\b",
-        "explicit",
-    ),
+    (r"\b(?:output|return|generate|produce|create|write)\s+(?:a|an|the)?\s*(\w+(?:\s+\w+)?)\b", "explicit"),
     (r"\b(?:in|as)\s+(\w+)\s+format\b", "format"),
     (r"\b(?:save|export|send)\s+(?:to|as)\s+(\w+)\b", "destination"),
     (r"\b(?:markdown|json|xml|csv|html|pdf|text|table|list|code)\b", "format_type"),
@@ -163,11 +143,10 @@ PROCESS_PATTERNS = [
 # LOGIC ANALYZER CLASS
 # ==============================================================================
 
-
 class LogicAnalyzer:
     """
     Advanced logic extractor for prompt analysis.
-
+    
     Detects:
     - Negative constraints and anti-patterns
     - Causal dependencies and reasoning chains
@@ -178,7 +157,7 @@ class LogicAnalyzer:
     def __init__(self, maximize_recall: bool = True):
         """
         Initialize the LogicAnalyzer.
-
+        
         Args:
             maximize_recall: If True, prefer false positives over missed detections.
         """
@@ -187,29 +166,37 @@ class LogicAnalyzer:
 
     def _compile_patterns(self) -> None:
         """Pre-compile regex patterns for performance."""
-        self._negation_re = [(re.compile(p, re.IGNORECASE), t) for p, t in NEGATION_PATTERNS]
+        self._negation_re = [
+            (re.compile(p, re.IGNORECASE), t) for p, t in NEGATION_PATTERNS
+        ]
         self._dependency_re = [
             (re.compile(p, re.IGNORECASE | re.DOTALL), t) for p, t in DEPENDENCY_PATTERNS
         ]
         self._missing_re = [
             (re.compile(p, re.IGNORECASE), t) for p, t in MISSING_REFERENCE_PATTERNS
         ]
-        self._input_re = [(re.compile(p, re.IGNORECASE), t) for p, t in INPUT_PATTERNS]
-        self._output_re = [(re.compile(p, re.IGNORECASE), t) for p, t in OUTPUT_PATTERNS]
-        self._process_re = [(re.compile(p, re.IGNORECASE), t) for p, t in PROCESS_PATTERNS]
+        self._input_re = [
+            (re.compile(p, re.IGNORECASE), t) for p, t in INPUT_PATTERNS
+        ]
+        self._output_re = [
+            (re.compile(p, re.IGNORECASE), t) for p, t in OUTPUT_PATTERNS
+        ]
+        self._process_re = [
+            (re.compile(p, re.IGNORECASE), t) for p, t in PROCESS_PATTERNS
+        ]
 
     def analyze(self, text: str) -> LogicAnalysisResult:
         """
         Perform complete logic analysis on input text.
-
+        
         Args:
             text: The prompt text to analyze.
-
+            
         Returns:
             LogicAnalysisResult with all detected logic elements.
         """
         sentences = self._split_sentences(text)
-
+        
         return LogicAnalysisResult(
             negations=self.detect_negations(text, sentences),
             dependencies=self.detect_dependencies(sentences),
@@ -220,24 +207,22 @@ class LogicAnalyzer:
     def _split_sentences(self, text: str) -> List[str]:
         """Split text into sentences for analysis."""
         # Handle common sentence boundaries
-        text = re.sub(r"([.!?])\s+", r"\1\n", text)
+        text = re.sub(r'([.!?])\s+', r'\1\n', text)
         # Handle bullet points and numbered lists
-        text = re.sub(r"\n\s*[-*•]\s*", "\n", text)
-        text = re.sub(r"\n\s*\d+[.):]\s*", "\n", text)
-
-        sentences = [s.strip() for s in text.split("\n") if s.strip()]
+        text = re.sub(r'\n\s*[-*•]\s*', '\n', text)
+        text = re.sub(r'\n\s*\d+[.):]\s*', '\n', text)
+        
+        sentences = [s.strip() for s in text.split('\n') if s.strip()]
         return sentences
 
     # --------------------------------------------------------------------------
     # NEGATION DETECTION
     # --------------------------------------------------------------------------
 
-    def detect_negations(
-        self, text: str, sentences: Optional[List[str]] = None
-    ) -> List[NegativeConstraint]:
+    def detect_negations(self, text: str, sentences: Optional[List[str]] = None) -> List[NegativeConstraint]:
         """
         Detect negative constraints and extract anti-patterns.
-
+        
         Identifies negation words and transforms them into:
         1. Negative Constraints (what NOT to do)
         2. Anti-Patterns (positive version - what TO do)
@@ -253,7 +238,7 @@ class LogicAnalyzer:
                 match = pattern.search(sentence)
                 if match:
                     negation_word = match.group(1).lower()
-
+                    
                     # Skip if we've seen this exact sentence
                     if sentence in seen:
                         continue
@@ -263,14 +248,12 @@ class LogicAnalyzer:
                     stripped = self._strip_negation(sentence, negation_word)
                     anti_pattern = self._create_anti_pattern(stripped, negation_word)
 
-                    negations.append(
-                        NegativeConstraint(
-                            original_text=sentence,
-                            stripped_text=stripped,
-                            negation_word=negation_word,
-                            anti_pattern=anti_pattern,
-                        )
-                    )
+                    negations.append(NegativeConstraint(
+                        original_text=sentence,
+                        stripped_text=stripped,
+                        negation_word=negation_word,
+                        anti_pattern=anti_pattern,
+                    ))
                     break  # Only capture first negation per sentence
 
         return negations
@@ -309,7 +292,7 @@ class LogicAnalyzer:
             "without": "With:",
             "no": "Include:",
         }
-
+        
         prefix = positive_prefix.get(negation_word.lower(), "Consider:")
         return f"{prefix} {stripped}"
 
@@ -320,7 +303,7 @@ class LogicAnalyzer:
     def detect_dependencies(self, sentences: List[str]) -> List[DependencyRule]:
         """
         Detect causal dependencies and reformat into Rule structures.
-
+        
         Transforms:
         - "Do X because Y" -> Rule: [X] (Reason: [Y])
         - "Do X so that Y" -> Rule: [X] (Purpose: [Y])
@@ -338,7 +321,7 @@ class LogicAnalyzer:
                 matches = pattern.finditer(text)
                 for match in matches:
                     full_match = match.group(0).strip()
-
+                    
                     if full_match in seen or len(full_match) < 10:
                         continue
                     seen.add(full_match)
@@ -346,7 +329,7 @@ class LogicAnalyzer:
                     groups = match.groups()
                     if len(groups) >= 2:
                         part1, part2 = groups[0].strip(), groups[1].strip()
-
+                        
                         # Determine action vs reason based on dependency type
                         if dep_type == "if_then":
                             action, reason = part2, part1  # Then = action, If = condition
@@ -354,16 +337,14 @@ class LogicAnalyzer:
                             action, reason = part1, part2  # Action because Reason
                         else:
                             action, reason = part1, part2  # Action so that Purpose
-
+                        
                         if len(action) > 5 and len(reason) > 5:
-                            dependencies.append(
-                                DependencyRule(
-                                    action=action,
-                                    reason=reason,
-                                    full_text=full_match,
-                                    dependency_type=dep_type,
-                                )
-                            )
+                            dependencies.append(DependencyRule(
+                                action=action,
+                                reason=reason,
+                                full_text=full_match,
+                                dependency_type=dep_type,
+                            ))
 
         return dependencies
 
@@ -374,7 +355,7 @@ class LogicAnalyzer:
     def detect_missing_info(self, text: str) -> List[MissingInfo]:
         """
         Detect references to undefined/missing information.
-
+        
         Identifies:
         - "the database" without schema provided
         - "use the API" without endpoint details
@@ -388,7 +369,7 @@ class LogicAnalyzer:
             for match in matches:
                 entity = match.group(1) if match.lastindex else match.group(0)
                 context = self._get_context(text, match.start(), match.end())
-
+                
                 key = f"{info_type}:{entity.lower()}"
                 if key in seen:
                     continue
@@ -399,14 +380,12 @@ class LogicAnalyzer:
                 if any(word in entity.lower() for word in ["database", "api", "schema", "config"]):
                     severity = "error"
 
-                missing.append(
-                    MissingInfo(
-                        entity=entity,
-                        context=context,
-                        placeholder=f"[MISSING: {info_type}]",
-                        severity=severity,
-                    )
-                )
+                missing.append(MissingInfo(
+                    entity=entity,
+                    context=context,
+                    placeholder=f"[MISSING: {info_type}]",
+                    severity=severity,
+                ))
 
         # Maximize recall: also flag potential undefined references
         if self.maximize_recall:
@@ -428,32 +407,21 @@ class LogicAnalyzer:
     def _detect_potential_undefined(self, text: str, seen: set) -> List[MissingInfo]:
         """Additional heuristics for potential undefined references."""
         extras = []
-
+        
         # Detect "the [noun]" patterns without prior definition
-        pattern = re.compile(
-            r"\b(?:the|this|that)\s+(\w+)\s+(?:is|should|will|must|can)\b", re.IGNORECASE
-        )
+        pattern = re.compile(r"\b(?:the|this|that)\s+(\w+)\s+(?:is|should|will|must|can)\b", re.IGNORECASE)
         for match in pattern.finditer(text):
             entity = match.group(1)
             key = f"Entity:{entity.lower()}"
-            if key not in seen and entity.lower() not in (
-                "user",
-                "system",
-                "output",
-                "input",
-                "result",
-                "response",
-            ):
+            if key not in seen and entity.lower() not in ("user", "system", "output", "input", "result", "response"):
                 seen.add(key)
-                extras.append(
-                    MissingInfo(
-                        entity=entity,
-                        context=self._get_context(text, match.start(), match.end()),
-                        placeholder=f"[MISSING: {entity} definition]",
-                        severity="info",
-                    )
-                )
-
+                extras.append(MissingInfo(
+                    entity=entity,
+                    context=self._get_context(text, match.start(), match.end()),
+                    placeholder=f"[MISSING: {entity} definition]",
+                    severity="info",
+                ))
+        
         return extras
 
     # --------------------------------------------------------------------------
@@ -463,7 +431,7 @@ class LogicAnalyzer:
     def detect_io_mapping(self, text: str) -> List[IOMapping]:
         """
         Detect input/output structure and create pseudo-algorithm blocks.
-
+        
         Returns:
         Input: [Type] -> Process: [Action] -> Output: [Format]
         """
@@ -473,36 +441,34 @@ class LogicAnalyzer:
 
         # Create mappings from detected elements
         mappings = []
-
+        
         if inputs or outputs or processes:
             # Create primary mapping
             input_type = inputs[0] if inputs else "unspecified"
             output_format = outputs[0] if outputs else "unspecified"
             process_action = processes[0] if processes else "process"
-
+            
             confidence = (
-                (0.4 if inputs else 0.0) + (0.3 if outputs else 0.0) + (0.3 if processes else 0.0)
+                (0.4 if inputs else 0.0) +
+                (0.3 if outputs else 0.0) +
+                (0.3 if processes else 0.0)
             )
-
-            mappings.append(
-                IOMapping(
-                    input_type=input_type,
-                    process_action=process_action,
-                    output_format=output_format,
-                    confidence=confidence,
-                )
-            )
+            
+            mappings.append(IOMapping(
+                input_type=input_type,
+                process_action=process_action,
+                output_format=output_format,
+                confidence=confidence,
+            ))
 
             # Create secondary mappings if multiple elements detected
             for i in range(1, max(len(inputs), len(outputs), len(processes))):
-                mappings.append(
-                    IOMapping(
-                        input_type=inputs[i] if i < len(inputs) else input_type,
-                        process_action=processes[i] if i < len(processes) else process_action,
-                        output_format=outputs[i] if i < len(outputs) else output_format,
-                        confidence=confidence * 0.7,  # Lower confidence for secondary
-                    )
-                )
+                mappings.append(IOMapping(
+                    input_type=inputs[i] if i < len(inputs) else input_type,
+                    process_action=processes[i] if i < len(processes) else process_action,
+                    output_format=outputs[i] if i < len(outputs) else output_format,
+                    confidence=confidence * 0.7,  # Lower confidence for secondary
+                ))
 
         return mappings
 
@@ -556,19 +522,19 @@ class LogicAnalyzer:
         """Format negations as a Restrictions section."""
         if not negations:
             return ""
-
+        
         lines = ["### Restrictions", ""]
         for neg in negations:
             lines.append(f"- ❌ {neg.original_text}")
             lines.append(f"  - *Anti-pattern*: {neg.anti_pattern}")
-
+        
         return "\n".join(lines)
 
     def format_dependency_rules(self, dependencies: List[DependencyRule]) -> str:
         """Format dependencies as structured rules."""
         if not dependencies:
             return ""
-
+        
         lines = ["### Dependency Rules", ""]
         for dep in dependencies:
             reason_label = {
@@ -578,32 +544,32 @@ class LogicAnalyzer:
                 "if_then": "Condition",
                 "result": "Result",
             }.get(dep.dependency_type, "Reason")
-
+            
             lines.append(f"- **Rule**: {dep.action}")
             lines.append(f"  - *{reason_label}*: {dep.reason}")
-
+        
         return "\n".join(lines)
 
     def format_missing_info_warnings(self, missing: List[MissingInfo]) -> str:
         """Format missing information as warnings."""
         if not missing:
             return ""
-
+        
         lines = ["### Missing Information", ""]
         icons = {"error": "🔴", "warning": "🟡", "info": "🔵"}
-
+        
         for item in missing:
             icon = icons.get(item.severity, "🔵")
             lines.append(f"- {icon} {item.placeholder}")
             lines.append(f"  - *Referenced*: `{item.entity}`")
-
+        
         return "\n".join(lines)
 
     def format_io_algorithm(self, mappings: List[IOMapping]) -> str:
         """Format I/O mappings as pseudo-algorithm blocks."""
         if not mappings:
             return ""
-
+        
         lines = ["### Input/Output Flow", "```"]
         for i, m in enumerate(mappings):
             conf = f" ({m.confidence:.0%} confidence)" if m.confidence < 1 else ""
@@ -614,7 +580,7 @@ class LogicAnalyzer:
             if i < len(mappings) - 1:
                 lines.append("")
         lines.append("```")
-
+        
         return "\n".join(lines)
 
 
@@ -622,15 +588,14 @@ class LogicAnalyzer:
 # HELPER FUNCTIONS
 # ==============================================================================
 
-
 def analyze_prompt_logic(text: str, maximize_recall: bool = True) -> LogicAnalysisResult:
     """
     Convenience function to analyze prompt logic.
-
+    
     Args:
         text: The prompt text to analyze.
         maximize_recall: Prefer catching potential issues over precision.
-
+        
     Returns:
         LogicAnalysisResult with all detected elements.
     """

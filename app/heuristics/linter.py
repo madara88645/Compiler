@@ -89,34 +89,10 @@ CONFLICT_PAIRS: List[Tuple[Set[str], Set[str]]] = [
 
 # Stopwords for density calc (minimal set)
 STOPWORDS: Set[str] = {
-    "the",
-    "is",
-    "at",
-    "which",
-    "on",
-    "a",
-    "an",
-    "and",
-    "or",
-    "for",
-    "to",
-    "in",
-    "of",
-    "with",
+    "the", "is", "at", "which", "on", "a", "an", "and", "or", "for", "to", "in", "of", "with",
     # TR
-    "bir",
-    "ve",
-    "ile",
-    "için",
-    "de",
-    "da",
-    "bu",
-    "şu",
-    "o",
-    "ama",
-    "fakat",
+    "bir", "ve", "ile", "için", "de", "da", "bu", "şu", "o", "ama", "fakat",
 }
-
 
 @dataclass
 class LintWarning:
@@ -124,7 +100,6 @@ class LintWarning:
     message: str
     suggestion: str
     severity: str  # "warning", "info"
-
 
 @dataclass
 class LintReport:
@@ -137,22 +112,23 @@ class LintReport:
     masked_text: str = ""
     timing_ms: float = 0.0
 
-
 class PromptLinter:
     """Static analysis engine for prompts."""
 
     def lint(self, text: str) -> LintReport:
         """Analyze prompt text and return a comprehensive report."""
         start_time = time.perf_counter()
-
+        
         if not text or not text.strip():
-            return LintReport(score=0, ambiguity_score=0.0, density_score=0.0, masked_text=text)
+            return LintReport(
+                score=0, ambiguity_score=0.0, density_score=0.0, masked_text=text
+            )
 
         # 1. Pre-processing
         lower_text = text.lower()
         words = re.findall(r"\w+", lower_text)
         total_words = len(words)
-
+        
         warnings: List[LintWarning] = []
         safety_flags: List[str] = []
         conflicts: List[str] = []
@@ -166,46 +142,40 @@ class PromptLinter:
             weasel_count += 1
         if "sort of" in lower_text:
             weasel_count += 1
-
+            
         ambiguity_score = weasel_count / total_words if total_words > 0 else 0.0
-
+        
         if ambiguity_score > 0.05:
-            warnings.append(
-                LintWarning(
-                    code="AMBIGUITY",
-                    message=f"Prompt contains vague language ({int(ambiguity_score*100)}% weasel words).",
-                    suggestion="Replace words like 'maybe', 'try to' with imperative verbs.",
-                    severity="warning",
-                )
-            )
+            warnings.append(LintWarning(
+                code="AMBIGUITY",
+                message=f"Prompt contains vague language ({int(ambiguity_score*100)}% weasel words).",
+                suggestion="Replace words like 'maybe', 'try to' with imperative verbs.",
+                severity="warning"
+            ))
 
         # 3. Density Check
         informative_words = {w for w in words if w not in STOPWORDS and len(w) > 2}
         density_score = len(informative_words) / total_words if total_words > 0 else 0.0
-
+        
         if density_score < 0.3 and total_words > 10:
-            warnings.append(
-                LintWarning(
-                    code="LO_DENSITY",
-                    message="Low information density.",
-                    suggestion="Remove fluff words. Use a more 'telegraphic' style.",
-                    severity="info",
-                )
-            )
+            warnings.append(LintWarning(
+                code="LO_DENSITY",
+                message="Low information density.",
+                suggestion="Remove fluff words. Use a more 'telegraphic' style.",
+                severity="info"
+            ))
 
         # 4. Safety Heuristics (Injection)
         for pattern in INJECTION_PATTERNS:
             if pattern.search(text):
                 safety_flags.append("PROMPT_INJECTION_RISK")
-                warnings.append(
-                    LintWarning(
-                        code="INJECTION",
-                        message="Potential prompt injection pattern detected.",
-                        suggestion="Review for 'ignore instructions' or override commands.",
-                        severity="warning",
-                    )
-                )
-                break  # Stop after first detection to save time
+                warnings.append(LintWarning(
+                    code="INJECTION",
+                    message="Potential prompt injection pattern detected.",
+                    suggestion="Review for 'ignore instructions' or override commands.",
+                    severity="warning"
+                ))
+                break # Stop after first detection to save time
 
         # 5. PII Masking
         masked_text = text
@@ -227,26 +197,24 @@ class PromptLinter:
                 desc_a = list(group_a)[0]
                 desc_b = list(group_b)[0]
                 conflicts.append(f"{desc_a} vs {desc_b}")
-                warnings.append(
-                    LintWarning(
-                        code="CONFLICT",
-                        message=f"Conflicting instructions detected ({desc_a} vs {desc_b}).",
-                        suggestion="Choose one direction to avoid confusing the model.",
-                        severity="warning",
-                    )
-                )
+                warnings.append(LintWarning(
+                    code="CONFLICT",
+                    message=f"Conflicting instructions detected ({desc_a} vs {desc_b}).",
+                    suggestion="Choose one direction to avoid confusing the model.",
+                    severity="warning"
+                ))
 
         # 7. Scoring
         # Start at 100, deduct for issues
         score = 100
-        score -= int(ambiguity_score * 200)  # 0.05 ambiguity -> -10 pts
+        score -= int(ambiguity_score * 200) # 0.05 ambiguity -> -10 pts
         if density_score < 0.3:
             score -= 10
-        score -= len(safety_flags) * 30
-        score -= len(conflicts) * 15
-
+        score -= (len(safety_flags) * 30)
+        score -= (len(conflicts) * 15)
+        
         score = max(0, min(100, score))
-
+        
         end_time = time.perf_counter()
         timing_ms = (end_time - start_time) * 1000
 
@@ -258,5 +226,5 @@ class PromptLinter:
             safety_flags=safety_flags,
             conflicts=conflicts,
             masked_text=masked_text,
-            timing_ms=timing_ms,
+            timing_ms=timing_ms
         )
