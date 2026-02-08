@@ -173,7 +173,7 @@ class PromptLinter:
             warnings.append(
                 LintWarning(
                     code="AMBIGUITY",
-                    message=f"Prompt contains vague language ({int(ambiguity_score*100)}% weasel words).",
+                    message=f"Prompt contains vague language ({int(ambiguity_score * 100)}% weasel words).",
                     suggestion="Replace words like 'maybe', 'try to' with imperative verbs.",
                     severity="warning",
                 )

@@ -29,7 +29,7 @@ def test_optimize_feature():
         if len(optimized) < len(verbose_prompt) * 0.8:
             print("✅ Optimization Successful (Reduced by >20%)")
         else:
-            print(f"⚠️ Optimization weak (Ratio: {len(optimized)/len(verbose_prompt):.2f})")
+            print(f"⚠️ Optimization weak (Ratio: {len(optimized) / len(verbose_prompt):.2f})")
 
     except Exception as e:
         print(f"❌ Optimize Failed: {e}")

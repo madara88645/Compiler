@@ -607,7 +607,7 @@ class LogicAnalyzer:
         lines = ["### Input/Output Flow", "```"]
         for i, m in enumerate(mappings):
             conf = f" ({m.confidence:.0%} confidence)" if m.confidence < 1 else ""
-            lines.append(f"[Flow {i+1}]{conf}")
+            lines.append(f"[Flow {i + 1}]{conf}")
             lines.append(f"  Input:   {m.input_type}")
             lines.append(f"  Process: {m.process_action}")
             lines.append(f"  Output:  {m.output_format}")

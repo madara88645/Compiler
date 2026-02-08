@@ -6,6 +6,7 @@ Injects sophisticated prompting strategies based on task analysis:
 - Few-Shot suggestions for classification/transformation
 - Persona deepening for role-based prompts
 """
+
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
@@ -303,11 +304,7 @@ class StrategyHandler:
     def _format_persona_block(self, persona: str, traits: List[str]) -> str:
         """Format persona traits as a system prompt block."""
         traits_formatted = "\n".join(f"- {trait}" for trait in traits)
-        return (
-            f"## Persona: {persona.title()}\n"
-            f"Embody these characteristics:\n"
-            f"{traits_formatted}\n"
-        )
+        return f"## Persona: {persona.title()}\nEmbody these characteristics:\n{traits_formatted}\n"
 
     # --------------------------------------------------------------------------
     # UTILITY: APPLY STRATEGIES TO PROMPT
