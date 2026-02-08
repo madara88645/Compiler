@@ -3,7 +3,7 @@ import time
 
 BASE_URL = "http://127.0.0.1:8080"
 
-print("--- V2 (DeepSeek) Test ---")
+print("--- V2 (LLM) Test ---")
 
 try:
     print(f"Sending V2 request to {BASE_URL}/compile...")

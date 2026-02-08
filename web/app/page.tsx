@@ -50,7 +50,7 @@ export default function Home() {
     setStatus(liveMode ? "Live Compiling..." : "Generating (Fast)...");
 
     try {
-      // Step A: Fast V1 Request (Skip in Live Mode if user wants pure DeepSeek)
+      // Step A: Fast V1 Request (Skip in Live Mode if user wants pure LLM)
       if (!liveMode) {
         const resV1 = await fetch("http://127.0.0.1:8080/compile", {
           method: "POST",
@@ -68,7 +68,7 @@ export default function Home() {
       }
 
       // Step B: Slow V2 Request (DeepSeek)
-      // Step B: Slow V2 Request (DeepSeek)
+      // Step B: Slow V2 Request (LLM)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 190000); // 190s timeout
 

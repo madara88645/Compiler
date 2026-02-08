@@ -14,7 +14,7 @@ except ImportError:
 from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 
-# Default settings - Groq (much faster than DeepSeek)
+# Default settings - Groq (much faster than LLM Service)
 DEFAULT_MODEL = "llama-3.1-8b-instant"  # Fast and cheap
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -150,7 +150,7 @@ class WorkerClient:
         return QualityReport.model_validate_json(content)
 
     def optimize_prompt(self, user_text: str, max_tokens: int = None, max_chars: int = None) -> str:
-        """Optimize prompt for token usage directly via DeepSeek."""
+        """Optimize prompt for token usage directly via Worker LLM."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
@@ -206,7 +206,7 @@ class WorkerClient:
         return content
 
     def fix_prompt(self, user_text: str) -> LLMFixResponse:
-        """Auto-fix prompt using DeepSeek Editor."""
+        """Auto-fix prompt using LLM Editor."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 

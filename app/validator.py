@@ -334,7 +334,9 @@ class PromptValidator:
         issues = []
 
         # Check for conflicting constraints and goals
-        constraint_texts = [c.text.lower() for c in ir.constraints]
+        constraint_texts = [
+            (c.text if hasattr(c, "text") else c.get("text", "")) for c in ir.constraints
+        ]
         goal_texts = [g.lower() for g in ir.goals]
         all_text = " ".join(constraint_texts + goal_texts)
 

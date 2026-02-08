@@ -17,6 +17,8 @@ class Assertion(BaseModel):
 class TestCase(BaseModel):
     """A test case definition."""
 
+    __test__ = False
+
     id: str
     description: Optional[str] = None
     input_variables: Dict[str, Any] = Field(default_factory=dict)
@@ -28,6 +30,8 @@ class TestCase(BaseModel):
 
 class TestSuite(BaseModel):
     """A collection of test cases for a specific prompt template."""
+
+    __test__ = False
 
     name: str
     description: Optional[str] = None

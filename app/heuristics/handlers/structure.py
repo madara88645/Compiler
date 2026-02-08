@@ -91,10 +91,8 @@ class StructureHandler:
             lower_part = part.lower()
 
             # Heuristics to switch buckets
-            # We prioritize explicit keywords at the start of the sentence
-            if any(x in lower_part for x in ["act as", "you are", "your role", "role:"]):
-                current_bucket = "Role"
-            elif any(
+            # We prioritize explicit headers first
+            if any(
                 x in lower_part for x in ["context:", "background:", "situation:", "context is"]
             ):
                 current_bucket = "Context"
@@ -113,6 +111,19 @@ class StructureHandler:
                 ]
             ):
                 current_bucket = "Task"
+            elif any(
+                x in lower_part
+                for x in ["constraint", "avoid", "do not", "limit:", "rule", "don't"]
+            ):
+                current_bucket = "Constraints"
+            # Specific role markers check - do this LAST or restrict it
+            elif any(x in lower_part for x in ["act as", "your role", "role:"]):
+                current_bucket = "Role"
+            elif "you are" in lower_part:
+                # Only switch to Role if we aren't already in Context/Task strings that might contain "you are"
+                # For now, let's treat "you are" as Role only if it's at the start or explicit
+                if current_bucket not in ("Context", "Task"):
+                    current_bucket = "Role"
             elif any(
                 x in lower_part
                 for x in ["constraint", "avoid", "do not", "limit:", "rule", "don't"]

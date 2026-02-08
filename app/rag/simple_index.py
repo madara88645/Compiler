@@ -708,7 +708,9 @@ def pack(
 
         score_val = r.get("hybrid_score") or r.get("score")
         score_str = f" score={score_val:.3f}" if score_val is not None else ""
-        header = f"# {Path(r['path']).name} chunk={r['chunk_index']}{score_str}\n"
+        header = (
+            f"# {Path(r.get('path', 'unknown')).name} chunk={r.get('chunk_index', 0)}{score_str}\n"
+        )
 
         block = header + chunk_text + "\n\n"
 

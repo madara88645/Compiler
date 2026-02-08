@@ -6,7 +6,7 @@ from app.models_v2 import IRv2, DiagnosticItem
 
 class WorkerResponse(BaseModel):
     """
-    Full response from DeepSeek Worker LLM.
+    Full response from Worker LLM.
     Includes IR structure AND direct prompt outputs.
     """
 
@@ -17,7 +17,7 @@ class WorkerResponse(BaseModel):
         default="", description="Expanded prompt (legacy or auto-generated)"
     )
 
-    # NEW: Direct prompt outputs (DeepSeek generates these)
+    # NEW: Direct prompt outputs (LLM generates these)
     system_prompt: str = Field(default="", description="Ready-to-use system prompt")
     user_prompt: str = Field(default="", description="Ready-to-use user message")
     plan: str = Field(default="", description="Step-by-step plan/approach")
@@ -26,7 +26,7 @@ class WorkerResponse(BaseModel):
 
 
 class QualityReport(BaseModel):
-    """Quality Coach analysis result from DeepSeek."""
+    """Quality Coach analysis result from Worker LLM."""
 
     score: int = Field(default=50, ge=0, le=100, description="Overall quality score 0-100")
     category_scores: dict = Field(

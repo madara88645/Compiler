@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from app.history import get_history_manager
+# from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
 
@@ -17,7 +17,14 @@ class PromptComparison:
     def __init__(self):
         """Initialize prompt comparison."""
         self.console = Console()
-        self.history = get_history_manager()
+
+        # Stub for removed history manager
+        class HistoryManagerStub:
+            def get_by_id(self, *args, **kwargs):
+                return None
+
+        self.history = HistoryManagerStub()
+
         self.favorites = get_favorites_manager()
 
     def get_prompt_text(self, item_id: str, source: str = "auto") -> tuple[bool, str, str]:

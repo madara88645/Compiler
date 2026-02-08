@@ -1,10 +1,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+
 from typing import Any
 
-from app.command_palette import load_ui_config, save_ui_config
+import json
+import os
+from pathlib import Path
+
+DEFAULT_CONFIG_PATH = Path.home() / ".promptc_ui.json"
+
+
+def load_ui_config() -> dict[str, Any]:
+    path = Path(os.environ.get("PROMPTC_UI_CONFIG", DEFAULT_CONFIG_PATH))
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_ui_config(config: dict[str, Any]) -> None:
+    path = Path(os.environ.get("PROMPTC_UI_CONFIG", DEFAULT_CONFIG_PATH))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
 SETTINGS_PROFILES_KEY = "settings_profiles"

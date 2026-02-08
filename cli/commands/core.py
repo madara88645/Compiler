@@ -40,7 +40,7 @@ from app.resources import get_ir_schema_json
 
 from app import get_version
 from app.analytics import AnalyticsManager, create_record_from_ir
-from app.history import get_history_manager
+# from app.history import get_history_manager
 
 
 # Constants
@@ -284,13 +284,12 @@ def _run_compile(
         print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
         print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
 
-    # Save to history
-    try:
-        history_mgr = get_history_manager()
-        history_mgr.add(full_text, ir_json, score=0.0)
-    except Exception:
-        # Silently fail if history fails
-        pass
+    # Save to history - DISABLED (legacy module removed)
+    # try:
+    #     history_mgr = get_history_manager()
+    #     history_mgr.add(full_text, ir_json, score=0.0)
+    # except Exception:
+    #     pass
 
 
 @app.command("compile")

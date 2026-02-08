@@ -13,8 +13,25 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 
-from app.history import get_history_manager
+# from app.history import get_history_manager
 from app.favorites import get_favorites_manager
+
+
+def get_history_manager():
+    """Stub for removed history manager."""
+
+    class HistoryManagerStub:
+        def get_by_id(self, *args, **kwargs):
+            return None
+
+        def _save(self):
+            pass
+
+        @property
+        def entries(self):
+            return []
+
+    return HistoryManagerStub()
 
 
 console = Console()

@@ -231,7 +231,7 @@ def compile_endpoint(req: CompileRequest):
             sys_v2 = "Offline Mode - Heuristic V2"
             plan_v2 = "Logical Analysis & Formatting Applied."
 
-    # Optional: render prompts with IR v2 emitters (fallback if DeepSeek didn't provide)
+    # Optional: render prompts with IR v2 emitters (fallback if LLM didn't provide)
     if req.render_v2_prompts and ir2 is not None:
         sys_v2 = sys_v2 or emit_system_prompt_v2(ir2)
         user_v2 = user_v2 or emit_user_prompt_v2(ir2)
@@ -261,18 +261,23 @@ def compile_endpoint(req: CompileRequest):
 
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(req: OptimizeRequest):
-    """Deterministically shorten prompt text using DeepSeek LLM."""
+    """Deterministically shorten prompt text using Worker LLM."""
 
     from app.text_utils import estimate_tokens
 
     # Use global hybrid compiler's worker
+    global hybrid_compiler
+    if hybrid_compiler is None:
+        from app.llm_engine.hybrid import HybridCompiler
+
+        hybrid_compiler = HybridCompiler()
     worker = hybrid_compiler.worker
 
     # Calculate initial stats
     before_chars = len(req.text)
     before_tokens = estimate_tokens(req.text)
 
-    # Call DeepSeek Optimizer
+    # Call Optimizer
     try:
         optimized = worker.optimize_prompt(
             req.text, max_tokens=req.max_tokens, max_chars=req.max_chars
@@ -582,7 +587,7 @@ class ValidateRequest(BaseModel):
 
 @app.post("/validate", response_model=QualityReport)
 def validate_endpoint(req: ValidateRequest):
-    """Validate a prompt using DeepSeek Quality Coach."""
+    """Validate a prompt using Quality Coach."""
     try:
         report = hybrid_compiler.worker.analyze_prompt(req.text)
         return report
@@ -605,7 +610,7 @@ class AutoFixRequest(BaseModel):
 
 @app.post("/fix", response_model=LLMFixResponse)
 def fix_endpoint(req: AutoFixRequest):
-    """Automatically fix prompt using DeepSeek Editor."""
+    """Automatically fix prompt using LLM Editor."""
     try:
         result = hybrid_compiler.worker.fix_prompt(req.text)
         return result

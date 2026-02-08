@@ -10,8 +10,32 @@ from rich.panel import Panel
 from rich.table import Table
 
 from app.analytics import AnalyticsManager, create_record_from_ir
-from app.history import get_history_manager
+
+# from app.history import get_history_manager
 from app.compiler import compile_text_v2
+
+
+def get_history_manager():
+    """Stub for removed history manager."""
+
+    class HistoryManagerStub:
+        def get_by_domain(self, *args, **kwargs):
+            return []
+
+        def get_recent(self, *args, **kwargs):
+            return []
+
+        def search(self, *args, **kwargs):
+            return []
+
+        def get_by_id(self, *args, **kwargs):
+            return None
+
+        def get_stats(self):
+            return {"total": 0}
+
+    return HistoryManagerStub()
+
 
 analytics_app = typer.Typer(help="Prompt analytics and metrics")
 history_app = typer.Typer(help="Prompt history and quick access")

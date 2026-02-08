@@ -39,7 +39,7 @@ class StepV2(BaseModel):
 
 class IRv2(BaseModel):
     """
-    Flexible IR model - accepts whatever DeepSeek returns.
+    Flexible IR model - accepts whatever LLM returns.
     No strict Literal types, just plain strings with sensible defaults.
     """
 
