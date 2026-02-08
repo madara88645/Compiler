@@ -42,7 +42,6 @@ from .heuristics.handlers.constraints import ConstraintHandler
 from .heuristics.handlers.logic import LogicHandler
 from .heuristics.handlers.structure import StructureHandler
 from .heuristics.handlers.domain_expert import DomainHandler
-from .heuristics.handlers.strategy import StrategyHandler
 from .heuristics.handlers.psycholinguist import PsycholinguistHandler
 
 

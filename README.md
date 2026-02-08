@@ -59,7 +59,7 @@ Save money and context window space. The **"Magic Optimize"** feature uses AI to
    cp .env.example .env
    ```
    Then edit `.env` and replace `sk-your-deepseek-key-here` with your actual DeepSeek API key.
-   
+
    Optional: Add the DeepSeek base URL if needed:
    ```env
    OPENAI_API_KEY=sk-your-actual-key

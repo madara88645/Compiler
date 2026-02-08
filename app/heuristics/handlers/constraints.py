@@ -7,8 +7,9 @@ Integrates the LogicAnalyzer for advanced constraint extraction:
 - Missing information warnings
 - Input/Output flow analysis
 """
+
 import hashlib
-from typing import List, Optional
+from typing import List
 from .base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2, ConstraintV2, DiagnosticItem
@@ -18,7 +19,7 @@ from app.heuristics.logic_analyzer import LogicAnalyzer, LogicAnalysisResult
 class ConstraintHandler(BaseHandler):
     """
     Enhanced constraint handler with logic analysis capabilities.
-    
+
     Extends basic constraint handling with:
     - Negation detection and anti-pattern extraction
     - Dependency/causality detection
@@ -29,7 +30,7 @@ class ConstraintHandler(BaseHandler):
     def __init__(self, maximize_recall: bool = True):
         """
         Initialize the handler with a LogicAnalyzer.
-        
+
         Args:
             maximize_recall: If True, prefer catching potential issues over precision.
         """
@@ -42,7 +43,7 @@ class ConstraintHandler(BaseHandler):
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
         Process constraints from IR v1 and enhance with logic analysis.
-        
+
         This method:
         1. Converts basic IR v1 constraints to v2 format
         2. Runs logic analysis on the original prompt
@@ -87,23 +88,23 @@ class ConstraintHandler(BaseHandler):
         # Step 2: Run logic analysis if we have original text
         if original_text:
             analysis = self._logic_analyzer.analyze(original_text)
-            
+
             # Add negation constraints
             neg_constraints = self.detect_negations(analysis)
             c_v2.extend(neg_constraints)
-            
+
             # Add dependency constraints
             dep_constraints = self.detect_dependencies(analysis)
             c_v2.extend(dep_constraints)
-            
+
             # Add I/O flow constraints
             io_constraints = self._extract_io_constraints(analysis)
             c_v2.extend(io_constraints)
-            
+
             # Add diagnostics for missing info
             diagnostics = self._extract_diagnostics(analysis)
             ir_v2.diagnostics.extend(diagnostics)
-            
+
             # Store analysis metadata
             ir_v2.metadata["logic_analysis"] = {
                 "negation_count": len(analysis.negations),
@@ -129,26 +130,28 @@ class ConstraintHandler(BaseHandler):
     def detect_negations(self, analysis: LogicAnalysisResult) -> List[ConstraintV2]:
         """
         Extract negative constraints from logic analysis.
-        
+
         Creates constraints in the format:
         - ❌ RESTRICTION: [original negative statement]
-        
+
         Also creates anti-pattern hints in the rationale.
         """
         constraints = []
-        
+
         for neg in analysis.negations:
             # Create the restriction constraint
             constraint_text = f"❌ RESTRICTION: {neg.original_text}"
-            
-            constraints.append(ConstraintV2(
-                id=self._mk_id(neg.original_text),
-                text=constraint_text,
-                origin="restriction",
-                priority=85,
-                rationale=f"Anti-pattern: {neg.anti_pattern}",
-            ))
-        
+
+            constraints.append(
+                ConstraintV2(
+                    id=self._mk_id(neg.original_text),
+                    text=constraint_text,
+                    origin="restriction",
+                    priority=85,
+                    rationale=f"Anti-pattern: {neg.anti_pattern}",
+                )
+            )
+
         return constraints
 
     # --------------------------------------------------------------------------
@@ -158,12 +161,12 @@ class ConstraintHandler(BaseHandler):
     def detect_dependencies(self, analysis: LogicAnalysisResult) -> List[ConstraintV2]:
         """
         Extract dependency rules from logic analysis.
-        
+
         Creates constraints in the format:
         - Rule: [Action] (Reason: [Justification])
         """
         constraints = []
-        
+
         reason_labels = {
             "because": "Reason",
             "so_that": "Purpose",
@@ -171,20 +174,22 @@ class ConstraintHandler(BaseHandler):
             "if_then": "Condition",
             "result": "Result",
         }
-        
+
         for dep in analysis.dependencies:
             label = reason_labels.get(dep.dependency_type, "Reason")
             constraint_text = f"📋 RULE: {dep.action}"
             rationale = f"{label}: {dep.reason}"
-            
-            constraints.append(ConstraintV2(
-                id=self._mk_id(dep.full_text),
-                text=constraint_text,
-                origin="dependency",
-                priority=75,
-                rationale=rationale,
-            ))
-        
+
+            constraints.append(
+                ConstraintV2(
+                    id=self._mk_id(dep.full_text),
+                    text=constraint_text,
+                    origin="dependency",
+                    priority=75,
+                    rationale=rationale,
+                )
+            )
+
         return constraints
 
     # --------------------------------------------------------------------------
@@ -194,25 +199,27 @@ class ConstraintHandler(BaseHandler):
     def _extract_io_constraints(self, analysis: LogicAnalysisResult) -> List[ConstraintV2]:
         """
         Extract input/output flow constraints from logic analysis.
-        
+
         Creates constraints describing the expected data flow.
         """
         constraints = []
-        
+
         for i, io in enumerate(analysis.io_mappings):
             if io.confidence < 0.3:
                 continue  # Skip low-confidence mappings
-            
+
             flow_text = f"🔄 FLOW: Input({io.input_type}) → Process({io.process_action}) → Output({io.output_format})"
-            
-            constraints.append(ConstraintV2(
-                id=self._mk_id(f"io_flow_{i}_{io.input_type}"),
-                text=flow_text,
-                origin="io_flow",
-                priority=50,
-                rationale=f"Confidence: {io.confidence:.0%}",
-            ))
-        
+
+            constraints.append(
+                ConstraintV2(
+                    id=self._mk_id(f"io_flow_{i}_{io.input_type}"),
+                    text=flow_text,
+                    origin="io_flow",
+                    priority=50,
+                    rationale=f"Confidence: {io.confidence:.0%}",
+                )
+            )
+
         return constraints
 
     # --------------------------------------------------------------------------
@@ -222,37 +229,41 @@ class ConstraintHandler(BaseHandler):
     def _extract_diagnostics(self, analysis: LogicAnalysisResult) -> List[DiagnosticItem]:
         """
         Convert missing information to diagnostics.
-        
+
         Creates warnings/errors for:
         - Undefined entity references
         - Missing schemas/configs
         - Ambiguous pronoun references
         """
         diagnostics = []
-        
+
         severity_map = {
             "error": "error",
             "warning": "warning",
             "info": "info",
         }
-        
+
         for missing in analysis.missing_info:
-            diagnostics.append(DiagnosticItem(
-                severity=severity_map.get(missing.severity, "warning"),
-                message=f"Missing: {missing.entity}",
-                suggestion=f"Please provide {missing.placeholder.replace('[MISSING: ', '').replace(']', '')}",
-                category="missing_info",
-            ))
-        
+            diagnostics.append(
+                DiagnosticItem(
+                    severity=severity_map.get(missing.severity, "warning"),
+                    message=f"Missing: {missing.entity}",
+                    suggestion=f"Please provide {missing.placeholder.replace('[MISSING: ', '').replace(']', '')}",
+                    category="missing_info",
+                )
+            )
+
         # Add summary diagnostic if there are many issues
         if len(analysis.missing_info) > 3:
-            diagnostics.append(DiagnosticItem(
-                severity="warning",
-                message=f"Multiple undefined references detected ({len(analysis.missing_info)} total)",
-                suggestion="Consider providing more context or definitions for referenced entities.",
-                category="completeness",
-            ))
-        
+            diagnostics.append(
+                DiagnosticItem(
+                    severity="warning",
+                    message=f"Multiple undefined references detected ({len(analysis.missing_info)} total)",
+                    suggestion="Consider providing more context or definitions for referenced entities.",
+                    category="completeness",
+                )
+            )
+
         return diagnostics
 
     # --------------------------------------------------------------------------
@@ -262,7 +273,7 @@ class ConstraintHandler(BaseHandler):
     def analyze_text(self, text: str) -> LogicAnalysisResult:
         """
         Directly analyze text without going through IR.
-        
+
         Useful for standalone analysis or testing.
         """
         return self._logic_analyzer.analyze(text)
@@ -286,4 +297,3 @@ class ConstraintHandler(BaseHandler):
         """Generate an I/O Flow section in Markdown from text."""
         analysis = self._logic_analyzer.analyze(text)
         return self._logic_analyzer.format_io_algorithm(analysis.io_mappings)
-
