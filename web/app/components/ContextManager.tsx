@@ -219,7 +219,7 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
                 onDragLeave={handleDragLeave}
                 onClick={() => fileInputRef.current?.click()}
                 className={`
-                    relative flex flex-col items-center justify-center gap-2 p-4 
+                    relative flex flex-col items-center justify-center gap-2 p-4
                     border-2 border-dashed rounded-xl cursor-pointer
                     transition-all duration-200
                     ${isDragging

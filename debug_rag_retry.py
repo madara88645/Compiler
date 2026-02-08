@@ -1,6 +1,5 @@
 import os
-import shutil
-from app.rag.simple_index import ingest_paths, search, search_hybrid, stats
+from app.rag.simple_index import ingest_paths, search, stats
 
 # Use a temp db
 temp_db_path = "test_rag_retry.db"
@@ -10,10 +9,12 @@ if os.path.exists(temp_db_path):
 # Create a test file
 test_file = "test_rag_retry.py"
 with open(test_file, "w") as f:
-    f.write("""
+    f.write(
+        """
 def test_pack_budget():
     packed = pack("test query", results, max_chars=50)
-""")
+"""
+    )
 
 print("Ingesting...")
 # Note: Ingest paths automatically uses the hardcoded path if we don't pass db_path
@@ -36,5 +37,5 @@ for r in res_kw:
 try:
     os.remove(test_file)
     os.remove(temp_db_path)
-except:
+except Exception:
     pass

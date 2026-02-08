@@ -1,4 +1,3 @@
-
 import urllib.request
 import json
 import time
@@ -8,9 +7,9 @@ data = {
     "text": "Explain quantum computing to a 5 year old",
     "diagnostics": False,
     "v2": True,
-    "render_v2_prompts": True
+    "render_v2_prompts": True,
 }
-headers = {'Content-Type': 'application/json'}
+headers = {"Content-Type": "application/json"}
 
 print(f"Sending request to {url}...")
 t0 = time.time()
@@ -20,11 +19,11 @@ try:
         elapsed = time.time() - t0
         print(f"Time: {elapsed:.2f}s")
         res_data = json.load(response)
-        
+
         # Check keys
         v2_system = res_data.get("system_prompt_v2")
         v2_ir = res_data.get("ir_v2")
-        
+
         print(f"Has system_prompt_v2: {bool(v2_system)}")
         if v2_system:
             print(f"V2 Length: {len(v2_system)}")

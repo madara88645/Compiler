@@ -1,13 +1,11 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from pathlib import Path
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.llm_engine.schemas import QualityReport, LLMFixResponse
 
-# Global Hybrid Compiler Instance (Lazy Load)
-hybrid_compiler = None
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
 import uuid
@@ -22,6 +20,7 @@ from app.emitters import (
     emit_plan_v2,
     emit_expanded_prompt_v2,
 )
+
 from app.rag.simple_index import (
     ingest_paths,
     search as rag_search,
@@ -31,13 +30,14 @@ from app.rag.simple_index import (
     stats as rag_stats,
     prune as rag_prune,
 )
-from app.validator import validate_prompt
 from typing import List, Optional
 from pydantic import Field
 
+# Global Hybrid Compiler Instance (Lazy Load)
+hybrid_compiler = None
+
 app = FastAPI(title="Prompt Compiler API")
 
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -760,7 +760,7 @@ async def search_endpoint(req: SearchRequest):
                 content = getattr(r, "content", "")
                 source = getattr(r, "metadata", {}).get("source", "unknown")
                 score = getattr(r, "score", 0.0)
-            
+
             response.append(SearchResult(content=content, source=source, score=score))
 
         return response
@@ -807,7 +807,7 @@ async def upload_file_endpoint(req: FileUploadRequest):
         try:
             os.remove(temp_path)
             os.rmdir(temp_dir)
-        except:
+        except OSError:
             pass
 
         if count == 0:
@@ -845,44 +845,49 @@ async def debug_search_endpoint(query: str):
     """Debug endpoint to run raw SQL checks."""
     import sqlite3
     import os
+
     try:
         from app.rag.simple_index import DEFAULT_DB_PATH
-        
+
         if not os.path.exists(DEFAULT_DB_PATH):
             return {"error": f"DB file not found at {DEFAULT_DB_PATH}"}
-            
+
         conn = sqlite3.connect(DEFAULT_DB_PATH)
         debug_info = {
             "db_path": DEFAULT_DB_PATH,
             "query": query,
             "fts_results": [],
             "like_results": [],
-            "chunks_sample": []
+            "chunks_sample": [],
         }
-        
+
         # 1. Check FTS
         try:
             cur = conn.execute("SELECT rowid, * FROM fts WHERE fts MATCH ? LIMIT 5", (f"{query}*",))
             debug_info["fts_results"] = [str(row) for row in cur.fetchall()]
         except Exception as e:
             debug_info["fts_error"] = str(e)
-            
+
         # 2. Check LIKE
         try:
-            cur = conn.execute("SELECT id, content FROM chunks WHERE lower(content) LIKE lower(?) LIMIT 5", (f"%{query}%",))
+            cur = conn.execute(
+                "SELECT id, content FROM chunks WHERE lower(content) LIKE lower(?) LIMIT 5",
+                (f"%{query}%",),
+            )
             debug_info["like_results"] = [str(row) for row in cur.fetchall()]
         except Exception as e:
             debug_info["like_error"] = str(e)
-            
+
         # 3. Dump random chunks
         cur = conn.execute("SELECT id, content FROM chunks LIMIT 3")
         debug_info["chunks_sample"] = [f"{row[0]}: {row[1][:50]}..." for row in cur.fetchall()]
-        
+
         conn.close()
         return debug_info
-        
+
     except Exception as e:
         return {"error": str(e)}
+
 
 # ============================================================================
 # Analytics Endpoints

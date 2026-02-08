@@ -346,7 +346,7 @@ RISK_KEYWORDS = {
         r"karnım",
         r"midem",
         r"başım",
-],
+    ],
     "legal": [
         r"sözleşme",
         r"contract",
@@ -859,9 +859,9 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
             unit = cur3 or cur1 or cur2 or ""
             if cur1 or cur2 or cur3:
                 if v2:
-                    inputs["budget_hint"] = (
-                        f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
-                    )
+                    inputs[
+                        "budget_hint"
+                    ] = f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
                 else:
                     inputs["budget_hint"] = f"{_normalize_currency(v1)} {unit}".strip()
 

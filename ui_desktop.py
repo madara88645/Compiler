@@ -27,38 +27,66 @@ from typing import Callable, Optional, List
 
 import httpx
 from app.rag.history_store import RAGHistoryStore
-from app.ui.live import LiveModeManager
-from app.llm_engine.hybrid import HybridCompiler
+from app.rag.simple_index import search, search_embed, search_hybrid
+from app.analytics import create_record_from_ir
 from app.ui.live import LiveModeManager
 from app.llm_engine.hybrid import HybridCompiler
 from app.llm_engine.schemas import WorkerResponse
 from app.heuristics.linter import PromptLinter
 from app.compiler import (
-    compile_text_v2, 
-    optimize_ir, 
-    compile_text, 
-    generate_trace, 
+    compile_text_v2,
+    optimize_ir,
+    compile_text,
+    generate_trace,
     HEURISTIC_VERSION,
-    HEURISTIC2_VERSION
+    HEURISTIC2_VERSION,
 )
 from app.validator import PromptValidator
 from app.autofix import auto_fix_prompt, explain_fixes
-from app.templates import get_registry
+from app.templates import get_registry, PromptTemplate
 from app.context_presets import ContextPresetStore
 from app.emitters import (
-    emit_system_prompt, emit_user_prompt, emit_plan, emit_expanded_prompt,
-    emit_system_prompt_v2, emit_user_prompt_v2, emit_plan_v2, emit_expanded_prompt_v2
+    emit_system_prompt,
+    emit_user_prompt,
+    emit_plan,
+    emit_expanded_prompt,
+    emit_system_prompt_v2,
+    emit_user_prompt_v2,
+    emit_plan_v2,
+    emit_expanded_prompt_v2,
 )
+from app.text_utils import estimate_tokens, compress_text_block
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None  # Handle missing dependency gracefully
+
+
+# Stub for missing Command Palette functions
+def get_command_palette_commands():
+    return []
+
+
+def compute_stale_favorites(favorites, all_ids):
+    return set()
+
+
+def update_widget(widget, text):
+    # This seems like a helper that was missing
+    widget.delete("1.0", tk.END)
+    widget.insert("1.0", text)
+
 
 CONFIG_ENV_VAR = "PROMPTC_UI_CONFIG"
 DEFAULT_CONFIG_FILENAME = ".promptc_ui.json"
+
 
 def get_ui_config_path() -> Path:
     override = os.environ.get(CONFIG_ENV_VAR)
     if override:
         return Path(override).expanduser()
     return Path.home() / DEFAULT_CONFIG_FILENAME
-
 
 
 # Optional modern theming for Tk
@@ -124,7 +152,7 @@ class PromptCompilerUI:
                 # Cleaner, slightly larger font
                 title_font = ("Segoe UI", 11, "bold")
                 base_font = ("Segoe UI", 10)
-                
+
                 self._style.configure(".", font=base_font)
                 self._style.configure("TLabel", font=base_font, padding=2)
                 self._style.configure("TButton", font=base_font, padding=6)
@@ -132,10 +160,12 @@ class PromptCompilerUI:
                 self._style.configure("TRadiobutton", font=base_font)
                 self._style.configure("TEntry", font=base_font, padding=4)
                 self._style.configure("TCombobox", font=base_font)
-                
+
                 # Special styles
                 self._style.configure("Title.TLabel", font=title_font, foreground="#333")
-                self._style.configure("Chip.TLabel", background="#e0e7ff", foreground="#3730a3", padding=4)
+                self._style.configure(
+                    "Chip.TLabel", background="#e0e7ff", foreground="#3730a3", padding=4
+                )
         except Exception:
             pass
 
@@ -146,7 +176,7 @@ class PromptCompilerUI:
         self.var_user_level = tk.StringVar(value="intermediate")
         self.var_task_type = tk.StringVar(value="general")
         self.cognitive_load_var = tk.StringVar(value="Load: —")
-        
+
         # History file path
         self.history_path = Path.home() / ".promptc_history.json"
 
@@ -161,7 +191,6 @@ class PromptCompilerUI:
         self.settings_profiles: dict[str, dict[str, object]] = {}
         self.active_settings_profile: str | None = None
         self.settings_profile_menu = None
-
 
         # RAG settings (defaults)
         self.rag_db_path = None  # None = use default ~/.promptc_index.db
@@ -210,11 +239,9 @@ class PromptCompilerUI:
         main_container = ttk.Frame(self.root)
         main_container.pack(fill=tk.BOTH, expand=True)
 
-
         # Content area
         content = ttk.Frame(main_container)
         content.pack(fill=tk.BOTH, expand=True)
-
 
         # Progress bar at the top of content area
         self.progress_frame = ttk.Frame(content)
@@ -258,24 +285,28 @@ class PromptCompilerUI:
         self.prompt_stats_var = tk.StringVar(value="")
         stats_frame = ttk.Frame(top)
         stats_frame.pack(fill=tk.X)
-        ttk.Label(stats_frame, textvariable=self.prompt_stats_var, foreground="#666").pack(side=tk.LEFT)
+        ttk.Label(stats_frame, textvariable=self.prompt_stats_var, foreground="#666").pack(
+            side=tk.LEFT
+        )
 
         # --- Linter UI ---
         self.linter_frame = ttk.Frame(stats_frame)
         self.linter_frame.pack(side=tk.RIGHT)
-        
+
         self.lbl_ambiguity = ttk.Label(self.linter_frame, text="Ambiguity: —", font=("", 9))
         self.lbl_ambiguity.pack(side=tk.LEFT, padx=8)
-        
+
         self.lbl_density = ttk.Label(self.linter_frame, text="Density: —", font=("", 9))
         self.lbl_density.pack(side=tk.LEFT, padx=8)
-        
+
         self.lbl_safety = ttk.Label(self.linter_frame, text="Safety: OK", font=("", 9))
         self.lbl_safety.pack(side=tk.LEFT, padx=8)
 
         # Linter Warnings Label
-        self.lbl_linter_warn = ttk.Label(top, text="", foreground="#d97706", font=("", 9), wraplength=700)
-        self.lbl_linter_warn.pack(fill=tk.X, anchor=tk.W, pady=(2,0))
+        self.lbl_linter_warn = ttk.Label(
+            top, text="", foreground="#d97706", font=("", 9), wraplength=700
+        )
+        self.lbl_linter_warn.pack(fill=tk.X, anchor=tk.W, pady=(2, 0))
 
         # Bind event
         self.txt_prompt.bind("<KeyRelease>", self._on_prompt_change)
@@ -323,44 +354,53 @@ class PromptCompilerUI:
         # Controls rows (Simplified)
         opts_primary = ttk.Frame(top)
         opts_primary.pack(fill=tk.X, pady=(8, 0))
-        
+
         # Left side: Toggles
         self.var_live = tk.BooleanVar(value=False)
-        cb_live = ttk.Checkbutton(opts_primary, text="Live Mode", variable=self.var_live, command=self._toggle_live_mode)
+        cb_live = ttk.Checkbutton(
+            opts_primary, text="Live Mode", variable=self.var_live, command=self._toggle_live_mode
+        )
         cb_live.pack(side=tk.LEFT, padx=(0, 10))
-        try: # ttkbootstrap only
+        try:  # ttkbootstrap only
             cb_live.configure(bootstyle="round-toggle")
-        except Exception: pass
+        except Exception:
+            pass
 
         self.var_diag = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts_primary, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT, padx=10)
+        ttk.Checkbutton(opts_primary, text="Diagnostics", variable=self.var_diag).pack(
+            side=tk.LEFT, padx=10
+        )
 
         # Right side: Main Actions
         self.btn_generate = ttk.Button(opts_primary, text="⚡ Generate", command=self.on_generate)
         self.btn_generate.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             self.btn_generate.configure(bootstyle="primary")
-        except Exception: pass
+        except Exception:
+            pass
         self._add_tooltip(self.btn_generate, "Compile prompt (Ctrl+Enter)")
 
         btn_optimize = ttk.Button(opts_primary, text="🧹 Optimize", command=self.on_optimize_prompt)
         btn_optimize.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_optimize.configure(bootstyle="info-outline")
-        except Exception: pass
+        except Exception:
+            pass
         self._add_tooltip(btn_optimize, "Auto-optimize prompt length")
 
         btn_clear = ttk.Button(opts_primary, text="🗑️ Clear", command=self.on_clear)
         btn_clear.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_clear.configure(bootstyle="danger-outline")
-        except Exception: pass
+        except Exception:
+            pass
 
         btn_save = ttk.Button(opts_primary, text="💾 Save", command=self.on_save)
         btn_save.pack(side=tk.RIGHT, padx=4)
         try:  # ttkbootstrap only
             btn_save.configure(bootstyle="success-outline")
-        except Exception: pass
+        except Exception:
+            pass
 
         # Secondary (Collapsible or less visible)
         opts_secondary = ttk.Frame(top)
@@ -369,24 +409,25 @@ class PromptCompilerUI:
         self.btn_theme = ttk.Button(opts_secondary, text="🌙 Theme", command=self.toggle_theme)
         self.btn_theme.pack(side=tk.LEFT, padx=(0, 4))
         try:
-             self.btn_theme.configure(bootstyle="link")
-        except Exception: pass
+            self.btn_theme.configure(bootstyle="link")
+        except Exception:
+            pass
 
         btn_settings = ttk.Button(opts_secondary, text="⚙️ Settings", command=self._show_settings)
         btn_settings.pack(side=tk.LEFT, padx=4)
         try:
-             btn_settings.configure(bootstyle="link")
-        except Exception: pass
-        
+            btn_settings.configure(bootstyle="link")
+        except Exception:
+            pass
+
         # Hidden/Implicit controls (maintained variables for logic compatibility)
         self.var_trace = tk.BooleanVar(value=False)
-        self.var_render_v2 = tk.BooleanVar(value=True) # Default to V2 now
+        self.var_render_v2 = tk.BooleanVar(value=True)  # Default to V2 now
         self.var_wrap = tk.BooleanVar(value=True)
         self.var_openai_expanded = tk.BooleanVar(value=False)
-        self.var_model = tk.StringVar(value="gpt-4o") # Default placeholder
+        self.var_model = tk.StringVar(value="gpt-4o")  # Default placeholder
         self.var_local_endpoint = tk.StringVar(value="")
         self.var_local_api_key = tk.StringVar(value="")
-
 
         self.status_var = tk.StringVar(value="Idle")
         ttk.Label(opts_secondary, textvariable=self.status_var).pack(side=tk.RIGHT)
@@ -498,7 +539,6 @@ class PromptCompilerUI:
         self._load_settings()
         self.apply_theme(self.current_theme)
 
-
         # Persist on change
         self.var_diag.trace_add("write", lambda *_: self._save_settings())
         self.var_trace.trace_add("write", lambda *_: self._save_settings())
@@ -533,22 +573,22 @@ class PromptCompilerUI:
         # self.root.bind("<Control-f>", lambda _e: self._find_in_active())
         # Save geometry on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        
+
         # Initialize Live Mode Manager
         self.live_manager = LiveModeManager(
-            self.root, 
+            self.root,
             on_result=self._on_live_result,
             on_start=self._on_live_start,
-            on_error=self._on_live_error
+            on_error=self._on_live_error,
         )
         # Initialize Compiler (DeepSeek)
         # API Key can come from Settings, Endpoint field, or Env
         # Initialize unconditionally - errors will surface in _on_live_error
         try:
-             api_key = os.environ.get("OPENAI_API_KEY") or self.var_api_key.get()
-             self.live_manager.set_compiler(HybridCompiler(api_key=api_key))
+            api_key = os.environ.get("OPENAI_API_KEY") or self.var_api_key.get()
+            self.live_manager.set_compiler(HybridCompiler(api_key=api_key))
         except Exception as e:
-             print(f"Failed to init HybridCompiler: {e}") 
+            print(f"Failed to init HybridCompiler: {e}")
         # Save selected tab on change
         try:
             self.nb.bind("<<NotebookTabChanged>>", lambda _e: self._save_settings())
@@ -609,44 +649,49 @@ class PromptCompilerUI:
         self.is_generating = False
         self.progress_bar.stop()
         self.root.config(cursor="")
-        
+
         self.status_var.set("Live Update Refreshed")
-        
+
         # Helper to safely update text widgets
         def update_widget(widget, text):
-             try:
+            try:
                 widget.delete("1.0", tk.END)
                 widget.insert("1.0", text)
-                if hasattr(self, "_setup_json_highlighting") and "JSON" in widget._name: # hypothetical check
-                     pass 
-             except Exception: pass
+                if (
+                    hasattr(self, "_setup_json_highlighting") and "JSON" in widget._name
+                ):  # hypothetical check
+                    pass
+            except Exception:
+                pass
 
         # Update JSON tabs
         update_widget(self.txt_ir2, result.ir.model_dump_json(indent=2))
         update_widget(self.txt_expanded, result.optimized_content)
-        
+
         # Update Core Tabs - Use DeepSeek's direct outputs (Live Mode)
         try:
             # Direct outputs from DeepSeek (no local emitters)
             system_prompt = result.system_prompt or emit_system_prompt_v2(result.ir)  # Fallback
             user_prompt = result.user_prompt or emit_user_prompt_v2(result.ir)
             plan_text = result.plan or emit_plan_v2(result.ir)
-            
+
             update_widget(self.txt_system, system_prompt)
             update_widget(self.txt_user, user_prompt)
             update_widget(self.txt_plan, plan_text)
-            
+
             # Update Constraints Table
             self._constraints_rows_all = []
             if result.ir.constraints:
-                 rows = []
-                 for c in result.ir.constraints:
-                     pr = getattr(c, "priority", 0) or 0
-                     rows.append((pr, getattr(c, "origin", ""), getattr(c, "id", ""), getattr(c, "text", "")))
-                 rows.sort(key=lambda r: r[0], reverse=True)
-                 self._constraints_rows_all = rows
-                 self._render_constraints_table()
-                 
+                rows = []
+                for c in result.ir.constraints:
+                    pr = getattr(c, "priority", 0) or 0
+                    rows.append(
+                        (pr, getattr(c, "origin", ""), getattr(c, "id", ""), getattr(c, "text", ""))
+                    )
+                rows.sort(key=lambda r: r[0], reverse=True)
+                self._constraints_rows_all = rows
+                self._render_constraints_table()
+
             # Populate Intent Chips
             for w in self.chips_container.winfo_children():
                 w.destroy()
@@ -654,9 +699,12 @@ class PromptCompilerUI:
                 for intent in result.ir.intents:
                     lbl = ttk.Label(self.chips_container, text=intent, style="Chip.TLabel")
                     lbl.pack(side=tk.LEFT, padx=4, pady=2)
-                    
+
             # Update Trace (Mock trace for now as LLM doesn't give a step-by-step trace like heuristics)
-            update_widget(self.txt_trace, f"Generated by Worker LLM ({self.live_manager.compiler.worker.model})\nThought Process:\n{result.thought_process}")
+            update_widget(
+                self.txt_trace,
+                f"Generated by Worker LLM ({self.live_manager.compiler.worker.model})\nThought Process:\n{result.thought_process}",
+            )
 
         except Exception as e:
             print(f"Error updating tabs from Worker output: {e}")
@@ -664,37 +712,40 @@ class PromptCompilerUI:
         # Update Diagnostics
         diag_text = ""
         for d in result.diagnostics:
-             icon = "🔴" if d.severity == "error" else "🟡" if d.severity == "warning" else "🔵"
-             diag_text += f"{icon} [{d.category}] {d.message}\n   💡 {d.suggestion}\n\n"
-        
+            icon = "🔴" if d.severity == "error" else "🟡" if d.severity == "warning" else "🔵"
+            diag_text += f"{icon} [{d.category}] {d.message}\n   💡 {d.suggestion}\n\n"
+
         if self.var_diag.get() and diag_text:
-             current_expanded = result.optimized_content
-             update_widget(self.txt_expanded, f"### 🛡️ Live Diagnostics\n\n{diag_text}\n---\n\n{current_expanded}")
+            current_expanded = result.optimized_content
+            update_widget(
+                self.txt_expanded,
+                f"### 🛡️ Live Diagnostics\n\n{diag_text}\n---\n\n{current_expanded}",
+            )
 
         # Update Quality Coach Tab with DeepSeek Insights
         # Calculate pseudo-score
         error_count = sum(1 for d in result.diagnostics if d.severity == "error")
         warning_count = sum(1 for d in result.diagnostics if d.severity == "warning")
         score = max(0, 100 - (error_count * 20) - (warning_count * 10))
-        
+
         self.quality_total_var.set(f"{score}/100")
         self.quality_status_var.set(f"Live Coach: {error_count} errors, {warning_count} warnings")
-        
+
         # Format a report for the text widget
-        report_lines = [f"# DeepSeek Quality Assessment\n"]
+        report_lines = ["# DeepSeek Quality Assessment\n"]
         if score == 100:
             report_lines.append("🎉 Perfect Score! No issues detected.\n")
         else:
             report_lines.append(f"**Score**: {score}/100\n")
-        
+
         for d in result.diagnostics:
-             icon = "🔴" if d.severity == "error" else "🟡" if d.severity == "warning" else "🔵"
-             report_lines.append(f"## {icon} {d.category.title()}")
-             report_lines.append(f"**Issue**: {d.message}")
-             report_lines.append(f"**Suggestion**: {d.suggestion}\n")
-        
+            icon = "🔴" if d.severity == "error" else "🟡" if d.severity == "warning" else "🔵"
+            report_lines.append(f"## {icon} {d.category.title()}")
+            report_lines.append(f"**Issue**: {d.message}")
+            report_lines.append(f"**Suggestion**: {d.suggestion}\n")
+
         if hasattr(self, "txt_quality_report"):
-             update_widget(self.txt_quality_report, "\n".join(report_lines))
+            update_widget(self.txt_quality_report, "\n".join(report_lines))
 
     def _on_live_error(self, error_msg: str):
         # Critical: Reset all UI states to prevent hanging
@@ -703,13 +754,16 @@ class PromptCompilerUI:
         self.progress_bar.pack_forget()
         self.btn_generate.config(state="normal")
         self.root.config(cursor="")
-        
+
         self.status_var.set("❌ Error")
         print(f"Live Mode Error: {error_msg}")
-        
+
         # Show error in Expanded Prompt tab to make it visible
         if hasattr(self, "txt_expanded"):
-             update_widget(self.txt_expanded, f"### ⚠️ System Error\n\n{error_msg}\n\nPlease check your API Key or Network connection.")
+            update_widget(
+                self.txt_expanded,
+                f"### ⚠️ System Error\n\n{error_msg}\n\nPlease check your API Key or Network connection.",
+            )
 
     # Quality coach operations
 
@@ -726,14 +780,18 @@ class PromptCompilerUI:
     def _quality_worker(self, prompt: str):
         try:
             # If Live Mode is ON, use DeepSeek for quality analysis
-            if self.var_live.get() and hasattr(self.live_manager, 'compiler') and self.live_manager.compiler:
+            if (
+                self.var_live.get()
+                and hasattr(self.live_manager, "compiler")
+                and self.live_manager.compiler
+            ):
                 try:
                     report = self.live_manager.compiler.worker.analyze_prompt(prompt)
                     self.root.after(0, lambda: self._render_deepseek_quality(report))
                     return
                 except Exception as e:
                     print(f"DeepSeek quality failed, falling back: {e}")
-            
+
             # Fallback: Local heuristic analysis
             ir2 = compile_text_v2(prompt)
             result = self.prompt_validator.validate(ir2, prompt)
@@ -746,28 +804,30 @@ class PromptCompilerUI:
     def _render_deepseek_quality(self, report):
         """Render QualityReport from DeepSeek."""
         self.quality_total_var.set(f"{report.score}/100")
-        self.quality_breakdown_var.set(report.summary[:100] if report.summary else "DeepSeek Analysis")
-        
+        self.quality_breakdown_var.set(
+            report.summary[:100] if report.summary else "DeepSeek Analysis"
+        )
+
         lines = [f"# 🤖 DeepSeek Quality Analysis\n\n**Score: {report.score}/100**\n"]
-        
+
         if report.strengths:
             lines.append("\n## ✅ Strengths\n")
             for s in report.strengths:
                 lines.append(f"- {s}\n")
-        
+
         if report.weaknesses:
             lines.append("\n## ⚠️ Weaknesses\n")
             for w in report.weaknesses:
                 lines.append(f"- {w}\n")
-        
+
         if report.suggestions:
             lines.append("\n## 💡 Suggestions\n")
             for s in report.suggestions:
                 lines.append(f"- {s}\n")
-        
+
         if report.summary:
             lines.append(f"\n---\n\n{report.summary}")
-        
+
         self._update_quality_text(self.txt_quality_report, "".join(lines))
         self.quality_status_var.set(f"DeepSeek Score: {report.score}/100")
 
@@ -849,10 +909,6 @@ class PromptCompilerUI:
         self.pending_auto_fix_text = None
         self.btn_quality_apply_fix.config(state="disabled")
         self.quality_status_var.set("Applied auto-fix suggestions to prompt")
-
-
-
-
 
     def _add_tab(self, title: str) -> tk.Text:
         frame = ttk.Frame(self.nb)
@@ -1423,7 +1479,9 @@ class PromptCompilerUI:
                 "selected_tab": selected_idx,
             }
             try:
-                self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                self.config_path.write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
             except Exception:
                 pass
         except Exception:
@@ -1523,138 +1581,6 @@ class PromptCompilerUI:
         if hasattr(self, "tree_constraints"):
             for i in self.tree_constraints.get_children():
                 self.tree_constraints.delete(i)
-
-    def on_optimize_prompt(self):
-        text = self.txt_prompt.get("1.0", tk.END)
-        if not (text or "").strip():
-            self.status_var.set("Enter a prompt to optimize")
-            return
-
-        def _parse_optional_int(raw: str, field_name: str) -> Optional[int]:
-            raw = (raw or "").strip()
-            if not raw:
-                return None
-            try:
-                value = int(raw)
-            except ValueError:
-                raise ValueError(f"{field_name} must be an integer")
-            if value <= 0:
-                raise ValueError(f"{field_name} must be > 0")
-            return value
-
-        try:
-            max_chars = _parse_optional_int(self.var_opt_max_chars.get(), "Max chars")
-            max_tokens = _parse_optional_int(self.var_opt_max_tokens.get(), "Max tokens")
-        except Exception as exc:
-            messagebox.showerror("Optimize", str(exc))
-            return
-
-        try:
-            from app.token_optimizer import optimize_text
-
-            optimized, st = optimize_text(text, max_chars=max_chars, max_tokens=max_tokens)
-        except Exception as exc:
-            messagebox.showerror("Optimize", f"Failed to optimize prompt: {exc}")
-            return
-
-        if optimized == text:
-            self.status_var.set(
-                f"Already optimized (chars {st.before_chars} | ≈ tokens {st.before_tokens})"
-            )
-            return
-
-        self._show_optimize_preview(
-            original=text,
-            optimized=optimized,
-            stats=st,
-            max_chars=max_chars,
-            max_tokens=max_tokens,
-        )
-
-    def _show_optimize_preview(
-        self,
-        *,
-        original: str,
-        optimized: str,
-        stats,
-        max_chars: Optional[int],
-        max_tokens: Optional[int],
-    ) -> None:
-        win = tk.Toplevel(self.root)
-        win.title("🧹 Optimize Preview")
-        win.geometry("1050x720")
-        win.transient(self.root)
-        try:
-            win.grab_set()
-        except Exception:
-            pass
-
-        header = ttk.Frame(win)
-        header.pack(fill=tk.X, padx=10, pady=(10, 6))
-
-        budget_bits = []
-        if max_chars is not None:
-            budget_bits.append(f"max chars={max_chars}")
-        if max_tokens is not None:
-            budget_bits.append(f"max tokens≈{max_tokens}")
-        budget_text = f" • Budget: {', '.join(budget_bits)}" if budget_bits else ""
-
-        met_text = "met" if getattr(stats, "budget_met", True) else "not met"
-        stats_text = (
-            f"Chars {stats.before_chars}→{stats.after_chars}"
-            f" • ≈ Tokens {stats.before_tokens}→{stats.after_tokens}"
-            f" • Passes {getattr(stats, 'passes', 1)}"
-            f" • Budget {met_text}{budget_text}"
-        )
-        ttk.Label(header, text=stats_text).pack(side=tk.LEFT)
-
-        body = ttk.PanedWindow(win, orient=tk.HORIZONTAL)
-        body.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
-
-        left = ttk.Frame(body)
-        right = ttk.Frame(body)
-        body.add(left, weight=1)
-        body.add(right, weight=1)
-
-        ttk.Label(left, text="Before", font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
-        txt_before = tk.Text(left, wrap=tk.WORD)
-        txt_before.pack(fill=tk.BOTH, expand=True)
-        txt_before.insert("1.0", (original or "").rstrip("\n") + "\n")
-        txt_before.configure(state="disabled")
-
-        ttk.Label(right, text="After", font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
-        txt_after = tk.Text(right, wrap=tk.WORD)
-        txt_after.pack(fill=tk.BOTH, expand=True)
-        txt_after.insert("1.0", (optimized or "").rstrip("\n") + "\n")
-        txt_after.configure(state="disabled")
-
-        footer = ttk.Frame(win)
-        footer.pack(fill=tk.X, padx=10, pady=(6, 10))
-
-        def apply_changes() -> None:
-            self.txt_prompt.delete("1.0", tk.END)
-            self.txt_prompt.insert("1.0", optimized)
-            self._update_prompt_stats()
-
-            budget_note = ""
-            if (max_chars is not None or max_tokens is not None) and not stats.budget_met:
-                budget_note = " (budget not met)"
-            self.status_var.set(
-                f"Optimized: chars {stats.before_chars}→{stats.after_chars} | ≈ tokens {stats.before_tokens}→{stats.after_tokens}{budget_note}"
-            )
-            try:
-                win.destroy()
-            except Exception:
-                pass
-
-        btn_cancel = ttk.Button(footer, text="Cancel", command=win.destroy)
-        btn_cancel.pack(side=tk.RIGHT)
-        btn_apply = ttk.Button(footer, text="Apply", command=apply_changes)
-        btn_apply.pack(side=tk.RIGHT, padx=(0, 8))
-        try:  # ttkbootstrap only
-            btn_apply.configure(bootstyle="primary")
-        except Exception:
-            pass
 
     def on_show_schema(self):
         try:
@@ -2705,11 +2631,11 @@ class PromptCompilerUI:
 
         # If Live Mode is active, delegate to it for DeepSeek generation
         if self.var_live.get():
-             self.live_manager.enabled = True
-             # Force immediate run
-             self.live_manager.schedule(prompt, delay_ms=0)
-             # The live manager callbacks will handle UI updates and progress bar stop
-             return
+            self.live_manager.enabled = True
+            # Force immediate run
+            self.live_manager.schedule(prompt, delay_ms=0)
+            # The live manager callbacks will handle UI updates and progress bar stop
+            return
 
         self.root.after(30, lambda: self._generate_core(prompt))
 
@@ -2834,19 +2760,19 @@ class PromptCompilerUI:
         # Check if we can use the worker
         worker = None
         if self.live_manager and self.live_manager.compiler:
-             worker = self.live_manager.compiler.worker
-        
+            worker = self.live_manager.compiler.worker
+
         if not worker:
-             # Try to init a temp one
-             api_key = os.environ.get("OPENAI_API_KEY") or self.var_local_api_key.get()
-             if not api_key:
-                  messagebox.showerror("Error", "API Key required for optimization.")
-                  return
-             try:
-                 worker = HybridCompiler(api_key=api_key).worker
-             except Exception as e:
-                 messagebox.showerror("Error", f"Failed to init optimizer: {e}")
-                 return
+            # Try to init a temp one
+            api_key = os.environ.get("OPENAI_API_KEY") or self.var_local_api_key.get()
+            if not api_key:
+                messagebox.showerror("Error", "API Key required for optimization.")
+                return
+            try:
+                worker = HybridCompiler(api_key=api_key).worker
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to init optimizer: {e}")
+                return
 
         self.status_var.set("🧹 Optimizing prompt (Compressing)...")
         self.root.config(cursor="watch")
@@ -2857,7 +2783,8 @@ class PromptCompilerUI:
                 optimized = worker.optimize_prompt(prompt_text)
                 self.root.after(0, lambda: _show_diff(optimized))
             except Exception as e:
-                self.root.after(0, lambda: _on_opt_error(str(e)))
+                err_msg = str(e)
+                self.root.after(0, lambda: _on_opt_error(err_msg))
 
         def _on_opt_error(msg):
             self.root.config(cursor="")
@@ -2867,36 +2794,46 @@ class PromptCompilerUI:
         def _show_diff(new_text):
             self.root.config(cursor="")
             self.status_var.set("Optimization complete")
-            
+
             # Calculate savings
             old_len = len(prompt_text)
             new_len = len(new_text)
             saved = old_len - new_len
             percent = (saved / old_len) * 100 if old_len > 0 else 0
-            
+
             # Show diff window
             top = tk.Toplevel(self.root)
             top.title(f"Optimization Result (-{int(percent)}%)")
             top.geometry("1000x700")
-            
+
             # Header stats
             stats = ttk.Frame(top, padding=10)
             stats.pack(fill=tk.X)
-            ttk.Label(stats, text=f"Original: {old_len} chars", foreground="#666").pack(side=tk.LEFT, padx=10)
+            ttk.Label(stats, text=f"Original: {old_len} chars", foreground="#666").pack(
+                side=tk.LEFT, padx=10
+            )
             ttk.Label(stats, text="➜", font=("", 12)).pack(side=tk.LEFT)
-            ttk.Label(stats, text=f"Optimized: {new_len} chars", foreground="green", font=("", 10, "bold")).pack(side=tk.LEFT, padx=10)
-            ttk.Label(stats, text=f"Savings: {saved} chars ({int(percent)}%)", background="#dcfce7", foreground="#166534", padding=3).pack(side=tk.LEFT, padx=10)
+            ttk.Label(
+                stats, text=f"Optimized: {new_len} chars", foreground="green", font=("", 10, "bold")
+            ).pack(side=tk.LEFT, padx=10)
+            ttk.Label(
+                stats,
+                text=f"Savings: {saved} chars ({int(percent)}%)",
+                background="#dcfce7",
+                foreground="#166534",
+                padding=3,
+            ).pack(side=tk.LEFT, padx=10)
 
             # Split view
             paned = ttk.PanedWindow(top, orient=tk.HORIZONTAL)
             paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-            
+
             frame_old = ttk.LabelFrame(paned, text="Original", padding=5)
             paned.add(frame_old, weight=1)
             txt_old = tk.Text(frame_old, wrap=tk.WORD, height=15)
             txt_old.pack(fill=tk.BOTH, expand=True)
             txt_old.insert("1.0", prompt_text)
-            
+
             frame_new = ttk.LabelFrame(paned, text="Optimized (DeepSeek)", padding=5)
             paned.add(frame_new, weight=1)
             txt_new = tk.Text(frame_new, wrap=tk.WORD, height=15, bg="#f0fdf4")
@@ -2906,19 +2843,23 @@ class PromptCompilerUI:
             # Actions
             btns = ttk.Frame(top, padding=10)
             btns.pack(fill=tk.X)
-            
+
             def apply_change():
                 self.txt_prompt.delete("1.0", tk.END)
                 self.txt_prompt.insert("1.0", new_text)
                 top.destroy()
-                self._on_prompt_key_release(None) # Trigger update
-            
-            ttk.Button(btns, text="✓ Apply New Prompt", command=apply_change, bootstyle="success").pack(side=tk.RIGHT, padx=5)
+                self._on_prompt_key_release(None)  # Trigger update
+
+            ttk.Button(
+                btns, text="✓ Apply New Prompt", command=apply_change, bootstyle="success"
+            ).pack(side=tk.RIGHT, padx=5)
             ttk.Button(btns, text="Cancel", command=top.destroy).pack(side=tk.RIGHT, padx=5)
 
         # Run in thread
         import threading
+
         threading.Thread(target=_run_opt, daemon=True).start()
+
     def on_send_openai(self):  # pragma: no cover - UI action
         prompt = self.txt_prompt.get("1.0", tk.END).strip()
         if not prompt:
@@ -3879,7 +3820,7 @@ class PromptCompilerUI:
     def _on_prompt_change(self, event=None):
         """Handle prompt text changes."""
         self._update_prompt_stats()
-        
+
         # Debounce linter
         if self.linter_after_id:
             self.root.after_cancel(self.linter_after_id)
@@ -3897,29 +3838,33 @@ class PromptCompilerUI:
 
         try:
             report = self.linter.lint(text)
-            
+
             # Ambiguity
             amb_val = int(report.ambiguity_score * 100)
             if report.ambiguity_score < 0.05:
                 self.lbl_ambiguity.config(text=f"Ambiguity: {amb_val}%", foreground="green")
             else:
-                self.lbl_ambiguity.config(text=f"Ambiguity: {amb_val}%", foreground="#d97706") # Orange/Red
-            
+                self.lbl_ambiguity.config(
+                    text=f"Ambiguity: {amb_val}%", foreground="#d97706"
+                )  # Orange/Red
+
             # Density
             den_val = int(report.density_score * 100)
             if report.density_score >= 0.3:
                 self.lbl_density.config(text=f"Density: {den_val}%", foreground="green")
             elif den_val == 0 and len(text) < 10:
-                 self.lbl_density.config(text="Density: —", foreground="")
+                self.lbl_density.config(text="Density: —", foreground="")
             else:
                 self.lbl_density.config(text=f"Density: {den_val}%", foreground="#d97706")
-            
+
             # Safety
             if report.safety_flags:
-                self.lbl_safety.config(text=f"Safety: {len(report.safety_flags)} FLAG(S)", foreground="red")
+                self.lbl_safety.config(
+                    text=f"Safety: {len(report.safety_flags)} FLAG(S)", foreground="red"
+                )
             else:
                 self.lbl_safety.config(text="Safety: OK", foreground="green")
-                
+
             # Warnings
             if report.warnings:
                 warn_text = " • ".join([w.message for w in report.warnings[:2]])
@@ -3928,7 +3873,7 @@ class PromptCompilerUI:
                 self.lbl_linter_warn.config(text=warn_text)
             else:
                 self.lbl_linter_warn.config(text="")
-        except Exception as e:
+        except Exception:
             pass
 
     def _parse_drop_data(self, data: str) -> list:
