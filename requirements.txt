@@ -19,3 +19,4 @@ pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
 
 Jinja2>=3.1.0  # required for report generation
 tiktoken>=0.7.0  # required for token counting
+cachetools>=5.3.3  # required for hybrid engine caching
