@@ -807,7 +807,7 @@ async def upload_file_endpoint(req: FileUploadRequest):
         try:
             os.remove(temp_path)
             os.rmdir(temp_dir)
-        except Exception:
+        except OSError:
             pass
 
         if count == 0:
