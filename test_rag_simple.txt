@@ -1,0 +1,6 @@
+RAG Test File
+This is a simple text file to verify the RAG system.
+The capital of France is Paris.
+Python is a popular programming language.
+Machine Learning uses data to train models.
+End of test file.
