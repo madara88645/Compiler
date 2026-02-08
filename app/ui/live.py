@@ -73,4 +73,4 @@ class LiveModeManager:
             with self._lock:
                 if current_id != self._latest_request_id:
                     return
-            self.root.after(0, lambda: self.on_error(str(e)))
+            self.root.after(0, lambda err=e: self.on_error(str(err)))

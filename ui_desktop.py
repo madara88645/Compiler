@@ -2857,7 +2857,7 @@ class PromptCompilerUI:
                 optimized = worker.optimize_prompt(prompt_text)
                 self.root.after(0, lambda: _show_diff(optimized))
             except Exception as e:
-                self.root.after(0, lambda: _on_opt_error(str(e)))
+                self.root.after(0, lambda err=e: _on_opt_error(str(err)))
 
         def _on_opt_error(msg):
             self.root.config(cursor="")
