@@ -330,7 +330,8 @@ class PromptCompilerUI:
         cb_live.pack(side=tk.LEFT, padx=(0, 10))
         try: # ttkbootstrap only
             cb_live.configure(bootstyle="round-toggle")
-        except Exception: pass
+        except Exception:
+            pass
 
         self.var_diag = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts_primary, text="Diagnostics", variable=self.var_diag).pack(side=tk.LEFT, padx=10)
