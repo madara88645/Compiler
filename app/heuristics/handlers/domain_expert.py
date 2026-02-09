@@ -9,6 +9,8 @@ Provides domain-specific heuristics and best-practice enforcement:
 
 from __future__ import annotations
 import re
+import ast
+import textwrap
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from .base import BaseHandler
@@ -667,6 +669,12 @@ class DomainHandler(BaseHandler):
         # Add language-specific suggestions
         if detected_lang and detected_lang in rules["languages"]:
             lang_rules = rules["languages"][detected_lang]
+            # AST Analysis for Python
+            if detected_lang == "python":
+                ast_suggestions, ast_diagnostics = self._analyze_python_ast(text)
+                analysis.suggestions.extend(ast_suggestions)
+                analysis.diagnostics.extend(ast_diagnostics)
+
             analysis.suggestions.extend(lang_rules.get("suggestions", []))
             analysis.detected_patterns["language"] = [detected_lang]
 
@@ -685,23 +693,135 @@ class DomainHandler(BaseHandler):
             if not has_mention:
                 analysis.suggestions.append(check_rules["suggestion"])
 
-            # Special case: if security keywords found, always add security suggestion
+            # Special case: Security Scanning (Expanded)
             if check_name == "security":
-                risk_patterns = check_rules.get("risk_patterns", [])
-                for pattern in risk_patterns:
-                    if re.search(pattern, text_lower):
-                        analysis.suggestions.append(check_rules["suggestion"])
-                        analysis.diagnostics.append(
-                            DiagnosticItem(
-                                severity="warning",
-                                message="Security-sensitive content detected",
-                                suggestion="Review handling of credentials and sensitive data",
-                                category="security",
-                            )
-                        )
-                        break
+                self._scan_for_secrets(text, analysis)
+
+        # Snippet Injection
+        self._inject_snippets(text, analysis)
 
         return analysis
+
+    def _analyze_python_ast(self, text: str) -> tuple[List[DomainSuggestion], List[DiagnosticItem]]:
+        """
+        Parse Python code using AST to find structural issues (missing type hints).
+        Returns (suggestions, diagnostics).
+        """
+        suggestions = []
+        diagnostics = []
+
+        try:
+            # Attempt to parse the prompt as code.
+            # Users often paste snippets, so strict parsing might fail if it's natural language mixed with code.
+            # We try to extract code blocks first.
+            code_blocks = re.findall(r"```python(.*?)```", text, re.DOTALL)
+            if not code_blocks:
+                # If no markdown blocks, try parsing the whole text if it looks like code
+                # (simple heuristic: contains "def " or "import ")
+                if "def " in text or "import " in text:
+                    code_blocks = [text]
+
+            for code in code_blocks:
+                try:
+                    # Fix indentation issues
+                    code = textwrap.dedent(code)
+                    tree = ast.parse(code)
+
+                    # Walker to check function definitions
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.FunctionDef):
+                            # Check for missing return type hint, skipping __init__
+                            if node.name != "__init__" and node.returns is None:
+                                diagnostics.append(
+                                    DiagnosticItem(
+                                        severity="info",
+                                        message=f"Function '{node.name}' is missing return type hint",
+                                        suggestion=f"Add -> Type to '{node.name}'",
+                                        category="type_safety",
+                                    )
+                                )
+
+                            # Check args
+                            for arg in node.args.args:
+                                if arg.arg != "self" and arg.annotation is None:
+                                    diagnostics.append(
+                                        DiagnosticItem(
+                                            severity="info",
+                                            message=f"Argument '{arg.arg}' in '{node.name}' missing type hint",
+                                            suggestion=f"Add type annotation to '{arg.arg}'",
+                                            category="type_safety",
+                                        )
+                                    )
+
+                except SyntaxError:
+                    # It's expected that not all prompts are valid compilable code
+                    pass
+
+        except Exception:
+            pass
+
+        return suggestions, diagnostics
+
+    def _inject_snippets(self, text: str, analysis: DomainAnalysis) -> None:
+        """Inject stack-specific boilerplate if requested."""
+        text_lower = text.lower()
+
+        if "react" in text_lower and ("component" in text_lower or "code" in text_lower):
+            # If standard React is requested
+            if "tailwind" in text_lower:
+                analysis.suggestions.append(
+                    DomainSuggestion(
+                        "⚛️ Use Tailwind CSS for styling",
+                        "stack_recommendation",
+                        70,
+                        "Include 'className' props with Tailwind utility classes",
+                    )
+                )
+
+        # If they mention shadcn/ui (implies React)
+        if "shadcn" in text_lower or "ui component" in text_lower:
+            analysis.suggestions.append(
+                DomainSuggestion(
+                    "🧱 Use shadcn/ui pattern (Radix + Tailwind)",
+                    "architecture",
+                    65,
+                    "Import from '@/components/ui/...'",
+                )
+            )
+
+    def _scan_for_secrets(self, text: str, analysis: DomainAnalysis) -> None:
+        """Scan for API keys, tokens, and secrets using regex."""
+        # Common secret patterns
+        patterns = [
+            r"(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]",
+            r"sk-[a-zA-Z0-9]{48}",  # OpenAI style
+            r"ghp_[a-zA-Z0-9]{36}",  # GitHub Personal Access Token
+            r"https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@",  # Basic Auth in URL
+        ]
+
+        found = False
+        for p in patterns:
+            if re.search(p, text):
+                found = True
+                break
+
+        if found:
+            analysis.suggestions.append(
+                DomainSuggestion(
+                    "🔐 Review security implications (secrets detected)",
+                    "security",
+                    90,  # High priority
+                    "Hardcoded secrets detected. Use environment variables.",
+                )
+            )
+            analysis.diagnostics.append(
+                DiagnosticItem(
+                    severity="warning",
+                    message="Hardcoded secret or API key pattern detected",
+                    suggestion="Remove secrets and use environment variables",
+                    category="security",
+                )
+            )
 
     def _detect_language(self, text_lower: str, language_rules: Dict) -> Optional[str]:
         """Detect the programming language from text."""

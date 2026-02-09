@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import ContextManager from "./components/ContextManager";
 import QualityCoach from "./components/QualityCoach";
+import SecurityAlert from "./components/SecurityAlert";
 
 type CompileResponse = {
   system_prompt: string;
@@ -28,6 +29,11 @@ export default function Home() {
   const [status, setStatus] = useState("Ready");
   const [debouncedPrompt, setDebouncedPrompt] = useState("");
 
+  // Security Alert State
+  const [securityFindings, setSecurityFindings] = useState<any[]>([]);
+  const [redactedText, setRedactedText] = useState("");
+  const [pendingText, setPendingText] = useState(""); // Text waiting to be sent to V2
+
   // Sync debounced prompt
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedPrompt(prompt), 600);
@@ -50,61 +56,140 @@ export default function Home() {
     setStatus(liveMode ? "Live Compiling..." : "Generating (Fast)...");
 
     try {
-      // Step A: Fast V1 Request (Skip in Live Mode if user wants pure LLM)
+      // 2. Perform Request based on Mode
+      let data = null;
+
+      // Step A: offline/hybrid check (always needed for security/diagnostics)
+      // Even in Live Mode, we might want to check IR via V1 or V2 before showing result
+
+      const checkSecurity = (data: any, isV1: boolean) => {
+        // V1 returns the IR object directly. V2 returns { ir: ... } wrapper.
+        // We need to inspect the correct location for metadata.
+        const ir = isV1 ? data : data.ir;
+
+        if (ir?.metadata?.security && !ir.metadata.security.is_safe) {
+          setSecurityFindings(ir.metadata.security.findings);
+          setRedactedText(ir.metadata.security.redacted_text);
+          setPendingText(textToCompile);
+          setLoading(false);
+          setStatus("Security Alert Detected");
+          return true;
+        }
+        return false;
+      };
+
       if (!liveMode) {
+        // OFFLINE MODE
         const resV1 = await fetch("http://127.0.0.1:8080/compile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textToCompile, diagnostics, v2: false }),
+          body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
         });
 
         if (resV1.ok) {
-          const dataV1 = await resV1.json();
-          setResult(dataV1);
+          data = await resV1.json();
+          // V1 response is CompileResponse (same as V2)
+          if (checkSecurity(data, false)) return; // treat as structured response (isV1=false effectively)
+
+          setResult(data);
           setStatus("Reasoning with Advanced AI...");
         }
       } else {
+        // LIVE MODE (Default)
         setStatus("AI Thinking...");
-      }
 
-      // Step B: Slow V2 Request (DeepSeek)
-      // Step B: Slow V2 Request (LLM)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 190000); // 190s timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 190000);
 
-      try {
-        const resV2 = await fetch("http://127.0.0.1:8080/compile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textToCompile, diagnostics, v2: true, render_v2_prompts: true }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        try {
+          const resV2 = await fetch("http://127.0.0.1:8080/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: textToCompile, diagnostics, v2: true, render_v2_prompts: true }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
 
-        if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
+          if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
 
-        const dataV2 = await resV2.json();
-        setResult(dataV2);
-        setStatus(`Done in ${dataV2.processing_ms}ms`);
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
-          throw new Error("Timeout: AI Model took too long to respond.");
+          data = await resV2.json();
+          // V2 response is { ir: ..., system_prompt: ... }
+          if (checkSecurity(data, false)) return;
+
+          setResult(data);
+          setStatus(`Done in ${data.processing_ms}ms`);
+        } catch (e: any) {
+          if (e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
+          throw e;
         }
-        throw e;
       }
 
     } catch (e: any) {
       console.error(e);
       setStatus(`Error: ${e.message || "Connection Failed"}`);
     } finally {
-      setLoading(false);
+      // Only unset loading if we didn't trigger security alert (which handles its own loading state)
+      // Actually checkSecurity sets loading=false if blocked.
+      // We can safely set loading=false here if we are NOT blocked, but how to know?
+      // Simple fix: checkSecurity logic handles the 'return', so if we are here, we are either done or errored.
+      // But if we returned early, finally block still runs? Yes.
+      // So we need to be careful not to hide the modal.
+      // Let's rely on setStatus/Alert state.
+      if (status !== "Security Alert Detected") {
+        setLoading(false);
+      }
     }
   }, [prompt, diagnostics, liveMode]);
 
+  const handleSecurityDecision = async (useRedacted: boolean) => {
+    setSecurityFindings([]); // Close modal
+    const textToUse = useRedacted ? redactedText : pendingText;
 
+    // Resume Step B (V2 Request)
+    setLoading(true);
+    setStatus("Resuming with " + (useRedacted ? "Safe" : "Unsafe") + " text...");
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 190000);
+
+      const resV2 = await fetch("http://127.0.0.1:8080/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textToUse, diagnostics, v2: true, render_v2_prompts: true }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
+
+      const dataV2 = await resV2.json();
+      setResult(dataV2);
+      setStatus(`Done in ${dataV2.processing_ms}ms`);
+    } catch (e: any) {
+      setStatus(`Error: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+
+      {/* Security Alert Modal */}
+      {securityFindings.length > 0 && (
+        <SecurityAlert
+          findings={securityFindings}
+          redactedText={redactedText}
+          onProceedRedacted={() => handleSecurityDecision(true)}
+          onProceedOriginal={() => handleSecurityDecision(false)}
+          onCancel={() => {
+            setSecurityFindings([]);
+            setLoading(false);
+            setStatus("Cancelled");
+          }}
+        />
+      )}
       {/* Ambient Background Orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
@@ -168,7 +253,10 @@ export default function Home() {
             </div>
 
             {/* Context Manager */}
-            <ContextManager onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)} />
+            <ContextManager
+              onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)}
+              suggestions={result?.ir?.metadata?.context_suggestions}
+            />
           </div>
 
           {/* Right Panel: Output */}

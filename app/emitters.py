@@ -270,7 +270,13 @@ def _top_constraints_text_v2(cons: List[ConstraintV2], limit: int = 3) -> str:
     if not cons:
         return ""
     top = sorted(cons, key=lambda c: c.priority, reverse=True)[:limit]
-    return " | ".join(c.text for c in top)
+
+    def format_constraint(c: ConstraintV2) -> str:
+        if c.id == "schema_enforcement":
+            return "[JSON Schema Enforced]"
+        return c.text
+
+    return " | ".join(format_constraint(c) for c in top)
 
 
 def emit_system_prompt_v2(ir: IRv2) -> str:
@@ -459,9 +465,26 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
     if diagnostics:
         diag_lines: List[str] = []
         md = ir.metadata or {}
+
+        # 1. Render Structured Diagnostics (V2)
+        if ir.diagnostics:
+            for d in ir.diagnostics:
+                icon = "ℹ️"
+                if d.severity == "warning":
+                    icon = "⚠️"
+                elif d.severity == "error" or d.category == "security":
+                    icon = "🚨"
+
+                msg = f"{icon} {d.message}"
+                if d.suggestion:
+                    msg += f" → {d.suggestion}"
+                diag_lines.append(msg)
+
+        # 2. Render Legacy Metadata (V1 compatibility)
         risk_flags = md.get("risk_flags") or []
         ambiguous = md.get("ambiguous_terms") or []
         clarify = md.get("clarify_questions") or []
+
         if risk_flags:
             diag_lines.append(
                 (
@@ -473,6 +496,7 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
                 + ", ".join(risk_flags[:5])
             )
         if ambiguous:
+            # Only show if not already covered by V2 diagnostics (simple dedup check could be added, but listing both is safer for now)
             diag_lines.append(
                 (
                     "Ambiguous Terms"
@@ -493,6 +517,7 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             )
             for q in clarify[:3]:
                 diag_lines.append(f"- {q}")
+
         if diag_lines:
             prompt.extend(["", "Diagnostics:", *diag_lines])
     return "\n".join(prompt)

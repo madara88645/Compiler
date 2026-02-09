@@ -9,6 +9,10 @@ type CompileResponse = {
     user_prompt: string;
     plan: string;
     expanded_prompt: string;
+    system_prompt_v2?: string;
+    user_prompt_v2?: string;
+    plan_v2?: string;
+    expanded_prompt_v2?: string;
     ir: any;
     processing_ms: number;
 };
@@ -33,17 +37,17 @@ export default function OfflinePage() {
         setStatus("Compiling (Offline)...");
 
         try {
-            // Step A: Fast V1 Request Only (Heuristics)
+            // Step A: Fast V1 Request Only (Heuristics) -> Now V2
             const resV1 = await fetch("http://127.0.0.1:8080/compile", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: textToCompile, diagnostics, v2: false }),
+                body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
             });
 
             if (resV1.ok) {
                 const dataV1 = await resV1.json();
                 setResult(dataV1);
-                setStatus(`Done in ${dataV1.processing_ms}ms (Heuristic)`);
+                setStatus(`Done in ${dataV1.processing_ms}ms`);
             } else {
                 setStatus("Error: Offline Compilation Failed");
             }
@@ -71,7 +75,7 @@ export default function OfflinePage() {
                         <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
                         <div>
                             <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
-                            <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine Only</div>
+                            <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
                         </div>
                     </div>
 
@@ -144,8 +148,8 @@ export default function OfflinePage() {
                                     {/* Badge */}
                                     <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
                                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                                            <span className="text-[10px] text-zinc-400 font-medium">Heuristic V1</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                            <span className="text-[10px] text-zinc-400 font-medium">Reasoning V2</span>
                                         </div>
                                     </div>
 
@@ -155,10 +159,10 @@ export default function OfflinePage() {
                                                 className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-orange-500/30"
                                                 readOnly
                                                 value={
-                                                    activeTab === "system" ? result.system_prompt :
-                                                        activeTab === "user" ? result.user_prompt :
-                                                            activeTab === "plan" ? result.plan :
-                                                                result.expanded_prompt
+                                                    activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
+                                                        activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
+                                                            activeTab === "plan" ? (result.plan_v2 || result.plan) :
+                                                                (result.expanded_prompt_v2 || result.expanded_prompt)
                                                 }
                                             />
                                             <button

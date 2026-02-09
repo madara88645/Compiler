@@ -8,7 +8,7 @@ to adapt the system tone and provide actionable suggestions.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -208,6 +208,51 @@ def calculate_cognitive_load(text: str) -> CognitiveLoadResult:
 
 
 # -----------------------------------------------------------------------------
+# Ambiguity Detection
+# -----------------------------------------------------------------------------
+
+AMBIGUOUS_PATTERNS = {
+    "fix_it": {
+        "pattern": r"\b(fix it|fix this|it doesn't work|broken|help me)\b",
+        "suggestion": "Specify *what* is broken or the error message.",
+    },
+    "better": {
+        "pattern": r"\b(make it better|improve it|enhance)\b",
+        "suggestion": "Define 'better' (e.g., faster, cleaner, shorter).",
+    },
+    "clean_up": {
+        "pattern": r"\b(clean up|refactor|optimize)\b",
+        "suggestion": "Specify the goal (e.g., remove duplicates, split files).",
+    },
+    "stuff": {
+        "pattern": r"\b(stuff|things|something)\b",
+        "suggestion": "Replace vague words with specific nouns.",
+    },
+}
+
+
+@dataclass
+class AmbiguityResult:
+    is_ambiguous: bool = False
+    ambiguous_terms: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
+
+
+def detect_ambiguity(text: str) -> AmbiguityResult:
+    """Detect vague or ambiguous terms in the prompt."""
+    text_lower = text.lower()
+    result = AmbiguityResult()
+
+    for key, rule in AMBIGUOUS_PATTERNS.items():
+        if re.search(rule["pattern"], text_lower):
+            result.is_ambiguous = True
+            result.ambiguous_terms.append(key)
+            result.suggestions.append(rule["suggestion"])
+
+    return result
+
+
+# -----------------------------------------------------------------------------
 # Handler
 # -----------------------------------------------------------------------------
 
@@ -257,3 +302,18 @@ class PsycholinguistHandler(BaseHandler):
                 if formality == FormalityLevel.FORMAL
                 else "Use 'Sen' form in system prompt."
             )
+
+        # 4. Ambiguity Detection
+        from app.models_v2 import DiagnosticItem
+
+        ambiguity = detect_ambiguity(raw_text)
+        if ambiguity.is_ambiguous:
+            for suggestion in ambiguity.suggestions:
+                ir_v2.diagnostics.append(
+                    DiagnosticItem(
+                        severity="warning",
+                        message="Vague or ambiguous intent detected",
+                        suggestion=suggestion,
+                        category="clarity",
+                    )
+                )

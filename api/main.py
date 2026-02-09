@@ -225,11 +225,9 @@ def compile_endpoint(req: CompileRequest):
             print(f"LLM Failed, falling back to local V2: {e}")
             pass
     else:
-        # Offline Mode: Use Structure Engine output as the "Expanded Prompt"
-        if "structured_view" in ir2.metadata:
-            exp_v2 = ir2.metadata["structured_view"]
-            sys_v2 = "Offline Mode - Heuristic V2"
-            plan_v2 = "Logical Analysis & Formatting Applied."
+        # Offline Mode: Use local V2 Heuristics
+        # We rely on the standard V2 emitters below to render IR2 results (including Schema/Diagnostics)
+        pass
 
     # Optional: render prompts with IR v2 emitters (fallback if LLM didn't provide)
     if req.render_v2_prompts and ir2 is not None:
@@ -254,7 +252,7 @@ def compile_endpoint(req: CompileRequest):
         processing_ms=elapsed,
         request_id=rid,
         heuristic_version=HEURISTIC_VERSION,
-        heuristic2_version=(HEURISTIC2_VERSION if req.v2 else None),
+        heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
         trace=trace_lines,
     )
 
@@ -589,7 +587,34 @@ class ValidateRequest(BaseModel):
 def validate_endpoint(req: ValidateRequest):
     """Validate a prompt using Quality Coach."""
     try:
+        # 1. Run LLM Analysis
         report = hybrid_compiler.worker.analyze_prompt(req.text)
+
+        # 2. Run Offline Safety Checks
+        from app.heuristics.handlers.safety import SafetyHandler
+
+        safety = SafetyHandler()
+
+        pii = safety._scan_pii(req.text)
+        unsafe = safety._scan_unsafe_content(req.text)
+        guardrail = safety._check_guardrails(req.text)
+
+        safety_issues = []
+        if pii:
+            safety_issues.extend([f"PII Detected: {p['type']}" for p in pii])
+        if unsafe:
+            safety_issues.extend([f"Unsafe Content: '{u}'" for u in unsafe])
+        if guardrail and guardrail.severity != "info":
+            safety_issues.append(f"Guardrail: {guardrail.message}")
+
+        if safety_issues:
+            # Inject into report
+            report.weaknesses = safety_issues + report.weaknesses
+            # Penalty on score
+            report.score = max(0, report.score - (len(safety_issues) * 10))
+            # Add explicit safety category
+            report.category_scores["safety"] = max(0, 100 - (len(safety_issues) * 30))
+
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

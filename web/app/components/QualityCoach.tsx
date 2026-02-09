@@ -167,7 +167,7 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
                 <div className="space-y-8 animate-fade-in pb-10">
                     {/* Category Scores */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {Object.entries(report.score).map(([cat, score]) => (
+                        {Object.entries(report.category_scores).map(([cat, score]) => (
                             <div key={cat} className="glass-panel p-4 rounded-xl relative overflow-hidden group hover:bg-white/5 transition-colors">
                                 <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">{cat}</div>
                                 <div className="flex items-end gap-2 mb-3">

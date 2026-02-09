@@ -95,6 +95,18 @@ def _init_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
+    """Retrieve all file paths currently in the index."""
+    try:
+        conn = _connect(db_path)
+        cursor = conn.execute("SELECT path FROM docs")
+        paths = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return paths
+    except Exception:
+        return []
+
+
 def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
     stat = path.stat()
     cur = conn.execute("SELECT mtime, size FROM docs WHERE path=?", (str(path),))

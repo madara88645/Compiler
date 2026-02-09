@@ -172,6 +172,94 @@ class StructureHandler:
 
         return ""
 
+    def infer_schema(self, text: str) -> str:
+        """
+        Infer a JSON Schema from natural language instructions.
+        Examples:
+        - "Extract name, email, and age" -> {"type": "object", "properties": {"name": {"type": "string"}, ...}}
+        - "Fields: title, body, tags (array)" -> ...
+        """
+        text_lower = text.lower()
+
+        # 1. Detect Intent
+        # We look for the keyword, then capture everything until a sentence end or double newline
+        intent_pattern = (
+            r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])"
+        )
+        match = re.search(intent_pattern, text_lower, re.DOTALL)
+
+        if not match:
+            return ""
+
+        field_string = match.group(2)
+
+        # 2. Split and Clean Fields
+        # Split by comma or 'and'
+        raw_fields = re.split(r"[,;]|\band\b", field_string)
+        properties = {}
+
+        stopwords = ["from", "in", "of", "for", "the", "with", "where"]
+
+        for field in raw_fields:
+            field = field.strip()
+            if not field:
+                continue
+
+            # Truncate at stopwords from the END (e.g., "age from user")
+            # We split by space, if we find a stopword, we take everything before it
+            words = field.split()
+            clean_words = []
+            for w in words:
+                if w in stopwords:
+                    break
+                clean_words.append(w)
+
+            if not clean_words:
+                continue
+
+            # Reassemble
+            base_name = " ".join(clean_words)
+
+            # Remove type hints in parens: "age (int)" -> "age"
+            clean_name = re.sub(r"\s*\(.*?\)", "", base_name).strip()
+            # Convert to snake_case only if it has spaces
+            clean_name = clean_name.replace(" ", "_")
+
+            # Sanity check: Field names shouldn't be massive sentences
+            if len(clean_name) > 30 or " " in clean_name:
+                continue
+
+            # Type inference (check original field text for hints like "(array)")
+            prop_type = self._map_type(field)
+
+            properties[clean_name] = {"type": prop_type}
+            if prop_type == "array":
+                properties[clean_name]["items"] = {"type": "string"}
+
+        if not properties:
+            return ""
+
+        schema = {"type": "object", "properties": properties, "required": list(properties.keys())}
+
+        import json
+
+        return json.dumps(schema, indent=2)
+
+    def _map_type(self, field_name: str) -> str:
+        """Heuristic type mapping based on field name."""
+        s = field_name.lower()
+        if any(
+            x in s for x in ["age", "count", "number", "quantity", "year", "limit", "id", "score"]
+        ):
+            return "integer"
+        if any(x in s for x in ["is_", "has_", "active", "enabled", "check", "flag"]):
+            return "boolean"
+        if any(x in s for x in ["list", "array", "tags", "categories", "items", "friends"]):
+            return "array"
+        if any(x in s for x in ["email", "date", "time", "url", "link", "phone"]):
+            return "string"
+        return "string"
+
     def _format_deepspec(
         self, sections: Dict[str, str], variables: List[str], output_xml: str
     ) -> str:

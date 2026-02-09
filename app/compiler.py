@@ -4,7 +4,7 @@ import hashlib
 import re
 from typing import Any, Dict, List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
-from .models_v2 import IRv2, StepV2
+from .models_v2 import IRv2, StepV2, ConstraintV2, DiagnosticItem
 from app import get_version
 from .plugins import PluginContext, apply_plugins_ir, apply_plugins_ir_v2
 from .heuristics import (
@@ -43,6 +43,9 @@ from .heuristics.handlers.logic import LogicHandler
 from .heuristics.handlers.structure import StructureHandler
 from .heuristics.handlers.domain_expert import DomainHandler
 from .heuristics.handlers.psycholinguist import PsycholinguistHandler
+from .heuristics.handlers.context_suggestions import ContextSuggestionHandler
+from .heuristics.security import scan_text
+from .heuristics.handlers.safety import SafetyHandler
 
 
 GENERIC_GOAL = {
@@ -86,8 +89,8 @@ def build_steps(tasks: List[str]) -> List[str]:
     return steps
 
 
-HEURISTIC_VERSION = "2025.09.05-0"
-HEURISTIC2_VERSION = "2025.09.05-0"
+HEURISTIC_VERSION = "v2.0"
+HEURISTIC2_VERSION = "v2.0"
 
 
 def _ensure_plugin_metadata(md: Dict[str, Any]) -> Dict[str, Any]:
@@ -171,6 +174,7 @@ def compile_text_v2(text: str) -> IRv2:
     # Chain of Responsibility
     handlers = [
         ContentHandler(),
+        SafetyHandler(),  # NEW: Offline Safety Guardrails
         RiskHandler(),
         TeachingHandler(),
         LiveDebugHandler(),
@@ -178,6 +182,7 @@ def compile_text_v2(text: str) -> IRv2:
         LogicHandler(),
         DomainHandler(),
         PsycholinguistHandler(),
+        ContextSuggestionHandler(),
     ]
 
     for handler in handlers:
@@ -189,6 +194,33 @@ def compile_text_v2(text: str) -> IRv2:
     structure_engine = StructureHandler()
     structured_prompt = structure_engine.process(text)
     ir2.metadata["structured_view"] = structured_prompt
+
+    # -------------------------------------------------------------------------
+    # NEW: Schema Generator (Offline Intelligence)
+    # -------------------------------------------------------------------------
+    inferred_schema = structure_engine.infer_schema(text)
+    if inferred_schema:
+        # Inject as a high-priority constraint
+        ir2.constraints.append(
+            ConstraintV2(
+                id="schema_enforcement",
+                text=f"Strictly follow this JSON Schema:\n```json\n{inferred_schema}\n```",
+                origin="structure_engine",
+                priority=90,  # Very high priority
+                rationale="User explicitly requested structured fields.",
+            )
+        )
+        # ir2.output_format = "json" # Removed per user feedback
+        # Add a diagnostic info tip
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="info",
+                message="Auto-generated JSON Schema from your request",
+                suggestion="Review the schema in Constraints",
+                category="structure",
+            )
+        )
+    # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(
         text=text,
@@ -249,7 +281,13 @@ def compile_text(text: str) -> IR:
     temporal_flags = extract_temporal_flags(text)
     quantities = extract_quantities(text)
     code_req = detect_code_request(text)
-    pii_flags = detect_pii(text)
+
+    # Security Scan
+    security_result = scan_text(text)
+    pii_flags = detect_pii(text)  # Keep existing basic PII detection for now
+    if not security_result.is_safe:
+        pii_flags.append(f"secrets_detected_{len(security_result.findings)}")
+
     entities = extract_entities(text)
     complexity = estimate_complexity(text)
 
@@ -448,6 +486,11 @@ def compile_text(text: str) -> IR:
             "domain_score_mode": "ratio",
             "temporal_flags": temporal_flags,
             "quantities": quantities,
+            "security": {
+                "is_safe": security_result.is_safe,
+                "findings": security_result.findings,
+                "redacted_text": security_result.redacted_text,
+            },
         },
     )
     base_constraint_origins = {c: constraint_origins.get(c, "") for c in ir.constraints}

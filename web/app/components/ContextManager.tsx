@@ -10,9 +10,10 @@ type SearchResult = {
 
 type ContextManagerProps = {
     onInsertContext: (text: string) => void;
+    suggestions?: { path: string; name: string; reason: string }[];
 };
 
-export default function ContextManager({ onInsertContext }: ContextManagerProps) {
+export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
     const [ingesting, setIngesting] = useState(false);
     const [searching, setSearching] = useState(false);
     const [query, setQuery] = useState("");
@@ -31,7 +32,7 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
 
     const checkConnection = async () => {
         try {
-            const res = await fetch("http://127.0.0.1:8080/docs");
+            const res = await fetch("http://127.0.0.1:8080/health");
             if (res.ok) {
                 setIsConnected(true);
                 fetchStats();
@@ -192,7 +193,30 @@ export default function ContextManager({ onInsertContext }: ContextManagerProps)
                         Connected
                     </span>
                 )}
+
             </h3>
+
+            {/* Suggestions Area */}
+            {suggestions.length > 0 && (
+                <div className="flex flex-col gap-2 mb-4 animate-fade-in">
+                    <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest px-1">Suggested Files</span>
+                    <div className="flex flex-wrap gap-2">
+                        {suggestions.map((s, i) => (
+                            <button
+                                key={i}
+                                onClick={() => onInsertContext(`[File: ${s.name}]\n(Reason: ${s.reason})`)}
+                                className="group flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-full transition-all text-left"
+                                title={`Add ${s.path} to context`}
+                            >
+                                <span className="text-[10px] text-blue-300 font-mono">{s.name}</span>
+                                <span className="text-[9px] text-blue-400/60 group-hover:text-blue-400 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    +
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Stats Display */}
             {indexStats && indexStats.docs > 0 && (
