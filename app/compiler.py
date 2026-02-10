@@ -183,6 +183,7 @@ def compile_text_v2(text: str) -> IRv2:
         DomainHandler(),
         PsycholinguistHandler(),
         ContextSuggestionHandler(),
+        StructureHandler(),
     ]
 
     for handler in handlers:

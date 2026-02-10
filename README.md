@@ -39,6 +39,12 @@ Save money and context window space. The **"Magic Optimize"** feature uses AI to
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
 </p>
 
+### ⚡ Benchmark Playground (New!)
+A dedicated **Arena** to A/B test your prompts.
+- **Raw vs. Compiled**: Compare how a raw prompt performs against the compiler-optimized version.
+- **Auto-Judge**: Real-time scoring of response quality, relevance, and clarity.
+- **Visual Metrics**: See improvement percentages and detailed breakdowns side-by-side.
+
 ---
 
 ## 🛠️ Installation & Usage
@@ -64,6 +70,8 @@ Save money and context window space. The **"Magic Optimize"** feature uses AI to
    ```env
    OPENAI_API_KEY=sk-your-actual-key
    OPENAI_BASE_URL=https://api.openai.com
+   # Required for Benchmark Arena:
+   GROQ_API_KEY=gsk_your_groq_key
    ```
 
 3. **Run the App (One-Click)**:

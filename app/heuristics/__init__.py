@@ -4,6 +4,7 @@ import os
 import re
 from typing import Any, Dict, List, Tuple
 
+
 try:
     import yaml  # type: ignore
 except Exception:  # optional dependency

@@ -32,14 +32,22 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
 
     const checkConnection = async () => {
         try {
-            const res = await fetch("http://127.0.0.1:8080/health");
+            // Use a short timeout to prevent hanging if backend is unresponsive
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            const res = await fetch("http://127.0.0.1:8080/health", { signal: controller.signal });
+            clearTimeout(timeoutId);
+
             if (res.ok) {
                 setIsConnected(true);
                 fetchStats();
-            } else setIsConnected(false);
+            } else {
+                setIsConnected(false);
+            }
         } catch (e) {
             setIsConnected(false);
-            console.error("Backend connection failed:", e);
+            // Silent error for connection checks to avoid console spam
         }
     };
 

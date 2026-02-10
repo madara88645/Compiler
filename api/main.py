@@ -47,6 +47,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Register Routers ---
+from app.routers.benchmark import router as benchmark_router  # noqa: E402
+
+app.include_router(benchmark_router)
+
 
 @app.on_event("startup")
 async def startup_event():

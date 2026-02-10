@@ -15,14 +15,19 @@ from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 
 # Default settings - Groq (much faster than LLM Service)
-DEFAULT_MODEL = "llama-3.1-8b-instant"  # Fast and cheap
-DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
+DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
+DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
-HARD_TIMEOUT_SECONDS = 30  # Groq responds in seconds, not minutes
+# Allow overriding timeout via env var
+try:
+    HARD_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT", 30))
+except ValueError:
+    HARD_TIMEOUT_SECONDS = 30
+
 COACH_TIMEOUT_SECONDS = 20
 
 

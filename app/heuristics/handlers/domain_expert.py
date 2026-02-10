@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import ast
 import textwrap
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 from .base import BaseHandler
 from app.models import IR
@@ -533,6 +533,55 @@ DOMAIN_RULES: Dict[str, Dict] = {
 
 
 # ==============================================================================
+# IMPLIED PERSONA MAPPING
+# ==============================================================================
+
+IMPLIED_PERSONAS: Dict[str, str] = {
+    # Coding
+    "def ": "Python Developer",
+    "class ": "Software Engineer",
+    "function ": "JavaScript Developer",
+    "import ": "Software Developer",
+    "const ": "JavaScript Developer",
+    "let ": "JavaScript Developer",
+    "var ": "JavaScript Developer",
+    "public static void": "Java Developer",
+    "System.out.println": "Java Developer",
+    "Console.WriteLine": "C# Developer",
+    "echo ": "PHP Developer",
+    "select ": "Database Administrator",
+    "insert into": "Database Administrator",
+    "update ": "Database Administrator",
+    "delete from": "Database Administrator",
+    "create table": "Database Administrator",
+    "docker": "DevOps Engineer",
+    "kubernetes": "DevOps Engineer",
+    "aws": "Cloud Architect",
+    "azure": "Cloud Architect",
+    "gcp": "Cloud Architect",
+    "git": "Software Engineer",
+    # Data Science
+    "pandas": "Data Scientist",
+    "numpy": "Data Scientist",
+    "matplotlib": "Data Scientist",
+    "sklearn": "Machine Learning Engineer",
+    "tensorflow": "Machine Learning Engineer",
+    "pytorch": "Machine Learning Engineer",
+    "dataframe": "Data Scientist",
+    # Business
+    "roi": "Business Analyst",
+    "kpi": "Business Analyst",
+    "swot": "Business Consultant",
+    "market analysis": "Market Researcher",
+    # Creative
+    "story": "Creative Writer",
+    "novel": "Novelist",
+    "poem": "Poet",
+    "screenplay": "Screenwriter",
+}
+
+
+# ==============================================================================
 # DOMAIN HANDLER CLASS
 # ==============================================================================
 
@@ -589,6 +638,26 @@ class DomainHandler(BaseHandler):
         # Add diagnostics
         ir_v2.diagnostics.extend(analysis.diagnostics)
 
+        if (not ir_v2.persona or ir_v2.persona in ["assistant", "general"]) and not ir_v2.role:
+            implied_persona, confidence = self.detect_implied_persona(original_text)
+            if implied_persona:
+                ir_v2.persona = "expert"
+                ir_v2.role = f"Expert {implied_persona}"
+                ir_v2.metadata["implied_persona"] = {
+                    "persona": implied_persona,
+                    "confidence": confidence,
+                    "reason": "keywords_detected",
+                }
+                # Add a diagnostic to inform user
+                ir_v2.diagnostics.append(
+                    DiagnosticItem(
+                        severity="info",
+                        message=f"Adopted persona: {implied_persona}",
+                        suggestion="If this is incorrect, specify 'Act as...' explicitly.",
+                        category="persona_inference",
+                    )
+                )
+
         # Store analysis metadata
         ir_v2.metadata["domain_analysis"] = {
             "detected_domain": analysis.detected_domain,
@@ -632,6 +701,48 @@ class DomainHandler(BaseHandler):
             return self._analyze_data_science(text, text_lower)
         else:
             return DomainAnalysis(detected_domain=detected_domain)
+
+    def detect_implied_persona(self, text: str) -> Tuple[Optional[str], float]:
+        """
+        Detect an implied persona from the text based on keywords.
+
+        Args:
+            text: The text to analyze.
+
+        Returns:
+            Tuple of (Persona Name, Confidence Score) or (None, 0.0)
+        """
+        text_lower = text.lower()
+
+        # Check for explicit 'act as' first - if missing loop through implied
+        # Note: 'Act as' is handled by main compiler, but we double check here if needed?
+        # Actually requirements say: "if explicit persona is missing".
+        # The caller (handle) checks if persona is missing/generic.
+
+        best_persona = None
+        max_score = 0.0
+
+        # Simple keyword matching
+        for keyword, persona_name in IMPLIED_PERSONAS.items():
+            # word boundary check for short keywords
+            escaped = re.escape(keyword.strip())
+            pattern = r"\b" + escaped + r"\b"
+            if keyword.endswith(" "):  # if keyword ended with space, strict check
+                pattern = r"\b" + escaped + r"\s"
+
+            # Count occurrences
+            matches = re.findall(pattern, text_lower)
+            if matches:
+                # Base score 0.6, +0.1 for each extra occurrence, max 0.9
+                score = min(0.9, 0.6 + (len(matches) - 1) * 0.1)
+
+                # Longer keywords might be more specific?
+                # For now just take the highest score
+                if score > max_score:
+                    max_score = score
+                    best_persona = persona_name
+
+        return best_persona, max_score
 
     def _detect_domain(self, text_lower: str, hint: str) -> str:
         """Detect the primary domain of the text."""

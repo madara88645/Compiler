@@ -234,22 +234,17 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-4">
-              {/* Controls */}
-              {/* Controls hidden - Defaults enforced */}
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleGenerate()}
-                  disabled={loading}
-                  className="col-span-2 px-4 py-3 text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
-                >
-                  {loading ? (
-                    <span className="animate-pulse">Thinking...</span>
-                  ) : (
-                    <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={() => handleGenerate()}
+                disabled={loading}
+                className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20"
+              >
+                {loading ? (
+                  <span className="animate-pulse">Thinking...</span>
+                ) : (
+                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                )}
+              </button>
             </div>
 
             {/* Context Manager */}
@@ -261,6 +256,8 @@ export default function Home() {
 
           {/* Right Panel: Output */}
           <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
+
+            {/* ── Compiler Output View ── */}
             {result ? (
               <>
                 {/* Tabs */}

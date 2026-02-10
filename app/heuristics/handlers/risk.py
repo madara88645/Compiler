@@ -42,3 +42,59 @@ class RiskHandler(BaseHandler):
             if diag:
                 ir_v2.diagnostics.append(diag)
                 ir_v2.intents.append("risk")
+
+        # Capability Mismatch Check
+        original_text = md.get("original_text", "")
+        if original_text:
+            self.check_capability_mismatch(original_text, ir_v2)
+
+    def check_capability_mismatch(self, text: str, ir_v2: IRv2) -> None:
+        text_lower = text.lower()
+
+        # Real-time keywords
+        real_time_keywords = [
+            "current time",
+            "today's news",
+            "weather",
+            "stock price",
+            "latest news",
+        ]
+        for kw in real_time_keywords:
+            if kw in text_lower:
+                ir_v2.diagnostics.append(
+                    DiagnosticItem(
+                        severity="warning",
+                        message="⚠️ This model may not have real-time capabilities.",
+                        suggestion="For real-time info like news or weather, verify with external tools or search.",
+                        category="capability",
+                    )
+                )
+                ir_v2.intents.append("capability_mismatch")
+                break  # Avoid duplicate warnings for same category
+
+        # Multi-modal keywords
+        multi_modal_keywords = [
+            "generate image",
+            "create image",
+            "draw",
+            "create video",
+            "generate video",
+            "generate an image",
+            "create an image",
+            "generate a video",
+            "create a video",
+            "make an image",
+            "make a video",
+        ]
+        for kw in multi_modal_keywords:
+            if kw in text_lower:
+                ir_v2.diagnostics.append(
+                    DiagnosticItem(
+                        severity="warning",
+                        message="⚠️ This model is text-only.",
+                        suggestion="This model cannot generate images or videos.",
+                        category="capability",
+                    )
+                )
+                ir_v2.intents.append("capability_mismatch")
+                break

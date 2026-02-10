@@ -2,11 +2,69 @@ import re
 from typing import Dict, List, Tuple
 
 
-class StructureHandler:
+from .base import BaseHandler
+from app.models import IR
+from app.models_v2 import IRv2, ConstraintV2
+
+
+class StructureHandler(BaseHandler):
     """
-    Deterministic structure engine that formats raw prompts into DeepSpec standard
-    using regex rules (No LLM).
+    Deterministic structure engine that formats raw prompts into DeepSpec standard.
+    Also acts as a heuristic handler to inject strict output format constraints.
     """
+
+    def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
+        """
+        Detect output format keywords and inject strict constraints.
+        """
+        text = ir_v2.tasks[0] if ir_v2.tasks else ""
+        # Also check original text if available
+        if ir_v2.metadata and "original_text" in ir_v2.metadata:
+            text = ir_v2.metadata["original_text"]
+
+        lower_text = text.lower()
+
+        # Keywords to detect
+        formats = {
+            "json": "JSON",
+            "csv": "CSV",
+            "xml": "XML",
+            "markdown table": "Markdown table",
+            "list": "List",
+        }
+
+        detected = []
+        for key, label in formats.items():
+            if key in lower_text:
+                detected.append(label)
+
+        # If multiple detected, pick the first one (simple heuristic)
+        # or maybe we want to enforce all? Let's just pick the first specific one found.
+        # Priority: JSON > XML > CSV > Table > List
+
+        target_format = None
+        if "json" in lower_text:
+            target_format = "JSON"
+        elif "xml" in lower_text:
+            target_format = "XML"
+        elif "csv" in lower_text:
+            target_format = "CSV"
+        elif "markdown table" in lower_text:
+            target_format = "Markdown table"
+        elif "list" in lower_text:
+            target_format = "List"
+
+        if target_format:
+            constraint_text = f"Output strict {target_format}. Do not output conversational text."
+            ir_v2.constraints.append(
+                ConstraintV2(
+                    id=f"structure_strict_{target_format.lower().replace(' ', '_')}",
+                    text=constraint_text,
+                    origin="structure_handler",
+                    priority=85,
+                    rationale=f"User requested {target_format} format.",
+                )
+            )
 
     def process(self, text: str) -> str:
         """

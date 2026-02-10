@@ -10,6 +10,7 @@ export default function Sidebar() {
         { name: "Compiler", path: "/", icon: "💠" },
         { name: "Optimizer", path: "/optimizer", icon: "✨" },
         { name: "Offline", path: "/offline", icon: "🔌" },
+        { name: "Benchmark", path: "/benchmark", icon: "⚡" },
     ];
 
     return (

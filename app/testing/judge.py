@@ -143,3 +143,155 @@ Evaluate the output against the requirement and return your verdict as JSON."""
             reason="Mock evaluation: no specific check implemented for this requirement",
             score=0.7,
         )
+
+
+# ==============================================================================
+# COMPARATIVE EVALUATION
+# ==============================================================================
+
+
+class ComparisonResult(BaseModel):
+    """Result from a comparative evaluation between two outputs."""
+
+    winner: str  # "A" or "B"
+    reason: str
+    score_diff: float  # 0-100 scale indicating margin of victory
+
+
+class ComparativeJudge:
+    """Impartial Judge that compares two AI outputs and decides which is better.
+
+    Uses an LLM to evaluate outputs head-to-head based on formatting,
+    detail, and constraint adherence.
+    """
+
+    SYSTEM_PROMPT = """You are an impartial judge. Compare Output A and Output B for the given Task.
+Decide which is better based on:
+1. Formatting: Is the output well-structured, readable, and properly formatted?
+2. Detail: Does the output provide sufficient depth and useful information?
+3. Constraints: Does the output follow any constraints implied by the task?
+
+Output Format:
+Return JSON:
+{
+  "winner": "A" or "B",
+  "reason": "String explaining why the winner is better",
+  "score_diff": integer (0-100, how much better the winner is)
+}"""
+
+    def __init__(self, provider: Optional[LLMProvider] = None, executor: Optional[Any] = None):
+        """Initialize with an optional LLM provider for calls."""
+        if provider:
+            self.provider = provider
+        elif executor:
+            from app.llm.adapter import ExecutorProvider
+
+            self.provider = ExecutorProvider(executor)
+        else:
+            self.provider = None
+
+    def compare(self, output_a: str, output_b: str, task: str) -> ComparisonResult:
+        """Compare two outputs for a given task and declare a winner.
+
+        Args:
+            output_a: The first AI-generated output.
+            output_b: The second AI-generated output.
+            task: The original task or requirement.
+
+        Returns:
+            ComparisonResult with winner, reason, and score_diff.
+        """
+        if self.provider is None:
+            return self._mock_compare(output_a, output_b, task)
+
+        user_prompt = f"""Task: {task}
+
+Output A:
+{output_a}
+
+Output B:
+{output_b}
+
+Compare the two outputs and return your verdict as JSON."""
+
+        try:
+            response = self.provider.generate(user_prompt, system_prompt=self.SYSTEM_PROMPT)
+            return self._parse_response(response.content)
+        except Exception as e:
+            return ComparisonResult(
+                winner="A",
+                reason=f"Comparative evaluation error: {str(e)}",
+                score_diff=0,
+            )
+
+    def _parse_response(self, response: str) -> ComparisonResult:
+        """Parse the LLM response into a ComparisonResult."""
+        try:
+            clean_response = response.strip()
+            if clean_response.startswith("```"):
+                lines = clean_response.split("\n")
+                clean_response = "\n".join(lines[1:-1])
+
+            data = json.loads(clean_response)
+
+            winner = str(data.get("winner", "A")).upper()
+            if winner not in ("A", "B"):
+                winner = "A"
+
+            return ComparisonResult(
+                winner=winner,
+                reason=str(data.get("reason", "No reason provided")),
+                score_diff=float(data.get("score_diff", 0)),
+            )
+        except json.JSONDecodeError:
+            lower_response = response.lower()
+            winner = "B" if "output b" in lower_response and "better" in lower_response else "A"
+            return ComparisonResult(
+                winner=winner,
+                reason=f"Could not parse JSON response: {response[:200]}",
+                score_diff=0,
+            )
+
+    def _mock_compare(self, output_a: str, output_b: str, task: str) -> ComparisonResult:
+        """Mock comparison for testing without an actual LLM.
+
+        Uses simple heuristics: longer, more detailed output wins.
+        """
+        score_a = 0
+        score_b = 0
+
+        # Length heuristic: longer responses tend to be more detailed
+        if len(output_a) > len(output_b):
+            score_a += 10
+        elif len(output_b) > len(output_a):
+            score_b += 10
+
+        # Paragraph count: more structured
+        para_a = output_a.count("\n\n")
+        para_b = output_b.count("\n\n")
+        if para_a > para_b:
+            score_a += 5
+        elif para_b > para_a:
+            score_b += 5
+
+        # Task keyword overlap
+        task_words = set(task.lower().split())
+        overlap_a = len(task_words & set(output_a.lower().split()))
+        overlap_b = len(task_words & set(output_b.lower().split()))
+        if overlap_a > overlap_b:
+            score_a += 5
+        elif overlap_b > overlap_a:
+            score_b += 5
+
+        if score_a >= score_b:
+            winner = "A"
+            diff = score_a - score_b
+        else:
+            winner = "B"
+            diff = score_b - score_a
+
+        return ComparisonResult(
+            winner=winner,
+            reason=f"Mock comparison: Output {winner} scored higher on heuristics (length, structure, relevance)",
+            score_diff=float(diff),
+        )
