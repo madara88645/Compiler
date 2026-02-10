@@ -45,6 +45,10 @@ A dedicated **Arena** to A/B test your prompts.
 - **Auto-Judge**: Real-time scoring of response quality, relevance, and clarity.
 - **Visual Metrics**: See improvement percentages and detailed breakdowns side-by-side.
 
+<p align="center">
+  <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
+</p>
+
 ---
 
 ## 🛠️ Installation & Usage
