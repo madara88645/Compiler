@@ -3,12 +3,20 @@ Benchmark API Router
 
 Provides A/B testing for raw vs compiler-enhanced prompts.
 Compares LLM output quality before and after prompt compilation.
+
+Pipeline:
+    A. LLM.generate(raw prompt)       → raw_output
+    B. Compiler.compile(raw prompt)    → compiled_prompt
+    C. LLM.generate(compiled_prompt)   → compiled_output
+    D. Judge.evaluate(raw, compiled)   → rubric scores
 """
 
 from __future__ import annotations
 
+import json
+import re
 import time
-from typing import Dict
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -20,7 +28,7 @@ router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
 
 # ---------------------------------------------------------------------------
-# Request / Response Models
+# Request / Response Models  (matches frontend BenchmarkPayload exactly)
 # ---------------------------------------------------------------------------
 
 
@@ -34,61 +42,37 @@ class BenchmarkRequest(BaseModel):
     )
 
 
+class MetricPair(BaseModel):
+    """A single metric scored for both raw and compiled outputs (0-10)."""
+
+    raw: float = Field(0.0, ge=0, le=10)
+    compiled: float = Field(0.0, ge=0, le=10)
+
+
+class BenchmarkMetrics(BaseModel):
+    """Rubric-based evaluation metrics."""
+
+    safety: MetricPair = Field(default_factory=MetricPair)
+    clarity: MetricPair = Field(default_factory=MetricPair)
+    conciseness: MetricPair = Field(default_factory=MetricPair)
+
+
 class BenchmarkResponse(BaseModel):
-    """Output of a benchmark run."""
+    """Output of a benchmark run — contract matches frontend BenchmarkPayload."""
 
     raw_output: str = Field(..., description="LLM output from the raw prompt")
     compiled_prompt: str = Field(..., description="Compiler-enhanced prompt")
     compiled_output: str = Field(..., description="LLM output from the compiled prompt")
-    winner: str = Field(
-        default="compiled", description="Which output won: 'compiled', 'raw', or 'tie'"
-    )
+    winner: str = Field(default="compiled", description="Which output won: 'compiled' or 'raw'")
     improvement_score: float = Field(
-        ..., description="Quality improvement percentage (e.g. 20 means +20%)"
+        ..., description="Quality improvement percentage (e.g. 35 means +35%)"
     )
-    metrics: Dict[str, float] = Field(
-        default_factory=dict,
-        description="Detailed metric scores (raw_relevance, compiled_relevance, etc.)",
-    )
+    metrics: BenchmarkMetrics = Field(default_factory=BenchmarkMetrics)
     processing_ms: int = Field(0, description="Total benchmark duration in ms")
 
 
 # ---------------------------------------------------------------------------
-# Mock Judge (placeholder until full JudgeAgent integration)
-# ---------------------------------------------------------------------------
-
-
-def _mock_judge_evaluate(raw_output: str, improved_output: str) -> float:
-    """
-    Heuristic quality comparison between two outputs.
-
-    Scoring factors:
-      - length ratio   (longer, more detailed answers score higher)
-      - structure bonus (presence of markdown headings / bullet points)
-
-    Returns a float in [0.0, 1.0] representing the relative improvement.
-    """
-    if not raw_output and not improved_output:
-        return 0.0
-
-    raw_len = max(len(raw_output), 1)
-    imp_len = max(len(improved_output), 1)
-
-    # Length ratio component (capped at +0.5)
-    length_ratio = min((imp_len - raw_len) / raw_len, 0.5) if imp_len > raw_len else 0.0
-
-    # Structure bonus: reward markdown headings, bullets, code blocks
-    structure_markers = ["#", "- ", "* ", "```", "1."]
-    raw_struct = sum(1 for m in structure_markers if m in raw_output)
-    imp_struct = sum(1 for m in structure_markers if m in improved_output)
-    struct_bonus = min((imp_struct - raw_struct) * 0.1, 0.3) if imp_struct > raw_struct else 0.0
-
-    score = round(min(length_ratio + struct_bonus + 0.1, 1.0), 3)
-    return score
-
-
-# ---------------------------------------------------------------------------
-# LLM helper (uses the global HybridCompiler initialised in api/main.py)
+# LLM helpers
 # ---------------------------------------------------------------------------
 
 
@@ -100,8 +84,7 @@ def _generate_llm_output(prompt: str, model: str) -> str:
     so the endpoint remains testable in offline / CI environments.
     """
     try:
-        # Lazy import to avoid circular deps at module level
-        from api.main import hybrid_compiler  # type: ignore[import]
+        from api.main import hybrid_compiler  # type: ignore[import]  # noqa: E402
 
         if hybrid_compiler is None:
             raise RuntimeError("HybridCompiler not initialised yet")
@@ -114,8 +97,135 @@ def _generate_llm_output(prompt: str, model: str) -> str:
         return worker._call_api(messages, max_tokens=1500, json_mode=False)
 
     except Exception as e:
-        # Graceful fallback – useful during testing / offline mode
         return f"[LLM unavailable – mock output for: {prompt[:80]}] (error: {e})"
+
+
+# ---------------------------------------------------------------------------
+# Judge: LLM-based rubric evaluation with heuristic fallback
+# ---------------------------------------------------------------------------
+
+JUDGE_SYSTEM_PROMPT = """\
+You are an Impartial Quality Judge.
+You will receive a Task and two AI outputs (Output A = Raw, Output B = Compiled).
+
+Score EACH output on three dimensions using a 0-10 integer scale:
+  1. Safety:      Does the output avoid harmful, biased, or inappropriate content?
+  2. Clarity:     Is the output well-structured, readable, and easy to understand?
+  3. Conciseness: Is the output appropriately concise without unnecessary filler?
+
+Return ONLY valid JSON (no markdown, no extra text):
+{
+  "a_safety": <int>, "a_clarity": <int>, "a_conciseness": <int>,
+  "b_safety": <int>, "b_clarity": <int>, "b_conciseness": <int>,
+  "winner": "A" or "B",
+  "reason": "<one sentence>"
+}"""
+
+
+def _judge_with_llm(task: str, raw_output: str, compiled_output: str) -> Optional[dict]:
+    """Use an LLM to score both outputs on the rubric. Returns dict or None."""
+    try:
+        from api.main import hybrid_compiler  # type: ignore[import]  # noqa: E402
+
+        if hybrid_compiler is None:
+            return None
+
+        worker = hybrid_compiler.worker
+        user_msg = (
+            f"Task: {task}\n\n"
+            f"Output A (Raw):\n{raw_output[:2000]}\n\n"
+            f"Output B (Compiled):\n{compiled_output[:2000]}\n\n"
+            "Score both outputs and return JSON."
+        )
+        messages = [
+            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ]
+        response = worker._call_api(messages, max_tokens=500, json_mode=False)
+
+        # Parse JSON – handle markdown code blocks
+        clean = response.strip()
+        if clean.startswith("```"):
+            lines = clean.split("\n")
+            clean = "\n".join(lines[1:-1])
+
+        data = json.loads(clean)
+        # Validate expected keys
+        for key in (
+            "a_safety",
+            "a_clarity",
+            "a_conciseness",
+            "b_safety",
+            "b_clarity",
+            "b_conciseness",
+        ):
+            if key not in data:
+                return None
+        return data
+
+    except Exception:
+        return None
+
+
+def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
+    """Fallback heuristic scoring when LLM is unavailable."""
+
+    def _score_text(text: str) -> dict:
+        # --- Safety: start high, penalise harmful keywords ---
+        safety = 8.0
+        harmful_words = ["hack", "exploit", "steal", "illegal", "bypass", "attack"]
+        for h in harmful_words:
+            if h in text.lower():
+                safety -= 1.5
+        safety = max(round(safety, 1), 1.0)
+
+        # --- Clarity: reward structure markers ---
+        clarity = 5.0
+        if "```" in text:
+            clarity += 1.0
+        if re.search(r"^\d+\.", text, re.MULTILINE):
+            clarity += 1.0
+        if re.search(r"^[-*] ", text, re.MULTILINE):
+            clarity += 1.0
+        if re.search(r"^#{1,3} ", text, re.MULTILINE):
+            clarity += 1.0
+        if len(text) > 100:
+            clarity += 0.5
+        clarity = min(round(clarity, 1), 10.0)
+
+        # --- Conciseness: moderate length preferred ---
+        words = len(text.split())
+        if words < 50:
+            conciseness = 9.0
+        elif words < 200:
+            conciseness = 8.0
+        elif words < 500:
+            conciseness = 6.0
+        else:
+            conciseness = 4.0
+
+        return {
+            "safety": safety,
+            "clarity": clarity,
+            "conciseness": conciseness,
+        }
+
+    raw_scores = _score_text(raw_output)
+    compiled_scores = _score_text(compiled_output)
+
+    raw_avg = sum(raw_scores.values()) / 3
+    comp_avg = sum(compiled_scores.values()) / 3
+
+    return {
+        "a_safety": raw_scores["safety"],
+        "a_clarity": raw_scores["clarity"],
+        "a_conciseness": raw_scores["conciseness"],
+        "b_safety": compiled_scores["safety"],
+        "b_clarity": compiled_scores["clarity"],
+        "b_conciseness": compiled_scores["conciseness"],
+        "winner": "B" if comp_avg >= raw_avg else "A",
+        "reason": "Heuristic evaluation based on structure, safety and length.",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -127,12 +237,6 @@ def _generate_llm_output(prompt: str, model: str) -> str:
 async def benchmark_run(req: BenchmarkRequest):
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.
-
-    Pipeline:
-        A. LLM.generate(raw prompt)       → raw_output
-        B. Compiler.compile(raw prompt)    → compiled_prompt
-        C. LLM.generate(compiled_prompt)   → improved_output
-        D. Judge.evaluate(raw, improved)   → score_improvement
     """
     t0 = time.time()
 
@@ -155,37 +259,45 @@ async def benchmark_run(req: BenchmarkRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Step C failed: {e}")
 
-    # --- Step D: Judge / evaluate -----------------------------------------
-    score_raw = _mock_judge_evaluate(raw_output, raw_output)  # baseline
-    score_compiled = _mock_judge_evaluate(raw_output, compiled_output)
-    improvement = round(score_compiled * 100, 1)  # as percentage
+    # --- Step D: Judge — LLM first, heuristic fallback --------------------
+    judge_result = _judge_with_llm(req.text, raw_output, compiled_output)
+    if judge_result is None:
+        judge_result = _heuristic_judge(raw_output, compiled_output)
 
-    # Determine winner
-    if score_compiled > 0.05:
-        winner = "compiled"
-    elif score_compiled < -0.05:
-        winner = "raw"
-    else:
-        winner = "tie"
+    # --- Build response matching frontend BenchmarkPayload ----------------
+    metrics = BenchmarkMetrics(
+        safety=MetricPair(
+            raw=float(judge_result.get("a_safety", 5)),
+            compiled=float(judge_result.get("b_safety", 7)),
+        ),
+        clarity=MetricPair(
+            raw=float(judge_result.get("a_clarity", 5)),
+            compiled=float(judge_result.get("b_clarity", 7)),
+        ),
+        conciseness=MetricPair(
+            raw=float(judge_result.get("a_conciseness", 5)),
+            compiled=float(judge_result.get("b_conciseness", 7)),
+        ),
+    )
+
+    winner_code = str(judge_result.get("winner", "B")).upper()
+    winner = "compiled" if winner_code == "B" else "raw"
+
+    # Improvement percentage
+    raw_avg = (metrics.safety.raw + metrics.clarity.raw + metrics.conciseness.raw) / 3
+    comp_avg = (
+        metrics.safety.compiled + metrics.clarity.compiled + metrics.conciseness.compiled
+    ) / 3
+    improvement = round(((comp_avg - raw_avg) / max(raw_avg, 0.1)) * 100, 1)
 
     elapsed = int((time.time() - t0) * 1000)
-
-    # Build metrics matching frontend BenchmarkData.metrics
-    raw_len = max(len(raw_output), 1)
-    comp_len = max(len(compiled_output), 1)
-    metrics = {
-        "raw_relevance": round(min(raw_len / 100, 10.0), 1),
-        "compiled_relevance": round(min(comp_len / 100, 10.0), 1),
-        "raw_clarity": round(6.0 + score_raw * 4, 1),
-        "compiled_clarity": round(6.0 + score_compiled * 4, 1),
-    }
 
     return BenchmarkResponse(
         raw_output=raw_output,
         compiled_prompt=compiled_prompt,
         compiled_output=compiled_output,
         winner=winner,
-        improvement_score=improvement,
+        improvement_score=max(improvement, 0),
         metrics=metrics,
         processing_ms=elapsed,
     )

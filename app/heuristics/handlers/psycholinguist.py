@@ -14,7 +14,7 @@ from typing import Optional
 
 from .base import BaseHandler
 from app.models import IR
-from app.models_v2 import IRv2
+from app.models_v2 import IRv2, DiagnosticItem
 
 
 # -----------------------------------------------------------------------------
@@ -97,12 +97,14 @@ URGENT_KEYWORDS = [
 
 # Frustration patterns
 FRUSTRATION_PATTERNS = [
-    r"[A-Z]{3,}",  # Multiple uppercase words (shouting)
     r"!{2,}",  # Multiple exclamation marks
     r"\?\!",  # ?! combo
     r"wtf|omg|ffs",  # Common frustration acronyms
     r"neden çalışmıyor",  # Turkish: why isn't it working
     r"yine mi",  # Turkish: again?
+    r"i don't understand",
+    r"why is this error",
+    r"fix this",
 ]
 
 # Casual patterns
@@ -137,6 +139,63 @@ TR_INFORMAL_PATTERNS = [
     r"\babi\b",
     r"\bhadi\b",
 ]
+
+
+# Cultural/Regional patterns
+UK_SPELLING = [
+    r"colour",
+    r"flavour",
+    r"centre",
+    r"metre",
+    r"organise",
+    r"realise",
+    r"defence",
+]
+
+US_SPELLING = [
+    r"color",
+    r"flavor",
+    r"center",
+    r"meter",
+    r"organize",
+    r"realize",
+    r"defense",
+]
+
+CURRENCY_PATTERNS = {
+    "TR": [r"\btl\b", r"\btürk lirası\b", r"\btry\b"],
+    "US": [r"\busd\b", r"\bdollar\b", r"\bbucks\b"],
+    "UK": [r"\bgbp\b", r"\bpound\b", r"\bquid\b"],
+    "EU": [r"\beur\b", r"\beuro\b"],
+}
+
+
+def detect_cultural_context(text: str) -> Optional[str]:
+    """Detect cultural context based on spelling and currency."""
+    text_lower = text.lower()
+
+    # Check spelling
+    uk_score = sum(1 for p in UK_SPELLING if re.search(p, text_lower))
+    us_score = sum(1 for p in US_SPELLING if re.search(p, text_lower))
+
+    if uk_score > us_score:
+        return "British"
+    if us_score > uk_score:
+        return "American"
+
+    # Check currency
+    for region, patterns in CURRENCY_PATTERNS.items():
+        if any(re.search(p, text_lower) for p in patterns):
+            if region == "TR":
+                return "Turkish"
+            if region == "US":
+                return "American"
+            if region == "UK":
+                return "British"
+            if region == "EU":
+                return "European"
+
+    return None
 
 
 def detect_sentiment(text: str) -> UserSentiment:
@@ -304,8 +363,6 @@ class PsycholinguistHandler(BaseHandler):
             )
 
         # 4. Ambiguity Detection
-        from app.models_v2 import DiagnosticItem
-
         ambiguity = detect_ambiguity(raw_text)
         if ambiguity.is_ambiguous:
             for suggestion in ambiguity.suggestions:
@@ -317,3 +374,48 @@ class PsycholinguistHandler(BaseHandler):
                         category="clarity",
                     )
                 )
+
+        # 5. Cultural Context
+        culture = detect_cultural_context(raw_text)
+        if culture:
+            ir_v2.metadata["cultural_context"] = culture
+            if culture == "British":
+                ir_v2.role = (ir_v2.role or "") + " (Use British English norms)"
+            elif culture == "American":
+                ir_v2.role = (ir_v2.role or "") + " (Use American English norms)"
+
+        # --- Requirement Implementation ---
+
+        # 1. Urgency: Inject constraint
+        if sentiment == UserSentiment.URGENT:
+            from app.models_v2 import ConstraintV2
+            import hashlib
+
+            constraint_text = "Prioritize brevity and actionable steps; avoid preamble."
+            ir_v2.constraints.append(
+                ConstraintV2(
+                    id=hashlib.sha1(constraint_text.encode()).hexdigest()[:10],
+                    text=constraint_text,
+                    origin="psycholinguist_urgency",
+                    priority=80,
+                    rationale="User indicated urgency.",
+                )
+            )
+
+        # 2. Frustration: Inject persona trait
+        if sentiment == UserSentiment.FRUSTRATED:
+            trait = "Empathetic and patient teacher"
+            if ir_v2.role:
+                ir_v2.role = f"{trait}. {ir_v2.role}"
+            else:
+                ir_v2.role = trait
+
+            # Also add expectation management diagnostic
+            ir_v2.diagnostics.append(
+                DiagnosticItem(
+                    severity="info",
+                    message="User appears frustrated",
+                    suggestion="Adopt a calm, supportive tone. Acknowledge the difficulty.",
+                    category="tone_adaptation",
+                )
+            )
