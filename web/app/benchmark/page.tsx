@@ -131,11 +131,12 @@ export default function BenchmarkPage() {
                             <select
                                 value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
-                                className="bg-white/5 text-xs text-zinc-200 rounded px-2 py-1 focus:outline-none border-none cursor-pointer hover:bg-white/10 transition-colors"
+                                className="text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none border-none cursor-pointer transition-colors"
+                                style={{ backgroundColor: "#1a1a1a" }}
                             >
-                                <option value="mock">Mock Engine</option>
-                                <option value="llama3">Llama 3 (70B)</option>
-                                <option value="gpt4">GPT-4 Turbo</option>
+                                <option value="mock" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>Mock Engine</option>
+                                <option value="llama3" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>Llama 3 (70B)</option>
+                                <option value="gpt4" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>GPT-4 Turbo</option>
                             </select>
                         </div>
 
