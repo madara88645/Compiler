@@ -61,6 +61,9 @@ async def startup_event():
     hybrid_compiler = HybridCompiler()
     print(f"[BACKEND] HybridCompiler initialized (v{get_build_info()['version']})")
 
+    # --- SaaS Mode: Wait for user to ingest via API ---
+    # background_ingest removed to prevent indexing the compiler's own source code.
+
 
 class CompileRequest(BaseModel):
     text: str
@@ -536,6 +539,95 @@ async def rag_pack_endpoint(req: RagPackRequest):
 async def rag_stats_endpoint(req: RagStatsRequest):
     s = rag_stats(db_path=req.db_path)
     return RagStatsResponse(**s)
+
+
+# GET version for frontend ContextManager (fetchStats uses GET)
+@app.get("/rag/stats", response_model=RagStatsResponse)
+async def rag_stats_get():
+    s = rag_stats()
+    return RagStatsResponse(**s)
+
+
+# --- SaaS Mode: Upload file content directly ---
+class RagUploadRequest(BaseModel):
+    filename: str = Field(..., description="Original filename (e.g. auth.py)")
+    content: str = Field(..., description="Full text content of the file")
+    force: bool = Field(default=False, description="Re-index even if already exists")
+
+
+class RagUploadResponse(BaseModel):
+    success: bool
+    num_chunks: int
+    message: str
+
+
+@app.post("/rag/upload", response_model=RagUploadResponse)
+def rag_upload_endpoint(req: RagUploadRequest):
+    """Upload a single file's content for RAG indexing (SaaS mode)."""
+    import tempfile
+    import os
+    from pathlib import Path
+    from app.rag.simple_index import _connect, _init_schema, _chunk_text
+
+    try:
+        # Write content to a temp file so _insert_document can stat() it
+        suffix = os.path.splitext(req.filename)[1] or ".txt"
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=suffix, prefix=f"rag_{req.filename}_", delete=False, encoding="utf-8"
+        ) as tmp:
+            tmp.write(req.content)
+            tmp_path = Path(tmp.name)
+
+        # Index into the RAG database
+        conn = _connect()
+        _init_schema(conn)
+
+        # Check if already indexed (by filename, not temp path)
+        # We store the original filename as the "path" for display
+        cur = conn.execute("SELECT id FROM docs WHERE path = ?", (req.filename,))
+        existing = cur.fetchone()
+        if existing and not req.force:
+            os.unlink(tmp_path)
+            return RagUploadResponse(
+                success=True,
+                num_chunks=0,
+                message=f"{req.filename} already indexed. Use force=true to re-index.",
+            )
+
+        # Delete old entry if re-indexing
+        if existing:
+            doc_id = existing[0]
+            conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
+            conn.execute("DELETE FROM docs WHERE id=?", (doc_id,))
+
+        # Insert with original filename as path
+        cur = conn.execute(
+            """INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)
+               RETURNING id""",
+            (req.filename, os.path.getmtime(tmp_path), len(req.content)),
+        )
+        doc_id = cur.fetchone()[0]
+
+        chunks = _chunk_text(req.content)
+        for idx, chunk in enumerate(chunks):
+            conn.execute(
+                "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
+                (doc_id, idx, chunk),
+            )
+
+        conn.commit()
+        conn.close()
+
+        # Cleanup temp file
+        os.unlink(tmp_path)
+
+        return RagUploadResponse(
+            success=True,
+            num_chunks=len(chunks),
+            message=f"Indexed {req.filename} ({len(chunks)} chunks)",
+        )
+    except Exception as e:
+        return RagUploadResponse(success=False, num_chunks=0, message=str(e))
 
 
 @app.post("/rag/prune", response_model=RagPruneResponse)

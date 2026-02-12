@@ -308,6 +308,16 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
         parts.append("Tone: " + ", ".join(ir.tone))
     if ir.banned:
         parts.append("Avoid: " + ", ".join(ir.banned))
+
+    # --- Agent 6: The Strategist (Render Context) ---
+    context_snippets = (ir.metadata or {}).get("context_snippets")
+    if context_snippets:
+        parts.append("\n### Context from Codebase")
+        for i, snippet in enumerate(context_snippets, 1):
+            path = snippet.get("path", "unknown")
+            content = snippet.get("snippet", "").strip()
+            parts.append(f"#### File: {path}\n```\n{content}\n```")
+    # ------------------------------------------------
     return "\n".join(parts)
 
 

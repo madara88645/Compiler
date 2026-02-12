@@ -221,6 +221,29 @@ def compile_text_v2(text: str) -> IRv2:
                 category="structure",
             )
         )
+
+    # -------------------------------------------------------------------------
+    # NEW: Agent 6 - The Strategist (Context Retrieval)
+    # -------------------------------------------------------------------------
+    try:
+        from app.rag.simple_index import search_hybrid
+
+        # Retrieve top 3 relevant snippets using hybrid search
+        context_results = search_hybrid(text, k=3)
+        if context_results:
+            ir2.metadata["context_snippets"] = context_results
+            # Notify user via diagnostics
+            snippet_files = [r.get("path", "unknown").split("/")[-1] for r in context_results]
+            ir2.diagnostics.append(
+                DiagnosticItem(
+                    severity="info",
+                    message=f"Retrieved context from {len(context_results)} files",
+                    suggestion=f"Sources: {', '.join(snippet_files)}",
+                    category="context",
+                )
+            )
+    except Exception as e:
+        print(f"[STRATEGIST] Retrieval failed: {e}")
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(
