@@ -570,10 +570,18 @@ def rag_upload_endpoint(req: RagUploadRequest):
     from app.rag.simple_index import _connect, _init_schema, _chunk_text
 
     try:
+        # Derive a safe prefix from the original filename to avoid using
+        # untrusted data directly in the filesystem path.
+        original_name = os.path.basename(req.filename or "")
+        safe_prefix_core = "".join(
+            c for c in original_name if c.isalnum() or c in ("-", "_", ".")
+        ) or "file"
+        safe_prefix = f"rag_{safe_prefix_core}_"
+
         # Write content to a temp file so _insert_document can stat() it
         suffix = os.path.splitext(req.filename)[1] or ".txt"
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=suffix, prefix=f"rag_{req.filename}_", delete=False, encoding="utf-8"
+            mode="w", suffix=suffix, prefix=safe_prefix, delete=False, encoding="utf-8"
         ) as tmp:
             tmp.write(req.content)
             tmp_path = Path(tmp.name)
