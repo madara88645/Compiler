@@ -49,6 +49,14 @@ A dedicated **Arena** to A/B test your prompts.
   <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
 </p>
 
+### 📚 RAG & Knowledge Base (New v2.1!)
+Your prompts shouldn't live in a vacuum. **Upload your project files** (PDF, MD, TXT, Code) and let the AI understand your world.
+
+*   **Context Manager**: Drag & drop your "Brand Guidelines", "API Documentation", or "Game Lore" files directly into the UI.
+*   **🕵️ Agent 6 (The Strategist)**: Actively scans your uploaded files to find relevant info (e.g., specific hex codes, character backstories) and injects them into the prompt generation process.
+*   **🛡️ Agent 7 (The Critic)**: A dedicated "Quality Assurance" agent that reads your prompt and cross-references it with your knowledge base. If the AI hallucinates a fact that contradicts your PDF, Agent 7 blocks it.
+*   **Intelligent Caching**: Uses a local SQLite vector store (`~/.promptc_index_v2.db`) for instant retrieval without re-uploading.
+
 ---
 
 ## 🛠️ Installation & Usage

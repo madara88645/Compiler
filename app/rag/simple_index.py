@@ -23,10 +23,10 @@ except ImportError:
 #   embeddings(chunk_id INTEGER PRIMARY KEY, dim INTEGER, vec TEXT)  -- vec is JSON list of floats (L2 normalized)
 #   Triggers keep fts in sync with chunks.
 
-DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index.db")
+DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index_v2.db")
 # Force absolute path for debugging Windows environment
 if os.name == "nt":
-    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index.db"
+    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index_v2.db"
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
@@ -52,7 +52,8 @@ def _cache_put(key: str, value):
 
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
     path = db_path or DEFAULT_DB_PATH
-    conn = sqlite3.connect(path)
+    # Increase timeout to 60s (from default 5.0) to handle multiple uvicorn workers
+    conn = sqlite3.connect(path, timeout=60.0)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     return conn
@@ -375,10 +376,22 @@ def _insert_document(
         chunk_row_id = cur.fetchone()[0]
         if embed:
             emb = _simple_embed(chunk, dim=embed_dim)
-            conn.execute(
-                "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
-                (chunk_row_id, embed_dim, json.dumps(emb)),
-            )
+            # Retry loop for embeddings insert (high contention)
+            for attempt in range(5):
+                try:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
+                        (chunk_row_id, embed_dim, json.dumps(emb)),
+                    )
+                    break
+                except sqlite3.OperationalError as e:
+                    if "locked" in str(e) and attempt < 4:
+                        import random
+                        import time
+
+                        time.sleep(0.1 * (attempt + 1) + random.random() * 0.1)
+                        continue
+                    raise
 
 
 def ingest_paths(

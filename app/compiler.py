@@ -223,13 +223,16 @@ def compile_text_v2(text: str) -> IRv2:
         )
 
     # -------------------------------------------------------------------------
-    # NEW: Agent 6 - The Strategist (Context Retrieval)
+    # -------------------------------------------------------------------------
+    # NEW: Agent 6 - The Context Strategist
     # -------------------------------------------------------------------------
     try:
-        from app.rag.simple_index import search_hybrid
+        from app.agents.context_strategist import ContextStrategist
 
-        # Retrieve top 3 relevant snippets using hybrid search
-        context_results = search_hybrid(text, k=3)
+        # Initialize Strategist (uses WorkerClient internally)
+        strategist = ContextStrategist()
+        context_results = strategist.retrieve(text, limit=3)
+
         if context_results:
             ir2.metadata["context_snippets"] = context_results
             # Notify user via diagnostics
@@ -237,13 +240,14 @@ def compile_text_v2(text: str) -> IRv2:
             ir2.diagnostics.append(
                 DiagnosticItem(
                     severity="info",
-                    message=f"Retrieved context from {len(context_results)} files",
+                    message=f"Strategist retrieved {len(context_results)} relevant sources",
                     suggestion=f"Sources: {', '.join(snippet_files)}",
                     category="context",
                 )
             )
-    except Exception:
-        pass  # RAG unavailable (no DB yet) — graceful degradation
+    except Exception as e:
+        print(f"[COMPILER] Context Strategist failed: {e}")
+        pass  # Graceful degradation
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(

@@ -92,7 +92,9 @@ class CompileResponse(BaseModel):
     request_id: str
     heuristic_version: str
     heuristic2_version: str | None = None
+    heuristic2_version: str | None = None
     trace: list[str] | None = None
+    critique: dict | None = None
 
 
 class OptimizeRequest(BaseModel):
@@ -244,6 +246,38 @@ def compile_endpoint(req: CompileRequest):
         plan_v2 = plan_v2 or emit_plan_v2(ir2)
         exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
+    # -------------------------------------------------------------------------
+    # NEW: Agent 7 - The Critic (System Prompt Review)
+    # -------------------------------------------------------------------------
+    critique_result = None
+    if sys_v2:
+        try:
+            from app.optimizer.critic import CriticAgent
+
+            critic = CriticAgent()
+
+            # Prepare context string from IR metadata if available
+            context_str = ""
+            if ir2 and ir2.metadata.get("context_snippets"):
+                snippets = ir2.metadata["context_snippets"]
+                context_str = "\n\n".join(
+                    [f"--- File: {s.get('path')} ---\n{s.get('snippet', '')}" for s in snippets]
+                )
+
+            critique_verdict = critic.critique(
+                user_request=req.text, system_prompt=sys_v2, context=context_str
+            )
+            critique_result = critique_verdict.model_dump()
+
+            # If rejected, we might want to log it or flag it
+            if critique_verdict.verdict == "REJECT":
+                print(f"[CRITIC] Detailed Feedback: {critique_verdict.feedback}")
+
+        except Exception as e:
+            print(f"[CRITIC] Failed to critique: {e}")
+            pass
+    # -------------------------------------------------------------------------
+
     elapsed = int((time.time() - t0) * 1000)
 
     return CompileResponse(
@@ -262,6 +296,7 @@ def compile_endpoint(req: CompileRequest):
         heuristic_version=HEURISTIC_VERSION,
         heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
         trace=trace_lines,
+        critique=critique_result,
     )
 
 

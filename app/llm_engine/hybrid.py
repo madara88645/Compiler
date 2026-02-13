@@ -8,6 +8,9 @@ from app.heuristics import detect_risk_flags
 from cachetools import TTLCache
 
 
+from .rag import ContextStrategist, MockVectorDB
+
+
 class HybridCompiler:
     def __init__(
         self,
@@ -16,12 +19,16 @@ class HybridCompiler:
         model: str = DEFAULT_MODEL,
     ):
         self.worker = WorkerClient(api_key=api_key, base_url=base_url, model=model)
+        # Initialize RAG components
+        self.vector_db = MockVectorDB()  # In real app, connect to actual DB
+        self.context_strategist = ContextStrategist(self.vector_db, self.worker)
+
         # Cache: 100 items, expires in 1 hour
         self.cache = TTLCache(maxsize=100, ttl=3600)
 
     def compile(self, text: str) -> WorkerResponse:
         """
-        Attempt to compile using the Worker LLM.
+        Attempt to compile using the Worker LLM with RAG context.
         Falls back to local heuristics if LLM fails.
         """
         # 1. Fast Checks (Heuristic Guardrails)
@@ -34,7 +41,12 @@ class HybridCompiler:
 
         # 3. Worker LLM (Slow but Smart)
         try:
-            res = self.worker.process(text)
+            # --- RAG: Context Strategist ---
+            # Retrieve relevant code context using Agent 6
+            rag_context = self.context_strategist.process(text)
+
+            # Pass context to Worker
+            res = self.worker.process(text, context=rag_context)
 
             # --- Safety Heuristics Check (Post-Processing) ---
             # Even if LLM is smart, we enforce safety flags via heuristics

@@ -312,7 +312,7 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
     # --- Agent 6: The Strategist (Render Context) ---
     context_snippets = (ir.metadata or {}).get("context_snippets")
     if context_snippets:
-        parts.append("\n### Context from Codebase")
+        parts.append("\n### Context (Code & Knowledge)")
         for i, snippet in enumerate(context_snippets, 1):
             path = snippet.get("path", "unknown")
             content = snippet.get("snippet", "").strip()
@@ -426,6 +426,27 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + ", ".join(ir.tone)
         )
+
+    # --- Agent 6: Context Injection ---
+    context_snippets = (ir.metadata or {}).get("context_snippets")
+    if context_snippets:
+        header = (
+            "Bağlam (Kod ve Bilgi)"
+            if lang == "tr"
+            else (
+                "Contexto (Código y Conocimiento)" if lang == "es" else "Context (Code & Knowledge)"
+            )
+        )
+        ctx_lines.append(f"{header}:")
+        for s in context_snippets:
+            path = s.get("path", "unknown").split("/")[-1]  # Short filename
+            content = s.get("snippet", "").strip().replace("\n", " ")  # Flatten for compactness
+            # Truncate if too long to avoid bloating the prompt
+            if len(content) > 300:
+                content = content[:300] + "..."
+            ctx_lines.append(f"- {path}: {content}")
+    # ----------------------------------
+
     fmt_line = (
         f"Biçim: {ir.output_format}, Uzunluk: {ir.length_hint}"
         if lang == "tr"

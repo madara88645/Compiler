@@ -234,3 +234,30 @@ class WorkerClient:
                 raise RuntimeError(f"Auto-fix error: {e}") from e
 
         return LLMFixResponse.model_validate_json(content)
+
+    def expand_query_intent(self, user_text: str) -> Dict[str, Any]:
+        """Expand user query into semantic search terms."""
+        if self.api_key == "missing_key":
+            return {"queries": [user_text]}
+
+        prompt_path = PROMPTS_DIR / "query_expansion.md"
+        if not prompt_path.exists():
+            return {"queries": [user_text]}
+
+        system_prompt = prompt_path.read_text(encoding="utf-8")
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text},
+        ]
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._call_api, messages, 500, json_mode=True)
+                content = future.result(timeout=10)  # Fast timeout for query expansion
+                import json
+
+                return json.loads(content)
+        except Exception as e:
+            print(f"[WorkerClient] Query expansion failed: {e}")
+            return {"queries": [user_text]}
