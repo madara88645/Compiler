@@ -242,8 +242,8 @@ def compile_text_v2(text: str) -> IRv2:
                     category="context",
                 )
             )
-    except Exception as e:
-        print(f"[STRATEGIST] Retrieval failed: {e}")
+    except Exception:
+        pass  # RAG unavailable (no DB yet) — graceful degradation
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(
