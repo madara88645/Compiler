@@ -576,6 +576,9 @@ def rag_upload_endpoint(req: RagUploadRequest):
         safe_prefix_core = "".join(
             c for c in original_name if c.isalnum() or c in ("-", "_", ".")
         ) or "file"
+        # Truncate to avoid exceeding filesystem limits for filename components
+        MAX_SAFE_PREFIX_CORE_LEN = 64
+        safe_prefix_core = safe_prefix_core[:MAX_SAFE_PREFIX_CORE_LEN]
         safe_prefix = f"rag_{safe_prefix_core}_"
 
         # Derive a safe suffix from the original filename extension.
