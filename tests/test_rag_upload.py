@@ -75,3 +75,27 @@ def test_rag_upload_then_search(client):
     # At least one result should mention multiply
     found = any("multiply" in str(r) for r in results)
     assert found, f"Expected 'multiply' in results: {results}"
+
+
+def test_rag_upload_sanitizes_dangerous_filename(client):
+    """Test that filenames with path traversal and unusual characters are handled safely."""
+    # Use a filename with path traversal sequences, special characters, and unusual patterns
+    dangerous_filename = "../weird/..//a*b?.py"
+    
+    response = client.post(
+        "/rag/upload",
+        json={
+            "filename": dangerous_filename,
+            "content": "def safe_function():\n    return 'This is safe content'",
+            "force": True,
+        },
+    )
+
+    # The endpoint should succeed despite the dangerous filename
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["num_chunks"] >= 1
+    
+    # Verify the original filename is preserved in the response message
+    assert dangerous_filename in data["message"]
