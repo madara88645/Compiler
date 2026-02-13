@@ -568,12 +568,30 @@ def rag_upload_endpoint(req: RagUploadRequest):
     import os
     from pathlib import Path
     from app.rag.simple_index import _connect, _init_schema, _chunk_text
+    import re
 
     try:
+        # Derive a safe suffix from the original filename extension
+        raw_suffix = os.path.splitext(req.filename)[1]
+        if raw_suffix and re.fullmatch(r"\.[A-Za-z0-9]+", raw_suffix):
+            suffix = raw_suffix
+        else:
+            suffix = ".txt"
+
+        # Derive a safe prefix from the original filename (used only for temp file naming)
+        # Use only the basename and replace unsafe characters to avoid path injection
+        base_name = os.path.basename(req.filename)
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", base_name) or "file"
+        # Optionally limit length to avoid overly long filenames
+        safe_name = safe_name[:50]
+
         # Write content to a temp file so _insert_document can stat() it
-        suffix = os.path.splitext(req.filename)[1] or ".txt"
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=suffix, prefix=f"rag_{req.filename}_", delete=False, encoding="utf-8"
+            mode="w",
+            suffix=suffix,
+            prefix=f"rag_{safe_name}_",
+            delete=False,
+            encoding="utf-8",
         ) as tmp:
             tmp.write(req.content)
             tmp_path = Path(tmp.name)
