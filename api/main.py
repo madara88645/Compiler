@@ -578,8 +578,17 @@ def rag_upload_endpoint(req: RagUploadRequest):
         ) or "file"
         safe_prefix = f"rag_{safe_prefix_core}_"
 
+        # Derive a safe suffix from the original filename extension.
+        raw_suffix = os.path.splitext(original_name)[1]
+        safe_suffix = "".join(
+            c for c in raw_suffix if c.isalnum() or c in ("-", "_", ".")
+        )
+        if not safe_suffix.startswith(".") or len(safe_suffix) > 10:
+            suffix = ".txt"
+        else:
+            suffix = safe_suffix
+
         # Write content to a temp file so _insert_document can stat() it
-        suffix = os.path.splitext(req.filename)[1] or ".txt"
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=suffix, prefix=safe_prefix, delete=False, encoding="utf-8"
         ) as tmp:
