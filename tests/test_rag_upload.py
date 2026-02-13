@@ -75,3 +75,41 @@ def test_rag_upload_then_search(client):
     # At least one result should mention multiply
     found = any("multiply" in str(r) for r in results)
     assert found, f"Expected 'multiply' in results: {results}"
+
+
+def test_rag_upload_with_path_traversal_characters(client):
+    """Upload with path traversal characters should sanitize but succeed."""
+    response = client.post(
+        "/rag/upload",
+        json={
+            "filename": "../weird/..//a*b?.py",
+            "content": "def test_function():\n    return 'This is a test'",
+            "force": True,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["num_chunks"] >= 1
+    # The original filename should be preserved in the response message
+    assert "../weird/..//a*b?.py" in data["message"]
+
+
+def test_rag_upload_with_unusual_characters(client):
+    """Upload with unusual characters should sanitize but succeed."""
+    response = client.post(
+        "/rag/upload",
+        json={
+            "filename": "test@file#with$special%chars.py",
+            "content": "def special_function():\n    return 42",
+            "force": True,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["num_chunks"] >= 1
+    # The original filename should be preserved in the response message
+    assert "test@file#with$special%chars.py" in data["message"]
