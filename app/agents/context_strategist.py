@@ -3,6 +3,7 @@ Agent 6: The Context Strategist.
 Responsible for semantic retrieval, query expansion, and context re-ranking.
 """
 import json
+import sys
 from typing import List, Dict, Any, Optional
 from app.rag.simple_index import search_hybrid
 from app.llm_engine.client import WorkerClient
@@ -77,5 +78,5 @@ class ContextStrategist:
                 return data[:3]
             return []
         except Exception as e:
-            print(f"[STRATEGIST] Query expansion failed: {e}")
+            print(f"[STRATEGIST] Query expansion failed: {e}", file=sys.stderr)
             return []

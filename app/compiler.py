@@ -246,7 +246,9 @@ def compile_text_v2(text: str) -> IRv2:
                 )
             )
     except Exception as e:
-        print(f"[COMPILER] Context Strategist failed: {e}")
+        import sys
+
+        print(f"[COMPILER] Context Strategist failed: {e}", file=sys.stderr)
         pass  # Graceful degradation
     # -------------------------------------------------------------------------
 

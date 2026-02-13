@@ -528,7 +528,9 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                     }
                 )
         except Exception as e:
-            print(f"[DEBUG] FTS Search failed or returned error: {e}")
+            import sys
+
+            print(f"[DEBUG] FTS Search failed or returned error: {e}", file=sys.stderr)
             results = []
 
         # 2. Fallback to LIKE if not enough results

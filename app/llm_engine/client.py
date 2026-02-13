@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
@@ -60,8 +61,11 @@ class WorkerClient:
 
     def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
-        print(f"[DEBUG] Connecting to LLM Service (Base URL: {self.base_url})...")
-        print(f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}")
+        print(f"[DEBUG] Connecting to LLM Service (Base URL: {self.base_url})...", file=sys.stderr)
+        print(
+            f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}",
+            file=sys.stderr,
+        )
 
         kwargs = {
             "model": self.model,
@@ -73,15 +77,15 @@ class WorkerClient:
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            print("[DEBUG] Sending request...")
+            print("[DEBUG] Sending request...", file=sys.stderr)
             completion = self.client.chat.completions.create(**kwargs)
             content = completion.choices[0].message.content
-            print(f"[DEBUG] Received response ({len(content)} types)")
+            print(f"[DEBUG] Received response ({len(content)} types)", file=sys.stderr)
             if not content:
                 raise ValueError("Empty response from LLM Service")
             return content
         except Exception as e:
-            print(f"[DEBUG] API CALL FAILED: {e}")
+            print(f"[DEBUG] API CALL FAILED: {e}", file=sys.stderr)
             raise e
 
     def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
