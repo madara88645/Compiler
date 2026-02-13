@@ -568,6 +568,7 @@ def rag_upload_endpoint(req: RagUploadRequest):
     import os
     from pathlib import Path
     from app.rag.simple_index import _connect, _init_schema, _chunk_text
+    import re
 
     try:
         # Derive a safe prefix from the original filename to avoid using

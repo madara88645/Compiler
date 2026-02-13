@@ -26,10 +26,16 @@ export default function BenchmarkPage() {
     const [selectedModel, setSelectedModel] = useState("mock");
     const [status, setStatus] = useState("Ready");
 
-    // Model name mapping for the API
+    // Model name mapping for the API (Groq-compatible model IDs)
     const modelApiMap: Record<string, string> = {
-        "llama3": "llama-3.1-8b-instant",
-        "gpt4": "gpt-4-turbo",
+        "llama-3.3-70b": "llama-3.3-70b-versatile",
+        "llama-3.1-8b": "llama-3.1-8b-instant",
+        "llama4-scout": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "llama4-maverick": "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "gpt-oss-120b": "openai/gpt-oss-120b",
+        "gpt-oss-20b": "openai/gpt-oss-20b",
+        "mistral-saba": "mistral-saba-24b",
+        "compound": "compound-beta",
     };
 
     const _generateMockResult = useCallback((): BenchmarkPayload => {
@@ -134,9 +140,21 @@ export default function BenchmarkPage() {
                                 className="text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none border-none cursor-pointer transition-colors"
                                 style={{ backgroundColor: "#1a1a1a" }}
                             >
-                                <option value="mock" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>Mock Engine</option>
-                                <option value="llama3" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>Llama 3 (70B)</option>
-                                <option value="gpt4" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>GPT-4 Turbo</option>
+                                <option value="mock" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🧪 Mock Engine</option>
+                                <optgroup label="── Meta Llama ──" style={{ backgroundColor: "#1a1a1a", color: "#888" }}>
+                                    <option value="llama-3.3-70b" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🦙 Llama 3.3 70B</option>
+                                    <option value="llama-3.1-8b" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>⚡ Llama 3.1 8B (Fast)</option>
+                                    <option value="llama4-scout" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🔭 Llama 4 Scout</option>
+                                    <option value="llama4-maverick" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🚀 Llama 4 Maverick</option>
+                                </optgroup>
+                                <optgroup label="── OpenAI GPT-OSS ──" style={{ backgroundColor: "#1a1a1a", color: "#888" }}>
+                                    <option value="gpt-oss-120b" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🧠 GPT-OSS 120B</option>
+                                    <option value="gpt-oss-20b" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>💡 GPT-OSS 20B</option>
+                                </optgroup>
+                                <optgroup label="── Other ──" style={{ backgroundColor: "#1a1a1a", color: "#888" }}>
+                                    <option value="mistral-saba" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🌊 Mistral Saba 24B</option>
+                                    <option value="compound" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>🔮 Groq Compound</option>
+                                </optgroup>
                             </select>
                         </div>
 
