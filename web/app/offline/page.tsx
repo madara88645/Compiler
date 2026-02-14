@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ContextManager from "../components/ContextManager";
 import QualityCoach from "../components/QualityCoach";
+import { API_BASE } from "@/config";
 
 type CompileResponse = {
     system_prompt: string;
@@ -38,7 +39,7 @@ export default function OfflinePage() {
 
         try {
             // Step A: Fast V1 Request Only (Heuristics) -> Now V2
-            const resV1 = await fetch("http://127.0.0.1:8080/compile", {
+            const resV1 = await fetch(`${API_BASE}/compile`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),

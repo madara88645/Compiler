@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, DragEvent, useEffect } from "react";
+import { API_BASE } from "@/config";
 
 type SearchResult = {
     content: string;
@@ -36,7 +37,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-            const res = await fetch("http://127.0.0.1:8080/health", { signal: controller.signal });
+            const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
             clearTimeout(timeoutId);
 
             if (res.ok) {
@@ -53,7 +54,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
 
     const fetchStats = async () => {
         try {
-            const res = await fetch("http://127.0.0.1:8080/rag/stats");
+            const res = await fetch(`${API_BASE}/rag/stats`);
             const data = await res.json();
             setIndexStats(data);
         } catch (e) {
@@ -101,7 +102,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             try {
                 const content = await file.text();
 
-                const res = await fetch("http://127.0.0.1:8080/rag/upload", {
+                const res = await fetch(`${API_BASE}/rag/upload`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         setIngesting(true);
         setStatus("Ingesting...");
         try {
-            const res = await fetch("http://127.0.0.1:8080/rag/ingest", {
+            const res = await fetch(`${API_BASE}/rag/ingest`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ paths: [filePath], force: true }),
@@ -162,7 +163,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         setResults([]); // Clear previous results
         try {
             console.log(`Searching for: '${query.trim()}'`);
-            const res = await fetch("http://127.0.0.1:8080/rag/search", {
+            const res = await fetch(`${API_BASE}/rag/search`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ query: query.trim(), limit: 5, method: "keyword" }),

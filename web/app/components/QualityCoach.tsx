@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { API_BASE } from "@/config";
 
 type ValidationResponse = {
     score: number;
@@ -33,7 +34,7 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
         setAnalyzing(true);
         setFixResult(null); // Clear previous fixes
         try {
-            const res = await fetch("http://127.0.0.1:8080/validate", {
+            const res = await fetch(`${API_BASE}/validate`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: prompt }),
@@ -51,7 +52,7 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
         if (!prompt.trim()) return;
         setFixing(true);
         try {
-            const res = await fetch("http://127.0.0.1:8080/fix", {
+            const res = await fetch(`${API_BASE}/fix`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: prompt, target_score: 90 }),

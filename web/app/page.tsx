@@ -25,6 +25,8 @@ type CompileResponse = {
   };
 };
 
+import { API_BASE } from "@/config";
+
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,7 @@ export default function Home() {
 
       if (!liveMode) {
         // OFFLINE MODE
-        const resV1 = await fetch("http://127.0.0.1:8080/compile", {
+        const resV1 = await fetch(`${API_BASE}/compile`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
@@ -108,7 +110,7 @@ export default function Home() {
         const timeoutId = setTimeout(() => controller.abort(), 190000);
 
         try {
-          const resV2 = await fetch("http://127.0.0.1:8080/compile", {
+          const resV2 = await fetch(`${API_BASE}/compile`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: textToCompile, diagnostics, v2: true, render_v2_prompts: true }),
@@ -159,7 +161,7 @@ export default function Home() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 190000);
 
-      const resV2 = await fetch("http://127.0.0.1:8080/compile", {
+      const resV2 = await fetch(`${API_BASE}/compile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: textToUse, diagnostics, v2: true, render_v2_prompts: true }),
@@ -301,8 +303,8 @@ export default function Home() {
                         {/* Agent 7 Badge */}
                         {result.critique && (
                           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative ${result.critique.verdict === "REJECT"
-                              ? "bg-red-500/10 border-red-500/30"
-                              : "bg-green-500/10 border-green-500/30"
+                            ? "bg-red-500/10 border-red-500/30"
+                            : "bg-green-500/10 border-green-500/30"
                             }`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
                             <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
