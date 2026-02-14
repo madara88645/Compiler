@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +42,8 @@ app = FastAPI(title="Prompt Compiler API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Allow specific origins from env (comma separated) or default to *
+    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
