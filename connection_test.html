@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Connection Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+        input { padding: 8px; width: 300px; }
+        button { padding: 8px 16px; cursor: pointer; }
+        #log { margin-top: 20px; white-space: pre-wrap; border: 1px solid #333; padding: 10px; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+    </style>
+</head>
+<body>
+    <h2>🚀 Backend Connection Test</h2>
+    <p>Enter your Railway Backend URL (e.g. https://my-app.up.railway.app)</p>
+
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="url" placeholder="https://..." />
+        <button onclick="testConnection()">Test /health</button>
+    </div>
+
+    <div id="log">Waiting for test...</div>
+
+    <script>
+        function log(msg, type = "info") {
+            const el = document.getElementById("log");
+            const color = type === "error" ? "#f87171" : type === "success" ? "#4ade80" : "#eee";
+            el.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+        }
+
+        async function testConnection() {
+            const inputUrl = document.getElementById("url").value.trim().replace(/\/$/, "");
+            if (!inputUrl) return alert("Please enter a URL");
+
+            document.getElementById("log").innerHTML = "";
+            log(`Testing connection to: ${inputUrl}...`);
+
+            try {
+                const start = performance.now();
+                const res = await fetch(`${inputUrl}/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const end = performance.now();
+
+                if (res.ok) {
+                    const data = await res.json();
+                    log(`✅ Success! Status: ${res.status}`, "success");
+                    log(`Response: ${JSON.stringify(data, null, 2)}`, "success");
+                    log(`Time: ${(end - start).toFixed(0)}ms`);
+                } else {
+                    log(`❌ Server Error: ${res.status} ${res.statusText}`, "error");
+                    const text = await res.text();
+                    log(`Details: ${text}`, "error");
+                }
+            } catch (e) {
+                log(`❌ Network/CORS Error: ${e.message}`, "error");
+                log(`Possible causes:`, "info");
+                log(`1. Backend is down or sleeping (check Railway logs)`);
+                log(`2. CORS is blocking this request (check ALLOWED_ORIGINS)`);
+                log(`3. URL is incorrect (check Protocol https://)`);
+            }
+        }
+    </script>
+</body>
+</html>

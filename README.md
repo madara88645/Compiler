@@ -1,6 +1,6 @@
 # Prompt Compiler (Pruned & Modernized)
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <p align="center">
