@@ -128,4 +128,21 @@ Your prompts shouldn't live in a vacuum. **Upload your project files** (PDF, MD,
 
 
 ---
+---
+
+## 📄 License
+
+Copyright © 2026 Mehmet Özel. All rights reserved.
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+### Commercial Use
+
+The source code is free to use under Apache 2.0.
+For managed/hosted service inquiries, please contact: [mehmet.ozel2701@gmail.com]
+
+Self-hosting is free and always will be.
+
+---
+
 *Built with ❤️ for Prompt Engineers.*
