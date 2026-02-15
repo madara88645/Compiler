@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
-from app.llm_engine.schemas import QualityReport, LLMFixResponse
+from app.llm_engine.schemas import QualityReport
 
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
@@ -775,24 +775,6 @@ def validate_endpoint(req: ValidateRequest):
 # -------------------------
 # Auto-Fix
 # -------------------------
-
-
-class AutoFixRequest(BaseModel):
-    text: str
-    max_fixes: int = Field(default=5, description="Maximum number of fixes to apply")
-    target_score: float = Field(
-        default=75.0, ge=0, le=100, description="Stop when score reaches this threshold"
-    )
-
-
-@app.post("/fix", response_model=LLMFixResponse)
-def fix_endpoint(req: AutoFixRequest):
-    """Automatically fix prompt using LLM Editor."""
-    try:
-        result = hybrid_compiler.worker.fix_prompt(req.text)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ===== Compare Endpoint =====

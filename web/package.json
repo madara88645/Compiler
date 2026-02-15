@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Prompt Compiler with LLM integration",
   "private": true,
   "license": "Apache-2.0",

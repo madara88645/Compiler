@@ -12,11 +12,6 @@ type ValidationResponse = {
     summary: string;
 };
 
-type AutoFixResponse = {
-    fixed_text: string;
-    explanation: string;
-    changes: string[];
-};
 
 type QualityCoachProps = {
     prompt: string;
@@ -25,14 +20,12 @@ type QualityCoachProps = {
 
 export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachProps) {
     const [analyzing, setAnalyzing] = useState(false);
-    const [fixing, setFixing] = useState(false);
     const [report, setReport] = useState<ValidationResponse | null>(null);
-    const [fixResult, setFixResult] = useState<AutoFixResponse | null>(null);
+
 
     const handleAnalyze = async () => {
         if (!prompt.trim()) return;
         setAnalyzing(true);
-        setFixResult(null); // Clear previous fixes
         try {
             const res = await fetch(`${API_BASE}/validate`, {
                 method: "POST",
@@ -48,31 +41,7 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
         }
     };
 
-    const handleAutoFix = async () => {
-        if (!prompt.trim()) return;
-        setFixing(true);
-        try {
-            const res = await fetch(`${API_BASE}/fix`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: prompt, target_score: 90 }),
-            });
-            const data = await res.json();
-            setFixResult(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setFixing(false);
-        }
-    };
 
-    const applyFix = () => {
-        if (fixResult) {
-            onUpdatePrompt(fixResult.fixed_text);
-            setFixResult(null);
-            handleAnalyze(); // Re-analyze the new prompt
-        }
-    };
 
     return (
         <div className="flex flex-col h-full bg-transparent p-6 overflow-y-auto">
@@ -96,72 +65,19 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
                     >
                         {analyzing ? <span className="animate-pulse">Analyzing...</span> : "Run Analysis"}
                     </button>
-                    <button
-                        onClick={handleAutoFix}
-                        disabled={fixing || !prompt.trim()}
-                        className="px-4 py-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl hover:bg-purple-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all shadow-[0_0_15px_rgba(168,85,247,0.1)] hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]"
-                    >
-                        {fixing ? <span className="animate-pulse">Fixing...</span> : "✨ Auto-Fix"}
-                    </button>
                 </div>
             </div>
 
-            {!report && !fixResult && (
+            {!report && (
                 <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4 opacity-70">
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl mb-2">
                         🛡️
                     </div>
-                    <p className="max-w-[200px] text-center text-sm">Run analysis to detect issues or Auto-Fix to improve instantly.</p>
+                    <p className="max-w-[200px] text-center text-sm">Run analysis to detect potential improvements and safety issues.</p>
                 </div>
             )}
 
-            {/* Fix Result Preview */}
-            {fixResult && (
-                <div className="mb-8 p-1 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-2xl animate-fade-in shadow-2xl shadow-purple-900/20">
-                    <div className="bg-black/80 rounded-xl p-5 backdrop-blur-xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-purple-300 font-bold flex items-center gap-2">
-                                <span className="text-xl">✨</span> Proposed Improvement
-                            </h3>
-                            <button onClick={() => setFixResult(null)} className="text-zinc-500 hover:text-white transition-colors">✕</button>
-                        </div>
 
-                        <div className="space-y-5">
-                            <div className="space-y-2">
-                                <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Revised Prompt</div>
-                                <div className="bg-white/5 p-4 rounded-xl border border-white/5 font-mono text-sm text-zinc-200 max-h-40 overflow-y-auto w-full whitespace-pre-wrap leading-relaxed shadow-inner">
-                                    {fixResult.fixed_text}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <h4 className="text-[10px] font-bold text-purple-400/80 uppercase tracking-widest">Why this fix?</h4>
-                                    <p className="text-xs text-zinc-400 leading-relaxed bg-purple-500/5 p-3 rounded-lg border border-purple-500/10 h-full">{fixResult.explanation}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <h4 className="text-[10px] font-bold text-blue-400/80 uppercase tracking-widest">Key Changes</h4>
-                                    <ul className="list-none space-y-1 text-xs text-zinc-400 bg-blue-500/5 p-3 rounded-lg border border-blue-500/10 h-full">
-                                        {fixResult.changes.map((change, i) => (
-                                            <li key={i} className="flex gap-2">
-                                                <span className="text-blue-500">•</span>
-                                                {change}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={applyFix}
-                                className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-purple-500/25 active:scale-[0.98] transition-all"
-                            >
-                                Apply Changes & Re-Analyze
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Analysis Report */}
             {report && (
