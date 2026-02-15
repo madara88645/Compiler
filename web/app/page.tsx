@@ -399,6 +399,7 @@ export default function Home() {
                 <div className="max-w-xs space-y-2">
                   <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile</h3>
                   <p className="text-sm text-zinc-500">Enter a prompt to generate optimized system instructions, planning, and structured reasoning.</p>
+                  <p className="text-[10px] text-zinc-700 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>
             )}
