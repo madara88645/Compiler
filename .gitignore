@@ -29,3 +29,6 @@ ENV/
 # Secrets
 .env
 .env.*
+
+# Local scripts
+scripts/probe_deployment.py

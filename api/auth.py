@@ -66,7 +66,12 @@ def verify_api_key(
     db.close()
 
     if not key_record:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API Key")
+        # DEBUG: Show what was received
+        received_snippet = f"'{api_key[:5]}...'" if api_key else "None"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Invalid API Key. Server received: {received_snippet}. Comparison failed.",
+        )
 
     if not key_record.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API Key is inactive")
