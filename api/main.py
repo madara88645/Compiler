@@ -33,6 +33,8 @@ from app.rag.simple_index import (
 )
 from typing import List, Optional
 from pydantic import Field
+from api.auth import verify_api_key, APIKey
+from fastapi import Depends
 
 # Global Hybrid Compiler Instance (Lazy Load)
 hybrid_compiler = None
@@ -53,6 +55,9 @@ app.add_middleware(
 from app.routers.benchmark import router as benchmark_router  # noqa: E402
 
 app.include_router(benchmark_router)
+
+
+# Define endpoint after models are defined
 
 
 @app.on_event("startup")
@@ -97,6 +102,59 @@ class CompileResponse(BaseModel):
     heuristic2_version: str | None = None
     trace: list[str] | None = None
     critique: dict | None = None
+
+
+@app.post("/compile/fast", response_model=CompileResponse)
+async def compile_fast(
+    req: CompileRequest,
+    api_key: APIKey = Depends(verify_api_key),
+):
+    """
+    Fast optimization endpoint.
+    Bypasses RAG and heavy context retrieval.
+    Secured by API Key and Rate Limited.
+    """
+    import time
+
+    start = time.time()
+
+    # Direct Worker call (Bypass HybridCompiler RAG logic)
+    # We assume hybrid_compiler is initialized
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        # 1. Check Cache (Optional, but good for speed)
+        # Note: WorkerResponse handles caching internally usually, but hybrid_compiler has a cache
+        if req.text in hybrid_compiler.cache:
+            res = hybrid_compiler.cache[req.text]
+        else:
+            # 2. Direct LLM Call
+            # We skip context_strategist.process(req.text)
+            res = hybrid_compiler.worker.process(req.text)
+            hybrid_compiler.cache[req.text] = res
+
+        return {
+            "ir": res.ir.model_dump(),
+            # IRv2 mapping if available
+            "ir_v2": res.ir.model_dump(),
+            "system_prompt": res.system_prompt,
+            "user_prompt": res.user_prompt,
+            "plan": res.plan,
+            "expanded_prompt": res.optimized_content,
+            "system_prompt_v2": res.system_prompt,  # Fill v2 fields
+            "user_prompt_v2": res.user_prompt,
+            "plan_v2": res.plan,
+            "expanded_prompt_v2": res.optimized_content,
+            "processing_ms": int((time.time() - start) * 1000),
+            "request_id": "fast_" + str(int(time.time())),
+            "heuristic_version": "v2-fast",
+            "heuristic2_version": "v2-fast",
+            "trace": [],
+            "critique": None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class OptimizeRequest(BaseModel):

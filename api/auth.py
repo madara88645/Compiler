@@ -1,0 +1,81 @@
+import time
+from typing import Dict
+from fastapi import Security, HTTPException, status
+from fastapi.security.api_key import APIKeyHeader
+from sqlalchemy import create_engine, Column, String, Boolean, Float
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# --- Database ---
+SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    key = Column(String, primary_key=True, index=True)
+    owner = Column(String, index=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(Float, default=time.time)
+
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+
+# --- Security ---
+API_KEY_NAME = "x-api-key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# In-memory rate limiter: {api_key: [timestamp1, timestamp2, ...]}
+# Simple sliding window or fixed window?
+# Let's do a simple fixed window or just a list of timestamps with cleanup.
+RATE_LIMIT_STORE: Dict[str, list] = {}
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX_REQUESTS = 10
+
+
+def verify_api_key(
+    api_key: str = Security(api_key_header),
+) -> APIKey:
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+        )
+
+    db = SessionLocal()
+    key_record = db.query(APIKey).filter(APIKey.key == api_key).first()
+    db.close()
+
+    if not key_record:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API Key")
+
+    if not key_record.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API Key is inactive")
+
+    # --- Rate Limiting ---
+    now = time.time()
+    history = RATE_LIMIT_STORE.get(api_key, [])
+    # Filter out timestamps older than window
+    history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
+
+    if len(history) >= RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
+        )
+
+    history.append(now)
+    RATE_LIMIT_STORE[api_key] = history
+
+    return key_record
