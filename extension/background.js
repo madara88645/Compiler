@@ -13,7 +13,10 @@ async function handleOptimization(request, sendResponse) {
 
     try {
         // Ensure backendUrl doesn't have trailing slash
-        const baseUrl = backendUrl.replace(/\/$/, "");
+        let baseUrl = backendUrl.replace(/\/$/, "");
+        if (!baseUrl.startsWith("http")) {
+            baseUrl = "https://" + baseUrl;
+        }
 
         console.log(`Sending request to ${baseUrl}/compile/fast`);
 

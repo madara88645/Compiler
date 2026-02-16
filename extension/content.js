@@ -63,6 +63,9 @@ function injectButton() {
                     return;
                 }
 
+                // DEBUG: Show what we are sending
+                alert(`DEBUG: Sending to ${backendUrl}\nKey: ${apiKey.substring(0, 10)}...`);
+
                 // Send message to background script (Bypasses CORS/Mixed Content)
                 chrome.runtime.sendMessage({
                     type: 'OPTIMIZE_PROMPT',
