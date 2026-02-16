@@ -39,7 +39,12 @@ class WorkerClient:
         base_url: Optional[str] = None,
         model: str = DEFAULT_MODEL,
     ):
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or "missing_key"
+        self.api_key = (
+            api_key
+            or os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("GROQ_API_KEY")
+            or "missing_key"
+        )
         self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or DEFAULT_BASE_URL
         self.model = model
 

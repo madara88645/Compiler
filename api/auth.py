@@ -54,6 +54,12 @@ def verify_api_key(
             status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
         )
 
+    # --- Master Key Check (for Stateless Deployments like Railway) ---
+    import os
+    admin_key = os.environ.get("ADMIN_API_KEY")
+    if admin_key and api_key == admin_key:
+        return APIKey(key=api_key, owner="admin", is_active=True)
+
     db = SessionLocal()
     key_record = db.query(APIKey).filter(APIKey.key == api_key).first()
     db.close()
