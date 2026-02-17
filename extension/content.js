@@ -1,61 +1,121 @@
 console.log("MyCompiler Extension Loaded");
 
-// Debounce helper to avoid excessive checks
-function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-    };
+// --- Site Configurations ---
+const SITES = [
+    {
+        name: 'ChatGPT',
+        host: 'chatgpt.com',
+        inputSelector: '#prompt-textarea',
+        containerSelector: '#prompt-textarea', // We'll attach relative to the textarea or its wrapper
+        getValue: (el) => el.innerText || el.value,
+        setValue: (el, text) => {
+            el.focus();
+            el.innerHTML = ""; // Clear first
+            document.execCommand('insertText', false, text);
+        }
+    },
+    {
+        name: 'Claude',
+        host: 'claude.ai',
+        inputSelector: '[contenteditable="true"]',
+        containerSelector: 'fieldset, [contenteditable="true"]', // Claude wraps input in fieldset usually
+        getValue: (el) => el.innerText,
+        setValue: (el, text) => {
+            el.focus();
+            // Select all text to replace it (execCommand inserts at cursor)
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('insertText', false, text);
+        }
+    },
+    {
+        name: 'Generic',
+        host: '*',
+        inputSelector: 'textarea, [contenteditable="true"]',
+        containerSelector: null, // Attach to parent
+        getValue: (el) => el.value || el.innerText,
+        setValue: (el, text) => {
+            el.focus();
+            if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                // React value setter hack
+                const proto = Object.getPrototypeOf(el);
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+                setter.call(el, text);
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                el.innerText = text;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    }
+];
+
+function getCurrentSite() {
+    const host = window.location.hostname;
+    return SITES.find(s => host.includes(s.host)) || SITES.find(s => s.name === 'Generic');
 }
 
+// --- Main Injection Logic ---
 function injectButton() {
-    // Select textareas based on the site
-    // ChatGPT usually uses specific classes or ids, Claude uses contenteditable or textarea
-    // We use a generic approach combined with specific site selectors
+    const site = getCurrentSite();
+    if (!site) return;
 
-    const textareas = document.querySelectorAll('textarea, [contenteditable="true"]');
+    const inputs = document.querySelectorAll(site.inputSelector);
 
-    textareas.forEach(target => {
-        // Check if we already injected
-        if (target.parentElement.querySelector('.my-compiler-btn')) return;
+    inputs.forEach(target => {
+        // Finding the best place to attach the button
+        // For visual consistency, we often want it floating inside the input area (bottom-right)
+        // or just outside.
 
-        // Create the button
+        let container = target.parentElement;
+        // Try to find a specific container if defined, otherwise parent
+        if (site.name !== 'Generic' && site.containerSelector) {
+            const closest = target.closest(site.containerSelector);
+            if (closest && closest.parentElement) {
+                container = closest.parentElement;
+            }
+        }
+
+        if (container.querySelector('.my-compiler-btn-wrapper')) return; // Already injected
+
+        // Create Wrapper for positioning
+        // We ensure the container has relative positioning so our absolute button works
+        if (getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'my-compiler-btn-wrapper';
+
         const btn = document.createElement('button');
         btn.className = 'my-compiler-btn';
         btn.innerHTML = '<span>✨</span> Optimize';
         btn.title = "Optimize prompt with MyCompiler";
 
-        // Position logically (relative to parent container usually works best)
-        // For ChatGPT/Claude, the input is often wrapped in a div.
-        // We might need to adjust based on the specific DOM structure of these sites.
-        // For this skeleton, we'll append to the parent and use absolute positioning (handled in CSS).
-        // Ensure parent is relative for absolute positioning of child
-        const parent = target.parentElement;
-        if (getComputedStyle(parent).position === 'static') {
-            parent.style.position = 'relative';
-        }
-
-        parent.appendChild(btn);
+        wrapper.appendChild(btn);
+        container.appendChild(wrapper);
 
         // Click Handler
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            const originalText = target.value || target.innerText;
-            if (!originalText.trim()) return;
+            const originalText = site.getValue(target);
+            if (!originalText || !originalText.trim()) return;
 
-            console.log("Original Prompt:", originalText);
+            console.log(`[MyCompiler] Optimizing on ${site.name}:`, originalText);
 
             // Visual Feedback
             btn.classList.add('loading');
-            btn.innerHTML = '<div class="my-compiler-spinner"></div> Optimizing...';
+            btn.innerHTML = '<div class="my-compiler-spinner"></div>';
 
             // Get Settings
             chrome.storage.local.get(['apiKey', 'backendUrl'], async (result) => {
                 const apiKey = result.apiKey;
-                const backendUrl = result.backendUrl || 'http://localhost:8000'; // Default to 8000 now
+                const backendUrl = result.backendUrl || 'http://localhost:8000';
 
                 if (!apiKey) {
                     alert("Please set your API Key in the extension settings.");
@@ -63,42 +123,24 @@ function injectButton() {
                     return;
                 }
 
-                // DEBUG: Show what we are sending
-                alert(`DEBUG: Sending to ${backendUrl}\nKey: ${apiKey.substring(0, 10)}...`);
-
-                // Send message to background script (Bypasses CORS/Mixed Content)
+                // Send message to background script
                 chrome.runtime.sendMessage({
                     type: 'OPTIMIZE_PROMPT',
                     text: originalText,
                     apiKey: apiKey,
                     backendUrl: backendUrl
                 }, (response) => {
-                    // Handle response from background
                     if (chrome.runtime.lastError) {
-                        console.error("Runtime Error:", chrome.runtime.lastError);
-                        alert("Extension Error: " + chrome.runtime.lastError.message);
+                        alert("Error: " + chrome.runtime.lastError.message);
                         resetBtn(btn);
                         return;
                     }
 
                     if (response && response.success) {
-                        const improvedText = response.data;
-
-                        // Replace text
-                        if (target.tagName === 'TEXTAREA') {
-                            target.value = improvedText;
-                        } else {
-                            target.innerText = improvedText;
-                        }
-
-                        // Trigger input events
-                        target.dispatchEvent(new Event('input', { bubbles: true }));
-                        target.dispatchEvent(new Event('change', { bubbles: true }));
+                        site.setValue(target, response.data);
                     } else {
-                        console.error("API Error:", response.error);
-                        alert("Optimization failed: " + response.error);
+                        alert("Optimization failed: " + (response.error || "Unknown error"));
                     }
-
                     resetBtn(btn);
                 });
             });
@@ -111,10 +153,13 @@ function resetBtn(btn) {
     btn.innerHTML = '<span>✨</span> Optimize';
 }
 
-// Observe DOM changes to handle dynamic navigation (SPA)
-const observer = new MutationObserver(debounce(injectButton, 500));
+// --- Observer ---
+const observer = new MutationObserver((mutations) => {
+    // Simple debounce via timeout not strictly needed if we check for existence efficiently
+    injectButton();
+});
+
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Initial run
-// Wait a moment for page load
-setTimeout(injectButton, 1000);
+setTimeout(injectButton, 1500);
