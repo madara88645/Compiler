@@ -14,7 +14,7 @@ class MockProvider(LLMProvider):
     Can be configured to fail or return specific JSON.
     """
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
         start = time.time()
 
         # Simple heuristic to make tests pass if they want JSON
@@ -43,7 +43,7 @@ class OllamaProvider(LLMProvider):
     Defaults to http://localhost:11434
     """
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
         base_url = self.config.base_url or "http://localhost:11434"
         url = f"{base_url}/api/generate"
 
@@ -54,12 +54,12 @@ class OllamaProvider(LLMProvider):
             pass
 
         payload = {
-            "model": self.config.model,
+            "model": kwargs.get("model", self.config.model),
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": self.config.temperature,
-                "num_predict": self.config.max_tokens,
+                "temperature": kwargs.get("temperature", self.config.temperature),
+                "num_predict": kwargs.get("max_tokens", self.config.max_tokens),
             },
         }
 
@@ -93,7 +93,7 @@ class OpenAIProvider(LLMProvider):
     Requires OPENAI_API_KEY env var or config.api_key.
     """
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
         api_key = self.config.api_key or os.environ.get("OPENAI_API_KEY")
         if not api_key:
             return LLMResponse(content="Error: Missing OpenAI API Key", latency_ms=0)
@@ -111,10 +111,10 @@ class OpenAIProvider(LLMProvider):
         messages.append({"role": "user", "content": prompt})
 
         payload = {
-            "model": self.config.model,
+            "model": kwargs.get("model", self.config.model),
             "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            "temperature": kwargs.get("temperature", self.config.temperature),
+            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
         }
 
         start = time.time()

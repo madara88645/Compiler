@@ -9,6 +9,9 @@ from app.compiler import compile_text
 from app.emitters import emit_expanded_prompt
 
 
+from app.llm.base import LLMProvider
+
+
 # Mock Executor Interface for now
 class Executor:
     def execute(self, prompt: str, config: Dict[str, Any]) -> str:
@@ -20,6 +23,20 @@ class MockExecutor(Executor):
         # Simple deterministic mock: returns the prompt itself so assertions can check for injected content.
         # This allows the Optimizer to "win" by injecting the required keywords into the prompt.
         return f"MOCKED RESPONSE. Prompt info: {prompt}"
+
+
+class LLMExecutor(Executor):
+    """Executor that uses a real LLM provider."""
+
+    def __init__(self, provider: LLMProvider):
+        self.provider = provider
+
+    def execute(self, prompt: str, config: Dict[str, Any]) -> str:
+        # Copy config to avoid side effects
+        run_config = config.copy()
+        system_prompt = run_config.pop("system_prompt", None)
+        response = self.provider.generate(prompt, system_prompt=system_prompt, **run_config)
+        return response.content
 
 
 class TestRunner:

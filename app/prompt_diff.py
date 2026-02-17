@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-# from app.history import get_history_manager
+from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
 
@@ -18,12 +18,7 @@ class PromptComparison:
         """Initialize prompt comparison."""
         self.console = Console()
 
-        # Stub for removed history manager
-        class HistoryManagerStub:
-            def get_by_id(self, *args, **kwargs):
-                return None
-
-        self.history = HistoryManagerStub()
+        self.history = get_history_manager()
 
         self.favorites = get_favorites_manager()
 
