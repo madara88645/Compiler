@@ -2,6 +2,7 @@ import sqlite3
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from .models import HistoryEntry
 
@@ -13,6 +14,9 @@ if os.name == "nt":
 class HistoryManager:
     def __init__(self, db_path: str = DEFAULT_DB_PATH):
         self.db_path = db_path
+        # Ensure the parent directory exists before initializing the database
+        db_dir = Path(self.db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _connect(self):
