@@ -57,21 +57,16 @@ def verify_api_key(
     # --- Master Key Check (for Stateless Deployments like Railway) ---
     import os
 
-    admin_key = os.environ.get("ADMIN_API_KEY")
+    admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:
-        # Comparison logic
-        if api_key == admin_key:
+        # Comparison logic (robust)
+        if api_key.strip() == admin_key:
             return APIKey(key=api_key, owner="admin", is_active=True)
 
         # Debugging mismatch (only prints to server logs)
-        print(
-            f"[AUTH ERROR] Admin Key Mismatch. Env Key Len: {len(admin_key)}, Received Key Len: {len(api_key)}"
-        )
-        safe_admin_preview = f"{admin_key[:5]}...{admin_key[-5:]}" if len(admin_key) > 10 else "***"
-        safe_recv_preview = f"{api_key[:5]}...{api_key[-5:]}" if len(api_key) > 10 else "***"
-        print(
-            f"[AUTH ERROR] Env Key Preview: {safe_admin_preview} vs Received: {safe_recv_preview}"
-        )
+        print("[AUTH ERROR] Admin Key Mismatch.")
+        print(f"[AUTH ERROR] Env Key (len={len(admin_key)}): {repr(admin_key)}")
+        print(f"[AUTH ERROR] Recv Key (len={len(api_key)}): {repr(api_key)}")
 
     db = SessionLocal()
     key_record = db.query(APIKey).filter(APIKey.key == api_key).first()
