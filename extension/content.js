@@ -6,11 +6,11 @@ const SITES = [
         name: 'ChatGPT',
         host: 'chatgpt.com',
         inputSelector: '#prompt-textarea',
-        containerSelector: '#prompt-textarea', // We'll attach relative to the textarea or its wrapper
+        containerSelector: '#prompt-textarea',
         getValue: (el) => el.innerText || el.value,
         setValue: (el, text) => {
             el.focus();
-            el.innerHTML = ""; // Clear first
+            el.innerHTML = "";
             document.execCommand('insertText', false, text);
         }
     },
@@ -18,11 +18,10 @@ const SITES = [
         name: 'Claude',
         host: 'claude.ai',
         inputSelector: '[contenteditable="true"]',
-        containerSelector: 'fieldset, [contenteditable="true"]', // Claude wraps input in fieldset usually
+        containerSelector: 'fieldset, [contenteditable="true"]',
         getValue: (el) => el.innerText,
         setValue: (el, text) => {
             el.focus();
-            // Select all text to replace it (execCommand inserts at cursor)
             const range = document.createRange();
             range.selectNodeContents(el);
             const sel = window.getSelection();
@@ -32,30 +31,22 @@ const SITES = [
         }
     },
     {
-        name: 'Generic',
-        host: '*',
-        inputSelector: 'textarea, [contenteditable="true"]',
-        containerSelector: null, // Attach to parent
-        getValue: (el) => el.value || el.innerText,
+        name: 'Gemini',
+        host: 'gemini.google.com',
+        inputSelector: '.ql-editor, [contenteditable="true"]', // Gemini often uses Quill editor class
+        containerSelector: '.input-area, .ql-container',
+        getValue: (el) => el.innerText,
         setValue: (el, text) => {
             el.focus();
-            if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                // React value setter hack
-                const proto = Object.getPrototypeOf(el);
-                const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-                setter.call(el, text);
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-            } else {
-                el.innerText = text;
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-            }
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, text);
         }
     }
 ];
 
 function getCurrentSite() {
     const host = window.location.hostname;
-    return SITES.find(s => host.includes(s.host)) || SITES.find(s => s.name === 'Generic');
+    return SITES.find(s => host.includes(s.host));
 }
 
 // --- Main Injection Logic ---
