@@ -8,10 +8,9 @@ def create_icon():
     draw = ImageDraw.Draw(img)
 
     # Draw simple gradient effect (concentric circles)
-    for i in range(size, 0, -2):
-        color_val = int(74 - (i / size) * 40)  # #4a148c is approx (74, 20, 140)
-        color = (color_val, 20, 140)
-        # draw.ellipse([size/2 - i/2, size/2 - i/2, size/2 + i/2, size/2 + i/2], fill=color)
+    # for i in range(size, 0, -2):
+    #     color_val = int(74 - (i / size) * 40)  # #4a148c is approx (74, 20, 140)
+    #     draw.ellipse([size/2 - i/2, size/2 - i/2, size/2 + i/2, size/2 + i/2], fill=(color_val, 20, 140))
 
     # Main Shape: Lightning Bolt (Stylized key/compiler symbol)
     # Coordinates for a simple bolt
