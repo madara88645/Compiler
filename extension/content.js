@@ -103,37 +103,23 @@ function injectButton() {
             btn.classList.add('loading');
             btn.innerHTML = '<div class="my-compiler-spinner"></div>';
 
-            // Get Settings
-            chrome.storage.local.get(['apiKey', 'backendUrl'], async (result) => {
-                const apiKey = result.apiKey;
-                const backendUrl = result.backendUrl || 'http://localhost:8000';
-
-                if (!apiKey) {
-                    alert("Please set your API Key in the extension settings.");
+            // Send message to background script
+            chrome.runtime.sendMessage({
+                type: 'OPTIMIZE_PROMPT',
+                text: originalText
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    alert("Error: " + chrome.runtime.lastError.message);
                     resetBtn(btn);
                     return;
                 }
 
-                // Send message to background script
-                chrome.runtime.sendMessage({
-                    type: 'OPTIMIZE_PROMPT',
-                    text: originalText,
-                    apiKey: apiKey,
-                    backendUrl: backendUrl
-                }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        alert("Error: " + chrome.runtime.lastError.message);
-                        resetBtn(btn);
-                        return;
-                    }
-
-                    if (response && response.success) {
-                        site.setValue(target, response.data);
-                    } else {
-                        alert("Optimization failed: " + (response.error || "Unknown error"));
-                    }
-                    resetBtn(btn);
-                });
+                if (response && response.success) {
+                    site.setValue(target, response.data);
+                } else {
+                    alert("Optimization failed: " + (response.error || "Unknown error"));
+                }
+                resetBtn(btn);
             });
         });
     });

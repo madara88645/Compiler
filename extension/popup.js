@@ -1,39 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const apiKeyInput = document.getElementById('apiKey');
-    const backendUrlInput = document.getElementById('backendUrl');
-    const saveBtn = document.getElementById('saveBtn');
-    const statusDiv = document.getElementById('status');
+    const enabledToggle = document.getElementById('enabledToggle');
+    const statusLabel = document.getElementById('statusLabel');
     const playgroundLink = document.getElementById('openPlayground');
 
-    // Load saved settings
-    chrome.storage.local.get(['apiKey', 'backendUrl'], (result) => {
-        if (result.apiKey) apiKeyInput.value = result.apiKey;
-        if (result.backendUrl) backendUrlInput.value = result.backendUrl;
+    // Load saved settings (Default to true)
+    chrome.storage.local.get(['enabled'], (result) => {
+        const isEnabled = result.enabled !== false; // Default true
+        enabledToggle.checked = isEnabled;
+        updateStatus(isEnabled);
     });
 
-    // Save settings
-    saveBtn.addEventListener('click', () => {
-        const apiKey = apiKeyInput.value.trim();
-        const backendUrl = backendUrlInput.value.trim();
-
-        if (!apiKey) {
-            statusDiv.textContent = 'API Key is required.';
-            statusDiv.className = 'error';
-            return;
-        }
-
-        chrome.storage.local.set({
-            apiKey: apiKey,
-            backendUrl: backendUrl || 'http://localhost:8000'
-        }, () => {
-            statusDiv.textContent = 'Settings saved!';
-            statusDiv.className = 'success';
-            setTimeout(() => {
-                statusDiv.textContent = '';
-                statusDiv.className = '';
-            }, 2000);
+    // Toggle Handler
+    enabledToggle.addEventListener('change', () => {
+        const isEnabled = enabledToggle.checked;
+        chrome.storage.local.set({ enabled: isEnabled }, () => {
+            updateStatus(isEnabled);
         });
     });
+
+    function updateStatus(enabled) {
+        statusLabel.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusLabel.style.color = enabled ? '#7b2cbf' : '#666';
+    }
 
     // Open Dashboard/Playground
     playgroundLink.addEventListener('click', () => {

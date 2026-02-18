@@ -64,48 +64,6 @@ input:focus {
 }
 
 .hint {
-    font-size: 10px;
-    color: #6b7280;
-}
-
-button {
-    background: linear-gradient(to right, #f97316, #ea580c);
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-}
-
-button:hover {
-    opacity: 0.9;
-}
-
-button:active {
-    transform: translateY(1px);
-}
-
-#status {
-    font-size: 12px;
-    text-align: center;
-    min-height: 18px;
-}
-
-.success {
-    color: #10b981;
-}
-
-.error {
-    color: #ef4444;
-}
-
-footer {
-    margin-top: 8px;
-    text-align: center;
-    border-top: 1px solid #e5e7eb;
     padding-top: 12px;
 }
 
