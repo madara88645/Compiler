@@ -33,8 +33,11 @@ const SITES = [
     {
         name: 'Gemini',
         host: 'gemini.google.com',
-        inputSelector: '.ql-editor, [contenteditable="true"]', // Gemini often uses Quill editor class
-        containerSelector: '.input-area, .ql-container',
+        // Gemini selectors (Updated v1.0.5):
+        // Often inside <rich-textarea> -> <div contenteditable="true">
+        // Container is usually .input-area or .text-input-field
+        inputSelector: 'rich-textarea > [contenteditable="true"], .ql-editor, [contenteditable="true"]',
+        containerSelector: '.input-area, .text-input-field, rich-textarea',
         getValue: (el) => el.innerText,
         setValue: (el, text) => {
             el.focus();
