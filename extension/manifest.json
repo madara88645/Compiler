@@ -1,10 +1,9 @@
 {
     "manifest_version": 3,
     "name": "Prompt Compiler Interceptor",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Injects an optimize button into AI chat interfaces.",
     "permissions": [
-        "activeTab",
         "storage"
     ],
     "host_permissions": [
