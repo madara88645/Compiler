@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
-from app.llm_engine.schemas import QualityReport, LLMFixResponse
+from app.llm_engine.schemas import QualityReport
 
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
@@ -33,6 +33,8 @@ from app.rag.simple_index import (
 )
 from typing import List, Optional
 from pydantic import Field
+from api.auth import verify_api_key, APIKey
+from fastapi import Depends
 
 # Global Hybrid Compiler Instance (Lazy Load)
 hybrid_compiler = None
@@ -53,6 +55,9 @@ app.add_middleware(
 from app.routers.benchmark import router as benchmark_router  # noqa: E402
 
 app.include_router(benchmark_router)
+
+
+# Define endpoint after models are defined
 
 
 @app.on_event("startup")
@@ -97,6 +102,59 @@ class CompileResponse(BaseModel):
     heuristic2_version: str | None = None
     trace: list[str] | None = None
     critique: dict | None = None
+
+
+@app.post("/compile/fast", response_model=CompileResponse)
+async def compile_fast(
+    req: CompileRequest,
+    api_key: APIKey = Depends(verify_api_key),
+):
+    """
+    Fast optimization endpoint.
+    Bypasses RAG and heavy context retrieval.
+    Secured by API Key and Rate Limited.
+    """
+    import time
+
+    start = time.time()
+
+    # Direct Worker call (Bypass HybridCompiler RAG logic)
+    # We assume hybrid_compiler is initialized
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        # 1. Check Cache (Optional, but good for speed)
+        # Note: WorkerResponse handles caching internally usually, but hybrid_compiler has a cache
+        if req.text in hybrid_compiler.cache:
+            res = hybrid_compiler.cache[req.text]
+        else:
+            # 2. Direct LLM Call
+            # We skip context_strategist.process(req.text)
+            res = hybrid_compiler.worker.process(req.text)
+            hybrid_compiler.cache[req.text] = res
+
+        return {
+            "ir": res.ir.model_dump(),
+            # IRv2 mapping if available
+            "ir_v2": res.ir.model_dump(),
+            "system_prompt": res.system_prompt,
+            "user_prompt": res.user_prompt,
+            "plan": res.plan,
+            "expanded_prompt": res.optimized_content,
+            "system_prompt_v2": res.system_prompt,  # Fill v2 fields
+            "user_prompt_v2": res.user_prompt,
+            "plan_v2": res.plan,
+            "expanded_prompt_v2": res.optimized_content,
+            "processing_ms": int((time.time() - start) * 1000),
+            "request_id": "fast_" + str(int(time.time())),
+            "heuristic_version": "v2-fast",
+            "heuristic2_version": "v2-fast",
+            "trace": [],
+            "critique": None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class OptimizeRequest(BaseModel):
@@ -775,24 +833,6 @@ def validate_endpoint(req: ValidateRequest):
 # -------------------------
 # Auto-Fix
 # -------------------------
-
-
-class AutoFixRequest(BaseModel):
-    text: str
-    max_fixes: int = Field(default=5, description="Maximum number of fixes to apply")
-    target_score: float = Field(
-        default=75.0, ge=0, le=100, description="Stop when score reaches this threshold"
-    )
-
-
-@app.post("/fix", response_model=LLMFixResponse)
-def fix_endpoint(req: AutoFixRequest):
-    """Automatically fix prompt using LLM Editor."""
-    try:
-        result = hybrid_compiler.worker.fix_prompt(req.text)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ===== Compare Endpoint =====

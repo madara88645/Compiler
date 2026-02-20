@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, List
 from app.testing.models import TestSuite
 from .models import Candidate, OptimizationConfig, OptimizationRun
+from app.history import HistoryEntry
 from .mutator import MutatorAgent
 from .judge import JudgeAgent
 from app.testing.adversarial import AdversarialGenerator
@@ -30,11 +31,16 @@ class EvolutionEngine:
         provider = getattr(mutator, "provider", None)
         self.adversarial = AdversarialGenerator(provider=provider)
 
-        # Initialize HistoryManager
-        from .history import HistoryManager
+        # Initialize Run History (Optimizer specific)
+        from .history import HistoryManager as RunHistoryManager
 
-        self.history_manager = HistoryManager()
-        self.history_manager = HistoryManager()
+        self.run_history_manager = RunHistoryManager()
+
+        # Initialize Global History (App wide)
+        from app.history import get_history_manager
+
+        self.global_history = get_history_manager()
+
         self.cost_tracker = CostTracker()
 
         # Initialize Cross-Model Validator
@@ -123,7 +129,7 @@ class EvolutionEngine:
         Resume an existing optimization run.
         """
         # Load run
-        run = self.history_manager.load_run(run_id)
+        run = self.run_history_manager.load_run(run_id)
         if not run:
             raise ValueError(f"Run {run_id} not found")
 
@@ -300,6 +306,18 @@ class EvolutionEngine:
                     # Trigger Cross-Model Validation for new best
                     self._run_cross_validation(best, suite)
 
+                    # Save to global history
+                    self.global_history.save(
+                        HistoryEntry(
+                            id=best.id,
+                            prompt_text=best.prompt_text,
+                            source="evolution",
+                            parent_id=best.parent_id,
+                            score=best.score,
+                            metadata={"run_id": self.run_history.id, "generation": gen},
+                        )
+                    )
+
             current_pool = evaluated_candidates
             self.run_history.generations.append(current_pool)
 
@@ -369,14 +387,28 @@ class EvolutionEngine:
                         f"Adversarial Score: {adv_res.score:.2f} ({adv_res.passed_count}/{len(adv_cases)})"
                     )
 
-                    # TODO: If score is low, maybe we should mutate specifically to fix these?
+                    if adv_res.score < 1.0:
+                        print("🛡️ Security issues detected. Attempting to fix...")
+                        patches = self.mutator.fix_vulnerabilities(best, adv_res.failures)
+                        for p in patches:
+                            # Evaluate on MAIN suite (regression check)
+                            self._evaluate_candidate(p, suite, base_dir)
+                            current_pool.append(p)
+
+                            if p.score > best.score:
+                                best = p
+                                if callback:
+                                    callback.on_new_best(best, best.score)
+                                self._run_cross_validation(best, suite)
+
+                            print(f"   Created security patch candidate: {p.score:.2f}")
 
         self.run_history.best_candidate = best
         self.run_history.total_cost = self.cost_tracker.total_cost
 
         # Save History (Update existing run file)
         try:
-            saved_path = self.history_manager.save_run(self.run_history)
+            saved_path = self.run_history_manager.save_run(self.run_history)
             print(f"Optimization run saved to: {saved_path}")
         except Exception as e:
             print(f"Failed to save optimization run: {e}")

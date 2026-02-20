@@ -33,13 +33,14 @@ class LLMProvider(ABC):
         self.config = config
 
     @abstractmethod
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
         """
         Generate a text completion.
 
         Args:
             prompt: The user prompt.
             system_prompt: Optional system instruction.
+            **kwargs: Overrides for config (model, temperature, etc.)
 
         Returns:
             LLMResponse object containing content and metadata.
