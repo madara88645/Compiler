@@ -1,15 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyCompiler Settings</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
-    <a href="#" id="openPlayground">Open Playground</a>
-    </div>
+    <main class="container" aria-live="polite">
+        <header>
+            <div>
+                <p class="eyebrow">Prompt Compiler</p>
+                <h1>Extension Controls</h1>
+            </div>
+            <span class="version">v1.0.7</span>
+        </header>
+
+        <section class="panel">
+            <div class="panel-row">
+                <div>
+                    <h2>Smart optimize</h2>
+                    <p class="muted">Injects an optimize button into supported chat apps.</p>
+                </div>
+                <label class="switch" for="enabledToggle">
+                    <input id="enabledToggle" type="checkbox" role="switch" aria-label="Enable extension">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p id="statusLabel" class="status status-enabled">Enabled</p>
+        </section>
+
+        <section class="actions" aria-label="Actions">
+            <button id="openPlayground" class="btn btn-primary" type="button">Open Playground</button>
+            <button id="openDocs" class="btn btn-ghost" type="button">View Docs</button>
+        </section>
+    </main>
     <script src="popup.js"></script>
 </body>
 
