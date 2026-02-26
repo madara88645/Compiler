@@ -266,7 +266,8 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".txt,.md,.py,.js,.ts,.tsx,.json,.yaml,.yml,.html,.css"
+                    // Removed specific accept attribute to allow all files, and added webkitdirectory for folders if needed (though tricky with standard input)
+                    // accept=".txt,.md,.py,.js,.ts,.tsx,.json,.yaml,.yml,.html,.css"
                     onChange={handleFileSelect}
                     className="hidden"
                 />
@@ -283,10 +284,10 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         </div>
                         <div className="text-xs text-zinc-400 text-center">
                             <span className="text-blue-400 font-medium">Click to upload</span>
-                            <span className="text-zinc-500"> or drag & drop</span>
+                            <span className="text-zinc-500"> or drag & drop files/folders</span>
                         </div>
                         <div className="text-[10px] text-zinc-600">
-                            .txt, .md, .py, .js, .ts, .json, .yaml
+                            .txt, .md, .py, .js, .ts, .json, .yaml (Project Context)
                         </div>
                     </>
                 )}
