@@ -10,8 +10,9 @@ export default function Sidebar() {
         { name: "Compiler", path: "/", icon: "💠" },
         { name: "Optimizer", path: "/optimizer", icon: "✨" },
         { name: "Offline", path: "/offline", icon: "🔌" },
-        { name: "Benchmark", path: "/benchmark", icon: "⚡" },
-        { name: "Agent Generator", path: "/agent-generator", icon: "🤖" },
+        { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
+        { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
+        { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
     ];
 
     return (

@@ -157,6 +157,32 @@ async def compile_fast(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================================================
+# Skills Generator Endpoints
+# ============================================================================
+
+
+class SkillGenRequest(BaseModel):
+    description: str = Field(..., description="Description of the skill to generate")
+
+
+class SkillGenResponse(BaseModel):
+    skill_definition: str
+
+
+@app.post("/skills-generator/generate", response_model=SkillGenResponse)
+async def generate_skill_endpoint(req: SkillGenRequest):
+    """Generate a comprehensive AI Skill definition."""
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        result = hybrid_compiler.generate_skill(req.description)
+        return SkillGenResponse(skill_definition=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class OptimizeRequest(BaseModel):
     text: str
     max_chars: Optional[int] = Field(
