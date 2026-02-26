@@ -36,7 +36,11 @@ def test_hybrid_compiler_generate_skill(mock_worker_client):
 
     result = compiler.generate_skill("Test Skill")
     assert result == "# Mock Skill Definition"
-    mock_worker_client.generate_skill.assert_called_with("Test Skill")
+    # HybridCompiler now injects context, so we expect the context argument
+    # We can use ANY for the context content since it depends on the mock vector db
+    from unittest.mock import ANY
+
+    mock_worker_client.generate_skill.assert_called_with("Test Skill", context=ANY)
 
 
 def test_api_generate_skill_endpoint():

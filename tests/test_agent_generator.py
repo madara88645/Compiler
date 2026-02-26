@@ -36,7 +36,11 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
 
     result = compiler.generate_agent("Test Agent")
     assert result == "# Mock Agent System Prompt"
-    mock_worker_client.generate_agent.assert_called_with("Test Agent")
+    # HybridCompiler now injects context, so we expect the context argument
+    # We can use ANY for the context content since it depends on the mock vector db
+    from unittest.mock import ANY
+
+    mock_worker_client.generate_agent.assert_called_with("Test Agent", context=ANY)
 
 
 def test_api_generate_agent_endpoint():
