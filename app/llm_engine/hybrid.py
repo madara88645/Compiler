@@ -157,6 +157,15 @@ class HybridCompiler:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"
 
+    def generate_workspace(self, text: str) -> str:
+        """
+        Generate a comprehensive Workspace Configuration.
+        """
+        try:
+            return self.worker.generate_workspace(text)
+        except Exception as e:
+            return f"# Error\n\nFailed to generate workspace: {e}"
+
     def generate_skill(self, text: str) -> str:
         """
         Generate a comprehensive AI Skill definition.
