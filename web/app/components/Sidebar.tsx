@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Folder } from "lucide-react";
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -11,9 +10,6 @@ export default function Sidebar() {
         { name: "Compiler", path: "/", icon: "💠" },
         { name: "Optimizer", path: "/optimizer", icon: "✨" },
         { name: "Offline", path: "/offline", icon: "🔌" },
-        { name: "Benchmark", path: "/benchmark", icon: "⚡" },
-        { name: "Agent Generator", path: "/agent-generator", icon: "🤖" },
-        { name: "Workspace Generator", path: "/workspace-generator", icon: <Folder size={20} /> },
         { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
         { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
         { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
