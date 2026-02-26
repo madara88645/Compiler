@@ -23,6 +23,7 @@ WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
 WORKSPACE_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "workspace_generator.md"
+SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
 # Allow overriding timeout via env var
@@ -62,6 +63,7 @@ class WorkerClient:
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
         self.agent_generator_prompt = self._load_prompt(AGENT_GENERATOR_PROMPT_PATH)
         self.workspace_generator_prompt = self._load_prompt(WORKSPACE_GENERATOR_PROMPT_PATH)
+        self.skills_generator_prompt = self._load_prompt(SKILLS_GENERATOR_PROMPT_PATH)
 
     def _load_prompt(self, path: Path) -> str:
         if not path.exists():
@@ -312,12 +314,24 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.workspace_generator_prompt},
+    def generate_skill(self, user_text: str) -> str:
+        """Generate a comprehensive AI Skill definition."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.skills_generator_prompt:
+            # Fallback if file missing
+            self.skills_generator_prompt = "You are an Expert AI Skills Architect. Generate a comprehensive skill definition based on the user request. Output in Markdown."
+
+        messages = [
+            {"role": "system", "content": self.skills_generator_prompt},
             {"role": "user", "content": user_text},
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back
             future = executor.submit(self._call_api, messages, 4000, json_mode=False)
+            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
                 return content
@@ -326,3 +340,6 @@ class WorkerClient:
                 raise RuntimeError(f"Workspace generation timed out after {HARD_TIMEOUT_SECONDS}s.")
             except Exception as e:
                 raise RuntimeError(f"Workspace generation error: {e}") from e
+                raise RuntimeError(f"Skill generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Skill generation error: {e}") from e

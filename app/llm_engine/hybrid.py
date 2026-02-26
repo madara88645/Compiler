@@ -166,3 +166,12 @@ class HybridCompiler:
         except Exception as e:
             # Fallback for workspace generation
             return f"# Error\n\nFailed to generate workspace: {e}"
+    def generate_skill(self, text: str) -> str:
+        """
+        Generate a comprehensive AI Skill definition.
+        """
+        try:
+            return self.worker.generate_skill(text)
+        except Exception as e:
+            # Fallback for skill generation
+            return f"# Error\n\nFailed to generate skill: {e}"

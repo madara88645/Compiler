@@ -14,6 +14,9 @@ export default function Sidebar() {
         { name: "Benchmark", path: "/benchmark", icon: "⚡" },
         { name: "Agent Generator", path: "/agent-generator", icon: "🤖" },
         { name: "Workspace Generator", path: "/workspace-generator", icon: <Folder size={20} /> },
+        { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
+        { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
+        { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
     ];
 
     return (
