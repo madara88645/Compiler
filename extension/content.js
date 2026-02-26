@@ -1,6 +1,5 @@
-console.log("MyCompiler Extension Loaded");
+console.log('MyCompiler Extension Loaded');
 
-// --- Site Configurations ---
 const SITES = [
     {
         name: 'ChatGPT',
@@ -10,7 +9,7 @@ const SITES = [
         getValue: (el) => el.innerText || el.value,
         setValue: (el, text) => {
             el.focus();
-            el.innerHTML = "";
+            el.innerHTML = '';
             document.execCommand('insertText', false, text);
         }
     },
@@ -24,18 +23,15 @@ const SITES = [
             el.focus();
             const range = document.createRange();
             range.selectNodeContents(el);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
             document.execCommand('insertText', false, text);
         }
     },
     {
         name: 'Gemini',
         host: 'gemini.google.com',
-        // Gemini selectors (Updated v1.0.5):
-        // Often inside <rich-textarea> -> <div contenteditable="true">
-        // Container is usually .input-area or .text-input-field
         inputSelector: 'rich-textarea > [contenteditable="true"], .ql-editor, [contenteditable="true"]',
         containerSelector: '.input-area, .text-input-field, rich-textarea',
         getValue: (el) => el.innerText,
@@ -49,34 +45,59 @@ const SITES = [
 
 function getCurrentSite() {
     const host = window.location.hostname;
-    return SITES.find(s => host.includes(s.host));
+    return SITES.find((site) => host.includes(site.host));
 }
 
-// --- Main Injection Logic ---
+function getDefaultButtonLabel() {
+    return '<span class="spark">✦</span> Optimize';
+}
+
+function setButtonState(button, state) {
+    button.classList.remove('loading', 'success', 'error');
+
+    if (state === 'loading') {
+        button.classList.add('loading');
+        button.innerHTML = '<div class="my-compiler-spinner" aria-hidden="true"></div> Optimizing';
+        return;
+    }
+
+    if (state === 'success') {
+        button.classList.add('success');
+        button.innerHTML = '<span class="spark">✓</span> Optimized';
+        return;
+    }
+
+    if (state === 'error') {
+        button.classList.add('error');
+        button.innerHTML = '<span class="spark">!</span> Retry';
+        return;
+    }
+
+    button.innerHTML = getDefaultButtonLabel();
+}
+
 function injectButton() {
     const site = getCurrentSite();
-    if (!site) return;
+    if (!site) {
+        return;
+    }
 
     const inputs = document.querySelectorAll(site.inputSelector);
 
-    inputs.forEach(target => {
-        // Finding the best place to attach the button
-        // For visual consistency, we often want it floating inside the input area (bottom-right)
-        // or just outside.
-
+    inputs.forEach((target) => {
         let container = target.parentElement;
-        // Try to find a specific container if defined, otherwise parent
-        if (site.name !== 'Generic' && site.containerSelector) {
+
+        if (site.containerSelector) {
             const closest = target.closest(site.containerSelector);
             if (closest && closest.parentElement) {
                 container = closest.parentElement;
             }
         }
 
-        if (container.querySelector('.my-compiler-btn-wrapper')) return; // Already injected
+        if (!container || container.querySelector('.my-compiler-btn-wrapper')) {
+            return;
+        }
 
-        // Create Wrapper for positioning
-        // We ensure the container has relative positioning so our absolute button works
         if (getComputedStyle(container).position === 'static') {
             container.style.position = 'relative';
         }
@@ -84,62 +105,58 @@ function injectButton() {
         const wrapper = document.createElement('div');
         wrapper.className = 'my-compiler-btn-wrapper';
 
-        const btn = document.createElement('button');
-        btn.className = 'my-compiler-btn';
-        btn.innerHTML = '<span>✨</span> Optimize';
-        btn.title = "Optimize prompt with MyCompiler";
+        const button = document.createElement('button');
+        button.className = 'my-compiler-btn';
+        button.innerHTML = getDefaultButtonLabel();
+        button.type = 'button';
+        button.title = 'Optimize prompt with MyCompiler';
 
-        wrapper.appendChild(btn);
+        wrapper.appendChild(button);
         container.appendChild(wrapper);
 
-        // Click Handler
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
 
             const originalText = site.getValue(target);
-            if (!originalText || !originalText.trim()) return;
+            if (!originalText || !originalText.trim()) {
+                return;
+            }
 
-            console.log(`[MyCompiler] Optimizing on ${site.name}:`, originalText);
+            setButtonState(button, 'loading');
 
-            // Visual Feedback
-            btn.classList.add('loading');
-            btn.innerHTML = '<div class="my-compiler-spinner"></div>';
+            chrome.runtime.sendMessage(
+                {
+                    type: 'OPTIMIZE_PROMPT',
+                    text: originalText
+                },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        alert(`Error: ${chrome.runtime.lastError.message}`);
+                        setButtonState(button, 'error');
+                        window.setTimeout(() => setButtonState(button, 'default'), 1400);
+                        return;
+                    }
 
-            // Send message to background script
-            chrome.runtime.sendMessage({
-                type: 'OPTIMIZE_PROMPT',
-                text: originalText
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    alert("Error: " + chrome.runtime.lastError.message);
-                    resetBtn(btn);
-                    return;
+                    if (response && response.success) {
+                        site.setValue(target, response.data);
+                        setButtonState(button, 'success');
+                    } else {
+                        alert(`Optimization failed: ${response?.error || 'Unknown error'}`);
+                        setButtonState(button, 'error');
+                    }
+
+                    window.setTimeout(() => setButtonState(button, 'default'), 1400);
                 }
-
-                if (response && response.success) {
-                    site.setValue(target, response.data);
-                } else {
-                    alert("Optimization failed: " + (response.error || "Unknown error"));
-                }
-                resetBtn(btn);
-            });
+            );
         });
     });
 }
 
-function resetBtn(btn) {
-    btn.classList.remove('loading');
-    btn.innerHTML = '<span>✨</span> Optimize';
-}
-
-// --- Observer ---
-const observer = new MutationObserver((mutations) => {
-    // Simple debounce via timeout not strictly needed if we check for existence efficiently
+const observer = new MutationObserver(() => {
     injectButton();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
 
-// Initial run
-setTimeout(injectButton, 1500);
+window.setTimeout(injectButton, 1500);

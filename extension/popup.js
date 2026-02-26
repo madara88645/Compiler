@@ -1,16 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     const enabledToggle = document.getElementById('enabledToggle');
     const statusLabel = document.getElementById('statusLabel');
-    const playgroundLink = document.getElementById('openPlayground');
+    const playgroundButton = document.getElementById('openPlayground');
+    const docsButton = document.getElementById('openDocs');
 
-    // Load saved settings (Default to true)
     chrome.storage.local.get(['enabled'], (result) => {
-        const isEnabled = result.enabled !== false; // Default true
+        const isEnabled = result.enabled !== false;
         enabledToggle.checked = isEnabled;
         updateStatus(isEnabled);
     });
 
-    // Toggle Handler
     enabledToggle.addEventListener('change', () => {
         const isEnabled = enabledToggle.checked;
         chrome.storage.local.set({ enabled: isEnabled }, () => {
@@ -20,11 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateStatus(enabled) {
         statusLabel.textContent = enabled ? 'Enabled' : 'Disabled';
-        statusLabel.style.color = enabled ? '#7b2cbf' : '#666';
+        statusLabel.classList.toggle('status-enabled', enabled);
+        statusLabel.classList.toggle('status-disabled', !enabled);
     }
 
-    // Open Dashboard/Playground
-    playgroundLink.addEventListener('click', () => {
+    playgroundButton.addEventListener('click', () => {
         chrome.tabs.create({ url: 'http://localhost:3000' });
+    });
+
+    docsButton.addEventListener('click', () => {
+        chrome.tabs.create({ url: 'https://github.com' });
     });
 });
