@@ -146,3 +146,13 @@ class HybridCompiler:
                 thought_process="System Failure",
                 optimized_content="Error.",
             )
+
+    def generate_agent(self, text: str) -> str:
+        """
+        Generate a comprehensive AI Agent system prompt.
+        """
+        try:
+            return self.worker.generate_agent(text)
+        except Exception as e:
+            # Fallback for agent generation
+            return f"# Error\n\nFailed to generate agent: {e}"

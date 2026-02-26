@@ -21,6 +21,7 @@ DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
+AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
 # Allow overriding timeout via env var
@@ -58,6 +59,7 @@ class WorkerClient:
         self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
         self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
+        self.agent_generator_prompt = self._load_prompt(AGENT_GENERATOR_PROMPT_PATH)
 
     def _load_prompt(self, path: Path) -> str:
         if not path.exists():
@@ -270,3 +272,31 @@ class WorkerClient:
         except Exception as e:
             print(f"[WorkerClient] Query expansion failed: {e}")
             return {"queries": [user_text]}
+
+    def generate_agent(self, user_text: str) -> str:
+        """Generate a comprehensive AI Agent system prompt."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.agent_generator_prompt:
+            # Fallback if file missing
+            self.agent_generator_prompt = "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
+
+        messages = [
+            {"role": "system", "content": self.agent_generator_prompt},
+            {"role": "user", "content": user_text},
+        ]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # json_mode=False because we want Markdown text back
+            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
+            try:
+                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+                return content
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(
+                    f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s."
+                )
+            except Exception as e:
+                raise RuntimeError(f"Agent generation error: {e}") from e

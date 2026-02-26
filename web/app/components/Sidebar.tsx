@@ -11,6 +11,7 @@ export default function Sidebar() {
         { name: "Optimizer", path: "/optimizer", icon: "✨" },
         { name: "Offline", path: "/offline", icon: "🔌" },
         { name: "Benchmark", path: "/benchmark", icon: "⚡" },
+        { name: "Agent Generator", path: "/agent-generator", icon: "🤖" },
     ];
 
     return (

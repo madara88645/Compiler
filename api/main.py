@@ -1119,3 +1119,29 @@ async def debug_search_endpoint(query: str):
 class AnalyticsRecordRequest(BaseModel):
     prompt_text: str
     run_validation: bool = True
+
+
+# ============================================================================
+# Agent Generator Endpoints
+# ============================================================================
+
+
+class AgentGenRequest(BaseModel):
+    description: str = Field(..., description="Description of the agent to generate")
+
+
+class AgentGenResponse(BaseModel):
+    system_prompt: str
+
+
+@app.post("/agent-generator/generate", response_model=AgentGenResponse)
+async def generate_agent_endpoint(req: AgentGenRequest):
+    """Generate a comprehensive AI Agent system prompt."""
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        result = hybrid_compiler.generate_agent(req.description)
+        return AgentGenResponse(system_prompt=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
