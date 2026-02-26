@@ -5,6 +5,7 @@ from app.llm_engine.hybrid import HybridCompiler
 from api.main import app
 from fastapi.testclient import TestClient
 
+
 # Mock WorkerClient to avoid API calls
 @pytest.fixture
 def mock_worker_client():
@@ -13,6 +14,7 @@ def mock_worker_client():
         # Mock generate_agent method
         client_instance.generate_agent.return_value = "# Mock Agent System Prompt"
         yield client_instance
+
 
 def test_worker_client_generate_agent():
     # Test the generate_agent method directly (mocking the API call inside it)
@@ -26,6 +28,7 @@ def test_worker_client_generate_agent():
         result = client.generate_agent("Test Agent")
         assert result == "# Agent System Prompt"
 
+
 def test_hybrid_compiler_generate_agent(mock_worker_client):
     compiler = HybridCompiler()
     # Manually inject the mock worker because HybridCompiler creates its own instance
@@ -35,6 +38,7 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
     assert result == "# Mock Agent System Prompt"
     mock_worker_client.generate_agent.assert_called_with("Test Agent")
 
+
 def test_api_generate_agent_endpoint():
     # Mock the global hybrid_compiler in api.main
     with patch("api.main.hybrid_compiler") as mock_compiler:
@@ -42,8 +46,7 @@ def test_api_generate_agent_endpoint():
 
         client = TestClient(app)
         response = client.post(
-            "/agent-generator/generate",
-            json={"description": "Test Agent Request"}
+            "/agent-generator/generate", json={"description": "Test Agent Request"}
         )
 
         assert response.status_code == 200

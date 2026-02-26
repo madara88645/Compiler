@@ -295,8 +295,6 @@ class WorkerClient:
                 return content
             except FuturesTimeoutError:
                 future.cancel()
-                raise RuntimeError(
-                    f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s."
-                )
+                raise RuntimeError(f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s.")
             except Exception as e:
                 raise RuntimeError(f"Agent generation error: {e}") from e
