@@ -1154,6 +1154,9 @@ class AnalyticsRecordRequest(BaseModel):
 
 class AgentGenRequest(BaseModel):
     description: str = Field(..., description="Description of the agent to generate")
+    multi_agent: bool = Field(
+        default=False, description="Whether to decompose into multiple agents"
+    )
 
 
 class AgentGenResponse(BaseModel):
@@ -1167,7 +1170,7 @@ async def generate_agent_endpoint(req: AgentGenRequest):
         raise HTTPException(status_code=503, detail="Compiler not initialized")
 
     try:
-        result = hybrid_compiler.generate_agent(req.description)
+        result = hybrid_compiler.generate_agent(req.description, multi_agent=req.multi_agent)
         return AgentGenResponse(system_prompt=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -23,6 +23,7 @@ WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
 SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
+MULTI_AGENT_PLANNER_PROMPT_PATH = PROMPTS_DIR / "multi_agent_planner.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
 # Allow overriding timeout via env var
@@ -62,6 +63,7 @@ class WorkerClient:
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
         self.agent_generator_prompt = self._load_prompt(AGENT_GENERATOR_PROMPT_PATH)
         self.skills_generator_prompt = self._load_prompt(SKILLS_GENERATOR_PROMPT_PATH)
+        self.multi_agent_planner_prompt = self._load_prompt(MULTI_AGENT_PLANNER_PROMPT_PATH)
 
     def _load_prompt(self, path: Path) -> str:
         if not path.exists():
@@ -257,17 +259,29 @@ class WorkerClient:
             print(f"[WorkerClient] Query expansion failed: {e}")
             return {"queries": [user_text]}
 
-    def generate_agent(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def generate_agent(
+        self,
+        user_text: str,
+        context: Optional[Dict[str, Any]] = None,
+        multi_agent: bool = False,
+    ) -> str:
         """Generate a comprehensive AI Agent system prompt."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
-        if not self.agent_generator_prompt:
-            # Fallback if file missing
-            self.agent_generator_prompt = "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
+        if multi_agent:
+            system_prompt = (
+                self.multi_agent_planner_prompt
+                or "You are an Expert AI Systems Architect. Decompose the task into 2-4 specialized agents. Output in Markdown."
+            )
+        else:
+            system_prompt = (
+                self.agent_generator_prompt
+                or "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
+            )
 
         messages = [
-            {"role": "system", "content": self.agent_generator_prompt},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},
         ]
 

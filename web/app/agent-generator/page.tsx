@@ -9,6 +9,7 @@ export default function AgentGenerator() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [multiAgent, setMultiAgent] = useState(false);
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
@@ -21,7 +22,7 @@ export default function AgentGenerator() {
       const res = await fetch(`${API_BASE}/agent-generator/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({ description, multi_agent: multiAgent }),
       });
 
       if (!res.ok) {
@@ -86,15 +87,28 @@ export default function AgentGenerator() {
               />
             </div>
 
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                <div
+                    onClick={() => setMultiAgent(!multiAgent)}
+                    className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${multiAgent ? 'bg-green-500' : 'bg-zinc-700'}`}
+                >
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${multiAgent ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
+                    <span className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>
+                </div>
+            </div>
+
             <button
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
-              className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20"
+              className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20'}`}
             >
               {loading ? (
                 <span className="animate-pulse">Architecting...</span>
               ) : (
-                <>Generate Agent <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                <>Generate {multiAgent ? 'Swarm' : 'Agent'} <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
               )}
             </button>
 
