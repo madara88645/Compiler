@@ -149,29 +149,24 @@ class HybridCompiler:
 
     def generate_agent(self, text: str) -> str:
         """
-        Generate a comprehensive AI Agent system prompt.
+        Generate a comprehensive AI Agent system prompt, aware of RAG context.
         """
         try:
-            return self.worker.generate_agent(text)
+            # Retrieve relevant code context using Agent 6
+            rag_context = self.context_strategist.process(text)
+            return self.worker.generate_agent(text, context=rag_context)
         except Exception as e:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"
 
-    def generate_workspace(self, text: str) -> str:
-        """
-        Generate a comprehensive Workspace Configuration.
-        """
-        try:
-            return self.worker.generate_workspace(text)
-        except Exception as e:
-            return f"# Error\n\nFailed to generate workspace: {e}"
-
     def generate_skill(self, text: str) -> str:
         """
-        Generate a comprehensive AI Skill definition.
+        Generate a comprehensive AI Skill definition, aware of RAG context.
         """
         try:
-            return self.worker.generate_skill(text)
+            # Retrieve relevant code context using Agent 6
+            rag_context = self.context_strategist.process(text)
+            return self.worker.generate_skill(text, context=rag_context)
         except Exception as e:
             # Fallback for skill generation
             return f"# Error\n\nFailed to generate skill: {e}"

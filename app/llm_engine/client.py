@@ -22,7 +22,6 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
-WORKSPACE_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "workspace_generator.md"
 SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
@@ -62,7 +61,6 @@ class WorkerClient:
         self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
         self.agent_generator_prompt = self._load_prompt(AGENT_GENERATOR_PROMPT_PATH)
-        self.workspace_generator_prompt = self._load_prompt(WORKSPACE_GENERATOR_PROMPT_PATH)
         self.skills_generator_prompt = self._load_prompt(SKILLS_GENERATOR_PROMPT_PATH)
 
     def _load_prompt(self, path: Path) -> str:
@@ -259,7 +257,7 @@ class WorkerClient:
             print(f"[WorkerClient] Query expansion failed: {e}")
             return {"queries": [user_text]}
 
-    def generate_agent(self, user_text: str) -> str:
+    def generate_agent(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate a comprehensive AI Agent system prompt."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
@@ -273,6 +271,10 @@ class WorkerClient:
             {"role": "user", "content": user_text},
         ]
 
+        if context:
+            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
+            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back
             future = executor.submit(self._call_api, messages, 3000, json_mode=False)
@@ -285,31 +287,7 @@ class WorkerClient:
             except Exception as e:
                 raise RuntimeError(f"Agent generation error: {e}") from e
 
-    def generate_workspace(self, user_text: str) -> str:
-        """Generate a comprehensive Workspace Configuration in Markdown."""
-        if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
-
-        if not self.workspace_generator_prompt:
-            self.workspace_generator_prompt = "You are an Expert DevOps Architect. Generate a comprehensive workspace configuration guide (folder structure, dependencies, etc) based on the user request. Output in Markdown."
-
-        messages = [
-            {"role": "system", "content": self.workspace_generator_prompt},
-            {"role": "user", "content": user_text},
-        ]
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            future = executor.submit(self._call_api, messages, 4000, json_mode=False)
-            try:
-                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
-                return content
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Workspace generation timed out after {HARD_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Workspace generation error: {e}") from e
-
-    def generate_skill(self, user_text: str) -> str:
+    def generate_skill(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate a comprehensive AI Skill definition."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
@@ -322,6 +300,10 @@ class WorkerClient:
             {"role": "system", "content": self.skills_generator_prompt},
             {"role": "user", "content": user_text},
         ]
+
+        if context:
+            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
+            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back

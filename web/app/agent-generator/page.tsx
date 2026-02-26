@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { API_BASE } from "@/config";
+import ContextManager from "../components/ContextManager";
 
 export default function AgentGenerator() {
   const [description, setDescription] = useState("");
@@ -102,6 +103,11 @@ export default function AgentGenerator() {
                 {error}
               </div>
             )}
+
+            {/* Context Manager */}
+            <ContextManager
+              onInsertContext={(text) => setDescription(prev => prev + "\n\n---\nContext:\n" + text)}
+            />
           </div>
 
           {/* Right Panel: Output */}
