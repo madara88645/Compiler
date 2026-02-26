@@ -90,6 +90,16 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         await uploadFiles(Array.from(files));
     };
 
+    // Ref for directory input
+    const directoryInputRef = useRef<HTMLInputElement>(null);
+
+    // Handle directory input change
+    const handleDirectorySelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        await uploadFiles(Array.from(files));
+    };
+
     // Upload files to the backend
     const uploadFiles = async (files: File[]) => {
         setIngesting(true);
@@ -250,14 +260,13 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onClick={() => fileInputRef.current?.click()}
                 className={`
                     relative flex flex-col items-center justify-center gap-2 p-4
-                    border-2 border-dashed rounded-xl cursor-pointer
+                    border-2 border-dashed rounded-xl
                     transition-all duration-200
                     ${isDragging
                         ? "border-blue-500 bg-blue-500/10 scale-[1.02]"
-                        : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                        : "border-white/10 bg-white/[0.02]"
                     }
                     ${ingesting ? "pointer-events-none opacity-50" : ""}
                 `}
@@ -266,9 +275,18 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    // Removed specific accept attribute to allow all files, and added webkitdirectory for folders if needed (though tricky with standard input)
-                    // accept=".txt,.md,.py,.js,.ts,.tsx,.json,.yaml,.yml,.html,.css"
                     onChange={handleFileSelect}
+                    className="hidden"
+                />
+
+                <input
+                    ref={directoryInputRef}
+                    type="file"
+                    multiple
+                    // @ts-ignore - webkitdirectory is not in standard types but supported by browsers
+                    webkitdirectory=""
+                    directory=""
+                    onChange={handleDirectorySelect}
                     className="hidden"
                 />
 
@@ -282,12 +300,23 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         <div className={`text-2xl ${isDragging ? "scale-110" : ""} transition-transform`}>
                             📂
                         </div>
-                        <div className="text-xs text-zinc-400 text-center">
-                            <span className="text-blue-400 font-medium">Click to upload</span>
-                            <span className="text-zinc-500"> or drag & drop files/folders</span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors"
+                            >
+                                Upload Files
+                            </button>
+                            <span className="text-xs text-zinc-500">|</span>
+                            <button
+                                onClick={() => directoryInputRef.current?.click()}
+                                className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors"
+                            >
+                                Upload Folder
+                            </button>
                         </div>
-                        <div className="text-[10px] text-zinc-600">
-                            .txt, .md, .py, .js, .ts, .json, .yaml (Project Context)
+                        <div className="text-[10px] text-zinc-600 mt-1">
+                            Or drag & drop (Project Context)
                         </div>
                     </>
                 )}
