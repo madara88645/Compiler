@@ -53,8 +53,10 @@ app.add_middleware(
 
 # --- Register Routers ---
 from app.routers.benchmark import router as benchmark_router  # noqa: E402
+from app.routers.workspace_generator import router as workspace_router  # noqa: E402
 
 app.include_router(benchmark_router)
+app.include_router(workspace_router)
 
 
 # Define endpoint after models are defined
