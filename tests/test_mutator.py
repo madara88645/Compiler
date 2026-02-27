@@ -1,4 +1,6 @@
 import pytest
+from unittest.mock import MagicMock
+from app.llm.base import LLMProvider, LLMResponse
 from app.optimizer.mutator import MutatorAgent
 from app.optimizer.models import OptimizationConfig, Candidate
 from app.optimizer.strategies import (
@@ -98,3 +100,47 @@ class TestMutatorAgent:
         # Should get fallback candidate
         assert len(results) == 1
         assert results[0].mutation_type == "fallback"
+
+
+class TestMutatorSecurity:
+    """Test security-related functionality in MutatorAgent."""
+
+    def test_fix_vulnerabilities_no_provider(self, config, parent):
+        """Verify fix_vulnerabilities returns empty list when no provider is present."""
+        agent = MutatorAgent(config, provider=None)
+        results = agent.fix_vulnerabilities(parent, failures=["injection"])
+        assert results == []
+
+    def test_fix_vulnerabilities_success(self, config, parent):
+        """Verify fix_vulnerabilities handles successful generation."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate.return_value = LLMResponse(
+            content='{"variations": [{"type": "security_patch", "prompt": "Patched prompt"}]}'
+        )
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.fix_vulnerabilities(parent, failures=["injection"])
+
+        assert len(results) == 1
+        assert results[0].prompt_text == "Patched prompt"
+        assert results[0].mutation_type == "security_patch"
+
+    def test_fix_vulnerabilities_provider_exception(self, config, parent):
+        """Verify fix_vulnerabilities handles provider exceptions gracefully."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate.side_effect = Exception("API Error")
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.fix_vulnerabilities(parent, failures=["injection"])
+
+        assert results == []
+
+    def test_fix_vulnerabilities_invalid_json(self, config, parent):
+        """Verify fix_vulnerabilities handles invalid JSON response."""
+        mock_provider = MagicMock(spec=LLMProvider)
+        mock_provider.generate.return_value = LLMResponse(content="Not JSON")
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.fix_vulnerabilities(parent, failures=["injection"])
+
+        assert results == []
