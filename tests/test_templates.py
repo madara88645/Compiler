@@ -93,11 +93,12 @@ def test_registry_load_builtin_templates(builtin_templates_path):
     templates = registry.list_templates()
 
     # Should have at least the templates we created
-    assert len(templates) >= 5
+    assert len(templates) >= 6
     template_ids = {t.id for t in templates}
     assert "code-review" in template_ids
     assert "tutorial-creator" in template_ids
     assert "tech-comparison" in template_ids
+    assert "github-int-failure-fixer" in template_ids
 
 
 def test_registry_filter_by_category(builtin_templates_path):
@@ -218,3 +219,24 @@ def test_tutorial_creator_template_render(builtin_templates_path):
     assert "beginner" in result
     assert "30 minutes" in result
     assert "tutorial" in result.lower()
+
+
+def test_github_int_failure_fixer_template_render(builtin_templates_path):
+    """Test rendering the GitHub Int Failure Fixer built-in template."""
+    registry = TemplateRegistry(builtin_path=builtin_templates_path)
+
+    template = registry.get_template("github-int-failure-fixer")
+    assert template is not None
+
+    result = template.render(
+        {
+            "repo_owner": "octo-org",
+            "repo_name": "compiler-platform",
+            "workflow_id": "ci.yml",
+        }
+    )
+
+    assert "octo-org" in result
+    assert "compiler-platform" in result
+    assert "ci.yml" in result
+    assert "Root cause" in result
