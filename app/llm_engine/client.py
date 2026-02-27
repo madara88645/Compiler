@@ -285,9 +285,19 @@ class WorkerClient:
             {"role": "user", "content": user_text},
         ]
 
+        # Changed: add anti-hallucination guidance so generated examples stay honest when API/library details are unknown.
+        safety_note = (
+            "Reliability requirements for generated markdown:\n"
+            "- Do not invent dependencies, SDKs, or helper libraries that are not explicitly provided in context.\n"
+            "- Do not invent API fields, endpoints, or write operations unless their exact shape is known from context.\n"
+            "- If implementation details are unknown, use pseudo-code with TODO comments instead of pretending certainty.\n"
+            "- Keep the system prompt high-level and practical, and keep the example interaction short and natural."
+        )
+        messages.insert(1, {"role": "system", "content": safety_note})
+
         if context:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(2, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back
