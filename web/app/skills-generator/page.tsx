@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { API_BASE } from "@/config";
+import InfoButton from "../components/InfoButton";
 import ContextManager from "../components/ContextManager";
 
 export default function SkillsGenerator() {
@@ -55,15 +56,21 @@ export default function SkillsGenerator() {
         {/* Header */}
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-gradient-to-br from-yellow-600 to-orange-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-yellow-500/20">
-              ⚡
-            </div>
-            <div>
-              <h1 className="font-semibold text-lg tracking-tight text-white">Skills Generator</h1>
-              <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
-                Capability Architect
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 bg-gradient-to-br from-yellow-600 to-orange-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-yellow-500/20">
+                ⚡
+              </div>
+              <div>
+                <h1 className="font-semibold text-lg tracking-tight text-white">Skills Generator</h1>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                  Capability Architect
+                </div>
               </div>
             </div>
+            <InfoButton
+              title="Skill Generator"
+              description="Describe a capability, and this tool will generate a structured Tool/Skill definition (with input/output schemas) that can be integrated into your AI agents."
+            />
           </div>
         </header>
 
@@ -114,27 +121,27 @@ export default function SkillsGenerator() {
           <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
             {result ? (
               <div className="flex-1 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
-                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                    <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
-                        Skill Definition
-                    </button>
+                <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
+                  <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
+                    Skill Definition
+                  </button>
                 </div>
 
                 <div className="relative flex-1">
-                    <textarea
-                      className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-yellow-500/30"
-                      readOnly
-                      value={result}
-                    />
+                  <textarea
+                    className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-yellow-500/30"
+                    readOnly
+                    value={result}
+                  />
 
-                    <button
-                      onClick={copyToClipboard}
-                      className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
-                      title="Copy to Clipboard"
-                    >
-                      <span className="text-xs font-bold">Copy Markdown</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                    </button>
+                  <button
+                    onClick={copyToClipboard}
+                    className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
+                    title="Copy to Clipboard"
+                  >
+                    <span className="text-xs font-bold">Copy Markdown</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                  </button>
                 </div>
               </div>
             ) : (
