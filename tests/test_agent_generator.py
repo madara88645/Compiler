@@ -40,7 +40,9 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
     # We can use ANY for the context content since it depends on the mock vector db
     from unittest.mock import ANY
 
-    mock_worker_client.generate_agent.assert_called_with("Test Agent", context=ANY)
+    mock_worker_client.generate_agent.assert_called_with(
+        "Test Agent", context=ANY, multi_agent=False
+    )
 
 
 def test_api_generate_agent_endpoint():
@@ -55,4 +57,4 @@ def test_api_generate_agent_endpoint():
 
         assert response.status_code == 200
         assert response.json() == {"system_prompt": "# Mock API Agent"}
-        mock_compiler.generate_agent.assert_called_with("Test Agent Request")
+        mock_compiler.generate_agent.assert_called_with("Test Agent Request", multi_agent=False)
