@@ -49,7 +49,7 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
     compiler.generate_agent("Test Agent")
     compiler.context_strategist.process.assert_called_with("Test Agent")
     mock_worker_client.generate_agent.assert_called_with(
-        "Test Agent", context={"file1.py": "content"}
+        "Test Agent", context={"file1.py": "content"}, multi_agent=False
     )
 
     # Test generate_skill with context
