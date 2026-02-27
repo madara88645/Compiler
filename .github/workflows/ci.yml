@@ -29,6 +29,10 @@ jobs:
         run: |
           pre-commit run --all-files --show-diff-on-failure
 
+      - name: Run CLCD dependency lifecycle report
+        run: |
+          python scripts/check_clcd.py
+
   test:
     name: Test
     needs: lint
