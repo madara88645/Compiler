@@ -27,6 +27,8 @@ type CompileResponse = {
 
 import { API_BASE } from "@/config";
 
+import InfoButton from "./components/InfoButton";
+
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -208,11 +210,17 @@ export default function Home() {
         {/* Header */}
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
-            <div>
-              <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-              <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">AI Optimized</div>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
+              <div>
+                <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">AI Optimized</div>
+              </div>
             </div>
+            <InfoButton
+              title="Prompt Compiler"
+              description="Compiles natural language requests into highly structured, AI-optimized system prompts, user prompts, and execution plans using advanced heuristics and RAG."
+            />
           </div>
 
           <div className="flex items-center gap-4">

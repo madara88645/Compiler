@@ -21,6 +21,9 @@ DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
+AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
+SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
+MULTI_AGENT_PLANNER_PROMPT_PATH = PROMPTS_DIR / "multi_agent_planner.md"
 
 # Timeouts - Much shorter for Groq (300+ tok/s)
 # Allow overriding timeout via env var
@@ -58,6 +61,9 @@ class WorkerClient:
         self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
         self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
+        self.agent_generator_prompt = self._load_prompt(AGENT_GENERATOR_PROMPT_PATH)
+        self.skills_generator_prompt = self._load_prompt(SKILLS_GENERATOR_PROMPT_PATH)
+        self.multi_agent_planner_prompt = self._load_prompt(MULTI_AGENT_PLANNER_PROMPT_PATH)
 
     def _load_prompt(self, path: Path) -> str:
         if not path.exists():
@@ -201,24 +207,6 @@ class WorkerClient:
             except Exception as e:
                 raise RuntimeError(f"Optimization error: {e}") from e
 
-        messages = [
-            {"role": "system", "content": self.optimizer_prompt},
-            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"},
-        ]
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            # json_mode=False because we want raw text back
-            future = executor.submit(self._call_api, messages, 2048, json_mode=False)
-            try:
-                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Optimization timed out after {COACH_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Optimization error: {e}") from e
-
-        return content
-
     def fix_prompt(self, user_text: str) -> LLMFixResponse:
         """Auto-fix prompt using LLM Editor."""
         if self.api_key == "missing_key":
@@ -270,3 +258,85 @@ class WorkerClient:
         except Exception as e:
             print(f"[WorkerClient] Query expansion failed: {e}")
             return {"queries": [user_text]}
+
+    def generate_agent(
+        self,
+        user_text: str,
+        context: Optional[Dict[str, Any]] = None,
+        multi_agent: bool = False,
+    ) -> str:
+        """Generate a comprehensive AI Agent system prompt."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if multi_agent:
+            system_prompt = (
+                self.multi_agent_planner_prompt
+                or "You are an Expert AI Systems Architect. Decompose the task into 2-4 specialized agents. Output in Markdown."
+            )
+        else:
+            system_prompt = (
+                self.agent_generator_prompt
+                or "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
+            )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text},
+        ]
+
+        # Changed: add anti-hallucination guidance so generated examples stay honest when API/library details are unknown.
+        safety_note = (
+            "Reliability requirements for generated markdown:\n"
+            "- Do not invent dependencies, SDKs, or helper libraries that are not explicitly provided in context.\n"
+            "- Do not invent API fields, endpoints, or write operations unless their exact shape is known from context.\n"
+            "- If implementation details are unknown, use pseudo-code with TODO comments instead of pretending certainty.\n"
+            "- Keep the system prompt high-level and practical, and keep the example interaction short and natural."
+        )
+        messages.insert(1, {"role": "system", "content": safety_note})
+
+        if context:
+            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
+            messages.insert(2, {"role": "system", "content": f"Context:\n{ctx_str}"})
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # json_mode=False because we want Markdown text back
+            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
+            try:
+                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+                return content
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Agent generation error: {e}") from e
+
+    def generate_skill(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate a comprehensive AI Skill definition."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+
+        if not self.skills_generator_prompt:
+            # Fallback if file missing
+            self.skills_generator_prompt = "You are an Expert AI Skills Architect. Generate a comprehensive skill definition based on the user request. Output in Markdown."
+
+        messages = [
+            {"role": "system", "content": self.skills_generator_prompt},
+            {"role": "user", "content": user_text},
+        ]
+
+        if context:
+            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
+            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # json_mode=False because we want Markdown text back
+            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
+            try:
+                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+                return content
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(f"Skill generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+            except Exception as e:
+                raise RuntimeError(f"Skill generation error: {e}") from e

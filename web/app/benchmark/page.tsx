@@ -18,6 +18,8 @@ type BenchmarkPayload = {
     improvement_score: number;
 };
 
+import InfoButton from "../components/InfoButton";
+
 export default function BenchmarkPage() {
     const [prompt, setPrompt] = useState("");
     const [loading, setLoading] = useState(false);
@@ -122,11 +124,17 @@ export default function BenchmarkPage() {
                 {/* Header */}
                 <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-gradient-to-br from-amber-600 to-orange-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-amber-500/20 text-xl">⚡</div>
-                        <div>
-                            <h1 className="font-bold text-xl tracking-tight text-white/90">Battle Arena</h1>
-                            <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase">Raw vs Compiled Benchmark</div>
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 bg-gradient-to-br from-amber-600 to-orange-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-amber-500/20 text-xl">⚡</div>
+                            <div>
+                                <h1 className="font-bold text-xl tracking-tight text-white/90">Battle Arena</h1>
+                                <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase">Raw vs Compiled Benchmark</div>
+                            </div>
                         </div>
+                        <InfoButton
+                            title="Benchmark Suite"
+                            description="Run automated tests across multiple LLM models to evaluate the effectiveness and token efficiency of your compiled prompts."
+                        />
                     </div>
 
                     <div className="flex items-center gap-4">

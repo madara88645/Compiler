@@ -33,10 +33,10 @@ _FAST_EMBED_MODEL = None
 #   embeddings(chunk_id INTEGER PRIMARY KEY, dim INTEGER, vec TEXT)  -- vec is JSON list of floats (L2 normalized)
 #   Triggers keep fts in sync with chunks.
 
-DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index_v2.db")
+DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index_v3.db")
 # Force absolute path for debugging Windows environment
 if os.name == "nt":
-    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index_v2.db"
+    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index_v3.db"
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
@@ -95,10 +95,10 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             INSERT INTO fts(rowid, content) VALUES (new.id, new.content);
         END;
         CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
-            INSERT INTO fts(fts, rowid, content) VALUES('delete', old.id, old.content);
+            DELETE FROM fts WHERE rowid = old.id;
         END;
         CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
-            INSERT INTO fts(fts, rowid, content) VALUES('delete', old.id, old.content);
+            DELETE FROM fts WHERE rowid = old.id;
             INSERT INTO fts(rowid, content) VALUES (new.id, new.content);
         END;
         """
