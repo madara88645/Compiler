@@ -14,12 +14,6 @@ from cli.commands.utils import (
     profiles_app,
     export_app,
 )
-from cli.commands.resources import (
-    favorites_app,
-    snippets_app,
-    collections_app,
-    palette_app,
-)
 
 # Main entry point uses core commands
 app = core_app
@@ -36,10 +30,6 @@ app.add_typer(optimize_app, name="optimize")
 # Mount legacy modules
 app.add_typer(plugins_app, name="plugins")
 app.add_typer(export_app, name="export")
-app.add_typer(favorites_app, name="favorites")
-app.add_typer(snippets_app, name="snippets")
-app.add_typer(collections_app, name="collections")
-app.add_typer(palette_app, name="palette")
 app.add_typer(profiles_app, name="profile")
 
 if __name__ == "__main__":
