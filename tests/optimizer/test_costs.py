@@ -3,12 +3,14 @@ from app.optimizer.costs import TokenCounter, PricingModel, CostTracker
 
 # --- TokenCounter Tests ---
 
+
 def test_token_counter_count_known_model():
     text = "Hello, world!"
     # Verify it returns a valid count for a known model
     count = TokenCounter.count(text, "gpt-4o")
     assert isinstance(count, int)
     assert count > 0
+
 
 def test_token_counter_count_unknown_model():
     text = "Hello, world!"
@@ -17,7 +19,9 @@ def test_token_counter_count_unknown_model():
     assert isinstance(count, int)
     assert count > 0
 
+
 # --- PricingModel Tests ---
+
 
 def test_pricing_model_get_rate_known_models():
     # gpt-4o
@@ -41,12 +45,15 @@ def test_pricing_model_get_rate_known_models():
     assert input_rate == 0.5
     assert output_rate == 1.5
 
+
 def test_pricing_model_get_rate_unknown_model():
     input_rate, output_rate = PricingModel.get_rate("unknown-model")
     assert input_rate == 0.0
     assert output_rate == 0.0
 
+
 # --- CostTracker Tests ---
+
 
 def test_cost_tracker_initialization():
     tracker = CostTracker()
@@ -54,6 +61,7 @@ def test_cost_tracker_initialization():
     assert tracker.total_output_tokens == 0
     assert tracker.total_cost == 0.0
     assert tracker.estimated_cost() == 0.0
+
 
 def test_cost_tracker_add_usage():
     tracker = CostTracker()
@@ -76,6 +84,7 @@ def test_cost_tracker_add_usage():
     assert tracker.total_output_tokens == 2_000_000
     # Previous 20.0 + (0.5 + 1.5) = 22.0
     assert tracker.estimated_cost() == pytest.approx(22.0)
+
 
 def test_cost_tracker_unknown_model_usage():
     tracker = CostTracker()
