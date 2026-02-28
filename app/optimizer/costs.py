@@ -35,7 +35,8 @@ class PricingModel:
     def get_rate(cls, model: str) -> Tuple[float, float]:
         """Returns (input_rate, output_rate) per 1M tokens for the model."""
         # Simple fallback for unknown models or specific versions
-        for key in cls.RATES:
+        # Sort keys by length descending so "gpt-4o-mini" matches before "gpt-4o"
+        for key in sorted(cls.RATES.keys(), key=len, reverse=True):
             if model.startswith(key):
                 rate = cls.RATES[key]
                 return rate["input"], rate["output"]
