@@ -171,7 +171,7 @@ class SkillGenResponse(BaseModel):
 
 
 @app.post("/skills-generator/generate", response_model=SkillGenResponse)
-async def generate_skill_endpoint(req: SkillGenRequest):
+def generate_skill_endpoint(req: SkillGenRequest):
     """Generate a comprehensive AI Skill definition."""
     if hybrid_compiler is None:
         raise HTTPException(status_code=503, detail="Compiler not initialized")
@@ -1164,7 +1164,7 @@ class AgentGenResponse(BaseModel):
 
 
 @app.post("/agent-generator/generate", response_model=AgentGenResponse)
-async def generate_agent_endpoint(req: AgentGenRequest):
+def generate_agent_endpoint(req: AgentGenRequest):
     """Generate a comprehensive AI Agent system prompt."""
     if hybrid_compiler is None:
         raise HTTPException(status_code=503, detail="Compiler not initialized")

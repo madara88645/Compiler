@@ -151,22 +151,14 @@ class HybridCompiler:
         """
         Generate a comprehensive AI Agent system prompt, aware of RAG context.
         """
-        try:
-            # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
-            return self.worker.generate_agent(text, context=rag_context, multi_agent=multi_agent)
-        except Exception as e:
-            # Fallback for agent generation
-            return f"# Error\n\nFailed to generate agent: {e}"
+        # Retrieve relevant code context using Agent 6
+        rag_context = self.context_strategist.process(text)
+        return self.worker.generate_agent(text, context=rag_context, multi_agent=multi_agent)
 
     def generate_skill(self, text: str) -> str:
         """
         Generate a comprehensive AI Skill definition, aware of RAG context.
         """
-        try:
-            # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
-            return self.worker.generate_skill(text, context=rag_context)
-        except Exception as e:
-            # Fallback for skill generation
-            return f"# Error\n\nFailed to generate skill: {e}"
+        # Retrieve relevant code context using Agent 6
+        rag_context = self.context_strategist.process(text)
+        return self.worker.generate_skill(text, context=rag_context)

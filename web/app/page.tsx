@@ -218,7 +218,6 @@ export default function Home() {
               </div>
             </div>
             <InfoButton
-              title="Prompt Compiler"
               description="Compiles natural language requests into highly structured, AI-optimized system prompts, user prompts, and execution plans using advanced heuristics and RAG."
             />
           </div>
