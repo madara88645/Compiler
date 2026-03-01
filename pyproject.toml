@@ -16,7 +16,12 @@ dependencies = [
 	"rich==14.2.0",
 	"textual==7.0.1",
 	"pyyaml>=6.0",
-	"ttkbootstrap>=1.10.1"
+	"ttkbootstrap>=1.10.1",
+	"Jinja2>=3.1.0",
+	"tiktoken>=0.7.0",
+	"cachetools>=5.3.3",
+	"sqlalchemy>=2.0.0",
+	"python-dotenv>=1.0.0",
 ]
 
 [tool.setuptools]
@@ -60,6 +65,13 @@ all = [
 	"openai>=1.30.0",
 	"pymupdf>=1.24.0",
 	"python-docx>=1.1.0",
+]
+
+security = [
+	"h11>=0.16.0",
+	"anyio>=4.4.0",
+	"zipp>=3.19.1",
+	"pillow>=10.3.0",
 ]
 
 [build-system]
