@@ -1,9 +1,10 @@
-from rich.console import Console
 from typer.testing import CliRunner
-
+from rich.console import Console
 from cli.commands.core import app
 import cli.commands.core
+
 runner = CliRunner()
+
 
 def test_fix_command_console_usage():
     """Test that the fix command runs without error and produces output,
@@ -33,6 +34,7 @@ def test_fix_command_console_usage():
 
     finally:
         cli.commands.core.console = original_console
+
 
 def test_compare_command_console_usage():
     """Test that the compare command runs without error and produces output,

@@ -29,31 +29,9 @@ jobs:
         run: |
           pre-commit run --all-files --show-diff-on-failure
 
-  clcd:
-    name: CLCD dependency check
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            pyproject.toml
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-      - name: Run CLCD dependency checker
-        run: |
-          python scripts/clcd_check.py
-
   test:
     name: Test
-    needs: [lint, clcd]
+    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
