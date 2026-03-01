@@ -60,6 +60,17 @@ def load_python_declared() -> set[str]:
     return {_normalize_pkg_name(dep) for dep in deps}
 
 
+def load_python_declared_all() -> set[str]:
+    """Like load_python_declared but also includes optional-dependencies extras."""
+    pyproject = ROOT / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    project = data.get("project", {})
+    deps = list(project.get("dependencies", []))
+    for extra_deps in project.get("optional-dependencies", {}).values():
+        deps.extend(extra_deps)
+    return {_normalize_pkg_name(dep) for dep in deps}
+
+
 def load_python_requirements() -> set[str]:
     req = ROOT / "requirements.txt"
     out: set[str] = set()
@@ -112,11 +123,12 @@ def build_issues() -> list[Issue]:
     issues: list[Issue] = []
 
     declared = load_python_declared()
+    declared_all = load_python_declared_all()
     required = load_python_requirements()
     installed = load_python_installed()
 
     only_pyproject = sorted(declared - required)
-    only_requirements = sorted(required - declared)
+    only_requirements = sorted(required - declared_all)
 
     issue_id = 1
     if only_pyproject:
@@ -163,7 +175,8 @@ def build_issues() -> list[Issue]:
             Issue(
                 issue_id,
                 "Low",
-                "Dependencies duplicated in both dependencies and devDependencies: " + ", ".join(sorted(overlap)),
+                "Dependencies duplicated in both dependencies and devDependencies: "
+                + ", ".join(sorted(overlap)),
                 "Keep each package in a single section to avoid ambiguous lifecycle ownership.",
             )
         )
