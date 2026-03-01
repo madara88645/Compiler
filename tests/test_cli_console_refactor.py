@@ -1,8 +1,8 @@
-from typer.testing import CliRunner
 from rich.console import Console
+from typer.testing import CliRunner
+
 from cli.commands.core import app
 import cli.commands.core
-
 runner = CliRunner()
 
 def test_fix_command_console_usage():
