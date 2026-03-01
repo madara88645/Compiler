@@ -48,9 +48,23 @@ HEURISTIC_VERSION = "1.0.0"
 HEURISTIC2_VERSION = "2.0.0"
 
 app = typer.Typer(help="Core compiler and utility commands")
-console = Console()
 
 
+class DynamicConsole:
+    """
+    Lightweight proxy that creates a new rich.Console bound to the current
+    sys.stdout/sys.stderr on each use. This avoids binding the console to
+    whatever stdout was active at import time (which breaks output capture
+    and redirection in tools like typer.testing.CliRunner).
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        # Create a new Console each time, so it picks up the current sys.stdout.
+        _console = Console()
+        return getattr(_console, name)
+
+
+console = DynamicConsole()
 def _write_output(
     content: str, out: Optional[Path], out_dir: Optional[Path], default_name: str = "output.txt"
 ):
