@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tiktoken
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 
 class TokenCounter:
@@ -31,11 +31,23 @@ class PricingModel:
         "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
     }
 
+    # Cache sorted keys for efficient prefix matching (longest first)
+    _SORTED_KEYS: List[str] = sorted(RATES.keys(), key=len, reverse=True)
+
     @classmethod
     def get_rate(cls, model: str) -> Tuple[float, float]:
         """Returns (input_rate, output_rate) per 1M tokens for the model."""
-        # Simple fallback for unknown models or specific versions
-        for key in cls.RATES:
+        # Check longest matching prefix first to handle cases like "gpt-4o" vs "gpt-4o-mini"
+        # We use a cached sorted list to avoid sorting on every call, but we must
+        # fall back to sorting if _SORTED_KEYS is not consistent with RATES (e.g. during tests/mocking)
+
+        keys_to_check = cls._SORTED_KEYS
+
+        # If the keys have changed (e.g. due to mocking in tests), re-sort them
+        if set(keys_to_check) != set(cls.RATES.keys()):
+            keys_to_check = sorted(cls.RATES.keys(), key=len, reverse=True)
+
+        for key in keys_to_check:
             if model.startswith(key):
                 rate = cls.RATES[key]
                 return rate["input"], rate["output"]
