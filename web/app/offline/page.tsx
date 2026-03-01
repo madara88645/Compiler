@@ -5,6 +5,8 @@ import ContextManager from "../components/ContextManager";
 import QualityCoach from "../components/QualityCoach";
 import { API_BASE } from "@/config";
 
+import InfoButton from "../components/InfoButton";
+
 type CompileResponse = {
     system_prompt: string;
     user_prompt: string;
@@ -73,11 +75,17 @@ export default function OfflinePage() {
                 {/* Header */}
                 <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md">
                     <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
-                        <div>
-                            <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
-                            <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
+                            <div>
+                                <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
+                                <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
+                            </div>
                         </div>
+                        <InfoButton
+                            title="Offline Compiler"
+                            description="A fast, local-only version of the Prompt Compiler that uses deterministic heuristics instead of an LLM. It's secure, instant, and requires no API keys."
+                        />
                     </div>
 
                     <div className="flex items-center gap-4">

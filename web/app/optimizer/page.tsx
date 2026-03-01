@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { API_BASE } from "@/config";
 
+import InfoButton from "../components/InfoButton";
+
 export default function OptimizerPage() {
     const [input, setInput] = useState("");
     const [output, setOutput] = useState("");
@@ -42,11 +44,17 @@ export default function OptimizerPage() {
     return (
         <div className="h-full flex flex-col p-6 max-w-6xl mx-auto gap-6 animate-fade-in">
             <header className="flex items-center justify-between border-b border-white/5 pb-4">
-                <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                        Token Optimizer
-                    </h1>
-                    <p className="text-sm text-zinc-500">Reduce LLM costs without losing meaning.</p>
+                <div className="flex items-center gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                            Token Optimizer
+                        </h1>
+                        <p className="text-sm text-zinc-500">Reduce LLM costs without losing meaning.</p>
+                    </div>
+                    <InfoButton
+                        title="Prompt Optimizer"
+                        description="Deterministically shortens your prompts while preserving the core intent and constraints, reducing token usage and cost."
+                    />
                 </div>
 
                 {/* Controls */}

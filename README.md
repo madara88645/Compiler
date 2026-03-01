@@ -15,13 +15,32 @@
 
 ## 🚀 Key Features
 
-### 🧠 AI Model Integration
-The engine now uses **LLM** to analyze your intent. It automatically generates:
+### 🧠 Core Prompt Compiler
+The engine uses **LLM** to analyze your intent. It automatically generates:
 - **System Prompts**: Expertly crafted personas and constraints.
 - **User Prompts**: Structured and clear task definitions.
 - **Execution Plans**: Step-by-step logic for complex tasks.
+- **Expanded Prompts**: A combined, unified prompt ready to inject into your LLM.
 
-### 🎨 Modern Web UI (New!)
+### 🤖 Multi-Agent Generator (New!)
+Skip the manual prompt engineering for complex autonomous systems. The **Agent Generator** allows you to describe a role or task, and it will architect a comprehensive, constraint-driven system prompt for an autonomous AI agent or a multi-agent swarm.
+- **Constraint Handling**: Automatically builds bulletproof boundary conditions.
+- **Multi-Agent Flag**: Toggle between a single specialized worker or a cooperative swarm architect.
+
+<p align="center">
+  <img src="docs/images/agent_generator.png" alt="Agent Generator" width="80%">
+</p>
+
+### 🎯 Skill & Tool Generator (New!)
+Describe a capability, and the **Skill Generator** will translate it into a structured Tool/Skill definition.
+- Automatically generates **Input Schema** and **Output Schema** in valid JSON.
+- Provides a detailed stringified structure ready to be plugged into LangChain, OpenAI functions, or your custom agent framework.
+
+<p align="center">
+  <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
+</p>
+
+### 🎨 Modern Web UI
 A premium Next.js 14 + TailwindCSS interface:
 - **Clean Layout**: A split-screen editor aimed at focus.
 - **Live Mode**: Auto-compiles your prompt as you type.
@@ -39,17 +58,17 @@ Save money and context window space. The **"Magic Optimize"** feature uses AI to
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
 </p>
 
-### ⚡ Benchmark Playground (New!)
+### ⚡ Benchmark Playground
 A dedicated **Arena** to A/B test your prompts.
 - **Raw vs. Compiled**: Compare how a raw prompt performs against the compiler-optimized version.
 - **Auto-Judge**: Real-time scoring of response quality, relevance, and clarity.
-- **Visual Metrics**: See improvement percentages and detailed breakdowns side-by-side.
+- **Visual Metrics**: See improvement percentages and detailed breakdowns side-by-side using dynamic Radar Charts.
 
 <p align="center">
   <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
 </p>
 
-### 📚 RAG & Knowledge Base (New v2.1!)
+### 📚 RAG & Knowledge Base
 Your prompts shouldn't live in a vacuum. **Upload your project files** (PDF, MD, TXT, Code) and let the AI understand your world.
 
 *   **Context Manager**: Drag & drop your "Brand Guidelines", "API Documentation", or "Game Lore" files directly into the UI.
@@ -102,32 +121,25 @@ Your prompts shouldn't live in a vacuum. **Upload your project files** (PDF, MD,
 
 ## 🧩 Workflow
 
-1. **Type your idea** in the "Input" box.
+1. **Type your idea** in the "Input" box on any of the specific tool pages.
    * *Example: "Create a python script to scrape data from a website, handle errors, and save to CSV."*
-2. **Click "Generate"** or enable **Live Mode**.
-   * The LLM will analyze your intent and produce a structured prompt.
+2. **Click "Generate"** or enable **Live Mode** (on the Main Compiler).
+   * The LLM will analyze your intent and produce a structured prompt, agent, or skill.
 3. **Review**:
-   * **System**: The persona and constraints.
-   * **Plan**: The step-by-step logic.
-   * **Expanded**: The final combined prompt ready for use.
+   * Navigate through the contextual tabs (System, User, Plan, Expanded).
 4. **Copy**:
-   * Click the "Copy" icon in the output area.
+   * Click the "Copy" icon in the output area to instantly copy the artifact.
 
 ---
 
 ## 📦 Project Structure
 
-* `web/`: **Frontend**. Next.js 14, React, TailwindCSS.
-* `api/`: **Backend**. FastAPI, Pydantic, Uvicorn.
-* `app/llm_engine/`: **Intelligence**. DeepSeek client, HybridCompiler.
+* `web/`: **Frontend**. Next.js 14, React, TailwindCSS. Contains all tool pages (`/agent-generator`, `/skills-generator`, `/benchmark`, etc).
+* `api/`: **Backend**. FastAPI, Pydantic, Uvicorn endpoints.
+* `app/llm_engine/`: **Intelligence**. LLM logic, HybridCompiler, and worker classes.
 * `start_app.bat`: **Launcher**. Convenience script for dev environment.
-* `app/heuristics/`: **Safety Net**. Local algorithms for risk detection and offline analysis.
+* `app/heuristics/`: **Safety Net**. Local algorithms for risk detection and offline heuristics parsing.
 
----
-
-
-
----
 ---
 
 ## 📄 License
