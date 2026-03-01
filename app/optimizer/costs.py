@@ -43,10 +43,9 @@ class PricingModel:
 
         keys_to_check = cls._SORTED_KEYS
 
-        # If the keys have changed (e.g. due to mocking in tests), re-sort and update the cache
+        # If the keys have changed (e.g. due to mocking in tests), re-sort them
         if set(keys_to_check) != set(cls.RATES.keys()):
             keys_to_check = sorted(cls.RATES.keys(), key=len, reverse=True)
-            cls._SORTED_KEYS = keys_to_check
 
         for key in keys_to_check:
             if model.startswith(key):
