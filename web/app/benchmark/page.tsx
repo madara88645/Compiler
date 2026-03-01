@@ -132,7 +132,6 @@ export default function BenchmarkPage() {
                             </div>
                         </div>
                         <InfoButton
-                            title="Benchmark Suite"
                             description="Run automated tests across multiple LLM models to evaluate the effectiveness and token efficiency of your compiled prompts."
                         />
                     </div>

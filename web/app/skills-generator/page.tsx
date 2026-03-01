@@ -68,7 +68,6 @@ export default function SkillsGenerator() {
               </div>
             </div>
             <InfoButton
-              title="Skill Generator"
               description="Describe a capability, and this tool will generate a structured Tool/Skill definition (with input/output schemas) that can be integrated into your AI agents."
             />
           </div>

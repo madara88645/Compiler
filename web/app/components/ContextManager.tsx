@@ -14,6 +14,9 @@ type ContextManagerProps = {
     suggestions?: { path: string; name: string; reason: string }[];
 };
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB per file
+const ALLOWED_EXTENSIONS = /\.(txt|md|py|js|ts|tsx|jsx|json|yaml|yml|toml|ini|cfg|conf|sh|bash|zsh|html|css|scss|rs|go|java|cpp|c|h|cs|rb|php|swift|kt|sql|xml|env|gitignore|dockerfile)$/i;
+
 export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
     const [ingesting, setIngesting] = useState(false);
     const [searching, setSearching] = useState(false);
@@ -107,8 +110,19 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
 
         let totalChunks = 0;
         let successCount = 0;
+        const skipped: string[] = [];
 
         for (const file of files) {
+            if (!ALLOWED_EXTENSIONS.test(file.name)) {
+                console.warn(`Skipping unsupported file type: ${file.name}`);
+                skipped.push(`${file.name} (unsupported type)`);
+                continue;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+                console.warn(`Skipping file too large (>${MAX_FILE_SIZE / 1024 / 1024} MB): ${file.name}`);
+                skipped.push(`${file.name} (too large)`);
+                continue;
+            }
             try {
                 const content = await file.text();
 
@@ -134,7 +148,11 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             }
         }
 
-        setStatus(`✓ Indexed ${successCount}/${files.length} files (${totalChunks} chunks)`);
+        let statusMsg = `✓ Indexed ${successCount}/${files.length} files (${totalChunks} chunks)`;
+        if (skipped.length > 0) {
+            statusMsg += ` — skipped: ${skipped.join(", ")}`;
+        }
+        setStatus(statusMsg);
         setIngesting(false);
 
         // Reset file input
@@ -285,6 +303,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     multiple
                     // @ts-ignore - webkitdirectory is not in standard types but supported by browsers
                     webkitdirectory=""
+                    // @ts-ignore - directory is also a non-standard but supported attribute
                     directory=""
                     onChange={handleDirectorySelect}
                     className="hidden"

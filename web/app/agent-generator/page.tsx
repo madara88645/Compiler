@@ -69,7 +69,6 @@ export default function AgentGenerator() {
               </div>
             </div>
             <InfoButton
-              title="Agent Generator"
               description="Define a role or task, and this tool will architect a comprehensive, constraint-driven system prompt for an autonomous AI agent or multi-agent swarm."
             />
           </div>
@@ -95,12 +94,16 @@ export default function AgentGenerator() {
             </div>
 
             <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-              <div
+              <button
+                type="button"
                 onClick={() => setMultiAgent(!multiAgent)}
+                role="switch"
+                aria-checked={multiAgent}
+                aria-label="Toggle multi-agent swarm"
                 className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${multiAgent ? 'bg-green-500' : 'bg-zinc-700'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${multiAgent ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
+              </button>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
                 <span className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>

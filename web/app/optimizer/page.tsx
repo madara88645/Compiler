@@ -52,7 +52,6 @@ export default function OptimizerPage() {
                         <p className="text-sm text-zinc-500">Reduce LLM costs without losing meaning.</p>
                     </div>
                     <InfoButton
-                        title="Prompt Optimizer"
                         description="Deterministically shortens your prompts while preserving the core intent and constraints, reducing token usage and cost."
                     />
                 </div>

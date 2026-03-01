@@ -34,9 +34,6 @@ _FAST_EMBED_MODEL = None
 #   Triggers keep fts in sync with chunks.
 
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_index_v3.db")
-# Force absolute path for debugging Windows environment
-if os.name == "nt":
-    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_index_v3.db"
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200

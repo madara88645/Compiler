@@ -83,7 +83,6 @@ export default function OfflinePage() {
                             </div>
                         </div>
                         <InfoButton
-                            title="Offline Compiler"
                             description="A fast, local-only version of the Prompt Compiler that uses deterministic heuristics instead of an LLM. It's secure, instant, and requires no API keys."
                         />
                     </div>

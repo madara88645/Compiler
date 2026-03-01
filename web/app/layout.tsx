@@ -27,7 +27,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning
       >
         <div className="flex h-screen bg-[#050505] text-zinc-300 overflow-hidden">
           {/* Sidebar Navigation */}
