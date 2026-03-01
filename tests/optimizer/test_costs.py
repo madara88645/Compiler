@@ -19,9 +19,9 @@ class TestPricingModel:
         }
 
         with patch.dict(PricingModel.RATES, mock_rates_data, clear=True):
-             # We clear _SORTED_KEYS to force regeneration or test the re-sort logic
-             # In the implementation, if keys differ, it re-sorts.
-             yield
+            # We clear _SORTED_KEYS to force regeneration or test the re-sort logic
+            # In the implementation, if keys differ, it re-sorts.
+            yield
 
     @pytest.mark.parametrize(
         "model, expected_input, expected_output",
@@ -31,16 +31,13 @@ class TestPricingModel:
             ("gpt-4o-mini", 0.15, 0.6),
             ("test-model", 1.0, 2.0),
             ("test-model-v2", 3.0, 4.0),
-
             # Prefix matches
             ("gpt-4o-2024-05-13", 5.0, 15.0),
             ("gpt-3.5-turbo-0125", 0.5, 1.5),
             ("test-model-suffix", 1.0, 2.0),
-
             # Unknown models
             ("unknown-model", 0.0, 0.0),
             ("gpt-5", 0.0, 0.0),
-
             # Edge cases
             ("", 0.0, 0.0),
         ],
