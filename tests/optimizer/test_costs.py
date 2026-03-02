@@ -19,6 +19,7 @@ class TestTokenCounter:
 
         # We can also compare it to an explicit cl100k_base encoding count to be sure
         import tiktoken
+
         encoding = tiktoken.get_encoding("cl100k_base")
         expected_count = len(encoding.encode(text))
         assert count == expected_count
@@ -123,7 +124,9 @@ class TestCostTracker:
     def test_add_usage_unknown_model_fallback(self):
         # Do not mock PricingModel.get_rate, so we test the actual fallback logic returning (0.0, 0.0)
         tracker = CostTracker()
-        tracker.add_usage(input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback")
+        tracker.add_usage(
+            input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback"
+        )
 
         assert tracker.total_input_tokens == 1_000_000
         assert tracker.total_output_tokens == 1_000_000
