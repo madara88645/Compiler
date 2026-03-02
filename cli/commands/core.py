@@ -48,6 +48,7 @@ HEURISTIC_VERSION = "1.0.0"
 HEURISTIC2_VERSION = "2.0.0"
 
 app = typer.Typer(help="Core compiler and utility commands")
+console = Console()
 
 
 def _write_output(
@@ -519,7 +520,6 @@ def fix_prompt_command(
         typer.echo(output)
     else:
         # Rich formatted output
-        console = Console()
 
         # Show report
         report = explain_fixes(result)
@@ -570,7 +570,6 @@ def compare_command(
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Save comparison to file"),
 ):
     """Compare two prompts side by side."""
-    console = Console()
 
     # Load prompts (file or direct text)
     def load_prompt(text_or_file: str) -> str:

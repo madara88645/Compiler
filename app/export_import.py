@@ -21,9 +21,6 @@ DataType = Literal["history", "favorites", "all"]
 console = Console()
 
 
-console = Console()
-
-
 class ExportImportManager:
     """Manages export and import operations for prompts, favorites, and history (LEGACY/STUB)."""
 

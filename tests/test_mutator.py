@@ -1,4 +1,6 @@
 import pytest
+import json
+from unittest.mock import MagicMock
 from app.optimizer.mutator import MutatorAgent
 from app.optimizer.models import OptimizationConfig, Candidate
 from app.optimizer.strategies import (
@@ -7,6 +9,7 @@ from app.optimizer.strategies import (
     PersonaStrategy,
     get_strategy,
 )
+from app.llm.base import LLMResponse
 
 
 @pytest.fixture
@@ -98,3 +101,46 @@ class TestMutatorAgent:
         # Should get fallback candidate
         assert len(results) == 1
         assert results[0].mutation_type == "fallback"
+
+    def test_director_feedback_success(self, config, parent):
+        """Verify director feedback successfully parses variations."""
+        mock_provider = MagicMock()
+        response_content = {
+            "variations": [
+                {"type": "director_literal", "prompt": "Literal variation"},
+                {"type": "director_creative", "prompt": "Creative variation"},
+            ]
+        }
+        mock_provider.generate.return_value = LLMResponse(content=json.dumps(response_content))
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.apply_director_feedback(parent, "Make it better")
+
+        assert len(results) == 2
+        assert results[0].mutation_type == "director_literal"
+        assert results[0].prompt_text == "Literal variation"
+        assert results[1].mutation_type == "director_creative"
+        assert results[1].prompt_text == "Creative variation"
+
+    def test_director_feedback_failure(self, config, parent):
+        """Verify fallback when director feedback generation fails."""
+        mock_provider = MagicMock()
+        mock_provider.generate.side_effect = Exception("API Error")
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.apply_director_feedback(parent, "Make it better")
+
+        assert len(results) == 1
+        assert results[0].mutation_type == "director_feedback_fallback"
+        assert "Applied Feedback: Make it better" in results[0].prompt_text
+
+    def test_director_feedback_invalid_json(self, config, parent):
+        """Verify fallback when director feedback returns invalid JSON."""
+        mock_provider = MagicMock()
+        mock_provider.generate.return_value = LLMResponse(content="Invalid JSON")
+
+        agent = MutatorAgent(config, provider=mock_provider)
+        results = agent.apply_director_feedback(parent, "Make it better")
+
+        assert len(results) == 1
+        assert results[0].mutation_type == "director_feedback_fallback"
