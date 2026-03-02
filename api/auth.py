@@ -65,8 +65,15 @@ def verify_api_key(
 
         # Debugging mismatch (only prints to server logs)
         print("[AUTH ERROR] Admin Key Mismatch.")
-        print(f"[AUTH ERROR] Env Key (len={len(admin_key)}): {repr(admin_key)}")
-        print(f"[AUTH ERROR] Recv Key (len={len(api_key)}): {repr(api_key)}")
+
+        # Redact keys for logging
+        def redact(k: str) -> str:
+            if not k: return "Empty"
+            if len(k) <= 4: return "***"
+            return k[:3] + "***"
+
+        print(f"[AUTH ERROR] Env Key (len={len(admin_key)}): {redact(admin_key)}")
+        print(f"[AUTH ERROR] Recv Key (len={len(api_key)}): {redact(api_key)}")
     else:
         # Debugging missing key
         print("[AUTH DEBUG] ADMIN_API_KEY not found in environment or is empty.")
