@@ -37,6 +37,9 @@ class TestTokenCounter:
             mock_get_encoding.assert_called_once_with("cl100k_base")
             mock_encoding.encode.assert_called_once_with(text)
             assert count == 3
+        # This will fallback to cl100k_base encoding
+        count = TokenCounter.count(text, "unknown-model-xyz")
+        assert count > 0
 
 
 class TestCostTracker:
@@ -155,3 +158,35 @@ class TestPricingModel:
         input_rate, output_rate = PricingModel.get_rate("test-model-v2")
         assert input_rate == 3.0
         assert output_rate == 4.0
+
+
+class TestCostTracker:
+    @pytest.fixture(autouse=True)
+    def mock_rates(self):
+        mock_rates_data = {
+            "gpt-4o": {"input": 5.0, "output": 15.0},
+        }
+        with patch.dict(PricingModel.RATES, mock_rates_data, clear=True):
+            yield
+
+    def test_add_usage_known_model(self):
+        tracker = CostTracker()
+        tracker.add_usage(1_000_000, 2_000_000, "gpt-4o")
+
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 2_000_000
+
+        # input: (1M / 1M) * 5.0 = 5.0
+        # output: (2M / 1M) * 15.0 = 30.0
+        # total: 35.0
+        assert tracker.estimated_cost() == 35.0
+
+    def test_add_usage_unknown_model(self):
+        tracker = CostTracker()
+        tracker.add_usage(1_000_000, 1_000_000, "unknown-model")
+
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 1_000_000
+
+        # Falls back to 0.0 rate
+        assert tracker.estimated_cost() == 0.0
