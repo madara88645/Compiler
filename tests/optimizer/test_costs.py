@@ -1,16 +1,22 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from app.optimizer.costs import CostTracker, PricingModel, TokenCounter
 
 
 class TestTokenCounter:
-    def test_count_known_model(self):
+    @patch("tiktoken.get_encoding")
+    @patch("tiktoken.encoding_for_model")
+    def test_count_known_model(self, mock_encoding_for_model, mock_get_encoding):
+        mock_encoding_for_model.return_value.encode.return_value = [1, 2, 3, 4]
+
         text = "Hello, world!"
-        # "Hello, world!" encodes to something small.
-        # Use gpt-4o as a known model
         count = TokenCounter.count(text, "gpt-4o")
-        # Let's ensure it's > 0.
-        assert count > 0
+
+        mock_encoding_for_model.assert_called_once_with("gpt-4o")
+        mock_get_encoding.assert_not_called()
+        assert count == 4
 
     @patch("tiktoken.encoding_for_model")
     @patch("tiktoken.get_encoding")
