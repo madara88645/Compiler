@@ -5,12 +5,6 @@ from rich import print
 from typing import Optional
 from pathlib import Path
 
-# Optional YAML support
-try:
-    import yaml  # type: ignore
-except Exception:
-    yaml = None  # type: ignore
-
 # Imports from app
 from app.plugins import describe_plugins
 from app.settings_profiles import (
