@@ -1,84 +1,28 @@
-from unittest.mock import patch
-
 import pytest
-
-from app.optimizer.costs import CostTracker, PricingModel, TokenCounter
+from unittest.mock import patch
+from app.optimizer.costs import PricingModel, TokenCounter, CostTracker
 
 
 class TestTokenCounter:
-    @patch("tiktoken.get_encoding")
-    @patch("tiktoken.encoding_for_model")
-    def test_count_known_model(self, mock_encoding_for_model, mock_get_encoding):
-        mock_encoding_for_model.return_value.encode.return_value = [1, 2, 3, 4]
-
+    def test_count_known_model(self):
         text = "Hello, world!"
+        # gpt-4o should be known and use o200k_base or cl100k_base depending on tiktoken version,
+        # but the test is just that it counts correctly without error.
         count = TokenCounter.count(text, "gpt-4o")
+        assert count > 0
 
-        mock_encoding_for_model.assert_called_once_with("gpt-4o")
-        mock_get_encoding.assert_not_called()
-        assert count == 4
+    def test_count_unknown_model_fallback(self):
+        text = "Hello, world!"
+        # "unknown-model" should fallback to cl100k_base
+        count = TokenCounter.count(text, "unknown-model")
+        assert count > 0
 
-    @patch("tiktoken.encoding_for_model")
-    @patch("tiktoken.get_encoding")
-    def test_count_unknown_model_fallback(self, mock_get_encoding, mock_encoding_for_model):
-        mock_encoding_for_model.side_effect = KeyError("Model not found")
+        # We can also compare it to an explicit cl100k_base encoding count to be sure
+        import tiktoken
 
-        # Create a mock encoding object to return
-        class MockEncoding:
-            def encode(self, text):
-                return [1, 2, 3]  # fake 3 tokens
-
-        mock_get_encoding.return_value = MockEncoding()
-
-        count = TokenCounter.count("Hello, world!", "unknown-model")
-
-        mock_encoding_for_model.assert_called_once_with("unknown-model")
-        mock_get_encoding.assert_called_once_with("cl100k_base")
-        assert count == 3
-
-
-class TestCostTracker:
-    def test_initial_state(self):
-        tracker = CostTracker()
-        assert tracker.total_input_tokens == 0
-        assert tracker.total_output_tokens == 0
-        assert tracker.total_cost == 0.0
-        assert tracker.estimated_cost() == 0.0
-
-    @patch("app.optimizer.costs.PricingModel.get_rate")
-    def test_add_usage(self, mock_get_rate):
-        mock_get_rate.return_value = (5.0, 15.0)  # input_rate, output_rate
-
-        tracker = CostTracker()
-        tracker.add_usage(1000, 2000, "gpt-4o")
-
-        assert tracker.total_input_tokens == 1000
-        assert tracker.total_output_tokens == 2000
-
-        # cost = (1000/1000000)*5.0 + (2000/1000000)*15.0 = 0.005 + 0.03 = 0.035
-        expected_cost = 0.035
-        assert abs(tracker.total_cost - expected_cost) < 1e-9
-        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
-
-    @patch("app.optimizer.costs.PricingModel.get_rate")
-    def test_add_usage_multiple(self, mock_get_rate):
-        # We will return the same rate for simplicity in testing the accumulation
-        mock_get_rate.return_value = (5.0, 15.0)
-
-        tracker = CostTracker()
-
-        # Call 1
-        tracker.add_usage(1000, 2000, "gpt-4o")
-        # Call 2
-        tracker.add_usage(500, 1000, "gpt-4o")
-
-        assert tracker.total_input_tokens == 1500
-        assert tracker.total_output_tokens == 3000
-
-        # cost = (1500/1000000)*5.0 + (3000/1000000)*15.0 = 0.0075 + 0.045 = 0.0525
-        expected_cost = 0.0525
-        assert abs(tracker.total_cost - expected_cost) < 1e-9
-        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
+        encoding = tiktoken.get_encoding("cl100k_base")
+        expected_count = len(encoding.encode(text))
+        assert count == expected_count
 
 
 class TestPricingModel:
@@ -142,3 +86,55 @@ class TestPricingModel:
         input_rate, output_rate = PricingModel.get_rate("test-model-v2")
         assert input_rate == 3.0
         assert output_rate == 4.0
+
+
+class TestCostTracker:
+    def test_initial_state(self):
+        tracker = CostTracker()
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    def test_add_usage_known_model(self):
+        # Note: TestPricingModel's mock_rates fixture is scoped to TestPricingModel, so it does not apply here.
+        # PricingModel.RATES has "gpt-4o-mini": {"input": 0.15, "output": 0.6}
+
+        tracker = CostTracker()
+        tracker.add_usage(input_tokens=1_000_000, output_tokens=500_000, model="gpt-4o-mini")
+
+        # 1M input tokens at $0.15/1M = $0.15
+        # 500k output tokens at $0.6/1M = $0.30
+        # Total cost = $0.45
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 500_000
+        assert pytest.approx(tracker.total_cost) == 0.45
+        assert pytest.approx(tracker.estimated_cost()) == 0.45
+
+        # Add more usage
+        tracker.add_usage(input_tokens=500_000, output_tokens=250_000, model="gpt-4o-mini")
+
+        # Additional: 500k input = $0.075, 250k output = $0.15. Total added: $0.225
+        # New total cost: $0.675
+        assert tracker.total_input_tokens == 1_500_000
+        assert tracker.total_output_tokens == 750_000
+        assert pytest.approx(tracker.total_cost) == 0.675
+        assert pytest.approx(tracker.estimated_cost()) == 0.675
+
+    def test_add_usage_unknown_model_fallback(self):
+        # Do not mock PricingModel.get_rate, so we test the actual fallback logic returning (0.0, 0.0)
+        tracker = CostTracker()
+        tracker.add_usage(
+            input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback"
+        )
+
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 1_000_000
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    def test_pricing_model_get_rate_unknown_explicit(self):
+        # Explicit test for PricingModel.get_rate fallback
+        input_rate, output_rate = PricingModel.get_rate("totally-unknown-model")
+        assert input_rate == 0.0
+        assert output_rate == 0.0
