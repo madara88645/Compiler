@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Dict
+from typing import List, Literal, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
 from app.models_v2 import IRv2, DiagnosticItem
@@ -62,7 +62,7 @@ class LLMFixResponse(BaseModel):
 
 
 class Improvement(BaseModel):
-    id: str = Field(..., description="Stable identifier for the improvement")
+    id: str = Field(..., description="Ephemeral identifier for this improvement (unique within a single analysis run, not stable across runs)")
     title: str = Field(..., description="Short label for the improvement")
     description: str = Field(..., description="Detailed description of what to change and why")
     severity: Literal["low", "medium", "high"] = Field(..., description="Severity of the issue")
@@ -116,7 +116,19 @@ class SwarmAnalysisReport(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class AgentDefinition(BaseModel):
+    """Schema for an individual agent in a swarm definition."""
+
+    role: str = Field(..., description="The role of the agent (e.g., 'planner', 'executor')")
+    prompt: str = Field(..., description="The system prompt for the agent")
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional additional metadata for the agent"
+    )
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class SwarmAnalysisRequest(BaseModel):
-    agents: List[Dict] = Field(..., description="List of generated agent definitions (dicts with 'role', 'prompt', etc.)")
+    agents: List[AgentDefinition] = Field(..., description="List of generated agent definitions")
     original_description: str = Field(..., description="User's original task request")
     run_tests: bool = Field(default=True, description="Whether to run synthetic test scenarios")

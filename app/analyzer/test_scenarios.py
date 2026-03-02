@@ -34,7 +34,7 @@ class TestScenariosGenerator:
             if isinstance(scenarios, list) and all(isinstance(i, str) for i in scenarios):
                 return scenarios
             elif isinstance(scenarios, dict) and "scenarios" in scenarios:
-                 return scenarios["scenarios"]
+                return scenarios["scenarios"]
         except Exception as e:
             print(f"Error generating test scenarios: {e}")
 
@@ -61,7 +61,7 @@ class TestScenariosGenerator:
 
         # Heuristic test: Conflict resolution
         if not any("validator" in r or "reviewer" in r or "critic" in r for r in roles):
-             failure_modes.append("Missing conflict resolution: No validator role identified to catch errors.")
+            failure_modes.append("Missing conflict resolution: No validator role identified to catch errors.")
 
         # Simulate execution for one complex scenario to see if the LLM thinks they can handle it
         scenario_to_test = scenarios[0] if scenarios else "General task execution"
