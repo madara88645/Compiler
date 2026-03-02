@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal, Optional, Dict
 from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
 from app.models_v2 import IRv2, DiagnosticItem
@@ -54,3 +54,69 @@ class LLMFixResponse(BaseModel):
     changes: List[str] = Field(default_factory=list, description="List of specific changes applied")
 
     model_config = ConfigDict(extra="ignore")
+
+
+# ============================================================================
+# Swarm Analyzer Schemas
+# ============================================================================
+
+
+class Improvement(BaseModel):
+    id: str = Field(..., description="Stable identifier for the improvement")
+    title: str = Field(..., description="Short label for the improvement")
+    description: str = Field(..., description="Detailed description of what to change and why")
+    severity: Literal["low", "medium", "high"] = Field(..., description="Severity of the issue")
+    category: Literal["roles", "communication", "coverage", "prompt_quality", "other"] = Field(
+        ..., description="Category of the improvement"
+    )
+    suggested_changes: Optional[Dict] = Field(
+        default=None, description="Structured suggestion data (e.g., which agents/fields to edit)"
+    )
+
+
+class AgentAnalysis(BaseModel):
+    agent_name: str = Field(..., description="Name of the agent")
+    role: str = Field(..., description="Role of the agent")
+    system_prompt: str = Field(..., description="System prompt of the agent")
+    quality_report: QualityReport = Field(..., description="Quality report for this specific agent")
+    issues: List[str] = Field(default_factory=list, description="List of issues for this agent")
+    suggested_improvements: List[Improvement] = Field(
+        default_factory=list, description="List of improvements scoped to this agent"
+    )
+
+
+class TestResults(BaseModel):
+    scenarios_run: int = Field(default=0, description="Number of scenarios executed")
+    success_rate: float = Field(default=0.0, description="Percentage of scenarios passed")
+    failure_modes: List[str] = Field(default_factory=list, description="List of failure modes identified")
+    coordination_overhead: str = Field(default="", description="Assessment of coordination overhead")
+    coverage_metrics: Dict[str, float] = Field(
+        default_factory=dict, description="Coverage metrics across different task aspects"
+    )
+
+
+class SwarmAnalysisReport(BaseModel):
+    quality_score: float = Field(default=0.0, description="Overall quality score (0-100)")
+    role_clarity_score: float = Field(default=0.0, description="Role clarity score (0-100)")
+    coverage_score: float = Field(default=0.0, description="Coverage score (0-100)")
+    efficiency_score: float = Field(default=0.0, description="Efficiency score (0-100)")
+    prompt_quality_score: float = Field(default=0.0, description="Prompt quality score (0-100)")
+
+    issues: List[str] = Field(default_factory=list, description="High-level swarm issues")
+    improvements: List[Improvement] = Field(
+        default_factory=list, description="Actionable recommendations for the swarm"
+    )
+    test_results: Optional[TestResults] = Field(
+        default=None, description="Performance metrics from synthetic tests"
+    )
+    per_agent_reports: List[AgentAnalysis] = Field(
+        default_factory=list, description="Analysis reports for each individual agent"
+    )
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class SwarmAnalysisRequest(BaseModel):
+    agents: List[Dict] = Field(..., description="List of generated agent definitions (dicts with 'role', 'prompt', etc.)")
+    original_description: str = Field(..., description="User's original task request")
+    run_tests: bool = Field(default=True, description="Whether to run synthetic test scenarios")

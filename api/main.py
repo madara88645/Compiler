@@ -10,6 +10,7 @@ from app.llm_engine.schemas import QualityReport
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
 import uuid
+from app.llm_engine.schemas import SwarmAnalysisRequest, SwarmAnalysisReport
 from app import get_build_info
 from app.emitters import (
     emit_system_prompt,
@@ -1172,5 +1173,37 @@ async def generate_agent_endpoint(req: AgentGenRequest):
     try:
         result = hybrid_compiler.generate_agent(req.description, multi_agent=req.multi_agent)
         return AgentGenResponse(system_prompt=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent-generator/analyze", response_model=SwarmAnalysisReport)
+async def analyze_swarm_endpoint(req: SwarmAnalysisRequest):
+    """
+    Analyze Agent Swarm output quality.
+
+    Request:
+    - agents: List of generated agent definitions
+    - original_description: User's original task request
+    - run_tests: Boolean (default: True)
+
+    Response:
+    - quality_score: 0-100
+    - issues: List of detected problems
+    - improvements: Actionable recommendations
+    - test_results: Performance metrics (if run_tests=True)
+    """
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        from app.analyzer.swarm_qa import SwarmAnalyzer
+        analyzer = SwarmAnalyzer(client=hybrid_compiler.worker)
+        report = analyzer.analyze_swarm(
+            agents=req.agents,
+            original_description=req.original_description,
+            run_tests=req.run_tests
+        )
+        return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
