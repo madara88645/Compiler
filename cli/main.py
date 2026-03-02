@@ -12,7 +12,6 @@ from cli.commands.optimize import app as optimize_app
 from cli.commands.utils import (
     plugins_app,
     profiles_app,
-    export_app,
 )
 from cli.commands.resources import (
     favorites_app,
@@ -35,7 +34,6 @@ app.add_typer(optimize_app, name="optimize")
 
 # Mount legacy modules
 app.add_typer(plugins_app, name="plugins")
-app.add_typer(export_app, name="export")
 app.add_typer(favorites_app, name="favorites")
 app.add_typer(snippets_app, name="snippets")
 app.add_typer(collections_app, name="collections")
