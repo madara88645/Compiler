@@ -1,6 +1,84 @@
-import pytest
 from unittest.mock import patch
-from app.optimizer.costs import PricingModel
+
+import pytest
+
+from app.optimizer.costs import CostTracker, PricingModel, TokenCounter
+
+
+class TestTokenCounter:
+    @patch("tiktoken.get_encoding")
+    @patch("tiktoken.encoding_for_model")
+    def test_count_known_model(self, mock_encoding_for_model, mock_get_encoding):
+        mock_encoding_for_model.return_value.encode.return_value = [1, 2, 3, 4]
+
+        text = "Hello, world!"
+        count = TokenCounter.count(text, "gpt-4o")
+
+        mock_encoding_for_model.assert_called_once_with("gpt-4o")
+        mock_get_encoding.assert_not_called()
+        assert count == 4
+
+    @patch("tiktoken.encoding_for_model")
+    @patch("tiktoken.get_encoding")
+    def test_count_unknown_model_fallback(self, mock_get_encoding, mock_encoding_for_model):
+        mock_encoding_for_model.side_effect = KeyError("Model not found")
+
+        # Create a mock encoding object to return
+        class MockEncoding:
+            def encode(self, text):
+                return [1, 2, 3]  # fake 3 tokens
+
+        mock_get_encoding.return_value = MockEncoding()
+
+        count = TokenCounter.count("Hello, world!", "unknown-model")
+
+        mock_encoding_for_model.assert_called_once_with("unknown-model")
+        mock_get_encoding.assert_called_once_with("cl100k_base")
+        assert count == 3
+
+
+class TestCostTracker:
+    def test_initial_state(self):
+        tracker = CostTracker()
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    @patch("app.optimizer.costs.PricingModel.get_rate")
+    def test_add_usage(self, mock_get_rate):
+        mock_get_rate.return_value = (5.0, 15.0)  # input_rate, output_rate
+
+        tracker = CostTracker()
+        tracker.add_usage(1000, 2000, "gpt-4o")
+
+        assert tracker.total_input_tokens == 1000
+        assert tracker.total_output_tokens == 2000
+
+        # cost = (1000/1000000)*5.0 + (2000/1000000)*15.0 = 0.005 + 0.03 = 0.035
+        expected_cost = 0.035
+        assert abs(tracker.total_cost - expected_cost) < 1e-9
+        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
+
+    @patch("app.optimizer.costs.PricingModel.get_rate")
+    def test_add_usage_multiple(self, mock_get_rate):
+        # We will return the same rate for simplicity in testing the accumulation
+        mock_get_rate.return_value = (5.0, 15.0)
+
+        tracker = CostTracker()
+
+        # Call 1
+        tracker.add_usage(1000, 2000, "gpt-4o")
+        # Call 2
+        tracker.add_usage(500, 1000, "gpt-4o")
+
+        assert tracker.total_input_tokens == 1500
+        assert tracker.total_output_tokens == 3000
+
+        # cost = (1500/1000000)*5.0 + (3000/1000000)*15.0 = 0.0075 + 0.045 = 0.0525
+        expected_cost = 0.0525
+        assert abs(tracker.total_cost - expected_cost) < 1e-9
+        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
 
 
 class TestPricingModel:
