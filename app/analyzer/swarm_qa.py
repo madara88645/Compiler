@@ -147,7 +147,7 @@ class SwarmAnalyzer:
                 )
 
             for sugg in quality_report.suggestions:
-                 agent_improvements.append(
+                agent_improvements.append(
                     Improvement(
                         id=str(uuid.uuid4()),
                         title=f"Improve {role} prompt",

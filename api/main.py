@@ -1199,8 +1199,9 @@ async def analyze_swarm_endpoint(req: SwarmAnalysisRequest):
     try:
         from app.analyzer.swarm_qa import SwarmAnalyzer
         analyzer = SwarmAnalyzer(client=hybrid_compiler.worker)
+        # Convert AgentDefinition models to dicts for the dict-based internal analyzer
         report = analyzer.analyze_swarm(
-            agents=req.agents,
+            agents=[agent.model_dump() for agent in req.agents],
             original_description=req.original_description,
             run_tests=req.run_tests
         )
