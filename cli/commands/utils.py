@@ -4,7 +4,6 @@ import typer
 from rich import print
 from typing import Optional
 from pathlib import Path
-from datetime import datetime
 
 # Optional YAML support
 try:
@@ -215,5 +214,3 @@ def profile_import(
     except Exception:
         raise typer.Exit(code=1)
     print(imported)
-
-
