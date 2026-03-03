@@ -11,6 +11,13 @@ export default function AgentGenerator() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [multiAgent, setMultiAgent] = useState(false);
+  const [history, setHistory] = useState<{ label: string, prompt: string }[]>([]);
+
+  const buildHistoryLabel = () => {
+    const trimmed = description.trim();
+    const shortDescription = trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed;
+    return `${shortDescription} (${multiAgent ? "Swarm" : "Agent"})`;
+  };
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
@@ -32,8 +39,16 @@ export default function AgentGenerator() {
 
       const data = await res.json();
       setResult(data.system_prompt);
-    } catch (e: any) {
-      setError(e.message || "Failed to generate agent");
+      setHistory((prev) => [
+        {
+          label: buildHistoryLabel(),
+          prompt: data.system_prompt,
+        },
+        ...prev,
+      ].slice(0, 5));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to generate agent";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -81,7 +96,7 @@ export default function AgentGenerator() {
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-zinc-300">Agent Description</label>
               <p className="text-xs text-zinc-500">
-                Describe the "Vibe", Task, or Role of the agent you want to build. Be as specific or vague as you like.
+                Describe the &quot;Vibe&quot;, Task, or Role of the agent you want to build. Be as specific or vague as you like.
               </p>
             </div>
 
@@ -133,19 +148,45 @@ export default function AgentGenerator() {
 
           {/* Right Panel: Output */}
           <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
-            {result ? (
+            {(result || history.length > 0) ? (
               <div className="flex-1 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
-                <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
+                <div className="flex items-center justify-between border-b border-white/5 px-4 pt-4 pb-3 gap-2">
                   <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
                     System Prompt
                   </button>
+                  {history.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="history-select" className="text-xs text-zinc-400">
+                        History
+                      </label>
+                      <select
+                        id="history-select"
+                        className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-green-500/40"
+                        defaultValue=""
+                        onChange={(e) => {
+                          const selectedIndex = Number(e.target.value);
+                          if (Number.isNaN(selectedIndex) || selectedIndex < 0) return;
+                          setResult(history[selectedIndex]?.prompt ?? null);
+                        }}
+                      >
+                        <option value="" disabled>
+                          Restore previous result
+                        </option>
+                        {history.map((entry, index) => (
+                          <option key={`${entry.label}-${index}`} value={index}>
+                            {entry.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="relative flex-1">
                   <textarea
                     className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-green-500/30"
                     readOnly
-                    value={result}
+                    value={result ?? ""}
                   />
 
                   <button
