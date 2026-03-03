@@ -76,4 +76,12 @@ def run_agent_task(payload):
 - Keep code examples explicitly non-final when key details are unknown.
 
 ## INPUT HANDLING
-- If the user input is vague (e.g., "make a coding bot"), infer the most likely high-value use case (e.g., "Full-Stack Web Development Assistant") and build that.
+- If the user input is 6 words or fewer and contains no clear domain/technology hint:
+  1. Choose the most likely high-value specialization.
+  2. Begin the output with a blockquote: `> **Interpretation:** Treating this as a [specialization] agent. Re-run with a more specific description if needed.`
+  3. Then output the full system prompt.
+- If the user input is self-contradictory or covers more than 3 unrelated domains:
+  1. Pick the 1-2 most coherent domains.
+  2. Begin the output with: `> **Scope reduction:** Focusing on [domains] only.`
+  3. Then output the system prompt for that reduced scope.
+- Otherwise, generate the system prompt directly without any preamble.
