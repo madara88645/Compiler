@@ -25,9 +25,17 @@ The output must contain multiple agent definitions, separated by a horizontal ru
 - [Goal 1]
 - [Goal 2]
 
+## Constraints
+- [Constraint 1: what this agent must NOT do or boundaries it must respect]
+- [Constraint 2]
+
 ## Workflows
 1. [Step 1]
 2. [Step 2]
+
+## Tech Stack
+- [Tool/Library/Framework 1 used by this agent]
+- [Tool/Library/Framework 2 used by this agent]
 
 ---
 
@@ -40,9 +48,34 @@ The output must contain multiple agent definitions, separated by a horizontal ru
 - [Goal 1]
 - [Goal 2]
 
+## Constraints
+- [Constraint 1: what this agent must NOT do or boundaries it must respect]
+- [Constraint 2]
+
 ## Workflows
 1. [Step 1]
 2. [Step 2]
+
+## Tech Stack
+- [Tool/Library/Framework 1 used by this agent]
+- [Tool/Library/Framework 2 used by this agent]
+
+---
+
+## Swarm Example Code (Pseudo-code Skeleton)
+```python
+# Pseudo-code only. Replace TODO items with real project APIs.
+
+def run_swarm(mission_input):
+    agent_1_output = agent_1_execute(mission_input)
+    # TODO: Validate and transform Agent 1 output schema before handoff.
+
+    agent_2_output = agent_2_execute(agent_1_output)
+    # TODO: Add additional agent handoffs as needed (Agent 3/4).
+
+    # TODO: Merge outputs and return final deliverable.
+    return {"status": "not_implemented", "result": agent_2_output}
+```
 ```
 
 ## RULES
