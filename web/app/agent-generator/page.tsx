@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { API_BASE } from "@/config";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
@@ -11,6 +12,7 @@ export default function AgentGenerator() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [multiAgent, setMultiAgent] = useState(false);
+  const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
@@ -32,6 +34,13 @@ export default function AgentGenerator() {
 
       const data = await res.json();
       setResult(data.system_prompt);
+      setHistory((prev) => [
+        {
+          label: description.slice(0, 40) + (multiAgent ? " [swarm]" : " [single]"),
+          prompt: data.system_prompt,
+        },
+        ...prev,
+      ].slice(0, 5));
     } catch (e: any) {
       setError(e.message || "Failed to generate agent");
     } finally {
@@ -107,6 +116,31 @@ export default function AgentGenerator() {
               </div>
             </div>
 
+            {history.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-zinc-300">Previous results</label>
+                <select
+                  className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const selected = history[Number(e.target.value)];
+                    if (selected) {
+                      setResult(selected.prompt);
+                    }
+                  }}
+                >
+                  <option value="" disabled>
+                    -- Restore previous result --
+                  </option>
+                  {history.map((entry, index) => (
+                    <option key={`${entry.label}-${index}`} value={index}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <button
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
@@ -141,12 +175,10 @@ export default function AgentGenerator() {
                   </button>
                 </div>
 
-                <div className="relative flex-1">
-                  <textarea
-                    className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-green-500/30"
-                    readOnly
-                    value={result}
-                  />
+                <div className="relative flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-6 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-green-400 prose-pre:bg-zinc-900">
+                    <ReactMarkdown>{result}</ReactMarkdown>
+                  </div>
 
                   <button
                     onClick={copyToClipboard}
