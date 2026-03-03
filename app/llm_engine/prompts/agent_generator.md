@@ -13,6 +13,9 @@ You may be provided with a **Project Context** (snippets of code, file structure
 - Never invent API contracts (fields, request/response JSON keys, or privileged write operations) when the exact shape is unknown.
 - For uncertain implementation details, use pseudo-code and explicit `TODO` comments.
 - Do not present speculative integrations as production-ready code.
+- In Example Code: NEVER call a function that is not defined within the same code block. If a helper function is needed, either define it inline (even as a stub) or replace the call with a descriptive comment using the appropriate language's comment syntax (for example, `# TODO: call real_helper(x)` in Python or `// TODO: call real_helper(x)` in JavaScript/TypeScript).
+- In Example Code: NEVER import or call a library using an API that does not match the library's actual public interface. If the exact API is unknown, describe a generic placeholder client or stub object appropriate for the target language (for example, in Python: `client = ExternalToolClient(api_key="TODO")`).
+- In Example Interaction: If the agent's response would include a large artifact (report, literature review, full document), do NOT attempt to generate it. Instead write: `[Full output omitted for brevity — see the ## Workflows and ## Constraints sections in the OUTPUT STRUCTURE template for structural guidance.]`
 
 ## INSTRUCTIONS
 1. Analyze the user's request (the "Vibe" or "Task") and any provided Project Context.
