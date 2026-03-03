@@ -304,6 +304,26 @@ class WorkerClient:
             future = executor.submit(self._call_api, messages, 3000, json_mode=False)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+                if multi_agent:
+                    import logging
+                    import re
+
+                    # Count top-level agent headers: lines matching "# Agent N:" or "# Agent N "
+                    agent_headers = re.findall(
+                        r"^#\s+Agent\s+\d+", content, re.MULTILINE | re.IGNORECASE
+                    )
+                    agent_count = len(agent_headers)
+                    if agent_count > 4:
+                        logging.warning(
+                            f"[AgentGenerator] Multi-agent output exceeded limit: "
+                            f"{agent_count} agents detected (max 4). "
+                            f"Consider strengthening the multi_agent_planner prompt."
+                        )
+                    elif agent_count == 0:
+                        logging.warning(
+                            "[AgentGenerator] Multi-agent output contains no '# Agent N:' headers. "
+                            "Output may be malformed."
+                        )
                 return content
             except FuturesTimeoutError:
                 future.cancel()
