@@ -1,9 +1,0 @@
-INFO:     Will watch for changes in these directories: ['/app']
-INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
-INFO:     Started reloader process [2310] using StatReload
-INFO:     Started server process [2445]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-[BACKEND] HybridCompiler initialized (v0.0.0-dev)
-INFO:     127.0.0.1:40962 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:40962 - "GET /rag/stats HTTP/1.1" 200 OK
