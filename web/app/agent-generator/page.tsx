@@ -11,26 +11,31 @@ export default function AgentGenerator() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [multiAgent, setMultiAgent] = useState(false);
-  const [history, setHistory] = useState<{ label: string, prompt: string }[]>([]);
+  const [history, setHistory] = useState<{ id: string, label: string, prompt: string }[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
 
-  const buildHistoryLabel = () => {
-    const trimmed = description.trim();
+  const buildHistoryLabel = (desc: string, isMultiAgent: boolean) => {
+    const trimmed = desc.trim();
     const shortDescription = trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed;
-    return `${shortDescription} (${multiAgent ? "Swarm" : "Agent"})`;
+    return `${shortDescription} (${isMultiAgent ? "Swarm" : "Agent"})`;
   };
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
 
+    const snapshotDescription = description;
+    const snapshotMultiAgent = multiAgent;
+
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelectedHistoryId("");
 
     try {
       const res = await fetch(`${API_BASE}/agent-generator/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description, multi_agent: multiAgent }),
+        body: JSON.stringify({ description: snapshotDescription, multi_agent: snapshotMultiAgent }),
       });
 
       if (!res.ok) {
@@ -41,7 +46,8 @@ export default function AgentGenerator() {
       setResult(data.system_prompt);
       setHistory((prev) => [
         {
-          label: buildHistoryLabel(),
+          id: Date.now().toString(),
+          label: buildHistoryLabel(snapshotDescription, snapshotMultiAgent),
           prompt: data.system_prompt,
         },
         ...prev,
@@ -162,18 +168,20 @@ export default function AgentGenerator() {
                       <select
                         id="history-select"
                         className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-green-500/40"
-                        defaultValue=""
+                        value={selectedHistoryId}
                         onChange={(e) => {
-                          const selectedIndex = Number(e.target.value);
-                          if (Number.isNaN(selectedIndex) || selectedIndex < 0) return;
-                          setResult(history[selectedIndex]?.prompt ?? null);
+                          const selectedId = e.target.value;
+                          const entry = history.find((h) => h.id === selectedId);
+                          if (!entry) return;
+                          setSelectedHistoryId(selectedId);
+                          setResult(entry.prompt);
                         }}
                       >
                         <option value="" disabled>
                           Restore previous result
                         </option>
-                        {history.map((entry, index) => (
-                          <option key={`${entry.label}-${index}`} value={index}>
+                        {history.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
                             {entry.label}
                           </option>
                         ))}
