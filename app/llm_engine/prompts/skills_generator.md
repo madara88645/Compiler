@@ -34,7 +34,7 @@ The output must strictly follow this Markdown structure:
 - `return_field` (Type): Description
 
 ## Implementation
-[Core logic, pseudocode, or Python code snippet demonstrating how to implement this skill.]
+[Step-by-step implementation plan in plain language. No code by default.]
 
 ## Dependencies
 [Required libraries, tools, or API keys.]
@@ -51,6 +51,22 @@ The output must strictly follow this Markdown structure:
 - Technical, precise, and modular.
 - The generated skill should be ready to be implemented as a function or tool for an LLM.
 - Focus on robustness and clarity.
+- Only include an implementation example section if a later instruction explicitly asks for example code.
+
+## OPTIONAL IMPLEMENTATION EXAMPLE SECTION
+When explicitly requested, append this section after `## Implementation`:
+
+```markdown
+## Implementation Example
+[Short, practical code example aligned with the declared schemas and dependencies.]
+```python
+def run_skill(input_payload):
+    # TODO: Validate input based on Input Schema
+    # TODO: Execute core skill logic
+    # TODO: Return Output Schema-compliant response
+    return {"status": "not_implemented"}
+```
+```
 
 ## INPUT HANDLING
 - If the user input is vague (e.g., "web scraper"), infer the most likely robust implementation (e.g., "Robust Web Scraper with Retry and Parsing") and build that.

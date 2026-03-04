@@ -170,6 +170,35 @@ class WorkerClient:
         )
         return prompt
 
+    def _skill_prompt(self, include_example_code: bool) -> str:
+        prompt = (
+            self.skills_generator_prompt
+            or "You are an Expert AI Skills Architect. Generate a comprehensive skill definition based on the user request. Output in Markdown."
+        )
+        if include_example_code:
+            return prompt
+
+        prompt = re.sub(
+            r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
+            "",
+            prompt,
+            flags=re.DOTALL,
+        )
+        prompt = re.sub(
+            r"^- Only include an implementation example section.*\n",
+            "",
+            prompt,
+            flags=re.MULTILINE,
+        )
+        prompt += (
+            "\n\n## EXAMPLE CODE SETTING\n"
+            "- Example code is disabled for this request.\n"
+            "- Omit any `## Implementation Example` section from the final markdown.\n"
+            "- Keep `## Implementation` as a concise, code-free execution plan.\n"
+            "- Do not include fenced code blocks or pseudo-code unless the user explicitly asks for raw code."
+        )
+        return prompt
+
     def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
         """Compile user text into structured prompt components."""
         if self.api_key == "missing_key":
@@ -416,23 +445,42 @@ class WorkerClient:
             except Exception as e:
                 raise RuntimeError(f"Agent generation error: {e}") from e
 
-    def generate_skill(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def generate_skill(
+        self,
+        user_text: str,
+        context: Optional[Dict[str, Any]] = None,
+        include_example_code: bool = False,
+    ) -> str:
         """Generate a comprehensive AI Skill definition."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
-
-        if not self.skills_generator_prompt:
-            # Fallback if file missing
-            self.skills_generator_prompt = "You are an Expert AI Skills Architect. Generate a comprehensive skill definition based on the user request. Output in Markdown."
+        system_prompt = self._skill_prompt(include_example_code)
 
         messages = [
-            {"role": "system", "content": self.skills_generator_prompt},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},
         ]
 
+        safety_note = (
+            "Reliability requirements for generated markdown:\n"
+            "- Do not invent dependencies, SDKs, helpers, or API fields that are not known from context.\n"
+            "- If implementation details are unknown, provide explicit TODO-oriented steps instead of fake certainty.\n"
+            "- Keep the skill definition practical, modular, and implementation-ready."
+        )
+        example_code_note = (
+            "Include a final `## Implementation Example` section with concise code only when explicitly requested."
+            if include_example_code
+            else (
+                "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
+                "Omit the entire `## Implementation Example` section from the generated output."
+            )
+        )
+        messages.insert(1, {"role": "system", "content": safety_note})
+        messages.insert(2, {"role": "system", "content": example_code_note})
+
         if context:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(3, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back

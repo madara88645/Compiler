@@ -59,7 +59,9 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
     compiler.generate_skill("Test Skill")
     compiler.context_strategist.process.assert_called_with("Test Skill")
     mock_worker_client.generate_skill.assert_called_with(
-        "Test Skill", context={"file1.py": "content"}
+        "Test Skill",
+        context={"file1.py": "content"},
+        include_example_code=False,
     )
 
 

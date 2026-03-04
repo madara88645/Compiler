@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { API_BASE } from "@/config";
 import InfoButton from "../components/InfoButton";
 import ContextManager from "../components/ContextManager";
@@ -10,6 +11,8 @@ export default function SkillsGenerator() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [includeExampleCode, setIncludeExampleCode] = useState(false);
+  const [history, setHistory] = useState<{ label: string; skill: string }[]>([]);
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
@@ -22,7 +25,10 @@ export default function SkillsGenerator() {
       const res = await fetch(`${API_BASE}/skills-generator/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({
+          description,
+          include_example_code: includeExampleCode,
+        }),
       });
 
       if (!res.ok) {
@@ -31,8 +37,15 @@ export default function SkillsGenerator() {
 
       const data = await res.json();
       setResult(data.skill_definition);
-    } catch (e: any) {
-      setError(e.message || "Failed to generate skill");
+      setHistory((prev) => [
+        {
+          label: description.slice(0, 40) + (includeExampleCode ? " [code]" : " [plain]"),
+          skill: data.skill_definition,
+        },
+        ...prev,
+      ].slice(0, 5));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to generate skill");
     } finally {
       setLoading(false);
     }
@@ -45,7 +58,7 @@ export default function SkillsGenerator() {
   };
 
   return (
-    <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-[#050505]">
+    <main className="flex h-full min-h-0 flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-[#050505]">
       {/* Ambient Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-yellow-600/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-orange-600/10 blur-[120px] pointer-events-none" />
@@ -74,24 +87,64 @@ export default function SkillsGenerator() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
+          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-zinc-300">Skill Description</label>
               <p className="text-xs text-zinc-500">
-                Describe the skill's purpose, inputs, and expected behavior.
+                Describe the skill&apos;s purpose, inputs, and expected behavior.
               </p>
             </div>
 
-            <div className="flex-1 flex flex-col relative group">
+            <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
-                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
+
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+              <div
+                onClick={() => setIncludeExampleCode((v) => !v)}
+                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? "bg-blue-500" : "bg-zinc-700"}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? "translate-x-4" : "translate-x-0"}`} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-zinc-200">Example Code?</span>
+                <span className="text-[10px] text-zinc-500">
+                  Yes = include implementation code, No = keep it code-free
+                </span>
+              </div>
+            </div>
+
+            {history.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-zinc-300">Previous results</label>
+                <select
+                  className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const selected = history[Number(e.target.value)];
+                    if (selected) {
+                      setResult(selected.skill);
+                    }
+                  }}
+                >
+                  <option value="" disabled>
+                    -- Restore previous result --
+                  </option>
+                  {history.map((entry, index) => (
+                    <option key={`${entry.label}-${index}`} value={index}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleGenerate}
@@ -118,21 +171,19 @@ export default function SkillsGenerator() {
           </div>
 
           {/* Right Panel: Output */}
-          <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
+          <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
             {result ? (
-              <div className="flex-1 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
+              <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
                   <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
                     Skill Definition
                   </button>
                 </div>
 
-                <div className="relative flex-1">
-                  <textarea
-                    className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-yellow-500/30"
-                    readOnly
-                    value={result}
-                  />
+                <div className="relative flex-1 min-h-0 overflow-hidden">
+                  <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-yellow-300 prose-pre:bg-zinc-900">
+                    <ReactMarkdown>{result}</ReactMarkdown>
+                  </div>
 
                   <button
                     onClick={copyToClipboard}

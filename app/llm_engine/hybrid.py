@@ -169,14 +169,18 @@ class HybridCompiler:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"
 
-    def generate_skill(self, text: str) -> str:
+    def generate_skill(self, text: str, include_example_code: bool = False) -> str:
         """
         Generate a comprehensive AI Skill definition, aware of RAG context.
         """
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self.context_strategist.process(text)
-            return self.worker.generate_skill(text, context=rag_context)
+            return self.worker.generate_skill(
+                text,
+                context=rag_context,
+                include_example_code=include_example_code,
+            )
         except Exception as e:
             # Fallback for skill generation
             return f"# Error\n\nFailed to generate skill: {e}"

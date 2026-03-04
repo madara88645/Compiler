@@ -164,6 +164,10 @@ async def compile_fast(
 
 class SkillGenRequest(BaseModel):
     description: str = Field(..., description="Description of the skill to generate")
+    include_example_code: bool = Field(
+        default=False,
+        description="Whether generated skill definition should include implementation example code",
+    )
 
 
 class SkillGenResponse(BaseModel):
@@ -177,7 +181,10 @@ async def generate_skill_endpoint(req: SkillGenRequest):
         raise HTTPException(status_code=503, detail="Compiler not initialized")
 
     try:
-        result = hybrid_compiler.generate_skill(req.description)
+        result = hybrid_compiler.generate_skill(
+            req.description,
+            include_example_code=req.include_example_code,
+        )
         return SkillGenResponse(skill_definition=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
