@@ -41,8 +41,56 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
     from unittest.mock import ANY
 
     mock_worker_client.generate_agent.assert_called_with(
-        "Test Agent", context=ANY, multi_agent=False
+        "Test Agent", context=ANY, multi_agent=False, include_example_code=False
     )
+
+
+def test_worker_client_omits_example_code_section_when_disabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+        captured = {}
+
+        def fake_call_api(messages, max_tokens, json_mode):
+            captured["messages"] = messages
+            return "# Agent System Prompt"
+
+        with patch.object(client, "_call_api", side_effect=fake_call_api):
+            result = client.generate_agent("Test Agent", include_example_code=False)
+
+        assert result == "# Agent System Prompt"
+        system_messages = [
+            msg["content"] for msg in captured["messages"] if msg["role"] == "system"
+        ]
+        assert "## Example Code (Pseudo-code Skeleton)" not in system_messages[0]
+        assert any(
+            "Do not include fenced code blocks or pseudo-code" in message
+            for message in system_messages
+        )
+
+
+def test_worker_client_requests_example_code_section_when_enabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+        captured = {}
+
+        def fake_call_api(messages, max_tokens, json_mode):
+            captured["messages"] = messages
+            return "# Agent System Prompt"
+
+        with patch.object(client, "_call_api", side_effect=fake_call_api):
+            result = client.generate_agent("Test Agent", include_example_code=True)
+
+        assert result == "# Agent System Prompt"
+        system_messages = [
+            msg["content"] for msg in captured["messages"] if msg["role"] == "system"
+        ]
+        assert "## Example Code (Pseudo-code Skeleton)" in system_messages[0]
+        assert any(
+            "Include a final `## Example Code (Pseudo-code Skeleton)` section" in message
+            for message in system_messages
+        )
 
 
 def test_api_generate_agent_endpoint():

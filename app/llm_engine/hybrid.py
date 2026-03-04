@@ -159,19 +159,12 @@ class HybridCompiler:
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self.context_strategist.process(text)
-            if include_example_code:
-                return self.worker.generate_agent(
-                    text,
-                    context=rag_context,
-                    multi_agent=multi_agent,
-                    include_example_code=include_example_code,
-                )
-            else:
-                return self.worker.generate_agent(
-                    text,
-                    context=rag_context,
-                    multi_agent=multi_agent,
-                )
+            return self.worker.generate_agent(
+                text,
+                context=rag_context,
+                multi_agent=multi_agent,
+                include_example_code=include_example_code,
+            )
         except Exception as e:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"

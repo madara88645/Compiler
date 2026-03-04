@@ -235,9 +235,9 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
+          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
 
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
@@ -271,7 +271,7 @@ export default function Home() {
           </div>
 
           {/* Right Panel: Output */}
-          <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
+          <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
 
             {/* ── Compiler Output View ── */}
             {result ? (
@@ -293,7 +293,7 @@ export default function Home() {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 p-0 overflow-hidden relative group bg-black/20">
+                <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20">
                   {activeTab !== "quality" && activeTab !== "json" && (
                     <>
                       {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
@@ -354,7 +354,7 @@ export default function Home() {
                       </div>
 
                       <textarea
-                        className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
+                        className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                         readOnly
                         value={
                           activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :

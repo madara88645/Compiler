@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -98,6 +99,76 @@ class WorkerClient:
         except Exception as e:
             print(f"[DEBUG] API CALL FAILED: {e}", file=sys.stderr)
             raise e
+
+    def _single_agent_prompt(self, include_example_code: bool) -> str:
+        prompt = (
+            self.agent_generator_prompt
+            or "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
+        )
+        if include_example_code:
+            return prompt
+
+        prompt = re.sub(
+            r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
+            "",
+            prompt,
+            flags=re.DOTALL,
+        )
+        prompt = re.sub(
+            r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)",
+            "",
+            prompt,
+            flags=re.DOTALL,
+        )
+        prompt = re.sub(r"^- In Example Code:.*\n", "", prompt, flags=re.MULTILINE)
+        prompt = re.sub(r"^- Keep code examples.*\n", "", prompt, flags=re.MULTILINE)
+        prompt = re.sub(
+            r"^- Only include an `## Example Code .*?$\n?",
+            "",
+            prompt,
+            flags=re.MULTILINE,
+        )
+        prompt += (
+            "\n\n## EXAMPLE CODE SETTING\n"
+            "- Example code is disabled for this request.\n"
+            "- Omit any `## Example Code` section from the final markdown.\n"
+            "- Do not include fenced code blocks or pseudo-code unless the user explicitly asks for raw code."
+        )
+        return prompt
+
+    def _multi_agent_prompt(self, include_example_code: bool) -> str:
+        prompt = (
+            self.multi_agent_planner_prompt
+            or "You are an Expert AI Systems Architect. Decompose the task into 2-4 specialized agents. Output in Markdown."
+        )
+        if include_example_code:
+            return prompt
+
+        prompt = re.sub(
+            r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
+            "",
+            prompt,
+            flags=re.DOTALL,
+        )
+        prompt = re.sub(
+            r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*",
+            "",
+            prompt,
+            flags=re.DOTALL,
+        )
+        prompt = re.sub(
+            r"^- Only include a final `## Swarm Example Code .*?$\n?",
+            "",
+            prompt,
+            flags=re.MULTILINE,
+        )
+        prompt += (
+            "\n\n## EXAMPLE CODE SETTING\n"
+            "- Example code is disabled for this request.\n"
+            "- Do not add a `## Swarm Example Code` section.\n"
+            "- Do not include fenced code blocks or pseudo-code unless the user explicitly asks for raw code."
+        )
+        return prompt
 
     def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
         """Compile user text into structured prompt components."""
@@ -271,15 +342,9 @@ class WorkerClient:
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
         if multi_agent:
-            system_prompt = (
-                self.multi_agent_planner_prompt
-                or "You are an Expert AI Systems Architect. Decompose the task into 2-4 specialized agents. Output in Markdown."
-            )
+            system_prompt = self._multi_agent_prompt(include_example_code)
         else:
-            system_prompt = (
-                self.agent_generator_prompt
-                or "You are an Expert AI Agent Architect. Generate a comprehensive system prompt for an AI agent based on the user request. Output in Markdown."
-            )
+            system_prompt = self._single_agent_prompt(include_example_code)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -294,11 +359,24 @@ class WorkerClient:
             "- If implementation details are unknown, use pseudo-code with TODO comments instead of pretending certainty.\n"
             "- Keep the system prompt high-level and practical, and keep the example interaction short and natural."
         )
-        example_code_note = (
-            "Include concise example code snippets only when they reduce ambiguity."
-            if include_example_code
-            else "Do not include any example code snippets in the generated system prompt."
-        )
+        if multi_agent:
+            example_code_note = (
+                "Include a final `## Swarm Example Code (Pseudo-code Skeleton)` section with concise pseudo-code only when it reduces ambiguity."
+                if include_example_code
+                else (
+                    "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
+                    "Omit the entire `## Swarm Example Code (Pseudo-code Skeleton)` section from the generated output."
+                )
+            )
+        else:
+            example_code_note = (
+                "Include a final `## Example Code (Pseudo-code Skeleton)` section with concise pseudo-code only when it reduces ambiguity."
+                if include_example_code
+                else (
+                    "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
+                    "Omit the entire `## Example Code (Pseudo-code Skeleton)` section from the generated output."
+                )
+            )
         messages.insert(1, {"role": "system", "content": safety_note})
         messages.insert(2, {"role": "system", "content": example_code_note})
 

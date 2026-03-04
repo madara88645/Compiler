@@ -55,7 +55,19 @@ The output must strictly follow this Markdown structure:
 [A brief example of a user input and the agent's expected high-quality response.]
 **User:** ...
 **Agent:** ...
+```
 
+## TONE & STYLE
+- Professional, authoritative, and concise.
+- Use technical terminology appropriate for the domain.
+- The generated prompt should be ready to copy-paste into an LLM configuration.
+- Keep code examples explicitly non-final when key details are unknown.
+- Only include an example-code section if a later instruction explicitly asks for example code. Otherwise omit that section entirely.
+
+## OPTIONAL EXAMPLE CODE SECTION
+When explicitly requested, append this section after `## Example Interaction`:
+
+```markdown
 ## Example Code (Pseudo-code Skeleton)
 [Provide a short, realistic skeleton only. Use comments and TODO markers where integration details are unknown.]
 ```python
@@ -68,12 +80,6 @@ def run_agent_task(payload):
     return {"status": "not_implemented"}
 ```
 ```
-
-## TONE & STYLE
-- Professional, authoritative, and concise.
-- Use technical terminology appropriate for the domain.
-- The generated prompt should be ready to copy-paste into an LLM configuration.
-- Keep code examples explicitly non-final when key details are unknown.
 
 ## INPUT HANDLING
 - If the user input is 6 words or fewer and contains no clear domain/technology hint:

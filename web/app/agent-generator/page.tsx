@@ -46,8 +46,8 @@ export default function AgentGenerator() {
         },
         ...prev,
       ].slice(0, 5));
-    } catch (e: any) {
-      setError(e.message || "Failed to generate agent");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to generate agent");
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export default function AgentGenerator() {
   };
 
   return (
-    <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-[#050505]">
+    <main className="flex h-full min-h-0 flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-[#050505]">
       {/* Ambient Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-green-600/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
@@ -89,19 +89,19 @@ export default function AgentGenerator() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
+          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-zinc-300">Agent Description</label>
               <p className="text-xs text-zinc-500">
-                Describe the "Vibe", Task, or Role of the agent you want to build. Be as specific or vague as you like.
+                Describe the &quot;Vibe&quot;, Task, or Role of the agent you want to build. Be as specific or vague as you like.
               </p>
             </div>
 
-            <div className="flex-1 flex flex-col relative group">
+            <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
-                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -186,17 +186,17 @@ export default function AgentGenerator() {
           </div>
 
           {/* Right Panel: Output */}
-          <div className="w-full md:w-[65%] flex flex-col bg-black/20 relative">
+          <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
             {result ? (
-              <div className="flex-1 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
+              <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
                   <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
                     System Prompt
                   </button>
                 </div>
 
-                <div className="relative flex-1 overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-6 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-green-400 prose-pre:bg-zinc-900">
+                <div className="relative flex-1 min-h-0 overflow-hidden">
+                  <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-green-400 prose-pre:bg-zinc-900">
                     <ReactMarkdown>{result}</ReactMarkdown>
                   </div>
 
