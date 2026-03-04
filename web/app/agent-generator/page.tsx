@@ -12,6 +12,7 @@ export default function AgentGenerator() {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [multiAgent, setMultiAgent] = useState(false);
+  const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
 
   const handleGenerate = async () => {
@@ -25,7 +26,11 @@ export default function AgentGenerator() {
       const res = await fetch(`${API_BASE}/agent-generator/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description, multi_agent: multiAgent }),
+        body: JSON.stringify({
+          description,
+          multi_agent: multiAgent,
+          include_example_code: includeExampleCode,
+        }),
       });
 
       if (!res.ok) {
@@ -113,6 +118,21 @@ export default function AgentGenerator() {
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
                 <span className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+              <div
+                onClick={() => setIncludeExampleCode(v => !v)}
+                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? 'bg-blue-500' : 'bg-zinc-700'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-zinc-200">Example Code?</span>
+                <span className="text-[10px] text-zinc-500">
+                  Yes = include example code, No = keep it code-free to avoid confusion
+                </span>
               </div>
             </div>
 

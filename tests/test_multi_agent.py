@@ -36,8 +36,12 @@ def test_api_multi_agent_flag():
 
         # Test Default (False)
         client.post("/agent-generator/generate", json={"description": "Test"})
-        mock_compiler.generate_agent.assert_called_with("Test", multi_agent=False)
+        mock_compiler.generate_agent.assert_called_with(
+            "Test", multi_agent=False, include_example_code=False
+        )
 
         # Test True
         client.post("/agent-generator/generate", json={"description": "Test", "multi_agent": True})
-        mock_compiler.generate_agent.assert_called_with("Test", multi_agent=True)
+        mock_compiler.generate_agent.assert_called_with(
+            "Test", multi_agent=True, include_example_code=False
+        )
