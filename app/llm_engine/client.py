@@ -264,6 +264,7 @@ class WorkerClient:
         user_text: str,
         context: Optional[Dict[str, Any]] = None,
         multi_agent: bool = False,
+        include_example_code: bool = False,
     ) -> str:
         """Generate a comprehensive AI Agent system prompt."""
         if self.api_key == "missing_key":
@@ -293,11 +294,17 @@ class WorkerClient:
             "- If implementation details are unknown, use pseudo-code with TODO comments instead of pretending certainty.\n"
             "- Keep the system prompt high-level and practical, and keep the example interaction short and natural."
         )
+        example_code_note = (
+            "Include concise example code snippets only when they reduce ambiguity."
+            if include_example_code
+            else "Do not include any example code snippets in the generated system prompt."
+        )
         messages.insert(1, {"role": "system", "content": safety_note})
+        messages.insert(2, {"role": "system", "content": example_code_note})
 
         if context:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(2, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(3, {"role": "system", "content": f"Context:\n{ctx_str}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back

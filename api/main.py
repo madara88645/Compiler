@@ -1157,6 +1157,10 @@ class AgentGenRequest(BaseModel):
     multi_agent: bool = Field(
         default=False, description="Whether to decompose into multiple agents"
     )
+    include_example_code: bool = Field(
+        default=False,
+        description="Whether generated agent prompt should include example code snippets",
+    )
 
 
 class AgentGenResponse(BaseModel):
@@ -1170,7 +1174,11 @@ async def generate_agent_endpoint(req: AgentGenRequest):
         raise HTTPException(status_code=503, detail="Compiler not initialized")
 
     try:
-        result = hybrid_compiler.generate_agent(req.description, multi_agent=req.multi_agent)
+        result = hybrid_compiler.generate_agent(
+            req.description,
+            multi_agent=req.multi_agent,
+            include_example_code=req.include_example_code,
+        )
         return AgentGenResponse(system_prompt=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

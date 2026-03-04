@@ -41,7 +41,7 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
     from unittest.mock import ANY
 
     mock_worker_client.generate_agent.assert_called_with(
-        "Test Agent", context=ANY, multi_agent=False
+        "Test Agent", context=ANY, multi_agent=False, include_example_code=False
     )
 
 
@@ -57,4 +57,23 @@ def test_api_generate_agent_endpoint():
 
         assert response.status_code == 200
         assert response.json() == {"system_prompt": "# Mock API Agent"}
-        mock_compiler.generate_agent.assert_called_with("Test Agent Request", multi_agent=False)
+        mock_compiler.generate_agent.assert_called_with(
+            "Test Agent Request", multi_agent=False, include_example_code=False
+        )
+
+
+def test_api_generate_agent_endpoint_with_example_code_enabled():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Mock API Agent"
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request", "include_example_code": True},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"system_prompt": "# Mock API Agent"}
+        mock_compiler.generate_agent.assert_called_with(
+            "Test Agent Request", multi_agent=False, include_example_code=True
+        )
