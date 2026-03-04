@@ -123,7 +123,7 @@ export default function AgentGenerator() {
 
             <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
               <div
-                onClick={() => setIncludeExampleCode(!includeExampleCode)}
+                onClick={() => setIncludeExampleCode(v => !v)}
                 className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? 'bg-blue-500' : 'bg-zinc-700'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? 'translate-x-4' : 'translate-x-0'}`} />

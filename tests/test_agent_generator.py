@@ -41,7 +41,7 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
     from unittest.mock import ANY
 
     mock_worker_client.generate_agent.assert_called_with(
-        "Test Agent", context=ANY, multi_agent=False, include_example_code=False
+        "Test Agent", context=ANY, multi_agent=False
     )
 
 
