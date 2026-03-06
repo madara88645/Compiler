@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { API_BASE } from "@/config";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
+import ExportPanel from "./components/ExportPanel";
 
 export default function AgentGenerator() {
   const [description, setDescription] = useState("");
@@ -198,6 +199,7 @@ export default function AgentGenerator() {
                 <div className="relative flex-1 min-h-0 overflow-hidden">
                   <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-green-400 prose-pre:bg-zinc-900">
                     <ReactMarkdown>{result}</ReactMarkdown>
+                    <ExportPanel systemPrompt={result} isMultiAgent={multiAgent} />
                   </div>
 
                   <button

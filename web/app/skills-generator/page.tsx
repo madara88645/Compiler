@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { API_BASE } from "@/config";
 import InfoButton from "../components/InfoButton";
 import ContextManager from "../components/ContextManager";
+import SkillExportPanel from "./components/ExportPanel";
 
 export default function SkillsGenerator() {
   const [description, setDescription] = useState("");
@@ -183,6 +184,7 @@ export default function SkillsGenerator() {
                 <div className="relative flex-1 min-h-0 overflow-hidden">
                   <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-yellow-300 prose-pre:bg-zinc-900">
                     <ReactMarkdown>{result}</ReactMarkdown>
+                    <SkillExportPanel skillDefinition={result} />
                   </div>
 
                   <button
