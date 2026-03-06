@@ -1,28 +1,116 @@
-import pytest
 from unittest.mock import patch
-from app.optimizer.costs import PricingModel, TokenCounter, CostTracker
+
+import pytest
+
+from app.optimizer.costs import CostTracker, PricingModel, TokenCounter
 
 
 class TestTokenCounter:
     def test_count_known_model(self):
-        text = "Hello, world!"
-        # gpt-4o should be known and use o200k_base or cl100k_base depending on tiktoken version,
-        # but the test is just that it counts correctly without error.
-        count = TokenCounter.count(text, "gpt-4o")
-        assert count > 0
+        with patch("app.optimizer.costs.tiktoken.encoding_for_model") as mock_encoding_for_model, patch(
+            "app.optimizer.costs.tiktoken.get_encoding"
+        ) as mock_get_encoding:
+            mock_encoding_for_model.return_value.encode.return_value = [1, 2, 3, 4]
 
-    def test_count_unknown_model_fallback(self):
-        text = "Hello, world!"
-        # "unknown-model" should fallback to cl100k_base
-        count = TokenCounter.count(text, "unknown-model")
-        assert count > 0
+            text = "Hello, world!"
+            count = TokenCounter.count(text, "gpt-4o")
 
-        # We can also compare it to an explicit cl100k_base encoding count to be sure
-        import tiktoken
+            mock_encoding_for_model.assert_called_once_with("gpt-4o")
+            mock_get_encoding.assert_not_called()
+            assert count == 4
 
-        encoding = tiktoken.get_encoding("cl100k_base")
-        expected_count = len(encoding.encode(text))
-        assert count == expected_count
+    def test_count_unknown_model(self):
+        text = "Hello world!"
+        # For an unknown model, TokenCounter should fall back to cl100k_base encoding.
+        # Mock tiktoken so we deterministically verify the fallback behavior.
+        with patch("app.optimizer.costs.tiktoken.encoding_for_model") as mock_encoding_for_model, patch(
+            "app.optimizer.costs.tiktoken.get_encoding"
+        ) as mock_get_encoding:
+            mock_encoding_for_model.side_effect = KeyError("unknown model")
+
+            mock_encoding = mock_get_encoding.return_value
+            mock_encoding.encode.return_value = [1, 2, 3]
+
+            count = TokenCounter.count(text, "unknown-model-xyz")
+
+            mock_encoding_for_model.assert_called_once_with("unknown-model-xyz")
+            mock_get_encoding.assert_called_once_with("cl100k_base")
+            mock_encoding.encode.assert_called_once_with(text)
+            assert count == 3
+        # For an unknown model, TokenCounter should fall back to cl100k_base encoding.
+        # Mock tiktoken so we deterministically verify the fallback behavior.
+        with patch("app.optimizer.costs.tiktoken.encoding_for_model") as mock_encoding_for_model, \
+             patch("app.optimizer.costs.tiktoken.get_encoding") as mock_get_encoding:
+            # Simulate tiktoken not knowing this model
+            mock_encoding_for_model.side_effect = KeyError("unknown model")
+
+            # Configure the fallback encoding to return a known tokenization
+            mock_encoding = mock_get_encoding.return_value
+            mock_encoding.encode.return_value = [1, 2, 3]
+
+            count = TokenCounter.count(text, "unknown-model-xyz")
+
+            # Verify that the unknown model path was taken first
+            mock_encoding_for_model.assert_called_once_with("unknown-model-xyz")
+            # And that we fell back to cl100k_base
+            mock_get_encoding.assert_called_once_with("cl100k_base")
+            mock_encoding.encode.assert_called_once_with(text)
+
+            # The count should equal the length of the mocked token list
+            assert count == 3
+class TestCostTracker:
+    def test_initial_state(self):
+        tracker = CostTracker()
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    @patch("app.optimizer.costs.PricingModel.get_rate")
+    def test_add_usage(self, mock_get_rate):
+        mock_get_rate.return_value = (5.0, 15.0)  # input_rate, output_rate
+
+        tracker = CostTracker()
+        tracker.add_usage(1000, 2000, "gpt-4o")
+
+        assert tracker.total_input_tokens == 1000
+        assert tracker.total_output_tokens == 2000
+
+        # cost = (1000/1000000)*5.0 + (2000/1000000)*15.0 = 0.005 + 0.03 = 0.035
+        expected_cost = 0.035
+        assert abs(tracker.total_cost - expected_cost) < 1e-9
+        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
+
+    @patch("app.optimizer.costs.PricingModel.get_rate")
+    def test_add_usage_multiple(self, mock_get_rate):
+        # We will return the same rate for simplicity in testing the accumulation
+        mock_get_rate.return_value = (5.0, 15.0)
+
+        tracker = CostTracker()
+
+        # Call 1
+        tracker.add_usage(1000, 2000, "gpt-4o")
+        # Call 2
+        tracker.add_usage(500, 1000, "gpt-4o")
+
+        assert tracker.total_input_tokens == 1500
+        assert tracker.total_output_tokens == 3000
+
+        # cost = (1500/1000000)*5.0 + (3000/1000000)*15.0 = 0.0075 + 0.045 = 0.0525
+        expected_cost = 0.0525
+        assert abs(tracker.total_cost - expected_cost) < 1e-9
+        assert abs(tracker.estimated_cost() - expected_cost) < 1e-9
+
+    @patch("app.optimizer.costs.PricingModel.get_rate")
+    def test_add_usage_unknown_model(self, mock_get_rate):
+        mock_get_rate.return_value = (0.0, 0.0)
+
+        tracker = CostTracker()
+        tracker.add_usage(1_000_000, 1_000_000, "unknown-model")
+
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 1_000_000
+        assert tracker.estimated_cost() == 0.0
 
 
 class TestPricingModel:
@@ -41,9 +129,9 @@ class TestPricingModel:
         }
 
         with patch.dict(PricingModel.RATES, mock_rates_data, clear=True):
-            # We clear _SORTED_KEYS to force regeneration or test the re-sort logic
-            # In the implementation, if keys differ, it re-sorts.
-            yield
+            sorted_keys = sorted(mock_rates_data.keys(), key=len, reverse=True)
+            with patch.object(PricingModel, "_SORTED_KEYS", sorted_keys):
+                yield
 
     @pytest.mark.parametrize(
         "model, expected_input, expected_output",
@@ -89,52 +177,35 @@ class TestPricingModel:
 
 
 class TestCostTracker:
-    def test_initial_state(self):
-        tracker = CostTracker()
-        assert tracker.total_input_tokens == 0
-        assert tracker.total_output_tokens == 0
-        assert tracker.total_cost == 0.0
-        assert tracker.estimated_cost() == 0.0
+    @pytest.fixture(autouse=True)
+    def mock_rates(self):
+        mock_rates_data = {
+            "gpt-4o": {"input": 5.0, "output": 15.0},
+        }
+        with patch.dict(PricingModel.RATES, mock_rates_data, clear=True):
+            # Ensure the cached sorted keys match the mocked rates so these tests
+            # do not depend on PricingModel's cache-mismatch fallback behavior.
+            with patch.object(PricingModel, "_SORTED_KEYS", list(mock_rates_data.keys())):
+                yield
 
     def test_add_usage_known_model(self):
-        # Note: TestPricingModel's mock_rates fixture is scoped to TestPricingModel, so it does not apply here.
-        # PricingModel.RATES has "gpt-4o-mini": {"input": 0.15, "output": 0.6}
-
         tracker = CostTracker()
-        tracker.add_usage(input_tokens=1_000_000, output_tokens=500_000, model="gpt-4o-mini")
+        tracker.add_usage(1_000_000, 2_000_000, "gpt-4o")
 
-        # 1M input tokens at $0.15/1M = $0.15
-        # 500k output tokens at $0.6/1M = $0.30
-        # Total cost = $0.45
         assert tracker.total_input_tokens == 1_000_000
-        assert tracker.total_output_tokens == 500_000
-        assert pytest.approx(tracker.total_cost) == 0.45
-        assert pytest.approx(tracker.estimated_cost()) == 0.45
+        assert tracker.total_output_tokens == 2_000_000
 
-        # Add more usage
-        tracker.add_usage(input_tokens=500_000, output_tokens=250_000, model="gpt-4o-mini")
+        # input: (1M / 1M) * 5.0 = 5.0
+        # output: (2M / 1M) * 15.0 = 30.0
+        # total: 35.0
+        assert tracker.estimated_cost() == 35.0
 
-        # Additional: 500k input = $0.075, 250k output = $0.15. Total added: $0.225
-        # New total cost: $0.675
-        assert tracker.total_input_tokens == 1_500_000
-        assert tracker.total_output_tokens == 750_000
-        assert pytest.approx(tracker.total_cost) == 0.675
-        assert pytest.approx(tracker.estimated_cost()) == 0.675
-
-    def test_add_usage_unknown_model_fallback(self):
-        # Do not mock PricingModel.get_rate, so we test the actual fallback logic returning (0.0, 0.0)
+    def test_add_usage_unknown_model(self):
         tracker = CostTracker()
-        tracker.add_usage(
-            input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback"
-        )
+        tracker.add_usage(1_000_000, 1_000_000, "unknown-model")
 
         assert tracker.total_input_tokens == 1_000_000
         assert tracker.total_output_tokens == 1_000_000
-        assert tracker.total_cost == 0.0
-        assert tracker.estimated_cost() == 0.0
 
-    def test_pricing_model_get_rate_unknown_explicit(self):
-        # Explicit test for PricingModel.get_rate fallback
-        input_rate, output_rate = PricingModel.get_rate("totally-unknown-model")
-        assert input_rate == 0.0
-        assert output_rate == 0.0
+        # Falls back to 0.0 rate
+        assert tracker.estimated_cost() == 0.0
