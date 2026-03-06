@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { diff_match_patch, DIFF_INSERT, DIFF_DELETE, DIFF_EQUAL } from "diff-match-patch";
 
 interface DiffViewerProps {
@@ -38,18 +38,22 @@ function buildDarkThemeHtml(diffs: [number, string][]): string {
 }
 
 export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
+    // Stabilize both texts as a single object so they are always deferred atomically,
+    // preventing mismatched intermediate diffs.
+    const texts = useMemo(() => ({ oldText, newText }), [oldText, newText]);
+    const deferredTexts = useDeferredValue(texts);
+
     const htmlContent = useMemo(() => {
-        if (typeof diff_match_patch !== "undefined") {
+        try {
             const dmp = new diff_match_patch();
-            const diffs = dmp.diff_main(oldText, newText);
+            const diffs = dmp.diff_main(deferredTexts.oldText, deferredTexts.newText);
             dmp.diff_cleanupSemantic(diffs);
             // Use our custom builder instead of diff_prettyHtml
             return buildDarkThemeHtml(diffs);
-        } else {
-            console.error("diff-match-patch not loaded correctly");
+        } catch {
             return "<div>Error loading diff tool</div>";
         }
-    }, [oldText, newText]);
+    }, [deferredTexts]);
 
     return (
         <div className="w-full h-full bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col">
