@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { diff_match_patch, DIFF_INSERT, DIFF_DELETE, DIFF_EQUAL } from "diff-match-patch";
 
 interface DiffViewerProps {
@@ -38,19 +38,16 @@ function buildDarkThemeHtml(diffs: [number, string][]): string {
 }
 
 export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
-    const [htmlContent, setHtmlContent] = useState<string>("");
-
-    useEffect(() => {
+    const htmlContent = useMemo(() => {
         if (typeof diff_match_patch !== "undefined") {
             const dmp = new diff_match_patch();
             const diffs = dmp.diff_main(oldText, newText);
             dmp.diff_cleanupSemantic(diffs);
             // Use our custom builder instead of diff_prettyHtml
-            const html = buildDarkThemeHtml(diffs);
-            setHtmlContent(html);
+            return buildDarkThemeHtml(diffs);
         } else {
             console.error("diff-match-patch not loaded correctly");
-            setHtmlContent("<div>Error loading diff tool</div>");
+            return "<div>Error loading diff tool</div>";
         }
     }, [oldText, newText]);
 
