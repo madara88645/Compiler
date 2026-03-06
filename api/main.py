@@ -1,9 +1,19 @@
 from __future__ import annotations
+
 import os
+
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+
+from app.adapters.agent_ir import parse_agent_markdown
+from app.adapters.claude_sdk import to_python as _claude_python
+from app.adapters.claude_sdk import to_python_multi as _claude_python_multi
+from app.adapters.claude_sdk import to_yaml as _claude_yaml
+from app.adapters.langchain import to_langchain_python, to_langchain_yaml, to_langgraph_python
+from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
+from app.adapters.skill_ir import parse_skill_markdown
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.llm_engine.schemas import QualityReport
 
@@ -1187,5 +1197,129 @@ async def generate_agent_endpoint(req: AgentGenRequest):
             include_example_code=req.include_example_code,
         )
         return AgentGenResponse(system_prompt=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Export Endpoints — convert generated prompts to framework-compatible code
+# ============================================================================
+
+
+class AgentExportRequest(BaseModel):
+    system_prompt: str = Field(..., description="Generated agent system prompt markdown")
+    format: str = Field(
+        default="claude-sdk",
+        description="Target format: 'claude-sdk' | 'langchain' | 'langgraph'",
+    )
+    output_type: str = Field(
+        default="both",
+        description="Output type: 'python' | 'yaml' | 'both'",
+    )
+    is_multi_agent: bool = Field(default=False)
+
+
+class AgentExportResponse(BaseModel):
+    python_code: str | None = None
+    yaml_config: str | None = None
+
+
+@app.post("/agent-generator/export", response_model=AgentExportResponse)
+async def export_agent_endpoint(req: AgentExportRequest):
+    """Convert a generated agent system prompt into framework-compatible code."""
+    try:
+        ir = parse_agent_markdown(req.system_prompt)
+
+        python_code: str | None = None
+        yaml_config: str | None = None
+
+        fmt = req.format.lower()
+        want_python = req.output_type in ("python", "both")
+        want_yaml = req.output_type in ("yaml", "both")
+
+        if fmt == "claude-sdk":
+            if want_python:
+                python_code = _claude_python_multi(ir) if ir.is_multi_agent else _claude_python(ir)
+            if want_yaml:
+                yaml_config = _claude_yaml(ir)
+
+        elif fmt == "langchain":
+            if want_python:
+                python_code = to_langchain_python(ir)
+            if want_yaml:
+                yaml_config = to_langchain_yaml(ir)
+
+        elif fmt == "langgraph":
+            if want_python:
+                python_code = to_langgraph_python(ir)
+            if want_yaml:
+                yaml_config = to_langchain_yaml(ir)
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown format '{req.format}'. Use 'claude-sdk', 'langchain', or 'langgraph'.",
+            )
+
+        return AgentExportResponse(python_code=python_code, yaml_config=yaml_config)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SkillExportRequest(BaseModel):
+    skill_definition: str = Field(..., description="Generated skill definition markdown")
+    format: str = Field(
+        default="langchain-tool",
+        description="Target format: 'langchain-tool' | 'claude-tool-use'",
+    )
+    output_type: str = Field(
+        default="both",
+        description="Output type: 'python' | 'json' | 'both'",
+    )
+
+
+class SkillExportResponse(BaseModel):
+    python_code: str | None = None
+    json_config: str | None = None
+
+
+@app.post("/skills-generator/export", response_model=SkillExportResponse)
+async def export_skill_endpoint(req: SkillExportRequest):
+    """Convert a generated skill definition into framework-compatible code."""
+    try:
+        ir = parse_skill_markdown(req.skill_definition)
+
+        python_code: str | None = None
+        json_config: str | None = None
+
+        fmt = req.format.lower()
+        want_python = req.output_type in ("python", "both")
+        want_json = req.output_type in ("json", "both")
+
+        if fmt == "langchain-tool":
+            if want_python:
+                python_code = to_langchain_tool(ir)
+            if want_json:
+                json_config = to_claude_tool_use(ir)
+
+        elif fmt == "claude-tool-use":
+            if want_json:
+                json_config = to_claude_tool_use(ir)
+            if want_python:
+                python_code = to_langchain_tool(ir)
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown format '{req.format}'. Use 'langchain-tool' or 'claude-tool-use'.",
+            )
+
+        return SkillExportResponse(python_code=python_code, json_config=json_config)
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
