@@ -83,7 +83,12 @@ def _extract_title(markdown: str) -> str:
         if stripped.startswith("# ") and not stripped.startswith("## "):
             title = stripped[2:].strip()
             # Strip common suffixes like " - System Prompt"
-            title = re.sub(r"\s*[-–]\s*(system\s+prompt|prompt)$", "", title, flags=re.IGNORECASE)
+            title = re.sub(
+                r"\s{0,50}[-–]\s{0,50}(system\s{1,50}prompt|prompt)$",
+                "",
+                title,
+                flags=re.IGNORECASE,
+            )
             return title.strip()
     return "AI Agent"
 

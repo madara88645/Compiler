@@ -69,7 +69,7 @@ def _extract_title(markdown: str) -> str:
         if stripped.startswith("# ") and not stripped.startswith("## "):
             title = stripped[2:].strip()
             title = re.sub(
-                r"\s*[-–]\s*(skill\s+definition|definition|skill)$",
+                r"\s{0,50}[-–]\s{0,50}(skill\s{1,50}definition|definition|skill)$",
                 "",
                 title,
                 flags=re.IGNORECASE,
