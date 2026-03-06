@@ -167,7 +167,10 @@ class TestCostTracker:
             "gpt-4o": {"input": 5.0, "output": 15.0},
         }
         with patch.dict(PricingModel.RATES, mock_rates_data, clear=True):
-            yield
+            # Ensure the cached sorted keys match the mocked rates so these tests
+            # do not depend on PricingModel's cache-mismatch fallback behavior.
+            with patch.object(PricingModel, "_SORTED_KEYS", list(mock_rates_data.keys())):
+                yield
 
     def test_add_usage_known_model(self):
         tracker = CostTracker()
