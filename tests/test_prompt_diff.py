@@ -5,8 +5,8 @@ from app.prompt_diff import PromptComparison
 
 @pytest.fixture
 def comparator():
-    """Fixture providing a PromptComparison instance."""
-    return PromptComparison()
+    """Fixture providing a PromptComparison instance without running __init__."""
+    return PromptComparison.__new__(PromptComparison)
 
 
 def test_generate_diff_identical_texts(comparator):
