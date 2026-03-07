@@ -37,4 +37,10 @@ def test_save_exception(tmp_path: Path, monkeypatch) -> None:
 
     # Should not raise an exception
     store.save()
+    # Existing data should remain accessible in memory
+    assert store.get("Test").content == "Data"
+
+    # New presets should still be added to in-memory store despite save failure
     store.upsert("Test2", "Data2")
+    assert store.get("Test2").content == "Data2"
+    assert set(store.list_names()) == {"Test", "Test2"}
