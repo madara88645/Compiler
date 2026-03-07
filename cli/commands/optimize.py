@@ -9,6 +9,7 @@ from app.optimizer.judge import JudgeAgent
 from app.optimizer.mutator import MutatorAgent
 from app.optimizer.evolution import EvolutionEngine
 from app.testing.models import TestSuite
+from app.llm.base import LLMProvider, ProviderConfig
 from app.llm.factory import get_provider
 from app.reporting import ReportGenerator
 from app.optimizer.estimator import estimate_run_cost
@@ -22,12 +23,13 @@ app.add_typer(history_app, name="history")
 console = Console()
 
 
-def _initialize_llm_provider(provider: str, model: Optional[str]) -> Optional[object]:
+def _initialize_llm_provider(provider: str, model: Optional[str]) -> Optional[LLMProvider]:
     """Helper to initialize the LLM provider."""
     llm_provider = None
     if provider.lower() != "mock":
         try:
-            llm_provider = get_provider(provider, model)
+            config = ProviderConfig(model=model) if model is not None else None
+            llm_provider = get_provider(provider, config)
             console.print(f"[cyan]Using LLM provider:[/cyan] {provider} ({model or 'default'})")
         except Exception as e:
             console.print(f"[yellow]Failed to initialize provider '{provider}': {e}[/yellow]")
