@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 
 interface InfoButtonProps {
     title?: string;
     description: string;
 }
 
-export default function InfoButton({ title, description }: InfoButtonProps) {
+// ⚡ Bolt: Wrapped InfoButton in React.memo to prevent unnecessary re-renders.
+// Since InfoButton only depends on primitive props (title, description),
+// this avoids re-rendering the button every time the parent layout or page state changes.
+const InfoButton = memo(function InfoButton({ title, description }: InfoButtonProps) {
     const [showTooltip, setShowTooltip] = useState(false);
 
     return (
@@ -34,4 +37,6 @@ export default function InfoButton({ title, description }: InfoButtonProps) {
             )}
         </div>
     );
-}
+});
+
+export default InfoButton;
