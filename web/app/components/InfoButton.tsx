@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useState, memo, useId } from "react";
 
 interface InfoButtonProps {
     title?: string;
@@ -12,26 +12,31 @@ interface InfoButtonProps {
 // this avoids re-rendering the button every time the parent layout or page state changes.
 const InfoButton = memo(function InfoButton({ title, description }: InfoButtonProps) {
     const [showTooltip, setShowTooltip] = useState(false);
+    const tooltipId = useId();
 
     return (
         <div className="relative inline-block ml-2 group">
             <button
                 type="button"
-                className="w-4 h-4 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 text-[10px] font-bold flex items-center justify-center hover:bg-neutral-700 hover:text-white transition-colors cursor-help"
+                className="w-4 h-4 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 text-[10px] font-bold flex items-center justify-center hover:bg-neutral-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors cursor-help"
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
+                onFocus={() => setShowTooltip(true)}
+                onBlur={() => setShowTooltip(false)}
                 onClick={(e) => {
                     e.preventDefault();
                     setShowTooltip(!showTooltip);
                 }}
                 aria-label="More information"
+                aria-describedby={showTooltip ? tooltipId : undefined}
             >
                 ?
             </button>
 
             {showTooltip && (
-                <div className="absolute z-50 w-64 p-3 mt-2 text-xs font-normal text-left text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-md shadow-xl -left-2 top-full break-words">
+                <div id={tooltipId} role="tooltip" className="absolute z-50 w-64 p-3 mt-2 text-xs font-normal text-left text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-md shadow-xl -left-2 top-full break-words animate-fade-in">
                     <div className="absolute w-2 h-2 bg-neutral-900 border-l border-t border-neutral-700 transform rotate-45 -top-1 left-3"></div>
+                    {title && <strong className="block text-white mb-1">{title}</strong>}
                     {description}
                 </div>
             )}
