@@ -18,7 +18,7 @@ type QualityCoachProps = {
     onUpdatePrompt: (newPrompt: string) => void;
 };
 
-export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachProps) {
+export default function QualityCoach({ prompt }: QualityCoachProps) {
     const [analyzing, setAnalyzing] = useState(false);
     const [report, setReport] = useState<ValidationResponse | null>(null);
 
@@ -117,7 +117,7 @@ export default function QualityCoach({ prompt, onUpdatePrompt }: QualityCoachPro
                                 <div className="p-6 rounded-2xl bg-green-500/5 border border-green-500/20 text-green-400 flex flex-col items-center gap-2 text-center">
                                     <span className="text-3xl">🎉</span>
                                     <span className="font-semibold">Excellent Prompt!</span>
-                                    <span className="text-sm opacity-80">We couldn't find any significant issues. High five!</span>
+                                    <span className="text-sm opacity-80">We couldn&apos;t find any significant issues. High five!</span>
                                 </div>
                             ) : (
                                 report.weaknesses.map((weakness, i) => (

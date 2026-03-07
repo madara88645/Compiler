@@ -28,7 +28,7 @@ export default function BenchmarkPage() {
     const [status, setStatus] = useState("Ready");
 
     // Model name mapping for the API (Groq-compatible model IDs)
-    const modelApiMap: Record<string, string> = {
+    const modelApiMap = useMemo<Record<string, string>>(() => ({
         "llama-3.3-70b": "llama-3.3-70b-versatile",
         "llama-3.1-8b": "llama-3.1-8b-instant",
         "llama4-scout": "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -37,7 +37,7 @@ export default function BenchmarkPage() {
         "gpt-oss-20b": "openai/gpt-oss-20b",
         "mistral-saba": "mistral-saba-24b",
         "compound": "compound-beta",
-    };
+    }), []);
 
     const _generateMockResult = useCallback((): BenchmarkPayload => {
         const raw = `Here is a response to: "${prompt.slice(0, 40)}..."\n\nIt's a straightforward answer. The model tries to be helpful but might miss specific constraints or tone requirements. It generally covers the basics but lacks structure.`;
@@ -95,14 +95,14 @@ export default function BenchmarkPage() {
             });
             setStatus(`Benchmark Complete (${data.processing_ms}ms)`);
 
-        } catch (e: any) {
-            console.warn("Benchmark API error, falling back to mock:", e.message);
+        } catch (e: unknown) {
+            console.warn("Benchmark API error, falling back to mock:", e instanceof Error ? e.message : String(e));
             setBenchmarkResult(_generateMockResult());
             setStatus("Benchmark Complete (Fallback Mock)");
         } finally {
             setLoading(false);
         }
-    }, [prompt, selectedModel, _generateMockResult]);
+    }, [prompt, selectedModel, _generateMockResult, modelApiMap]);
 
     const chartData = useMemo(() => {
         if (!benchmarkResult) return [];

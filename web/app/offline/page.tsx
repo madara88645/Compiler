@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import ContextManager from "../components/ContextManager";
-import QualityCoach from "../components/QualityCoach";
 import { API_BASE } from "@/config";
 
 import InfoButton from "../components/InfoButton";
@@ -16,7 +15,7 @@ type CompileResponse = {
     user_prompt_v2?: string;
     plan_v2?: string;
     expanded_prompt_v2?: string;
-    ir: any;
+    ir: Record<string, unknown>;
     processing_ms: number;
 };
 
@@ -25,8 +24,7 @@ export default function OfflinePage() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<CompileResponse | null>(null);
     const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "json" | "quality">("system");
-    // FORCE OFFLINE MODE
-    const liveMode = false;
+
     // Diagnostics ON by default
     const diagnostics = true;
 
@@ -55,13 +53,13 @@ export default function OfflinePage() {
                 setStatus("Error: Offline Compilation Failed");
             }
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            setStatus(`Error: ${e.message || "Connection Failed"}`);
+            setStatus(`Error: ${e instanceof Error ? e.message : "Connection Failed"}`);
         } finally {
             setLoading(false);
         }
-    }, [prompt]);
+    }, [prompt, diagnostics]);
 
     return (
         <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
