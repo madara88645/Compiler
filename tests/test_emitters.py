@@ -20,7 +20,7 @@ def test_emit_plan_fallback():
         length_hint="short",
         goals=["Test fallback"],
         tasks=[],
-        steps=[]
+        steps=[],
     )
     plan_str = emit_plan(ir)
     assert plan_str == "1. Analyze request\n   Rationale: establish understanding"
@@ -36,7 +36,7 @@ def test_emit_plan_with_steps():
         length_hint="short",
         goals=["Test steps"],
         tasks=[],
-        steps=["First step", "Second step"]
+        steps=["First step", "Second step"],
     )
     plan_str = emit_plan(ir)
     assert "1. First step" in plan_str
@@ -54,7 +54,7 @@ def test_emit_plan_with_tasks_as_fallback():
         length_hint="short",
         goals=["Test tasks"],
         tasks=["First task", "Second task"],
-        steps=[]
+        steps=[],
     )
     plan_str = emit_plan(ir)
     assert "1. First task" in plan_str
