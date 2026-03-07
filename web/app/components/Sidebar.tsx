@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { memo } from "react";
 
-export default function Sidebar() {
+// ⚡ Bolt: Extracted navItems array outside the component to prevent recreating the array reference on every render
+const navItems = [
+    { name: "Compiler", path: "/", icon: "💠" },
+    { name: "Optimizer", path: "/optimizer", icon: "✨" },
+    { name: "Offline", path: "/offline", icon: "🔌" },
+    { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
+    { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
+    { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
+];
+
+// ⚡ Bolt: Wrapped Sidebar in React.memo to prevent unnecessary re-renders.
+// Sidebar only relies on the current pathname via usePathname.
+// Without memo, it re-renders every time the parent RootLayout or page level components re-render.
+const Sidebar = memo(function Sidebar() {
     const pathname = usePathname();
-
-    const navItems = [
-        { name: "Compiler", path: "/", icon: "💠" },
-        { name: "Optimizer", path: "/optimizer", icon: "✨" },
-        { name: "Offline", path: "/offline", icon: "🔌" },
-        { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
-        { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
-        { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
-    ];
 
     return (
         <div className="w-16 md:w-20 h-screen bg-black/20 border-r border-white/5 flex flex-col items-center py-6 gap-6 backdrop-blur-md z-50">
@@ -27,19 +32,21 @@ export default function Sidebar() {
                     <Link
                         key={item.path}
                         href={item.path}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 relative group ${isActive
+                        aria-label={item.name}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive
                             ? "bg-white/10 text-white shadow-lg shadow-white/5 ring-1 ring-white/20"
                             : "text-zinc-500 hover:text-white hover:bg-white/5"
                             }`}
                         title={item.name}
                     >
-                        {item.icon}
+                        <span aria-hidden="true">{item.icon}</span>
                         {isActive && (
                             <div className="absolute left-[-2px] top-2 bottom-2 w-1 bg-blue-500 rounded-full" />
                         )}
 
                         {/* Tooltip */}
-                        <div className="absolute left-14 bg-zinc-900 border border-white/10 px-2 py-1 rounded text-xs text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                        <div aria-hidden="true" className="absolute left-14 bg-zinc-900 border border-white/10 px-2 py-1 rounded text-xs text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                             {item.name}
                         </div>
                     </Link>
@@ -47,4 +54,6 @@ export default function Sidebar() {
             })}
         </div>
     );
-}
+});
+
+export default Sidebar;

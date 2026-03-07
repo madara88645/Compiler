@@ -1,0 +1,3 @@
+## 2024-03-06 - Accessible Icon-Only Navigation
+**Learning:** Found an accessibility issue in the main Sidebar navigation (`web/app/components/Sidebar.tsx`) where icon-only links lacked proper labels, active state indicators (`aria-current`), and keyboard focus rings. Also, emoji icons were not hidden from screen readers.
+**Action:** Implemented a standard accessible pattern: added `aria-label` to the links, `aria-current="page"` to indicate active status, wrapped emojis in `<span aria-hidden="true">`, applied `focus-visible` classes for keyboard navigation, and added `aria-hidden="true"` to visual tooltips to prevent redundant announcements. This pattern should be applied to any future icon-only navigation components.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 
 interface InfoButtonProps {
     title?: string;
@@ -34,4 +34,6 @@ export default function InfoButton({ description }: InfoButtonProps) {
             )}
         </div>
     );
-}
+});
+
+export default InfoButton;
