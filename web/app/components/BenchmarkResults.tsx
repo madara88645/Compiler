@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 
 export type BenchmarkData = {
     raw_output: string;
@@ -160,7 +160,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
 
 /* ─── Small helper ───────────────────────────────────── */
 
-function MetricPill({ label, raw, compiled }: { label: string; raw: number; compiled: number }) {
+const MetricPill = memo(function MetricPill({ label, raw, compiled }: { label: string; raw: number; compiled: number }) {
     const diff = compiled - raw;
     const better = diff > 0;
     return (
@@ -178,4 +178,4 @@ function MetricPill({ label, raw, compiled }: { label: string; raw: number; comp
             )}
         </div>
     );
-}
+});

@@ -7,7 +7,7 @@ interface InfoButtonProps {
     description: string;
 }
 
-export default function InfoButton({ title, description }: InfoButtonProps) {
+export default function InfoButton({ description }: InfoButtonProps) {
     const [showTooltip, setShowTooltip] = useState(false);
 
     return (

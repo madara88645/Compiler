@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, DragEvent, useEffect } from "react";
+import { useState, useRef, DragEvent, useEffect, useCallback } from "react";
 import { API_BASE } from "@/config";
 
 type SearchResult = {
@@ -23,15 +23,11 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
     const [status, setStatus] = useState("");
     const [isDragging, setIsDragging] = useState(false);
     const [isConnected, setIsConnected] = useState<boolean | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [indexStats, setIndexStats] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Check connectivity on mount
-    useEffect(() => {
-        checkConnection();
-    }, []);
-
-    const checkConnection = async () => {
+    const checkConnection = useCallback(async () => {
         try {
             // Use a short timeout to prevent hanging if backend is unresponsive
             const controller = new AbortController();
@@ -46,16 +42,28 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             } else {
                 setIsConnected(false);
             }
-        } catch (e) {
+        } catch {
             setIsConnected(false);
             // Silent error for connection checks to avoid console spam
         }
-    };
+    }, []);
+
+    // Check connectivity on mount
+    useEffect(() => {
+        checkConnection();
+    }, [checkConnection]);
 
     const fetchStats = async () => {
         try {
-            const res = await fetch(`${API_BASE}/rag/stats`);
-            const data = await res.json();
+            // Use a short timeout to prevent hanging if backend is unresponsive
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            await fetch(`${API_BASE}/health`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            const statsRes = await fetch(`${API_BASE}/rag/stats`);
+            const data = await statsRes.json();
             setIndexStats(data);
         } catch (e) {
             console.error("Stats fetch failed:", e);
@@ -160,7 +168,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             } else {
                 setStatus(`Error: ${data.detail}`);
             }
-        } catch (e) {
+        } catch {
             setStatus("Ingest failed");
         } finally {
             setIngesting(false);
@@ -283,7 +291,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     ref={directoryInputRef}
                     type="file"
                     multiple
-                    // @ts-ignore - webkitdirectory is not in standard types but supported by browsers
+                    // @ts-expect-error - webkitdirectory is not in standard types but supported by browsers
                     webkitdirectory=""
                     directory=""
                     onChange={handleDirectorySelect}
@@ -381,7 +389,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                     {!searching && query && results.length === 0 && (
                         <div className="text-[10px] text-zinc-500 text-center py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
-                            No results found for "{query}"
+                            No results found for &quot;{query}&quot;
                         </div>
                     )}
 
