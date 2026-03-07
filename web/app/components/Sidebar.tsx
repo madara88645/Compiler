@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { memo } from "react";
 
-export default function Sidebar() {
+// ⚡ Bolt: Extracted navItems array outside the component to prevent recreating the array reference on every render
+const navItems = [
+    { name: "Compiler", path: "/", icon: "💠" },
+    { name: "Optimizer", path: "/optimizer", icon: "✨" },
+    { name: "Offline", path: "/offline", icon: "🔌" },
+    { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
+    { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
+    { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
+];
+
+// ⚡ Bolt: Wrapped Sidebar in React.memo to prevent unnecessary re-renders.
+// Sidebar only relies on the current pathname via usePathname.
+// Without memo, it re-renders every time the parent RootLayout or page level components re-render.
+const Sidebar = memo(function Sidebar() {
     const pathname = usePathname();
-
-    const navItems = [
-        { name: "Compiler", path: "/", icon: "💠" },
-        { name: "Optimizer", path: "/optimizer", icon: "✨" },
-        { name: "Offline", path: "/offline", icon: "🔌" },
-        { name: "Benchmark", path: "/benchmark", icon: "⚔️" },
-        { name: "Agent Generator", path: "/agent-generator", icon: "🧠" },
-        { name: "Skills Generator", path: "/skills-generator", icon: "⚡" },
-    ];
 
     return (
         <div className="w-16 md:w-20 h-screen bg-black/20 border-r border-white/5 flex flex-col items-center py-6 gap-6 backdrop-blur-md z-50">
@@ -47,4 +52,6 @@ export default function Sidebar() {
             })}
         </div>
     );
-}
+});
+
+export default Sidebar;
