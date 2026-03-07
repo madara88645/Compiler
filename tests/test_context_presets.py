@@ -44,3 +44,20 @@ def test_save_exception(tmp_path: Path, monkeypatch) -> None:
     store.upsert("Test2", "Data2")
     assert store.get("Test2").content == "Data2"
     assert set(store.list_names()) == {"Test", "Test2"}
+
+
+def test_rename_edge_cases(tmp_path: Path) -> None:
+    store = ContextPresetStore(path=tmp_path / "presets.json")
+    store.upsert("Alpha", "A")
+
+    # Test empty new_name
+    assert store.rename("Alpha", "") is False
+    assert store.get("Alpha") is not None
+
+    # Test whitespace new_name
+    assert store.rename("Alpha", "   ") is False
+    assert store.get("Alpha") is not None
+
+    # Test nonexistent old_name
+    assert store.rename("Nonexistent", "Beta") is False
+    assert store.get("Beta") is None
