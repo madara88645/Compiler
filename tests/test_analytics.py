@@ -1,7 +1,3 @@
-from typing import Any, Dict
-
-import pytest
-
 from app.analytics import create_record_from_ir
 
 
