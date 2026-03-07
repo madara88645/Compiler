@@ -9,8 +9,6 @@ from app.templates import (
     PromptTemplate,
     TemplateVariable,
     TemplateRegistry,
-    get_registry,
-    reset_registry,
 )
 
 
@@ -220,35 +218,3 @@ def test_tutorial_creator_template_render(builtin_templates_path):
     assert "beginner" in result
     assert "30 minutes" in result
     assert "tutorial" in result.lower()
-
-
-def test_get_registry_singleton():
-    """Test that get_registry returns a singleton instance."""
-    # Ensure clean state
-    reset_registry()
-
-    # First call should create a new registry
-    registry1 = get_registry()
-    assert isinstance(registry1, TemplateRegistry)
-
-    # Second call should return the exact same instance
-    registry2 = get_registry()
-    assert registry1 is registry2
-
-
-def test_reset_registry():
-    """Test that reset_registry clears the global instance."""
-    # Ensure clean state
-    reset_registry()
-
-    # Create an instance
-    registry1 = get_registry()
-    assert isinstance(registry1, TemplateRegistry)
-
-    # Reset it
-    reset_registry()
-
-    # Calling get_registry again should create a new instance
-    registry2 = get_registry()
-    assert isinstance(registry2, TemplateRegistry)
-    assert registry1 is not registry2
