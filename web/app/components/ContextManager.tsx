@@ -59,10 +59,8 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-            await fetch(`${API_BASE}/health`, { signal: controller.signal });
+            const statsRes = await fetch(`${API_BASE}/rag/stats`, { signal: controller.signal });
             clearTimeout(timeoutId);
-
-            const statsRes = await fetch(`${API_BASE}/rag/stats`);
             const data = await statsRes.json();
             setIndexStats(data);
         } catch (e) {
