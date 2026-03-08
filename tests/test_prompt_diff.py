@@ -85,3 +85,74 @@ def test_generate_diff_empty_texts(comparator):
     diff2 = comparator.generate_diff("", "Some content")
     assert "+++ prompt2" in diff2
     assert "+Some content" in diff2
+
+
+def test_get_diff_stats_identical_texts(comparator):
+    """Test get_diff_stats with identical texts."""
+    text = "Line 1\nLine 2\nLine 3"
+    stats = comparator.get_diff_stats(text, text)
+
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 0
+    assert stats["lines_same"] == 3
+    assert stats["total_lines_1"] == 3
+    assert stats["total_lines_2"] == 3
+    assert stats["similarity"] == 100.0
+
+
+def test_get_diff_stats_empty_texts(comparator):
+    """Test get_diff_stats with empty texts."""
+    stats = comparator.get_diff_stats("", "")
+
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 0
+    assert stats["lines_same"] == 0
+    assert stats["total_lines_1"] == 0
+    assert stats["total_lines_2"] == 0
+    assert stats["similarity"] == 100.0
+
+
+def test_get_diff_stats_added_lines(comparator):
+    """Test get_diff_stats with added lines."""
+    text1 = "Line 1\nLine 3"
+    text2 = "Line 1\nLine 2\nLine 3"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    assert stats["lines_added"] == 1
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 0
+    assert stats["lines_same"] == 2
+    assert stats["total_lines_1"] == 2
+    assert stats["total_lines_2"] == 3
+
+
+def test_get_diff_stats_removed_lines(comparator):
+    """Test get_diff_stats with removed lines."""
+    text1 = "Line 1\nLine 2\nLine 3"
+    text2 = "Line 1\nLine 3"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 1
+    assert stats["lines_changed"] == 0
+    assert stats["lines_same"] == 2
+    assert stats["total_lines_1"] == 3
+    assert stats["total_lines_2"] == 2
+
+
+def test_get_diff_stats_changed_lines(comparator):
+    """Test get_diff_stats with changed lines."""
+    text1 = "Line 1\nLine 2\nLine 3"
+    text2 = "Line 1\nLine MODIFIED\nLine 3"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    # In SequenceMatcher, changing a line typically results in a 'replace' operation
+    # where lines are removed and added, or a single 'replace' if lengths are equal
+    assert stats["lines_changed"] == 1
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_same"] == 2
+    assert stats["total_lines_1"] == 3
+    assert stats["total_lines_2"] == 3
