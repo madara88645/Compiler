@@ -85,3 +85,99 @@ def test_generate_diff_empty_texts(comparator):
     diff2 = comparator.generate_diff("", "Some content")
     assert "+++ prompt2" in diff2
     assert "+Some content" in diff2
+
+
+def test_get_diff_stats_identical_texts(comparator):
+    """Test get_diff_stats with identical texts."""
+    text = "Line 1\nLine 2\nLine 3"
+    stats = comparator.get_diff_stats(text, text)
+
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 0
+    assert stats["lines_same"] == 3
+    assert stats["total_lines_1"] == 3
+    assert stats["total_lines_2"] == 3
+    assert stats["similarity"] == 100.0
+
+
+def test_get_diff_stats_completely_different(comparator):
+    """Test get_diff_stats with completely different texts."""
+    text1 = "Apple"
+    text2 = "Orange"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    # They are considered a replacement by SequenceMatcher
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 1
+    assert stats["lines_same"] == 0
+    assert stats["total_lines_1"] == 1
+    assert stats["total_lines_2"] == 1
+    # similarity won't be exactly 0.0 for Apple vs Orange (SequenceMatcher ratio)
+    assert 0.0 <= stats["similarity"] < 20.0
+
+
+def test_get_diff_stats_insertions_and_deletions(comparator):
+    """Test get_diff_stats with insertions and deletions."""
+    text1 = "Line 1\nLine 2\nLine 3"
+    text2 = "Line 1\nLine 2.5\nLine 3\nLine 4"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    # "Line 2" replaced by "Line 2.5" is seen as a changed line (replace opcode).
+    # Then "Line 4" is added (insert opcode).
+    assert stats["lines_added"] == 1  # Line 4
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 1  # Line 2 replaced by Line 2.5
+    assert stats["lines_same"] == 2  # Line 1, Line 3
+    assert stats["total_lines_1"] == 3
+    assert stats["total_lines_2"] == 4
+    # similarity should be > 0 and < 100
+    assert 0 < stats["similarity"] < 100.0
+
+
+def test_get_diff_stats_replacements(comparator):
+    """Test get_diff_stats with line replacements."""
+    text1 = "A\nB\nC\nD"
+    text2 = "A\nX\nY\nD"
+    stats = comparator.get_diff_stats(text1, text2)
+
+    # 'B\nC' replaced by 'X\nY' -> max(2, 2) = 2 changed lines
+    assert stats["lines_added"] == 0
+    assert stats["lines_removed"] == 0
+    assert stats["lines_changed"] == 2
+    assert stats["lines_same"] == 2
+    assert stats["total_lines_1"] == 4
+    assert stats["total_lines_2"] == 4
+
+
+def test_get_diff_stats_empty_texts(comparator):
+    """Test get_diff_stats with empty strings."""
+    # Both empty
+    stats_empty = comparator.get_diff_stats("", "")
+    assert stats_empty["lines_added"] == 0
+    assert stats_empty["lines_removed"] == 0
+    assert stats_empty["lines_changed"] == 0
+    assert stats_empty["lines_same"] == 0
+    assert stats_empty["total_lines_1"] == 0
+    assert stats_empty["total_lines_2"] == 0
+    assert stats_empty["similarity"] == 100.0
+
+    # One empty
+    stats_one_empty = comparator.get_diff_stats("Content", "")
+    assert stats_one_empty["lines_added"] == 0
+    assert stats_one_empty["lines_removed"] == 1
+    assert stats_one_empty["lines_changed"] == 0
+    assert stats_one_empty["lines_same"] == 0
+    assert stats_one_empty["total_lines_1"] == 1
+    assert stats_one_empty["total_lines_2"] == 0
+    assert stats_one_empty["similarity"] == 0.0
+
+    stats_other_empty = comparator.get_diff_stats("", "Content")
+    assert stats_other_empty["lines_added"] == 1
+    assert stats_other_empty["lines_removed"] == 0
+    assert stats_other_empty["lines_changed"] == 0
+    assert stats_other_empty["lines_same"] == 0
+    assert stats_other_empty["total_lines_1"] == 0
+    assert stats_other_empty["total_lines_2"] == 1
+    assert stats_other_empty["similarity"] == 0.0
