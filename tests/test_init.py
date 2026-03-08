@@ -1,5 +1,5 @@
-import pytest
 from app import get_version, __version__
+
 
 def test_get_version():
     version = get_version()
