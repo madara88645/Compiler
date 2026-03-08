@@ -85,3 +85,18 @@ def test_generate_diff_empty_texts(comparator):
     diff2 = comparator.generate_diff("", "Some content")
     assert "+++ prompt2" in diff2
     assert "+Some content" in diff2
+
+
+def test_get_prompt_comparison_singleton():
+    """Test that get_prompt_comparison returns a singleton instance."""
+    from app.prompt_diff import get_prompt_comparison
+
+    # Get the instance twice
+    instance1 = get_prompt_comparison()
+    instance2 = get_prompt_comparison()
+
+    # Verify they are the exact same object (singleton pattern)
+    assert instance1 is instance2
+
+    # Verify it's actually the correct type
+    assert isinstance(instance1, PromptComparison)
