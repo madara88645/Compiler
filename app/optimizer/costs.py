@@ -28,11 +28,9 @@ class TokenCounter:
             if encoding is None:
                 encoding = tiktoken.get_encoding("cl100k_base")
                 _ENCODER_CACHE["cl100k_base"] = encoding
-
-            # Cache the fallback encoding under the unknown model name
-            # so future calls with this unknown model hit the fast path
-            _ENCODER_CACHE[model] = encoding
-
+            # Note: we intentionally do not cache the fallback under the unknown
+            # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
+            # mappings for dynamically introduced model identifiers.
         return len(encoding.encode(text))
 
 
