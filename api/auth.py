@@ -1,4 +1,5 @@
 import time
+import secrets
 from typing import Dict
 from fastapi import Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
@@ -60,13 +61,11 @@ def verify_api_key(
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:
         # Comparison logic (robust)
-        if api_key.strip() == admin_key:
+        if secrets.compare_digest(api_key.strip(), admin_key):
             return APIKey(key=api_key, owner="admin", is_active=True)
 
         # Debugging mismatch (only prints to server logs)
         print("[AUTH ERROR] Admin Key Mismatch.")
-        print(f"[AUTH ERROR] Env Key (len={len(admin_key)}): {repr(admin_key)}")
-        print(f"[AUTH ERROR] Recv Key (len={len(api_key)}): {repr(api_key)}")
     else:
         # Debugging missing key
         print("[AUTH DEBUG] ADMIN_API_KEY not found in environment or is empty.")
@@ -76,11 +75,9 @@ def verify_api_key(
     db.close()
 
     if not key_record:
-        # DEBUG: Show what was received
-        received_snippet = f"'{api_key[:5]}...'" if api_key else "None"
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Invalid API Key. Server received: {received_snippet}. Comparison failed.",
+            detail="Invalid API Key.",
         )
 
     if not key_record.is_active:
