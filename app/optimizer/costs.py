@@ -3,6 +3,10 @@ import tiktoken
 from typing import Dict, Tuple, List
 
 
+# Module-level cache to avoid repeated encoding lookups
+_ENCODER_CACHE = {}
+
+
 class TokenCounter:
     """Handles token counting for various models using tiktoken."""
 
@@ -13,11 +17,20 @@ class TokenCounter:
         Defaults to cl100k_base encoding if model is not found.
         """
         try:
-            encoding = tiktoken.encoding_for_model(model)
+            # Fast path: check local cache first
+            encoding = _ENCODER_CACHE.get(model)
+            if encoding is None:
+                encoding = tiktoken.encoding_for_model(model)
+                _ENCODER_CACHE[model] = encoding
         except KeyError:
             # Default to GPT-4/3.5 encoding if model unknown
-            encoding = tiktoken.get_encoding("cl100k_base")
-
+            encoding = _ENCODER_CACHE.get("cl100k_base")
+            if encoding is None:
+                encoding = tiktoken.get_encoding("cl100k_base")
+                _ENCODER_CACHE["cl100k_base"] = encoding
+            # Note: we intentionally do not cache the fallback under the unknown
+            # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
+            # mappings for dynamically introduced model identifiers.
         return len(encoding.encode(text))
 
 
