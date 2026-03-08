@@ -156,3 +156,18 @@ def test_get_diff_stats_changed_lines(comparator):
     assert stats["lines_same"] == 2
     assert stats["total_lines_1"] == 3
     assert stats["total_lines_2"] == 3
+
+
+def test_get_prompt_comparison_singleton():
+    """Test that get_prompt_comparison returns a singleton instance."""
+    from app.prompt_diff import get_prompt_comparison
+
+    # Get the instance twice
+    instance1 = get_prompt_comparison()
+    instance2 = get_prompt_comparison()
+
+    # Verify they are the exact same object (singleton pattern)
+    assert instance1 is instance2
+
+    # Verify it's actually the correct type
+    assert isinstance(instance1, PromptComparison)
