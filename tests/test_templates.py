@@ -238,15 +238,20 @@ def test_get_registry_singleton():
 
 def test_reset_registry():
     """Test that reset_registry clears the global instance."""
+    import app.templates
+
     # Ensure clean state
     reset_registry()
+    assert app.templates._registry is None
 
     # Create an instance
     registry1 = get_registry()
     assert isinstance(registry1, TemplateRegistry)
+    assert app.templates._registry is not None
 
     # Reset it
     reset_registry()
+    assert app.templates._registry is None
 
     # Calling get_registry again should create a new instance
     registry2 = get_registry()
