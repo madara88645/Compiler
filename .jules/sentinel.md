@@ -1,0 +1,4 @@
+## 2024-03-07 - [Fix Path Traversal in File Upload Endpoint]
+**Vulnerability:** The `/rag/upload` endpoint `upload_file_endpoint` in `api/main.py` directly concatenated `req.filename` into a local path using `os.path.join(temp_dir, req.filename)` without any sanitization.
+**Learning:** This is a classic path traversal vulnerability where an attacker could upload files to an arbitrary location outside of the intended `temp_dir` by using sequences like `../` in `req.filename`.
+**Prevention:** Always sanitize user-provided filenames before using them in file system operations. `os.path.basename` is an effective way to extract just the filename from a given path, ignoring any directory traversal sequences. Added fallback logic for when the basename resolves to empty or relative current directory constructs (`.` or `..`).

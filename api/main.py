@@ -1060,7 +1060,13 @@ async def upload_file_endpoint(req: FileUploadRequest):
         # Create a temporary file with the content
         # This allows us to reuse the existing ingest_paths logic
         temp_dir = tempfile.mkdtemp(prefix="rag_upload_")
-        temp_path = os.path.join(temp_dir, req.filename)
+
+        # Sanitize filename to prevent path traversal
+        safe_filename = os.path.basename(req.filename)
+        if not safe_filename or safe_filename in (".", ".."):
+            safe_filename = "upload.txt"
+
+        temp_path = os.path.join(temp_dir, safe_filename)
 
         with open(temp_path, "w", encoding="utf-8") as f:
             f.write(req.content)
