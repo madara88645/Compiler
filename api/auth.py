@@ -75,7 +75,6 @@ def verify_api_key(
     db.close()
 
     if not key_record:
-        # DEBUG: Show what was received
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API Key.",

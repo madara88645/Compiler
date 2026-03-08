@@ -8,10 +8,11 @@ import InfoButton from "../components/InfoButton";
 export default function OptimizerPage() {
     const [input, setInput] = useState("");
     const [output, setOutput] = useState("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
-    const [maxChars, setMaxChars] = useState<string>("");
+    const [maxChars] = useState<string>("");
 
     const handleOptimize = async () => {
         if (!input.trim()) return;

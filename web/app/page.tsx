@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import ContextManager from "./components/ContextManager";
 import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
@@ -15,6 +14,7 @@ type CompileResponse = {
   user_prompt_v2?: string;
   plan_v2?: string;
   expanded_prompt_v2?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ir: any;
   processing_ms: number;
   critique?: {
@@ -34,12 +34,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompileResponse | null>(null);
   const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "json" | "quality">("system");
-  const [liveMode, setLiveMode] = useState(true);
-  const [diagnostics, setDiagnostics] = useState(true);
+  const [liveMode] = useState(true);
+  const [diagnostics] = useState(true);
   const [status, setStatus] = useState("Ready");
   const [debouncedPrompt, setDebouncedPrompt] = useState("");
 
   // Security Alert State
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [securityFindings, setSecurityFindings] = useState<any[]>([]);
   const [redactedText, setRedactedText] = useState("");
   const [pendingText, setPendingText] = useState(""); // Text waiting to be sent to V2
@@ -49,13 +50,6 @@ export default function Home() {
     const timer = setTimeout(() => setDebouncedPrompt(prompt), 600);
     return () => clearTimeout(timer);
   }, [prompt]);
-
-  // Trigger generation on debounced prompt change (if Live Mode is on)
-  useEffect(() => {
-    if (liveMode && debouncedPrompt.trim()) {
-      handleGenerate(debouncedPrompt);
-    }
-  }, [debouncedPrompt]); // Removed liveMode dependency to prevent trigger on toggle
 
   const handleGenerate = useCallback(async (textOverride?: string) => {
     const textToCompile = typeof textOverride === 'string' ? textOverride : prompt;
@@ -72,7 +66,8 @@ export default function Home() {
       // Step A: offline/hybrid check (always needed for security/diagnostics)
       // Even in Live Mode, we might want to check IR via V1 or V2 before showing result
 
-      const checkSecurity = (data: any, isV1: boolean) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const checkSecurity = (data: Record<string, any>, isV1: boolean) => {
         // V1 returns the IR object directly. V2 returns { ir: ... } wrapper.
         // We need to inspect the correct location for metadata.
         const ir = isV1 ? data : data.ir;
@@ -81,7 +76,6 @@ export default function Home() {
           setSecurityFindings(ir.metadata.security.findings);
           setRedactedText(ir.metadata.security.redacted_text);
           setPendingText(textToCompile);
-          setLoading(false);
           setStatus("Security Alert Detected");
           return true;
         }
@@ -128,15 +122,15 @@ export default function Home() {
 
           setResult(data);
           setStatus(`Done in ${data.processing_ms}ms`);
-        } catch (e: any) {
-          if (e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
+        } catch (e: unknown) {
+          if (e instanceof Error && e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
           throw e;
         }
       }
 
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setStatus(`Error: ${e.message || "Connection Failed"}`);
+      setStatus(`Error: ${e instanceof Error ? e.message : "Connection Failed"}`);
     } finally {
       // Only unset loading if we didn't trigger security alert (which handles its own loading state)
       // Actually checkSecurity sets loading=false if blocked.
@@ -145,11 +139,17 @@ export default function Home() {
       // But if we returned early, finally block still runs? Yes.
       // So we need to be careful not to hide the modal.
       // Let's rely on setStatus/Alert state.
-      if (status !== "Security Alert Detected") {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [prompt, diagnostics, liveMode]);
+
+  // Trigger generation on debounced prompt change (if Live Mode is on)
+  useEffect(() => {
+    if (liveMode && debouncedPrompt.trim()) {
+      handleGenerate(debouncedPrompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedPrompt, liveMode]); // Exclude handleGenerate to avoid infinite renders, since it changes on 'prompt'
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
     setSecurityFindings([]); // Close modal
@@ -176,8 +176,8 @@ export default function Home() {
       const dataV2 = await resV2.json();
       setResult(dataV2);
       setStatus(`Done in ${dataV2.processing_ms}ms`);
-    } catch (e: any) {
-      setStatus(`Error: ${e.message}`);
+    } catch (e: unknown) {
+      setStatus(`Error: ${e instanceof Error ? e.message : "Unknown Error"}`);
     } finally {
       setLoading(false);
     }
