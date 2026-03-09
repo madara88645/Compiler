@@ -412,8 +412,7 @@ def _insert_document(
     if embed:
         # Fetch back the assigned IDs
         cur = conn.execute(
-            "SELECT id, content FROM chunks WHERE doc_id=? ORDER BY chunk_index",
-            (doc_id,)
+            "SELECT id, content FROM chunks WHERE doc_id=? ORDER BY chunk_index", (doc_id,)
         )
         inserted_chunks = cur.fetchall()
 

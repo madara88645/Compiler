@@ -3,11 +3,13 @@ import os
 from pathlib import Path
 from app.rag.simple_index import ingest_paths
 
+
 def create_large_file(path, num_paragraphs):
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         # A simple long string of text
         sentence = "This is a sentence to test the chunking and embedding logic. " * 10
         f.write((sentence + "\n\n") * num_paragraphs)
+
 
 if __name__ == "__main__":
     test_file = Path("test_large_doc.txt")
@@ -21,10 +23,14 @@ if __name__ == "__main__":
         os.remove(db_path)
 
     start_time = time.time()
-    n_docs, n_chunks, elapsed = ingest_paths([str(test_file)], db_path=db_path, embed=True, embed_dim=64, chunking_strategy="paragraph")
+    n_docs, n_chunks, elapsed = ingest_paths(
+        [str(test_file)], db_path=db_path, embed=True, embed_dim=64, chunking_strategy="paragraph"
+    )
     end_time = time.time()
 
-    print(f"Baseline - Ingested {n_docs} docs, {n_chunks} chunks in {end_time - start_time:.4f} seconds.")
+    print(
+        f"Baseline - Ingested {n_docs} docs, {n_chunks} chunks in {end_time - start_time:.4f} seconds."
+    )
     print(f"Baseline - Elapsed reported: {elapsed:.4f} seconds.")
 
     # Clean up
