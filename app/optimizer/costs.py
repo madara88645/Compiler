@@ -1,6 +1,7 @@
 from __future__ import annotations
 import tiktoken
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
+from functools import lru_cache
 
 
 # Module-level cache to avoid repeated encoding lookups
@@ -44,32 +45,43 @@ class PricingModel:
         "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
     }
 
-    # Cache sorted keys for efficient prefix matching (longest first)
-    _SORTED_KEYS: List[str] = sorted(RATES.keys(), key=len, reverse=True)
+    # Track the tuple of known keys to catch all test mock changes (additions, removals, and swaps)
+    _KNOWN_KEYS_TUPLE: Tuple[str, ...] = tuple(RATES.keys())
+    # Cache sorted keys as a tuple to make it hashable for the lru_cache argument
+    _SORTED_KEYS_TUPLE: Tuple[str, ...] = tuple(sorted(RATES.keys(), key=len, reverse=True))
+
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def _get_prefix_key(model: str, sorted_keys: Tuple[str, ...]) -> Optional[str]:
+        """Caches the O(N) prefix matching lookup using the standard library."""
+        for key in sorted_keys:
+            if model.startswith(key):
+                return key
+        return None
 
     @classmethod
     def get_rate(cls, model: str) -> Tuple[float, float]:
         """Returns (input_rate, output_rate) per 1M tokens for the model."""
-        # Check longest matching prefix first to handle cases like "gpt-4o" vs "gpt-4o-mini"
-        # We use a cached sorted list to avoid sorting on every call, but we must
-        # fall back to sorting if _SORTED_KEYS is not consistent with RATES (e.g. during tests/mocking)
+        # Performance optimization: get_rate is on the hot path.
+        # Check if the dictionary keys have changed (e.g., due to test mocking).
+        # We use a tuple conversion of keys which correctly handles key swaps (unlike `len`)
+        # and is still much faster than the original `set()` instantiation logic.
+        current_keys = tuple(cls.RATES.keys())
+        if current_keys != cls._KNOWN_KEYS_TUPLE:
+            cls._KNOWN_KEYS_TUPLE = current_keys
+            cls._SORTED_KEYS_TUPLE = tuple(sorted(current_keys, key=len, reverse=True))
 
-        keys_to_check = cls._SORTED_KEYS
+        # Dynamically fetch the matching key from the bounded LRU cache.
+        # The cache key includes `cls._SORTED_KEYS_TUPLE`, so cache invalidation is automatic
+        # when the dictionary keys are modified during test mocks.
+        matched_key = cls._get_prefix_key(model, cls._SORTED_KEYS_TUPLE)
+        if matched_key:
+            # Dynamically fetch the values from RATES ensuring we never return stale data
+            # if a test patches only the pricing values of an existing key.
+            rate = cls.RATES[matched_key]
+            return rate["input"], rate["output"]
 
-        # If the keys have changed (e.g. due to mocking in tests), re-sort them.
-        # The O(1) length check only avoids creating sets when the number of models
-        # differs from the cached list (common in tests/mocking); when lengths match,
-        # we still build both sets below to detect content changes.
-        if len(keys_to_check) != len(cls.RATES) or set(keys_to_check) != cls.RATES.keys():
-            keys_to_check = sorted(cls.RATES.keys(), key=len, reverse=True)
-            cls._SORTED_KEYS = keys_to_check
-
-        for key in keys_to_check:
-            if model.startswith(key):
-                rate = cls.RATES[key]
-                return rate["input"], rate["output"]
-
-        # Default fallback (e.g. assume gpt-3.5-turbo pricing or 0 if unknown)
+        # Default fallback
         return 0.0, 0.0
 
 
