@@ -132,7 +132,8 @@ async def compile_fast(
             "critique": None,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] compile_fast failed: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
 # ============================================================================
@@ -164,7 +165,8 @@ async def generate_skill_endpoint(req: SkillGenRequest):
         )
         return SkillGenResponse(skill_definition=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] generate_skill_endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
 # ============================================================================
@@ -195,7 +197,8 @@ async def generate_agent_endpoint(req: AgentGenRequest):
         )
         return AgentGenResponse(system_prompt=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] generate_agent_endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
 # ============================================================================
@@ -250,7 +253,8 @@ async def optimize_endpoint(req: OptimizeRequest):
             changed=(result != req.text),
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] optimize_endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
 # ============================================================================
