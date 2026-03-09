@@ -15,6 +15,7 @@ except ImportError:
 
 from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
+from app.heuristics.security import scan_text
 
 # Default settings - Groq (much faster than LLM Service)
 DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
@@ -241,6 +242,21 @@ class WorkerClient:
             if response.plan:
                 parts.append(response.plan)
             response.optimized_content = "\n\n---\n\n".join(parts)
+
+        # Apply guardrails to LLM output
+        security_result = scan_text(response.optimized_content)
+        if not security_result.is_safe:
+            response.optimized_content = security_result.redacted_text
+
+        if response.system_prompt:
+            sys_res = scan_text(response.system_prompt)
+            if not sys_res.is_safe:
+                response.system_prompt = sys_res.redacted_text
+
+        if response.user_prompt:
+            usr_res = scan_text(response.user_prompt)
+            if not usr_res.is_safe:
+                response.user_prompt = usr_res.redacted_text
 
         return response
 
