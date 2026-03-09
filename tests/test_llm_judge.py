@@ -2,7 +2,7 @@
 
 from app.testing.judge import LLMJudge, JudgeResult
 from app.testing.models import Assertion
-from app.testing.runner import ExecutionRunner
+from app.testing.runner import TestRunner
 
 
 def test_judge_result_model():
@@ -62,15 +62,15 @@ def test_assertion_type_llm_judge():
 
 
 def test_runner_has_judge():
-    """Test that ExecutionRunner initializes with a judge."""
-    runner = ExecutionRunner()
+    """Test that TestRunner initializes with a judge."""
+    runner = TestRunner()
     assert hasattr(runner, "judge")
     assert isinstance(runner.judge, LLMJudge)
 
 
 def test_runner_check_assertion_llm_judge():
     """Test runner's _check_assertion handles llm_judge type."""
-    runner = ExecutionRunner()
+    runner = TestRunner()
 
     # Test valid JSON scenario - should pass
     assertion_pass = Assertion(type="llm_judge", value="Output must be valid JSON", threshold=0.5)

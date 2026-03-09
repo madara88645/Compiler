@@ -39,7 +39,7 @@ class LLMExecutor(Executor):
         return response.content
 
 
-class ExecutionRunner:
+class TestRunner:
     __test__ = False
 
     def __init__(self, executor: Optional[Executor] = None):
