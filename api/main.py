@@ -15,7 +15,7 @@ from app.adapters.langchain import to_langchain_python, to_langchain_yaml, to_la
 from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
 from app.adapters.skill_ir import parse_skill_markdown
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
-from app.llm_engine.schemas import QualityReport
+from app.llm_engine.schemas import QualityReport, SwarmAnalysisRequest, SwarmAnalysisReport
 
 from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
 import time
@@ -765,11 +765,10 @@ def rag_upload_endpoint(req: RagUploadRequest):
         doc_id = cur.fetchone()[0]
 
         chunks = _chunk_text(req.content)
-        for idx, chunk in enumerate(chunks):
-            conn.execute(
-                "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
-                (doc_id, idx, chunk),
-            )
+        conn.executemany(
+            "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
+            ((doc_id, idx, chunk) for idx, chunk in enumerate(chunks)),
+        )
 
         conn.commit()
         conn.close()
@@ -1211,6 +1210,40 @@ async def generate_agent_endpoint(req: AgentGenRequest):
             include_example_code=req.include_example_code,
         )
         return AgentGenResponse(system_prompt=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent-generator/analyze", response_model=SwarmAnalysisReport)
+async def analyze_swarm_endpoint(req: SwarmAnalysisRequest):
+    """
+    Analyze Agent Swarm output quality.
+
+    Request:
+    - agents: List of generated agent definitions
+    - original_description: User's original task request
+    - run_tests: Boolean (default: True)
+
+    Response:
+    - quality_score: 0-100
+    - issues: List of detected problems
+    - improvements: Actionable recommendations
+    - test_results: Performance metrics (if run_tests=True)
+    """
+    if hybrid_compiler is None:
+        raise HTTPException(status_code=503, detail="Compiler not initialized")
+
+    try:
+        from app.analyzer.swarm_qa import SwarmAnalyzer
+
+        analyzer = SwarmAnalyzer(client=hybrid_compiler.worker)
+        # Convert AgentDefinition models to dicts for the dict-based internal analyzer
+        report = analyzer.analyze_swarm(
+            agents=[agent.model_dump() for agent in req.agents],
+            original_description=req.original_description,
+            run_tests=req.run_tests,
+        )
+        return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
