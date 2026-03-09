@@ -61,3 +61,22 @@ def test_rename_edge_cases(tmp_path: Path) -> None:
     # Test nonexistent old_name
     assert store.rename("Nonexistent", "Beta") is False
     assert store.get("Beta") is None
+
+
+def test_list_names(tmp_path: Path) -> None:
+    store = ContextPresetStore(path=tmp_path / "presets.json")
+
+    # Empty store
+    assert store.list_names() == []
+
+    # Store with presets
+    store.upsert("PresetA", "A")
+    store.upsert("PresetB", "B")
+    store.upsert("PresetC", "C")
+
+    names = store.list_names()
+    assert names == ["PresetA", "PresetB", "PresetC"]
+
+    # After deletion
+    store.delete("PresetB")
+    assert store.list_names() == ["PresetA", "PresetC"]
