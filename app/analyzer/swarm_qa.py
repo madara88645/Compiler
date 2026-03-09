@@ -3,7 +3,7 @@ import uuid
 
 from app.llm_engine.schemas import Improvement, AgentAnalysis, SwarmAnalysisReport, QualityReport
 from app.llm_engine.client import WorkerClient
-from app.analyzer.test_scenarios import TestScenariosGenerator
+from app.analyzer.test_scenarios import ScenariosGenerator
 
 
 class SwarmAnalyzer:
@@ -11,7 +11,7 @@ class SwarmAnalyzer:
 
     def __init__(self, client: WorkerClient = None):
         self.client = client or WorkerClient()
-        self.test_generator = TestScenariosGenerator(self.client)
+        self.test_generator = ScenariosGenerator(self.client)
 
     def analyze_swarm(
         self, agents: List[Dict], original_description: str, run_tests: bool = True

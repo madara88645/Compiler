@@ -39,7 +39,9 @@ class LLMExecutor(Executor):
         return response.content
 
 
-class TestRunner:
+class ExecutionRunner:
+    __test__ = False
+
     def __init__(self, executor: Optional[Executor] = None):
         self.executor = executor or MockExecutor()
         # Only pass real executors to judge, not MockExecutor

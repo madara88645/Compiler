@@ -129,7 +129,7 @@ class OnlineResults:
     skipped = 0
 
 
-def _check(condition: bool, pass_msg: str, fail_msg: str) -> bool:
+def _check(condition: bool, pass_msg: str, fail_msg: str) -> None:
     if condition:
         _pass(pass_msg)
         OnlineResults.passed += 1
@@ -142,7 +142,7 @@ def _check(condition: bool, pass_msg: str, fail_msg: str) -> bool:
 # ---- 1a. Compile endpoint -------------------------------------------------
 
 
-def test_compile_raw_and_improved() -> bool:
+def test_compile_raw_and_improved() -> None:
     """POST /compile → both raw (v1) and improved (v2) outputs present."""
     _section("Compile: Raw + Improved Outputs")
 
@@ -216,13 +216,13 @@ def test_compile_raw_and_improved() -> bool:
         "Missing or invalid processing_ms",
     )
 
-    return True
+    pass
 
 
 # ---- 1b. Validate endpoint (Judge Verdict) --------------------------------
 
 
-def test_validate_judge_verdict() -> bool:
+def test_validate_judge_verdict() -> None:
     """POST /validate → QualityReport with score, strengths, weaknesses."""
     _section("Validate: Judge Verdict")
 
@@ -284,13 +284,13 @@ def test_validate_judge_verdict() -> bool:
         "Missing 'summary' in judge verdict",
     )
 
-    return True
+    pass
 
 
 # ---- 1c. Fix endpoint (Auto-Improve) --------------------------------------
 
 
-def test_fix_generates_improved_output() -> bool:
+def test_fix_generates_improved_output() -> None:
     """POST /fix → LLMFixResponse with fixed_text and explanation."""
     _section("Fix: Auto-Improved Output")
 
@@ -328,13 +328,13 @@ def test_fix_generates_improved_output() -> bool:
         "Missing 'changes'",
     )
 
-    return True
+    pass
 
 
 # ---- 1d. Empty-input resilience -------------------------------------------
 
 
-def test_compile_empty_input_no_crash() -> bool:
+def test_compile_empty_input_no_crash() -> None:
     """POST /compile with empty text → must NOT return 500 (no crash)."""
     _section("Resilience: Empty Input — /compile")
 
@@ -350,10 +350,10 @@ def test_compile_empty_input_no_crash() -> bool:
         "Server crashed (500) on empty input",
     )
 
-    return True
+    pass
 
 
-def test_validate_empty_input_no_crash() -> bool:
+def test_validate_empty_input_no_crash() -> None:
     """POST /validate with empty text → must NOT return 500."""
     _section("Resilience: Empty Input — /validate")
 
@@ -369,10 +369,10 @@ def test_validate_empty_input_no_crash() -> bool:
         "Server crashed (500) on empty input to /validate",
     )
 
-    return True
+    pass
 
 
-def test_fix_empty_input_no_crash() -> bool:
+def test_fix_empty_input_no_crash() -> None:
     """POST /fix with empty text → must NOT return 500."""
     _section("Resilience: Empty Input — /fix")
 
@@ -388,10 +388,10 @@ def test_fix_empty_input_no_crash() -> bool:
         "Server crashed (500) on empty input to /fix",
     )
 
-    return True
+    pass
 
 
-def test_compile_whitespace_input_no_crash() -> bool:
+def test_compile_whitespace_input_no_crash() -> None:
     """POST /compile with whitespace-only text → must NOT return 500."""
     _section("Resilience: Whitespace-Only Input — /compile")
 
@@ -407,7 +407,7 @@ def test_compile_whitespace_input_no_crash() -> bool:
         "Server crashed (500) on whitespace input",
     )
 
-    return True
+    pass
 
 
 # ============================================================================
@@ -422,7 +422,7 @@ class OfflineResults:
     failed = 0
 
 
-def _check_offline(condition: bool, pass_msg: str, fail_msg: str) -> bool:
+def _check_offline(condition: bool, pass_msg: str, fail_msg: str) -> None:
     if condition:
         _pass(pass_msg)
         OfflineResults.passed += 1
@@ -432,7 +432,7 @@ def _check_offline(condition: bool, pass_msg: str, fail_msg: str) -> bool:
     return condition
 
 
-def test_offline_compile_v1_v2() -> bool:
+def test_offline_compile_v1_v2() -> None:
     """Direct-import compile_text / compile_text_v2 and verify IR objects."""
     _section("Offline: compile_text (v1) + compile_text_v2 (v2)")
 
@@ -467,10 +467,10 @@ def test_offline_compile_v1_v2() -> bool:
         "IR v2 dict is empty",
     )
 
-    return True
+    pass
 
 
-def test_offline_emitters() -> bool:
+def test_offline_emitters() -> None:
     """Verify that V1 emitters produce non-empty strings."""
     _section("Offline: V1 Emitters (system / user / plan / expanded)")
 
@@ -497,10 +497,10 @@ def test_offline_emitters() -> bool:
             f"{name} is empty or not a string",
         )
 
-    return True
+    pass
 
 
-def test_offline_linter() -> bool:
+def test_offline_linter() -> None:
     """Run the PromptLinter on a vague prompt to verify it detects issues."""
     _section("Offline: PromptLinter — Ambiguity Detection")
 
@@ -530,10 +530,10 @@ def test_offline_linter() -> bool:
         f"Vague prompt scored unexpectedly high ({result.score})",
     )
 
-    return True
+    pass
 
 
-def test_offline_compile_empty() -> bool:
+def test_offline_compile_empty() -> None:
     """compile_text on empty string should not raise an exception."""
     _section("Offline: Empty Input — compile_text")
 
@@ -548,10 +548,10 @@ def test_offline_compile_empty() -> bool:
     except Exception as exc:
         _check_offline(False, "", f"compile_text('') raised {type(exc).__name__}: {exc}")
 
-    return True
+    pass
 
 
-def test_offline_compile_whitespace() -> bool:
+def test_offline_compile_whitespace() -> None:
     """compile_text on whitespace-only string should not raise."""
     _section("Offline: Whitespace Input — compile_text")
 
@@ -563,10 +563,10 @@ def test_offline_compile_whitespace() -> bool:
     except Exception as exc:
         _check_offline(False, "", f"compile_text(whitespace) raised {type(exc).__name__}: {exc}")
 
-    return True
+    pass
 
 
-def test_offline_judge_agent_empty_suite() -> bool:
+def test_offline_judge_agent_empty_suite() -> None:
     """JudgeAgent.evaluate with zero test cases should return score 0."""
     _section("Offline: JudgeAgent — Empty Test Suite")
 
@@ -594,7 +594,7 @@ def test_offline_judge_agent_empty_suite() -> bool:
         f"Unexpected counts: passed={result.passed_count}, failed={result.failed_count}",
     )
 
-    return True
+    pass
 
 
 # ============================================================================
@@ -602,7 +602,7 @@ def test_offline_judge_agent_empty_suite() -> bool:
 # ============================================================================
 
 
-def test_full_benchmark_flow() -> bool:
+def test_full_benchmark_flow() -> None:
     """
     End-to-end: Compile → Validate → Fix → Re-Validate.
     Simulates the complete benchmark pipeline a user would experience.
@@ -685,7 +685,7 @@ def test_full_benchmark_flow() -> bool:
             _skip("Re-validate unavailable")
             OnlineResults.skipped += 1
 
-    return True
+    pass
 
 
 # ============================================================================

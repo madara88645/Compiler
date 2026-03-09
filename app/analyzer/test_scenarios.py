@@ -1,10 +1,11 @@
 from typing import List, Dict
 import json
-from app.llm_engine.schemas import TestResults
+from app.llm_engine.schemas import EvaluationResults
 from app.llm_engine.client import WorkerClient
 
 
-class TestScenariosGenerator:
+class ScenariosGenerator:
+    __test__ = False
     """Generates synthetic test scenarios to evaluate a multi-agent swarm."""
 
     def __init__(self, client: WorkerClient = None):
@@ -45,7 +46,7 @@ class TestScenariosGenerator:
             "An edge case occurs requiring the system to gracefully degrade or report an error back to the user.",
         ]
 
-    def test_swarm(self, agents: List[Dict], original_description: str) -> TestResults:
+    def test_swarm(self, agents: List[Dict], original_description: str) -> EvaluationResults:
         """
         Simulate swarm execution using heuristics and a lightweight LLM call.
         """
@@ -119,7 +120,7 @@ class TestScenariosGenerator:
         # Calculate metrics
         success_rate = (successes / 1) * 100.0 if scenarios else 0.0  # Only testing 1 for speed
 
-        return TestResults(
+        return EvaluationResults(
             scenarios_run=1,
             success_rate=success_rate,
             failure_modes=failure_modes,

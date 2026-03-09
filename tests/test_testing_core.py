@@ -1,5 +1,5 @@
 from app.testing.models import TestSuite, TestCase, Assertion
-from app.testing.runner import TestRunner, Executor
+from app.testing.runner import ExecutionRunner, Executor
 
 
 class CustomMockExecutor(Executor):
@@ -37,7 +37,7 @@ def test_runner_basic_flow(tmp_path):
     )
 
     # 3. Run
-    runner = TestRunner(executor=CustomMockExecutor())
+    runner = ExecutionRunner(executor=CustomMockExecutor())
     result = runner.run_suite(suite, base_dir=tmp_path)
 
     assert result.passed == 1
@@ -58,7 +58,7 @@ def test_runner_basic_flow(tmp_path):
 
 def test_runner_missing_file(tmp_path):
     suite = TestSuite(name="Bad File", prompt_file="missing.txt", test_cases=[TestCase(id="c1")])
-    runner = TestRunner()
+    runner = ExecutionRunner()
     result = runner.run_suite(suite, base_dir=tmp_path)
 
     assert result.errors == 0

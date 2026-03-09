@@ -1,4 +1,3 @@
-import pytest
 from app.analyzer.swarm_qa import SwarmAnalyzer
 
 
@@ -10,7 +9,6 @@ def test_swarm_analyzer_basic():
     assert hasattr(analyzer, "analyze_swarm")
 
 
-@pytest.mark.asyncio
-async def test_swarm_analyzer_report_structure():
-    # Placeholder for more complex async tests
+def test_swarm_analyzer_report_structure_placeholder():
+    """Synchronous placeholder for structure tests."""
     pass

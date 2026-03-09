@@ -88,7 +88,8 @@ class AgentAnalysis(BaseModel):
     )
 
 
-class TestResults(BaseModel):
+class EvaluationResults(BaseModel):
+    __test__ = False
     scenarios_run: int = Field(default=0, description="Number of scenarios executed")
     success_rate: float = Field(default=0.0, description="Percentage of scenarios passed")
     failure_modes: List[str] = Field(
@@ -113,7 +114,7 @@ class SwarmAnalysisReport(BaseModel):
     improvements: List[Improvement] = Field(
         default_factory=list, description="Actionable recommendations for the swarm"
     )
-    test_results: Optional[TestResults] = Field(
+    test_results: Optional[EvaluationResults] = Field(
         default=None, description="Performance metrics from synthetic tests"
     )
     per_agent_reports: List[AgentAnalysis] = Field(
