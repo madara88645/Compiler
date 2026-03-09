@@ -398,40 +398,52 @@ def _insert_document(
     )
     doc_id = cur.fetchone()[0]
     conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
-    for idx, chunk in enumerate(_chunk_text(content, strategy=chunking_strategy)):
+
+    chunks = list(_chunk_text(content, strategy=chunking_strategy))
+    if not chunks:
+        return
+
+    chunk_rows = [(doc_id, idx, chunk) for idx, chunk in enumerate(chunks)]
+    conn.executemany(
+        "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
+        chunk_rows,
+    )
+
+    if embed:
+        # Fetch back the assigned IDs
         cur = conn.execute(
-            "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?) RETURNING id",
-            (doc_id, idx, chunk),
+            "SELECT id, content FROM chunks WHERE doc_id=? ORDER BY chunk_index",
+            (doc_id,)
         )
-        chunk_row_id = cur.fetchone()[0]
-        if embed:
+        inserted_chunks = cur.fetchall()
+
+        embedding_rows = []
+        for chunk_row_id, chunk_text in inserted_chunks:
             if _HAS_FASTEMBED and embed_dim >= 128:
-                emb = _fast_embed(chunk)
-                # Ensure dim matches what we got (usually 384 for bge-small)
+                emb = _fast_embed(chunk_text)
                 if len(emb) != embed_dim:
-                    # Warn or adjust? For this simple impl, we trust the caller requested the right dim
-                    # or we update the dim in the DB?
-                    # The DB insert specifies dim. Let's just use the vector length.
                     pass
             else:
-                emb = _simple_embed(chunk, dim=embed_dim)
+                emb = _simple_embed(chunk_text, dim=embed_dim)
 
-            # Retry loop for embeddings insert (high contention)
-            for attempt in range(5):
-                try:
-                    conn.execute(
-                        "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
-                        (chunk_row_id, embed_dim, json.dumps(emb)),
-                    )
-                    break
-                except sqlite3.OperationalError as e:
-                    if "locked" in str(e) and attempt < 4:
-                        import random
-                        import time
+            embedding_rows.append((chunk_row_id, embed_dim, json.dumps(emb)))
 
-                        time.sleep(0.1 * (attempt + 1) + random.random() * 0.1)
-                        continue
-                    raise
+        # Retry loop for embeddings insert (high contention)
+        for attempt in range(5):
+            try:
+                conn.executemany(
+                    "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
+                    embedding_rows,
+                )
+                break
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e) and attempt < 4:
+                    import random
+                    import time
+
+                    time.sleep(0.1 * (attempt + 1) + random.random() * 0.1)
+                    continue
+                raise
 
 
 def ingest_paths(
