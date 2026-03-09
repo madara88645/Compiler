@@ -25,7 +25,7 @@ class TestScenariosGenerator:
 
         messages = [
             {"role": "system", "content": "You are a QA automation expert."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
 
         try:
@@ -42,7 +42,7 @@ class TestScenariosGenerator:
         return [
             "A critical input parameter is missing or malformed.",
             "The first agent completes its task but the intermediate output format is misunderstood by the second agent.",
-            "An edge case occurs requiring the system to gracefully degrade or report an error back to the user."
+            "An edge case occurs requiring the system to gracefully degrade or report an error back to the user.",
         ]
 
     def test_swarm(self, agents: List[Dict], original_description: str) -> TestResults:
@@ -56,17 +56,29 @@ class TestScenariosGenerator:
         roles = [agent.get("role", "Unknown Role").lower() for agent in agents]
 
         # Heuristic test: Handoff check
-        if not any("coordinator" in r or "router" in r or "planner" in r for r in roles) and len(roles) > 2:
-            failure_modes.append("Potential handoff failure: Missing central coordinator or planner for a large swarm.")
+        if (
+            not any("coordinator" in r or "router" in r or "planner" in r for r in roles)
+            and len(roles) > 2
+        ):
+            failure_modes.append(
+                "Potential handoff failure: Missing central coordinator or planner for a large swarm."
+            )
 
         # Heuristic test: Conflict resolution
         if not any("validator" in r or "reviewer" in r or "critic" in r for r in roles):
-            failure_modes.append("Missing conflict resolution: No validator role identified to catch errors.")
+            failure_modes.append(
+                "Missing conflict resolution: No validator role identified to catch errors."
+            )
 
         # Simulate execution for one complex scenario to see if the LLM thinks they can handle it
         scenario_to_test = scenarios[0] if scenarios else "General task execution"
 
-        agent_descriptions = "\n".join([f"- Role: {a.get('role')} | Prompt summary: {a.get('prompt', '')[:100]}..." for a in agents])
+        agent_descriptions = "\n".join(
+            [
+                f"- Role: {a.get('role')} | Prompt summary: {a.get('prompt', '')[:100]}..."
+                for a in agents
+            ]
+        )
 
         eval_prompt = (
             f"You are evaluating a multi-agent swarm designed to handle: '{original_description}'.\n"
@@ -82,7 +94,7 @@ class TestScenariosGenerator:
 
         messages = [
             {"role": "system", "content": "You are a test orchestrator for multi-agent systems."},
-            {"role": "user", "content": eval_prompt}
+            {"role": "user", "content": eval_prompt},
         ]
 
         coordination_overhead = "medium"
@@ -105,12 +117,12 @@ class TestScenariosGenerator:
             failure_modes.append("LLM Evaluation failed to determine success.")
 
         # Calculate metrics
-        success_rate = (successes / 1) * 100.0 if scenarios else 0.0 # Only testing 1 for speed
+        success_rate = (successes / 1) * 100.0 if scenarios else 0.0  # Only testing 1 for speed
 
         return TestResults(
             scenarios_run=1,
             success_rate=success_rate,
             failure_modes=failure_modes,
             coordination_overhead=coordination_overhead,
-            coverage_metrics=coverage_metrics
+            coverage_metrics=coverage_metrics,
         )

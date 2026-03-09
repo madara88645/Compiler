@@ -62,7 +62,10 @@ class LLMFixResponse(BaseModel):
 
 
 class Improvement(BaseModel):
-    id: str = Field(..., description="Ephemeral identifier for this improvement (unique within a single analysis run, not stable across runs)")
+    id: str = Field(
+        ...,
+        description="Ephemeral identifier for this improvement (unique within a single analysis run, not stable across runs)",
+    )
     title: str = Field(..., description="Short label for the improvement")
     description: str = Field(..., description="Detailed description of what to change and why")
     severity: Literal["low", "medium", "high"] = Field(..., description="Severity of the issue")
@@ -88,8 +91,12 @@ class AgentAnalysis(BaseModel):
 class TestResults(BaseModel):
     scenarios_run: int = Field(default=0, description="Number of scenarios executed")
     success_rate: float = Field(default=0.0, description="Percentage of scenarios passed")
-    failure_modes: List[str] = Field(default_factory=list, description="List of failure modes identified")
-    coordination_overhead: str = Field(default="", description="Assessment of coordination overhead")
+    failure_modes: List[str] = Field(
+        default_factory=list, description="List of failure modes identified"
+    )
+    coordination_overhead: str = Field(
+        default="", description="Assessment of coordination overhead"
+    )
     coverage_metrics: Dict[str, float] = Field(
         default_factory=dict, description="Coverage metrics across different task aspects"
     )
