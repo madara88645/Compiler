@@ -765,11 +765,10 @@ def rag_upload_endpoint(req: RagUploadRequest):
         doc_id = cur.fetchone()[0]
 
         chunks = _chunk_text(req.content)
-        for idx, chunk in enumerate(chunks):
-            conn.execute(
-                "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
-                (doc_id, idx, chunk),
-            )
+        conn.executemany(
+            "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
+            ((doc_id, idx, chunk) for idx, chunk in enumerate(chunks)),
+        )
 
         conn.commit()
         conn.close()
