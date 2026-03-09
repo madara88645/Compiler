@@ -182,3 +182,79 @@ def test_get_prompt_comparison_singleton(monkeypatch):
 
     # Verify it's actually the correct type
     assert isinstance(instance1, PromptComparison)
+
+
+def test_generate_side_by_side_diff_identical(comparator):
+    """Test side-by-side diff with identical texts."""
+    text = "Line 1\nLine 2"
+    diff = comparator.generate_side_by_side_diff(text, text)
+
+    assert len(diff) == 2
+    assert diff[0] == (" ", "Line 1", "Line 1")
+    assert diff[1] == (" ", "Line 2", "Line 2")
+
+
+def test_generate_side_by_side_diff_added(comparator):
+    """Test side-by-side diff when lines are added."""
+    text1 = "Line 1\nLine 3"
+    text2 = "Line 1\nLine 2\nLine 3"
+    diff = comparator.generate_side_by_side_diff(text1, text2)
+
+    assert len(diff) == 3
+    assert diff[0] == (" ", "Line 1", "Line 1")
+    assert diff[1] == ("+", "", "Line 2")
+    assert diff[2] == (" ", "Line 3", "Line 3")
+
+
+def test_generate_side_by_side_diff_removed(comparator):
+    """Test side-by-side diff when lines are removed."""
+    text1 = "Line 1\nLine 2\nLine 3"
+    text2 = "Line 1\nLine 3"
+    diff = comparator.generate_side_by_side_diff(text1, text2)
+
+    assert len(diff) == 3
+    assert diff[0] == (" ", "Line 1", "Line 1")
+    assert diff[1] == ("-", "Line 2", "")
+    assert diff[2] == (" ", "Line 3", "Line 3")
+
+
+def test_generate_side_by_side_diff_changed(comparator):
+    """Test side-by-side diff when lines are replaced."""
+    text1 = "Line 1\nLine 2\nLine 3"
+    text2 = "Line 1\nLine TWO\nLine 3"
+    diff = comparator.generate_side_by_side_diff(text1, text2)
+
+    assert len(diff) == 3
+    assert diff[0] == (" ", "Line 1", "Line 1")
+    assert diff[1] == ("~", "Line 2", "Line TWO")
+    assert diff[2] == (" ", "Line 3", "Line 3")
+
+
+def test_generate_side_by_side_diff_changed_unequal(comparator):
+    """Test side-by-side diff when unequal number of lines are replaced."""
+    text1 = "Line 1\nLine 2\nLine 3\nLine 4"
+    text2 = "Line 1\nLine TWO and THREE\nLine 4"
+    diff = comparator.generate_side_by_side_diff(text1, text2)
+
+    # Lines 2 and 3 are replaced by "Line TWO and THREE"
+    # Result should show 2 changed lines to match the max length of the replace operation
+    assert diff[0] == (" ", "Line 1", "Line 1")
+    # First line of the replace
+    assert diff[1] == ("~", "Line 2", "Line TWO and THREE")
+    # Second line of the replace (from text1, but text2 has no corresponding line)
+    assert diff[2] == ("~", "Line 3", "")
+    assert diff[3] == (" ", "Line 4", "Line 4")
+
+
+def test_generate_side_by_side_diff_empty(comparator):
+    """Test side-by-side diff with empty texts."""
+    diff_both_empty = comparator.generate_side_by_side_diff("", "")
+    assert len(diff_both_empty) == 0
+
+    diff_one_empty = comparator.generate_side_by_side_diff("Line 1", "")
+    assert len(diff_one_empty) == 1
+    assert diff_one_empty[0] == ("-", "Line 1", "")
+
+    diff_other_empty = comparator.generate_side_by_side_diff("", "Line 1")
+    assert len(diff_other_empty) == 1
+    assert diff_other_empty[0] == ("+", "", "Line 1")
