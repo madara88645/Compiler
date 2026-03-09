@@ -1055,11 +1055,13 @@ async def upload_file_endpoint(req: FileUploadRequest):
     """
     import tempfile
     import os
+    import anyio
+    from functools import partial
 
     try:
         # Create a temporary file with the content
         # This allows us to reuse the existing ingest_paths logic
-        temp_dir = tempfile.mkdtemp(prefix="rag_upload_")
+        temp_dir = await anyio.to_thread.run_sync(partial(tempfile.mkdtemp, prefix="rag_upload_"))
 
         # Sanitize filename to prevent path traversal
         safe_filename = os.path.basename(req.filename)
@@ -1068,16 +1070,22 @@ async def upload_file_endpoint(req: FileUploadRequest):
 
         temp_path = os.path.join(temp_dir, safe_filename)
 
-        with open(temp_path, "w", encoding="utf-8") as f:
-            f.write(req.content)
+        def write_file():
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.write(req.content)
+
+        await anyio.to_thread.run_sync(write_file)
 
         # Ingest the temporary file
-        count, chunks, elapsed = ingest_paths([temp_path])
+        def run_ingest():
+            return ingest_paths([temp_path])
+
+        count, chunks, elapsed = await anyio.to_thread.run_sync(run_ingest)
 
         # Clean up temp file
         try:
-            os.remove(temp_path)
-            os.rmdir(temp_dir)
+            await anyio.to_thread.run_sync(os.remove, temp_path)
+            await anyio.to_thread.run_sync(os.rmdir, temp_dir)
         except OSError:
             pass
 
