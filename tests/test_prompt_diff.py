@@ -156,3 +156,29 @@ def test_get_diff_stats_changed_lines(comparator):
     assert stats["lines_same"] == 2
     assert stats["total_lines_1"] == 3
     assert stats["total_lines_2"] == 3
+
+
+def test_get_prompt_comparison_singleton(monkeypatch):
+    """Test that get_prompt_comparison returns a singleton instance."""
+    from unittest.mock import MagicMock
+
+    import app.prompt_diff
+    from app.prompt_diff import get_prompt_comparison
+
+    # Stub out manager factories so constructing PromptComparison() never touches on-disk DBs
+    monkeypatch.setattr(app.prompt_diff, "get_history_manager", MagicMock())
+    monkeypatch.setattr(app.prompt_diff, "get_favorites_manager", MagicMock())
+
+    # Reset the singleton so this test always exercises the initialization path,
+    # regardless of test execution order (monkeypatch restores the original value after the test)
+    monkeypatch.setattr(app.prompt_diff, "_prompt_comparison", None)
+
+    # Get the instance twice
+    instance1 = get_prompt_comparison()
+    instance2 = get_prompt_comparison()
+
+    # Verify they are the exact same object (singleton pattern)
+    assert instance1 is instance2
+
+    # Verify it's actually the correct type
+    assert isinstance(instance1, PromptComparison)
