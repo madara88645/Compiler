@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tiktoken
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, Optional
 from functools import lru_cache
 
 
