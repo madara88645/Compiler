@@ -387,16 +387,32 @@ async def export_agent(req: ExportRequest):
     if req.format not in ["claude-sdk", "langchain", "langchain-yaml", "langgraph"]:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 
-    mock_python = f"# Mocked {req.format} code\n# client.messages.create(...)"
-    mock_yaml = "config: { model: claude-3 }"
+    from app.adapters.agent_ir import parse_agent_markdown
+    from app.adapters.claude_sdk import to_python, to_yaml
+    from app.adapters.langchain import to_langchain_python, to_langgraph_python
+
+    ir = parse_agent_markdown(req.system_prompt or "")
+
+    python_code = None
+    yaml_config = None
+
+    if req.format == "claude-sdk":
+        python_code = to_python(ir)
+        if req.output_type != "python":
+            yaml_config = to_yaml(ir)
+    elif req.format == "langchain" or req.format == "langchain-yaml":
+        python_code = to_langchain_python(ir)
+    elif req.format == "langgraph":
+        python_code = to_langgraph_python(ir)
 
     # test_export_api_python_only expects yaml_config to be None if output_type is python
-    yaml_val = mock_yaml if req.output_type != "python" else None
+    if req.output_type == "python":
+        yaml_config = None
 
     return {
-        "python_code": mock_python,
-        "yaml_config": yaml_val,
-        "code": mock_python,
+        "python_code": python_code,
+        "yaml_config": yaml_config,
+        "code": python_code,
         "files": [],
     }
 
@@ -406,12 +422,18 @@ async def export_skill(req: ExportRequest):
     if req.format not in ["claude-tool", "langchain-tool"]:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 
-    mock_python = f"# Mocked {req.format} code\n@tool\ndef web_search(): pass"
-    mock_json = '{"name": "web_search"}'
+    from app.adapters.skill_ir import parse_skill_markdown
+    from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
+
+    ir = parse_skill_markdown(req.skill_definition or "")
+
+    python_code = to_langchain_tool(ir)
+    json_config = to_claude_tool_use(ir)
+
     return {
-        "python_code": mock_python,
-        "json_config": mock_json,
-        "code": mock_python,
+        "python_code": python_code,
+        "json_config": json_config,
+        "code": python_code,
         "files": [],
     }
 

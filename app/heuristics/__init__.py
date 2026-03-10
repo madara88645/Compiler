@@ -3,6 +3,7 @@ import json
 import os
 import re
 from typing import Any, Dict, List, Tuple
+from functools import lru_cache
 
 
 try:
@@ -195,6 +196,7 @@ PERSONA_KEYWORDS = {
 }
 
 
+@lru_cache(maxsize=128)
 def pick_persona(text: str) -> tuple[str, dict]:
     lower = text.lower()
     scores = {k: 0 for k in PERSONA_KEYWORDS}
@@ -238,6 +240,7 @@ VARIANT_KEYWORDS = [
 ]
 
 
+@lru_cache(maxsize=128)
 def detect_summary(text: str) -> tuple[bool, int | None]:
     lower = text.lower()
     if any(k in lower for k in SUMMARY_KEYWORDS):
@@ -253,6 +256,7 @@ def detect_summary(text: str) -> tuple[bool, int | None]:
     return False, None
 
 
+@lru_cache(maxsize=128)
 def extract_comparison_items(text: str) -> list[str]:
     lower = text.lower()
     items: list[str] = []
@@ -287,6 +291,7 @@ def extract_comparison_items(text: str) -> list[str]:
     return cleaned
 
 
+@lru_cache(maxsize=128)
 def extract_variant_count(text: str) -> int:
     lower = text.lower()
     if any(k in lower for k in VARIANT_KEYWORDS):
