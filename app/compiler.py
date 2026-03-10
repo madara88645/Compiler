@@ -49,6 +49,7 @@ from .heuristics.handlers.safety import SafetyHandler
 from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
+from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
 
 
 GENERIC_GOAL = {
@@ -228,6 +229,9 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
                     category="structure",
                 )
             )
+
+    # Run Schema Sanitizer to fix any generated schema types
+    SchemaSanitizerHandler().handle(ir2, ir1)
 
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
