@@ -6,6 +6,7 @@ from typing import Iterable, List, Optional, Tuple, Dict
 import math
 import json
 from collections import OrderedDict
+import functools
 
 # Document parser for multi-format support
 try:
@@ -631,17 +632,24 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
         conn.close()
 
 
+@functools.lru_cache(maxsize=16384)
+def _parse_vec(vec_json: str) -> List[float]:
+    """Cache JSON parsing of embeddings to speed up sequential vector searches."""
+    return json.loads(vec_json)
+
+
 def search_embed(
     query: str, k: int = 5, db_path: Optional[str] = None, embed_dim: int = 64
 ) -> List[dict]:
-    cache_key = f"emb::{embed_dim}::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
-    cached = _cache_get(cache_key)
-    if cached is not None:
-        return cached[:k]
     """Embedding similarity search using cosine distance over stored vectors.
 
     Requires that documents were ingested with embed=True.
     """
+    cache_key = f"emb::{embed_dim}::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached[:k]
+
     conn = _connect(db_path)
     try:
         _init_schema(conn)
@@ -665,7 +673,7 @@ def search_embed(
         results = []
         for row in cur.fetchall():
             chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
-            emb = json.loads(vec_json)
+            emb = _parse_vec(vec_json)
             # cosine since vectors L2 normalized => dot product
             sim = sum(a * b for a, b in zip(q_vec, emb))
             # score as (1 - sim) so lower is better similar to bm25 semantics

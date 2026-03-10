@@ -1,3 +1,7 @@
 ## 2024-05-24 - Optimizing PricingModel Cache Invalidation
 **Learning:** Adding a short-circuit length check (`len(keys) != len(dict)`) before an O(N) set equality check (`set(keys) != dict.keys()`) helps only when the dictionary size changes (e.g., in tests/mocking). In the steady production state where lengths are equal, the code still builds a set from `keys_to_check` and compares it against the `dict.keys()` view; the length check then adds only a tiny constant overhead.
 **Action:** Using `dict.keys()` directly in set comparisons avoids allocating an extra set for the right-hand side, since `dict_keys` already supports set operations. For further steady-state optimization, consider tracking a version integer or storing a frozenset of keys to avoid set creation entirely when `RATES` is unchanged.
+
+## 2024-06-13 - SQLite JSON Vector Caching
+**Learning:** In backend RAG applications where embeddings are stored as JSON strings in SQLite, executing sequential similarity scans triggers repeated string deserialization (`json.loads`) inside Python loops. This CPU overhead dwarfs the actual SQLite query time and math operations.
+**Action:** When repeatedly reading the same JSON strings from the database (e.g. across multiple hybrid searches), wrapping `json.loads` in a bounded `@functools.lru_cache` provides a massive (~3x-4x) performance boost by mapping identical strings directly to parsed `List[float]` objects in memory without parsing overhead.
