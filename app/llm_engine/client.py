@@ -311,8 +311,9 @@ class WorkerClient:
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
+            api_max_tokens = max_tokens if max_tokens else 2048
             future = executor.submit(
-                self._call_api, messages, 2048, json_mode=False
+                self._call_api, messages, api_max_tokens, json_mode=False
             )  # Optimizer output is text not JSON
             try:
                 content = future.result(timeout=COACH_TIMEOUT_SECONDS)
