@@ -11,6 +11,19 @@ from pydantic import BaseModel, Field
 
 from api.auth import APIKey, verify_api_key
 from app import get_build_info
+import uuid
+from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
+from app.compiler import compile_text, compile_text_v2, optimize_ir, generate_trace
+from app.emitters import (
+    emit_system_prompt,
+    emit_user_prompt,
+    emit_plan,
+    emit_expanded_prompt,
+    emit_system_prompt_v2,
+    emit_user_prompt_v2,
+    emit_plan_v2,
+    emit_expanded_prompt_v2,
+)
 from app.rag.simple_index import (
     ingest_paths,
     pack as rag_pack_ctx,
@@ -91,6 +104,93 @@ class CompileResponse(BaseModel):
     heuristic2_version: str | None = None
     trace: list[str] | None = None
     critique: dict | None = None
+
+
+@app.post("/compile", response_model=CompileResponse)
+def compile_endpoint(req: CompileRequest):
+    """Compile a prompt using the Hybrid Compiler Engine."""
+    t0 = time.time()
+    rid = uuid.uuid4().hex[:12]
+
+    # Always compute V1 heuristic IR for backward compatibility
+    ir = optimize_ir(compile_text(req.text))
+    trace_lines = generate_trace(ir) if req.trace else None
+
+    # Always run V2 Heuristics (Logic, Structure, etc.) locally
+    # this provides advanced features even in Offline Mode
+    ir2 = compile_text_v2(req.text)
+
+    sys_v2 = user_v2 = plan_v2 = exp_v2 = None
+
+    if req.v2:
+        # Online Mode: Use HybridCompiler (LLM)
+        try:
+            compiler = get_compiler()
+            worker_res = compiler.compile(req.text)
+            ir2 = worker_res.ir
+
+            if worker_res.system_prompt:
+                sys_v2 = worker_res.system_prompt
+            if worker_res.user_prompt:
+                user_v2 = worker_res.user_prompt
+            if worker_res.plan:
+                plan_v2 = worker_res.plan
+            if worker_res.optimized_content:
+                exp_v2 = worker_res.optimized_content
+        except Exception as e:
+            print(f"LLM Failed, falling back to local V2: {e}")
+            pass
+    else:
+        # Offline Mode: Use local V2 Heuristics
+        pass
+
+    # Optional: render prompts with IR v2 emitters (fallback if LLM didn't provide)
+    if req.render_v2_prompts and ir2 is not None:
+        sys_v2 = sys_v2 or emit_system_prompt_v2(ir2)
+        user_v2 = user_v2 or emit_user_prompt_v2(ir2)
+        plan_v2 = plan_v2 or emit_plan_v2(ir2)
+        exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+
+    critique_result = None
+    if sys_v2:
+        try:
+            from app.optimizer.critic import CriticAgent
+
+            critic = CriticAgent()
+            context_str = ""
+            if ir2 and ir2.metadata.get("context_snippets"):
+                snippets = ir2.metadata["context_snippets"]
+                context_str = "\n\n".join(
+                    [f"--- File: {s.get('path')} ---\n{s.get('snippet', '')}" for s in snippets]
+                )
+
+            critique_verdict = critic.critique(
+                user_request=req.text, system_prompt=sys_v2, context=context_str
+            )
+            critique_result = critique_verdict.model_dump()
+        except Exception:
+            pass
+
+    elapsed = int((time.time() - t0) * 1000)
+
+    return CompileResponse(
+        ir=ir.model_dump(),
+        ir_v2=(ir2.model_dump() if ir2 else None),
+        system_prompt=emit_system_prompt(ir),
+        user_prompt=emit_user_prompt(ir),
+        plan=emit_plan(ir),
+        expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics),
+        system_prompt_v2=sys_v2,
+        user_prompt_v2=user_v2,
+        plan_v2=plan_v2,
+        expanded_prompt_v2=exp_v2,
+        processing_ms=elapsed,
+        request_id=rid,
+        heuristic_version=HEURISTIC_VERSION,
+        heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
+        trace=trace_lines,
+        critique=critique_result,
+    )
 
 
 @app.post("/compile/fast", response_model=CompileResponse)
