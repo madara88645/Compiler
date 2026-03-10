@@ -48,6 +48,7 @@ from .heuristics.security import scan_text
 from .heuristics.handlers.safety import SafetyHandler
 from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
+from .heuristics.handlers.deduplicator import DeduplicatorHandler
 
 
 GENERIC_GOAL = {
@@ -188,6 +189,7 @@ def compile_text_v2(text: str) -> IRv2:
         StructureHandler(),
         FormatEnforcerHandler(),
         ParadoxResolverHandler(),
+        DeduplicatorHandler(),
     ]
 
     for handler in handlers:
