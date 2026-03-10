@@ -46,6 +46,8 @@ from .heuristics.handlers.psycholinguist import PsycholinguistHandler
 from .heuristics.handlers.context_suggestions import ContextSuggestionHandler
 from .heuristics.security import scan_text
 from .heuristics.handlers.safety import SafetyHandler
+from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
+from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 
 
 GENERIC_GOAL = {
@@ -184,6 +186,8 @@ def compile_text_v2(text: str) -> IRv2:
         PsycholinguistHandler(),
         ContextSuggestionHandler(),
         StructureHandler(),
+        FormatEnforcerHandler(),
+        ParadoxResolverHandler(),
     ]
 
     for handler in handlers:
