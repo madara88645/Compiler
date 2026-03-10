@@ -141,7 +141,7 @@ def _mk_id(text: str) -> str:
     return hashlib.sha1(text.strip().lower().encode("utf-8")).hexdigest()[:10]
 
 
-def compile_text_v2(text: str) -> IRv2:
+def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
     # Reuse v1 heuristics to keep behavior; map to richer IRv2 model
     ir1 = compile_text(text)
 
@@ -203,59 +203,61 @@ def compile_text_v2(text: str) -> IRv2:
     ir2.metadata["structured_view"] = structured_prompt
 
     # -------------------------------------------------------------------------
-    # NEW: Schema Generator (Offline Intelligence)
+    # NEW: Schema Generator (Offline Intelligence - gated by offline_only)
     # -------------------------------------------------------------------------
-    inferred_schema = structure_engine.infer_schema(text)
-    if inferred_schema:
-        # Inject as a high-priority constraint
-        ir2.constraints.append(
-            ConstraintV2(
-                id="schema_enforcement",
-                text=f"Strictly follow this JSON Schema:\n```json\n{inferred_schema}\n```",
-                origin="structure_engine",
-                priority=90,  # Very high priority
-                rationale="User explicitly requested structured fields.",
+    if not offline_only:
+        inferred_schema = structure_engine.infer_schema(text)
+        if inferred_schema:
+            # Inject as a high-priority constraint
+            ir2.constraints.append(
+                ConstraintV2(
+                    id="schema_enforcement",
+                    text=f"Strictly follow this JSON Schema:\n```json\n{inferred_schema}\n```",
+                    origin="structure_engine",
+                    priority=90,  # Very high priority
+                    rationale="User explicitly requested structured fields.",
+                )
             )
-        )
-        # ir2.output_format = "json" # Removed per user feedback
-        # Add a diagnostic info tip
-        ir2.diagnostics.append(
-            DiagnosticItem(
-                severity="info",
-                message="Auto-generated JSON Schema from your request",
-                suggestion="Review the schema in Constraints",
-                category="structure",
+            # ir2.output_format = "json" # Removed per user feedback
+            # Add a diagnostic info tip
+            ir2.diagnostics.append(
+                DiagnosticItem(
+                    severity="info",
+                    message="Auto-generated JSON Schema from your request",
+                    suggestion="Review the schema in Constraints",
+                    category="structure",
+                )
             )
-        )
 
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
     # NEW: Agent 6 - The Context Strategist
     # -------------------------------------------------------------------------
-    try:
-        from app.agents.context_strategist import ContextStrategist
+    if not offline_only:
+        try:
+            from app.agents.context_strategist import ContextStrategist
 
-        # Initialize Strategist (uses WorkerClient internally)
-        strategist = ContextStrategist()
-        context_results = strategist.retrieve(text, limit=3)
+            # Initialize Strategist (uses WorkerClient internally)
+            strategist = ContextStrategist()
+            context_results = strategist.retrieve(text, limit=3)
 
-        if context_results:
-            ir2.metadata["context_snippets"] = context_results
-            # Notify user via diagnostics
-            snippet_files = [r.get("path", "unknown").split("/")[-1] for r in context_results]
-            ir2.diagnostics.append(
-                DiagnosticItem(
-                    severity="info",
-                    message=f"Strategist retrieved {len(context_results)} relevant sources",
-                    suggestion=f"Sources: {', '.join(snippet_files)}",
-                    category="context",
+            if context_results:
+                ir2.metadata["context_snippets"] = context_results
+                # Notify user via diagnostics
+                snippet_files = [r.get("path", "unknown").split("/")[-1] for r in context_results]
+                ir2.diagnostics.append(
+                    DiagnosticItem(
+                        severity="info",
+                        message=f"Strategist retrieved {len(context_results)} relevant sources",
+                        suggestion=f"Sources: {', '.join(snippet_files)}",
+                        category="context",
+                    )
                 )
-            )
-    except Exception as e:
-        import sys
+        except Exception as e:
+            import sys
 
-        print(f"[COMPILER] Context Strategist failed: {e}", file=sys.stderr)
-        pass  # Graceful degradation
+            print(f"[COMPILER] Context Strategist failed: {e}", file=sys.stderr)
+            pass  # Graceful degradation
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(

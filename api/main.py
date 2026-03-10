@@ -118,7 +118,7 @@ def compile_endpoint(req: CompileRequest):
 
     # Always run V2 Heuristics (Logic, Structure, etc.) locally
     # this provides advanced features even in Offline Mode
-    ir2 = compile_text_v2(req.text)
+    ir2 = compile_text_v2(req.text, offline_only=not req.v2)
 
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
 
