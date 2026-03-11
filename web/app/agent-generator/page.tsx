@@ -206,6 +206,7 @@ export default function AgentGenerator() {
                     onClick={copyToClipboard}
                     className="absolute bottom-6 right-6 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
                     title="Copy to Clipboard"
+                    aria-label="Copy Markdown"
                   >
                     <span className="text-xs font-bold">Copy Markdown</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
