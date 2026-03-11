@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Dict
 import math
 import json
+import functools
 from collections import OrderedDict
 
 # Document parser for multi-format support
@@ -362,6 +363,12 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
     return vec
 
 
+@functools.lru_cache(maxsize=65536)
+def _parse_embedding(vec_json: str) -> List[float]:
+    """Parse JSON embedding vector with bounded caching."""
+    return json.loads(vec_json)
+
+
 def _get_fast_embed_model():
     global _FAST_EMBED_MODEL
     if _FAST_EMBED_MODEL is None and _HAS_FASTEMBED:
@@ -665,7 +672,7 @@ def search_embed(
         results = []
         for row in cur.fetchall():
             chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
-            emb = json.loads(vec_json)
+            emb = _parse_embedding(vec_json)
             # cosine since vectors L2 normalized => dot product
             sim = sum(a * b for a, b in zip(q_vec, emb))
             # score as (1 - sim) so lower is better similar to bm25 semantics
