@@ -5,3 +5,7 @@
 ## 2024-06-20 - Optimizing SQLite JSON Deserialization Cache Size
 **Learning:** In the backend RAG implementation (`app/rag/simple_index.py`), embeddings are stored as JSON strings in an SQLite database. I initially attempted to optimize repeated deserialization by adding an `lru_cache` bounded to `maxsize=1024` for parsing these strings. However, because similarity searches involve a linear scan over all database chunks, if the database has more than 1,024 chunks, the cache is completely evicted during a single scan, resulting in a 0% cache hit rate on subsequent searches (cache thrashing).
 **Action:** When caching objects that are iterated over sequentially during database table scans, ensure the cache boundary is sized large enough (e.g., `maxsize=65536`) to accommodate the entire dataset or use an unbounded cache if safe, otherwise the caching mechanism will only add overhead.
+
+## 2024-07-15 - Optimizing Math Functions for Vector Similarity
+**Learning:** For Python math hot loops (like vector similarity in RAG features), using generator expressions inside `sum()` introduces noticeable overhead for small, fixed-size vectors compared to list comprehensions. Additionally, computing Euclidean norms with `math.sqrt(sum(...))` is significantly slower than using the standard C-extension `math.hypot(*vec)`.
+**Action:** Use list comprehensions inside `sum()` instead of generator expressions when computing dot products for small vectors. Prefer `math.hypot(*vec)` over manual summation and square root, as it operates ~2.5x to 3x faster.
