@@ -61,8 +61,8 @@ class PricingModel:
         return None
 
     @classmethod
-    def get_rate(cls, model: str) -> Tuple[float, float]:
-        """Returns (input_rate, output_rate) per 1M tokens for the model."""
+    def get_rate(cls, model: str, direction: str = None) -> float | Tuple[float, float]:
+        """Returns rate for the direction if provided, else (input_rate, output_rate) per 1M tokens."""
         # Performance optimization: get_rate is on the hot path.
         # Check if the dictionary keys have changed (e.g., due to test mocking).
         # We compare a frozenset directly against the dict_keys view, which handles key
@@ -79,9 +79,13 @@ class PricingModel:
             # Dynamically fetch the values from RATES ensuring we never return stale data
             # if a test patches only the pricing values of an existing key.
             rate = cls.RATES[matched_key]
+            if direction:
+                return rate.get(direction, 0.0)
             return rate["input"], rate["output"]
 
         # Default fallback
+        if direction:
+            return 0.0
         return 0.0, 0.0
 
 
@@ -93,18 +97,20 @@ class CostTracker:
         self.total_output_tokens: int = 0
         self.total_cost: float = 0.0
 
-    def add_usage(self, input_tokens: int, output_tokens: int, model: str) -> None:
-        """Accumulates usage and updates cost."""
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
+    def add_usage(self, model: str, tokens: int, direction: str) -> None:
+        """Accumulate token usage and costs."""
+        rate = PricingModel.get_rate(model, direction)
 
-        input_rate, output_rate = PricingModel.get_rate(model)
+        if direction == "input":
+            self.total_input_tokens += tokens
+        elif direction == "output":
+            self.total_output_tokens += tokens
+        else:
+            raise ValueError(f"Unknown direction: {direction}")
 
         # Calculate cost: (tokens / 1M) * rate
-        input_cost = (input_tokens / 1_000_000) * input_rate
-        output_cost = (output_tokens / 1_000_000) * output_rate
-
-        self.total_cost += input_cost + output_cost
+        cost = (tokens / 1_000_000) * rate
+        self.total_cost += cost
 
     def estimated_cost(self) -> float:
         """Returns the total estimated cost in USD."""
