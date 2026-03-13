@@ -62,6 +62,25 @@ def test_validator_execution():
     assert not fail_res.passed
 
 
+def test_validation_result_average_score():
+    # Empty scores should return 0.0
+    empty_result = ValidationResult(scores={})
+    assert empty_result.average_score == 0.0
+
+    # Single score should return the exact score
+    single_result = ValidationResult(scores={"model_a": 1.0})
+    assert single_result.average_score == 1.0
+
+    # Multiple scores should return the arithmetic mean
+    multiple_result = ValidationResult(scores={"model_a": 1.0, "model_b": 0.5, "model_c": 0.0})
+    assert multiple_result.average_score == 0.5
+
+    # More complex multiple scores
+    import math
+    complex_result = ValidationResult(scores={"model_a": 0.9, "model_b": 0.8, "model_c": 0.7})
+    assert math.isclose(complex_result.average_score, 0.8, rel_tol=1e-9)
+
+
 def test_validator_error_handling():
     # Provider that raises exception
     err_provider = MagicMock(spec=LLMProvider)
