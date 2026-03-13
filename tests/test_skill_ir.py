@@ -1,6 +1,7 @@
 import pytest
 from app.adapters.skill_ir import _to_snake
 
+
 @pytest.mark.parametrize(
     "input_str, expected",
     [
@@ -33,7 +34,7 @@ from app.adapters.skill_ir import _to_snake
         ("", "skill_name"),
         ("   ", "skill_name"),
         ("!@#$", "skill_name"),
-    ]
+    ],
 )
 def test_to_snake(input_str, expected):
     """Test converting various string formats to snake_case."""
