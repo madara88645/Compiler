@@ -6,10 +6,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-try:  # Python 3.10+
-    from importlib import metadata
-except ImportError:  # pragma: no cover - fallback for older runtimes
-    import importlib_metadata as metadata  # type: ignore
+from importlib import metadata
 
 from typing import TYPE_CHECKING
 
