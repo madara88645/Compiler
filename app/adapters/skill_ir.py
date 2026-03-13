@@ -79,9 +79,25 @@ def _extract_title(markdown: str) -> str:
 
 
 def _to_snake(name: str) -> str:
-    # Preserve underscores — they are valid in snake_case identifiers
-    s = re.sub(r"[^a-zA-Z0-9_\s]", "", name)
+    # Preserve underscores and hyphens (convert hyphens to spaces later)
+    s = re.sub(r"[^a-zA-Z0-9_\s-]", " ", name)
+
+    # Handle CamelCase/PascalCase
+    # 1. Insert space before uppercase letters that are followed by lowercase (e.g., HTTPResponse -> HTTP Response)
+    s = re.sub(r"([A-Z])([A-Z][a-z])", r"\1 \2", s)
+    # 2. Insert space between lowercase/number and uppercase (e.g., camelCase -> camel Case, var123A -> var123 A)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
+
+    # Replace hyphens with spaces to handle kebab-case uniformly
+    s = s.replace("-", " ")
+
+    # Replace all whitespace sequences with a single underscore and convert to lowercase
     s = re.sub(r"\s+", "_", s.strip()).lower()
+
+    # Clean up multiple consecutive underscores if any were present initially alongside spaces
+    s = re.sub(r"_+", "_", s)
+    s = s.strip("_")
+
     return s or "skill_name"
 
 
