@@ -506,6 +506,8 @@ def detect_pii(text: str) -> list[str]:
             # Do not collect more than 5 kinds to keep metadata small
             if len(flags) >= 5:
                 break
+        if len(flags) >= 5:
+            break
     return flags
 
 
