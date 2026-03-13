@@ -1,0 +1,3 @@
+## 2024-05-18 - Hover-only opacity states hide buttons from keyboard users
+**Learning:** Using CSS patterns like `opacity-0 group-hover:opacity-100` makes interactive elements completely invisible to keyboard-only users who navigate via the Tab key, creating an accessibility trap. The button will receive focus but remain invisible.
+**Action:** Whenever using `opacity-0` for hover states on focusable elements (buttons, links), always include `focus-visible:opacity-100` alongside an explicit focus indicator like `focus-visible:ring-2` to ensure the element becomes visible and clearly focused during keyboard navigation.
