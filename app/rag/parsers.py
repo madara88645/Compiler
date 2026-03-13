@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import Dict, Callable, List, Any
 from dataclasses import dataclass, field
+from typing import Union
 
 # ==============================================================================
 # DATA STRUCTURES
@@ -311,17 +312,48 @@ def parse_json(path: Path) -> ParseResult:
     )
 
 
-def parse_yaml(path: Path) -> ParseResult:
-    """Parse YAML files."""
+def parse_yaml(content: Union[str, bytes]) -> str:
+    """Parse YAML and return a readable string format."""
+    try:
+        import yaml
+    except ImportError:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("PyYAML not installed, treating as plain text")
+        if isinstance(content, bytes):
+            return content.decode("utf-8", errors="ignore")
+        return str(content)
+
+    if isinstance(content, bytes):
+        content = content.decode("utf-8", errors="ignore")
+
+    try:
+        parsed = yaml.safe_load(content)
+        # Convert parsed object to string
+        import json
+
+        return json.dumps(parsed, indent=2) if parsed is not None else ""
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error parsing YAML: {e}")
+        return content
+
+
+def parse_yaml_file(path: Path) -> ParseResult:
+    """Parse YAML files by using parse_yaml."""
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
+        parsed_str = parse_yaml(content)
     except Exception as e:
         return ParseResult(content="", metadata={"error": str(e)})
 
     return ParseResult(
-        content=content,
+        content=parsed_str,
         metadata={"format": "yaml", "extension": path.suffix},
-        word_count=len(content.split()),
+        word_count=len(parsed_str.split()),
     )
 
 
@@ -371,8 +403,8 @@ PARSERS: Dict[str, Callable[[Path], ParseResult]] = {
     ".xml": parse_plain_text,
     # Data formats
     ".json": parse_json,
-    ".yaml": parse_yaml,
-    ".yml": parse_yaml,
+    ".yaml": parse_yaml_file,
+    ".yml": parse_yaml_file,
     ".toml": parse_plain_text,
     ".ini": parse_plain_text,
     ".cfg": parse_plain_text,
