@@ -69,3 +69,60 @@ def test_runner_missing_file(tmp_path):
 
     assert result.results[0].error is not None
     assert "not found" in result.results[0].error
+
+
+def test_runner_json_schema(tmp_path):
+    p_file = tmp_path / "test_prompt.txt"
+    p_file.write_text("Test", encoding="utf-8")
+
+    class SchemaMockExecutor(Executor):
+        def execute(self, prompt: str, config: dict) -> str:
+            if "fail" in prompt:
+                return '{"name": "test", "age": "not_an_integer"}'
+            return '{"name": "test", "age": 30}'
+
+    # To trigger "fail in prompt", we actually need it in the prompt file or the input vars
+    # Currently p_file only has "Test". We'll modify it to include {{test}}
+    p_file.write_text("Test {{test}}", encoding="utf-8")
+
+    schema_dict = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"}
+        },
+        "required": ["name", "age"]
+    }
+
+    suite = TestSuite(
+        name="Schema Suite",
+        prompt_file=str(p_file.name),
+        test_cases=[
+            TestCase(
+                id="c1",
+                input_variables={},
+                assertions=[
+                    Assertion(type="json_schema", value=schema_dict)
+                ]
+            ),
+            TestCase(
+                id="c2",
+                input_variables={"test": "fail"},
+                assertions=[
+                    Assertion(type="json_schema", value=schema_dict)
+                ]
+            )
+        ]
+    )
+
+    runner = TestRunner(executor=SchemaMockExecutor())
+    result = runner.run_suite(suite, base_dir=tmp_path)
+
+    assert result.passed == 1
+    assert result.failed == 1
+
+    r1 = next(r for r in result.results if r.test_case_id == "c1")
+    assert r1.passed
+
+    r2 = next(r for r in result.results if r.test_case_id == "c2")
+    assert not r2.passed

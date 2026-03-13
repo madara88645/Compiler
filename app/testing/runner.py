@@ -202,8 +202,11 @@ class TestRunner:
         elif assertion.type == "json_schema":
             # Basic validation that it IS json
             try:
-                json.loads(output)
-                return True  # TODO: Validate against schema if value is a schema dict
+                parsed = json.loads(output)
+                if isinstance(assertion.value, dict):
+                    import jsonschema
+                    jsonschema.validate(instance=parsed, schema=assertion.value)
+                return True
             except Exception:
                 return False
         elif assertion.type == "llm_judge":
