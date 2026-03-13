@@ -1,9 +1,16 @@
-﻿import json
+import json
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from app.rag.parsers import can_parse, get_supported_extensions, parse_yaml, parse_yaml_file, ParseResult
+from app.rag.parsers import (
+    can_parse,
+    get_supported_extensions,
+    parse_yaml,
+    parse_yaml_file,
+    ParseResult,
+)
+
 
 def test_parse_yaml_str_success():
     yaml_str = "key: value\nnumber: 42"
