@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from app.llm_engine.schemas import QualityReport
 
 from api.auth import APIKey, verify_api_key
 from app import get_build_info
@@ -73,6 +74,12 @@ app.include_router(benchmark_router)
 
 
 # --- Models ---
+
+
+class ValidateRequest(BaseModel):
+    text: str
+    include_suggestions: bool = Field(default=True, description="Include improvement suggestions")
+    include_strengths: bool = Field(default=True, description="Include identified strengths")
 
 
 class CompileRequest(BaseModel):
@@ -234,6 +241,45 @@ async def compile_fast(
     except Exception as e:
         print(f"[ERROR] compile_fast failed: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+
+@app.post("/validate", response_model=QualityReport)
+def validate_endpoint(req: ValidateRequest):
+    """Validate a prompt using Quality Coach."""
+    try:
+        compiler = get_compiler()
+        # 1. Run LLM Analysis
+        report = compiler.worker.analyze_prompt(req.text)
+
+        # 2. Run Offline Safety Checks
+        from app.heuristics.handlers.safety import SafetyHandler
+
+        safety = SafetyHandler()
+
+        pii = safety._scan_pii(req.text)
+        unsafe = safety._scan_unsafe_content(req.text)
+        guardrail = safety._check_guardrails(req.text)
+
+        safety_issues = []
+        if pii:
+            safety_issues.extend([f"PII Detected: {p['type']}" for p in pii])
+        if unsafe:
+            safety_issues.extend([f"Unsafe Content: '{u}'" for u in unsafe])
+        if guardrail and guardrail.severity != "info":
+            safety_issues.append(f"Guardrail: {guardrail.message}")
+
+        if safety_issues:
+            # Inject into report
+            report.weaknesses = safety_issues + report.weaknesses
+            # Penalty on score
+            report.score = max(0, report.score - (len(safety_issues) * 10))
+            # Add explicit safety category
+            report.category_scores["safety"] = max(0, 100 - (len(safety_issues) * 30))
+
+        return report
+    except Exception as e:
+        print(f"[ERROR] validate_endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
