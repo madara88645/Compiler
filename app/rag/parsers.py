@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import Dict, Callable, List, Any
 from dataclasses import dataclass, field
+from typing import Union
 
 # ==============================================================================
 # DATA STRUCTURES
@@ -311,14 +312,13 @@ def parse_json(path: Path) -> ParseResult:
     )
 
 
-from typing import Union
-
 def parse_yaml(content: Union[str, bytes]) -> str:
     """Parse YAML and return a readable string format."""
     try:
         import yaml
     except ImportError:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning("PyYAML not installed, treating as plain text")
         if isinstance(content, bytes):
@@ -332,12 +332,15 @@ def parse_yaml(content: Union[str, bytes]) -> str:
         parsed = yaml.safe_load(content)
         # Convert parsed object to string
         import json
+
         return json.dumps(parsed, indent=2) if parsed is not None else ""
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(f"Error parsing YAML: {e}")
         return content
+
 
 def parse_yaml_file(path: Path) -> ParseResult:
     """Parse YAML files by using parse_yaml."""
