@@ -147,7 +147,7 @@ def _normalize_fence_boundaries(text: str) -> str:
     s = (text or "").replace("\r\n", "\n")
     # Insert a newline before a fence line when it is preceded by a non-newline.
     # Example: "Intro```python\n" -> "Intro\n```python\n"
-    s = re.sub(r"([^\n])(```+|~~~+)([^\n]*\n)", r"\1\n\2\3", s)
+    s = re.sub(r"([^\n`~])(```+|~~~+)([^\n]*\n)", r"\1\n\2\3", s)
     return s
 
 
