@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import time
+import functools
+import anyio
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
@@ -424,12 +426,15 @@ class RagIngestResponse(BaseModel):
 
 @app.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(req: RagIngestRequest):
-    docs, chunks, secs = ingest_paths(
-        req.paths,
-        db_path=req.db_path,
-        exts=req.exts,
-        embed=req.embed,
-        embed_dim=req.embed_dim,
+    docs, chunks, secs = await anyio.to_thread.run_sync(
+        functools.partial(
+            ingest_paths,
+            req.paths,
+            db_path=req.db_path,
+            exts=req.exts,
+            embed=req.embed,
+            embed_dim=req.embed_dim,
+        )
     )
     return RagIngestResponse(ingested_docs=docs, total_chunks=chunks, elapsed_ms=int(secs * 1000))
 
