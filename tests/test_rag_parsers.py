@@ -61,6 +61,7 @@ def test_parse_yaml_file_error(tmp_path):
     assert result.content == ""
     assert "error" in result.metadata
 
+
 def test_get_supported_extensions():
     """Test get_supported_extensions returns a list of extensions containing expected values."""
     extensions = get_supported_extensions()
@@ -79,6 +80,7 @@ def test_get_supported_extensions():
     for ext in extensions:
         assert isinstance(ext, str)
         assert ext.startswith(".")
+
 
 def test_can_parse():
     """Test can_parse logic for supported and unsupported extensions."""
