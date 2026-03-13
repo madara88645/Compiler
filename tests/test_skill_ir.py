@@ -1,5 +1,5 @@
 import pytest
-from app.adapters.skill_ir import _to_snake
+from app.adapters.skill_ir import _to_snake, _clean_section
 
 
 @pytest.mark.parametrize(
@@ -39,3 +39,31 @@ from app.adapters.skill_ir import _to_snake
 def test_to_snake(input_str, expected):
     """Test converting various string formats to snake_case."""
     assert _to_snake(input_str) == expected
+
+
+@pytest.mark.parametrize(
+    "input_str, expected",
+    [
+        # Plain text
+        ("hello world", "hello world"),
+        ("  hello world  ", "hello world"),
+        # Markdown fences
+        ("```\nhello world\n```", "hello world"),
+        ("```python\nhello world\n```", "hello world"),
+        ("```\nline1\nline2\n```", "line1\nline2"),
+        # Incomplete fences
+        ("```\nhello world", "hello world"),
+        ("```python\nhello world", "hello world"),
+        # Empty fences
+        ("```\n```", ""),
+        ("```python\n```", ""),
+        ("```", ""),
+        ("```python", ""),
+        # Extra whitespace around fences
+        ("  ```\nhello world\n```  ", "hello world"),
+        ("```\n  hello world  \n```", "hello world"),
+    ]
+)
+def test_clean_section(input_str, expected):
+    """Test removing markdown fences and whitespace."""
+    assert _clean_section(input_str) == expected
