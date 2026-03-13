@@ -451,6 +451,8 @@ LIVE_DEBUG_KEYWORDS = [
     r"live debug",
     r"help me debug",
     r"debug this",
+    r"why is this failing",
+    r"fix this error",
     r"traceback",
     r"stack trace",
     r"exception",
