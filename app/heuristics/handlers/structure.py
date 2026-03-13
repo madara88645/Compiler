@@ -12,6 +12,7 @@ _TASK_RE = re.compile(r"task:|goal:|objective:|do this:|please|write a|create a|
 _CONSTRAINT_RE = re.compile(r"constraint|avoid|do not|limit:|rule|don't")
 _ROLE_RE = re.compile(r"act as|your role|role:")
 
+
 class StructureHandler(BaseHandler):
     """
     Deterministic structure engine that formats raw prompts into DeepSpec standard.
