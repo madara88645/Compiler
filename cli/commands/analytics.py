@@ -13,6 +13,7 @@ from app.analytics import AnalyticsManager, create_record_from_ir
 
 # from app.history import get_history_manager
 from app.compiler import compile_text_v2
+from app.validator import validate_prompt
 
 
 def get_history_manager():
@@ -86,9 +87,7 @@ def analytics_record(
     validation_result = None
     if validate:
         with console.status("[cyan]Validating prompt..."):
-            from app.validator import validate_prompt as validator
-
-            validation_result = validator(ir, prompt_text)
+            validation_result = validate_prompt(ir, prompt_text)
 
     # Create record
     record = create_record_from_ir(
