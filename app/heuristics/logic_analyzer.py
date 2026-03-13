@@ -387,16 +387,17 @@ class LogicAnalyzer:
             matches = pattern.finditer(text)
             for match in matches:
                 entity = match.group(1) if match.lastindex else match.group(0)
+                entity_lower = entity.lower()
                 context = self._get_context(text, match.start(), match.end())
 
-                key = f"{info_type}:{entity.lower()}"
+                key = f"{info_type}:{entity_lower}"
                 if key in seen:
                     continue
                 seen.add(key)
 
                 # Determine severity based on context
                 severity = "warning"
-                if any(word in entity.lower() for word in ["database", "api", "schema", "config"]):
+                if any(word in entity_lower for word in ["database", "api", "schema", "config"]):
                     severity = "error"
 
                 missing.append(
