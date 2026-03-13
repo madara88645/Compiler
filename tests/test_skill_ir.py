@@ -62,7 +62,7 @@ def test_to_snake(input_str, expected):
         # Extra whitespace around fences
         ("  ```\nhello world\n```  ", "hello world"),
         ("```\n  hello world  \n```", "hello world"),
-    ]
+    ],
 )
 def test_clean_section(input_str, expected):
     """Test removing markdown fences and whitespace."""
