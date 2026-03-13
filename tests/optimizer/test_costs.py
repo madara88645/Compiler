@@ -101,7 +101,8 @@ class TestCostTracker:
         # PricingModel.RATES has "gpt-4o-mini": {"input": 0.15, "output": 0.6}
 
         tracker = CostTracker()
-        tracker.add_usage(input_tokens=1_000_000, output_tokens=500_000, model="gpt-4o-mini")
+        tracker.add_usage("gpt-4o-mini", 1_000_000, "input")
+        tracker.add_usage("gpt-4o-mini", 500_000, "output")
 
         # 1M input tokens at $0.15/1M = $0.15
         # 500k output tokens at $0.6/1M = $0.30
@@ -112,7 +113,8 @@ class TestCostTracker:
         assert pytest.approx(tracker.estimated_cost()) == 0.45
 
         # Add more usage
-        tracker.add_usage(input_tokens=500_000, output_tokens=250_000, model="gpt-4o-mini")
+        tracker.add_usage("gpt-4o-mini", 500_000, "input")
+        tracker.add_usage("gpt-4o-mini", 250_000, "output")
 
         # Additional: 500k input = $0.075, 250k output = $0.15. Total added: $0.225
         # New total cost: $0.675
@@ -124,9 +126,8 @@ class TestCostTracker:
     def test_add_usage_unknown_model_fallback(self):
         # Do not mock PricingModel.get_rate, so we test the actual fallback logic returning (0.0, 0.0)
         tracker = CostTracker()
-        tracker.add_usage(
-            input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback"
-        )
+        tracker.add_usage("unknown-model-fallback", 1_000_000, "input")
+        tracker.add_usage("unknown-model-fallback", 1_000_000, "output")
 
         assert tracker.total_input_tokens == 1_000_000
         assert tracker.total_output_tokens == 1_000_000
@@ -138,3 +139,55 @@ class TestCostTracker:
         input_rate, output_rate = PricingModel.get_rate("totally-unknown-model")
         assert input_rate == 0.0
         assert output_rate == 0.0
+
+        # Test direction specific fallback
+        assert PricingModel.get_rate("totally-unknown-model", "input") == 0.0
+
+    def test_add_usage_zero_tokens(self):
+        tracker = CostTracker()
+        tracker.add_usage("gpt-4o", 0, "input")
+        tracker.add_usage("gpt-4o", 0, "output")
+
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    def test_add_usage_fractional_costs(self):
+        # Test models that might result in floating point representation artifacts.
+        # "gpt-4o-mini" is input: $0.15/1M, output: $0.6/1M
+        tracker = CostTracker()
+
+        # Add an amount that causes fractional cents
+        # 1 token input = $0.00000015
+        # 1 token output = $0.0000006
+        tracker.add_usage("gpt-4o-mini", 1, "input")
+        tracker.add_usage("gpt-4o-mini", 1, "output")
+
+        assert tracker.total_input_tokens == 1
+        assert tracker.total_output_tokens == 1
+        assert pytest.approx(tracker.total_cost) == 0.00000075
+
+        # Add more usage to see accumulation
+        tracker.add_usage("gpt-4o-mini", 999_999, "input")
+        tracker.add_usage("gpt-4o-mini", 999_999, "output")
+
+        assert tracker.total_input_tokens == 1_000_000
+        assert tracker.total_output_tokens == 1_000_000
+        assert pytest.approx(tracker.total_cost) == 0.75
+        assert pytest.approx(tracker.estimated_cost()) == 0.75
+
+    def test_add_usage_multiple_models(self):
+        tracker = CostTracker()
+
+        # gpt-4o: 1M input ($5), 1M output ($15) = $20
+        tracker.add_usage("gpt-4o", 1_000_000, "input")
+        tracker.add_usage("gpt-4o", 1_000_000, "output")
+
+        # gpt-3.5-turbo: 1M input ($0.5), 1M output ($1.5) = $2.0
+        tracker.add_usage("gpt-3.5-turbo", 1_000_000, "input")
+        tracker.add_usage("gpt-3.5-turbo", 1_000_000, "output")
+
+        assert tracker.total_input_tokens == 2_000_000
+        assert tracker.total_output_tokens == 2_000_000
+        assert pytest.approx(tracker.total_cost) == 22.0
