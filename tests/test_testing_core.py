@@ -87,11 +87,8 @@ def test_runner_json_schema(tmp_path):
 
     schema_dict = {
         "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer"}
-        },
-        "required": ["name", "age"]
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+        "required": ["name", "age"],
     }
 
     suite = TestSuite(
@@ -101,18 +98,14 @@ def test_runner_json_schema(tmp_path):
             TestCase(
                 id="c1",
                 input_variables={},
-                assertions=[
-                    Assertion(type="json_schema", value=schema_dict)
-                ]
+                assertions=[Assertion(type="json_schema", value=schema_dict)],
             ),
             TestCase(
                 id="c2",
                 input_variables={"test": "fail"},
-                assertions=[
-                    Assertion(type="json_schema", value=schema_dict)
-                ]
-            )
-        ]
+                assertions=[Assertion(type="json_schema", value=schema_dict)],
+            ),
+        ],
     )
 
     runner = TestRunner(executor=SchemaMockExecutor())

@@ -205,6 +205,7 @@ class TestRunner:
                 parsed = json.loads(output)
                 if isinstance(assertion.value, dict):
                     import jsonschema
+
                     jsonschema.validate(instance=parsed, schema=assertion.value)
                 return True
             except Exception:
