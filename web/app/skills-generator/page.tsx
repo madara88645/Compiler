@@ -108,12 +108,16 @@ export default function SkillsGenerator() {
             </div>
 
             <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-              <div
+              <button
+                type="button"
+                role="switch"
+                aria-checked={includeExampleCode}
+                aria-label="Include Example Code toggle"
                 onClick={() => setIncludeExampleCode((v) => !v)}
-                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? "bg-blue-500" : "bg-zinc-700"}`}
+                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? "bg-blue-500" : "bg-zinc-700"} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? "translate-x-4" : "translate-x-0"}`} />
-              </div>
+              </button>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Example Code?</span>
                 <span className="text-[10px] text-zinc-500">
