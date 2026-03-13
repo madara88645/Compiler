@@ -1,5 +1,15 @@
 from app.text_utils import estimate_tokens
-from app.token_optimizer import optimize_text
+from app.token_optimizer import _normalize_fence_boundaries, optimize_text
+
+
+def test_normalize_fence_boundaries():
+    assert _normalize_fence_boundaries("Intro\n\n\n```python\n") == "Intro\n```python\n"
+    assert _normalize_fence_boundaries("\n\n```bash\n") == "\n```bash\n"
+    assert _normalize_fence_boundaries("```\n\n\nOutro") == "```\nOutro"
+    assert _normalize_fence_boundaries("```\n\n\n") == "```\n"
+    assert _normalize_fence_boundaries("A\n\n```\n\nB") == "A\n```\nB"
+    assert _normalize_fence_boundaries("A\n```\nB") == "A\n```\nB"
+    assert _normalize_fence_boundaries("A```B") == "A```B"
 
 
 def test_optimize_preserves_fenced_code_block_verbatim():
