@@ -119,6 +119,13 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         return []
 
 
+def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
+    stat = path.stat()
+    cur = conn.execute("SELECT mtime, size FROM docs WHERE path=?", (str(path),))
+    row = cur.fetchone()
+    return not row or row[0] != stat.st_mtime or row[1] != stat.st_size
+
+
 def _split_sentences(text: str) -> List[str]:
     """Split text into sentences using regex.
 
@@ -389,13 +396,12 @@ def _insert_document(
     conn: sqlite3.Connection,
     path: Path,
     content: str,
-    stat_result: "os.stat_result",
     *,
     embed: bool = False,
     embed_dim: int = 64,
     chunking_strategy: str = "paragraph",
 ) -> None:
-    stat = stat_result
+    stat = path.stat()
     cur = conn.execute(
         "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
         (str(path), stat.st_mtime, stat.st_size),
@@ -480,11 +486,6 @@ def ingest_paths(
         _init_schema(conn)
         n_docs = 0
         n_chunks = 0
-
-        # Pre-fetch existing document metadata to prevent N+1 queries
-        cur = conn.execute("SELECT path, mtime, size FROM docs")
-        existing_docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
-
         # Use parser-supported extensions if available, else fallback
         if _HAS_PARSERS and exts is None:
             allowed_exts = set(get_supported_extensions())
@@ -500,20 +501,7 @@ def ingest_paths(
                         fp = Path(root) / f
                         if fp.suffix.lower() not in allowed_exts:
                             continue
-
-                        try:
-                            stat_result = fp.stat()
-                        except OSError:
-                            continue
-
-                        row = existing_docs.get(str(fp))
-                        needs_ingest = (
-                            not row
-                            or row[0] != stat_result.st_mtime
-                            or row[1] != stat_result.st_size
-                        )
-
-                        if needs_ingest:
+                        if _needs_ingest(conn, fp):
                             try:
                                 if _HAS_PARSERS and can_parse(fp):
                                     result = parse_file(fp)
@@ -528,7 +516,6 @@ def ingest_paths(
                                 conn,
                                 fp,
                                 content,
-                                stat_result,
                                 embed=embed,
                                 embed_dim=embed_dim,
                                 chunking_strategy=chunking_strategy,
@@ -537,18 +524,7 @@ def ingest_paths(
             else:
                 if pth.suffix.lower() not in allowed_exts:
                     continue
-
-                try:
-                    stat_result = pth.stat()
-                except OSError:
-                    continue
-
-                row = existing_docs.get(str(pth))
-                needs_ingest = (
-                    not row or row[0] != stat_result.st_mtime or row[1] != stat_result.st_size
-                )
-
-                if needs_ingest:
+                if _needs_ingest(conn, pth):
                     try:
                         if _HAS_PARSERS and can_parse(pth):
                             result = parse_file(pth)
@@ -563,7 +539,6 @@ def ingest_paths(
                         conn,
                         pth,
                         content,
-                        stat_result,
                         embed=embed,
                         embed_dim=embed_dim,
                         chunking_strategy=chunking_strategy,
