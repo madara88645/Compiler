@@ -3,13 +3,28 @@ from app.token_optimizer import _normalize_fence_boundaries, optimize_text
 
 
 def test_normalize_fence_boundaries():
-    assert _normalize_fence_boundaries("Intro\n\n\n```python\n") == "Intro\n```python\n"
-    assert _normalize_fence_boundaries("\n\n```bash\n") == "\n```bash\n"
-    assert _normalize_fence_boundaries("```\n\n\nOutro") == "```\nOutro"
-    assert _normalize_fence_boundaries("```\n\n\n") == "```\n"
-    assert _normalize_fence_boundaries("A\n\n```\n\nB") == "A\n```\nB"
-    assert _normalize_fence_boundaries("A\n```\nB") == "A\n```\nB"
-    assert _normalize_fence_boundaries("A```B") == "A```B"
+    # Insert newlines when preceded by non-newline
+    assert _normalize_fence_boundaries("Intro```python\n") == "Intro\n```python\n"
+    assert _normalize_fence_boundaries("Intro~~~python\n") == "Intro\n~~~python\n"
+
+    # Multiple backticks/tildes
+    assert _normalize_fence_boundaries("Intro````python\n") == "Intro\n````python\n"
+    assert _normalize_fence_boundaries("Intro~~~~python\n") == "Intro\n~~~~python\n"
+
+    # Unchanged cases: already have exactly one newline or at start
+    assert _normalize_fence_boundaries("Intro\n```python\n") == "Intro\n```python\n"
+    assert _normalize_fence_boundaries("```python\n") == "```python\n"
+
+    # Inline code shouldn't be affected
+    assert _normalize_fence_boundaries("Some `inline` code\n") == "Some `inline` code\n"
+    assert _normalize_fence_boundaries("Some ~~inline~~ code\n") == "Some ~~inline~~ code\n"
+
+    # Handle carriage returns
+    assert _normalize_fence_boundaries("Intro\r\n```python\r\n") == "Intro\n```python\n"
+    assert _normalize_fence_boundaries("Intro\r\n~~~python\r\n") == "Intro\n~~~python\n"
+
+    # Empty inputs
+    assert _normalize_fence_boundaries("") == ""
 
 
 def test_optimize_preserves_fenced_code_block_verbatim():
