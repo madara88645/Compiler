@@ -77,6 +77,7 @@ def test_validation_result_average_score():
 
     # More complex multiple scores
     import math
+
     complex_result = ValidationResult(scores={"model_a": 0.9, "model_b": 0.8, "model_c": 0.7})
     assert math.isclose(complex_result.average_score, 0.8, rel_tol=1e-9)
 
