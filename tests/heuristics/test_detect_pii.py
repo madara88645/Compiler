@@ -3,13 +3,16 @@ import re
 from unittest.mock import patch
 import app.heuristics
 
+
 def test_detect_pii_empty():
     assert detect_pii("") == []
     assert detect_pii("Hello world, no PII here.") == []
 
+
 def test_detect_pii_email():
     text = "Contact me at test@example.com for more info."
     assert "email" in detect_pii(text)
+
 
 def test_detect_pii_phone():
     # Valid international phone with spaces
@@ -19,6 +22,7 @@ def test_detect_pii_phone():
     # Short phone should not be matched due to validation rule
     assert "phone" not in detect_pii("Just dial 12345")
 
+
 def test_detect_pii_credit_card():
     # Valid 16 digit CC
     assert "credit_card" in detect_pii("My card is 1234-5678-9012-3456")
@@ -27,9 +31,11 @@ def test_detect_pii_credit_card():
     # Short CC should not be matched due to validation rule
     assert "credit_card" not in detect_pii("My card is 1234-5678-9012")
 
+
 def test_detect_pii_iban():
     # Turkish IBAN TR + 24 digits
     assert "iban" in detect_pii("Here is my IBAN TR123456789012345678901234")
+
 
 def test_detect_pii_multiple():
     text = "Email test@example.com, phone 555-123-4567, and IBAN TR123456789012345678901234"
@@ -38,6 +44,7 @@ def test_detect_pii_multiple():
     assert "phone" in result
     assert "iban" in result
     assert "credit_card" not in result
+
 
 def test_detect_pii_max_flags():
     # Mock PII_PATTERNS locally to simulate more than 5 patterns to test the max limit
