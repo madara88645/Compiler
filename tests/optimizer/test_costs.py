@@ -101,7 +101,8 @@ class TestCostTracker:
         # PricingModel.RATES has "gpt-4o-mini": {"input": 0.15, "output": 0.6}
 
         tracker = CostTracker()
-        tracker.add_usage(input_tokens=1_000_000, output_tokens=500_000, model="gpt-4o-mini")
+        tracker.add_usage(model="gpt-4o-mini", tokens=1_000_000, direction="input")
+        tracker.add_usage(model="gpt-4o-mini", tokens=500_000, direction="output")
 
         # 1M input tokens at $0.15/1M = $0.15
         # 500k output tokens at $0.6/1M = $0.30
@@ -112,7 +113,8 @@ class TestCostTracker:
         assert pytest.approx(tracker.estimated_cost()) == 0.45
 
         # Add more usage
-        tracker.add_usage(input_tokens=500_000, output_tokens=250_000, model="gpt-4o-mini")
+        tracker.add_usage(model="gpt-4o-mini", tokens=500_000, direction="input")
+        tracker.add_usage(model="gpt-4o-mini", tokens=250_000, direction="output")
 
         # Additional: 500k input = $0.075, 250k output = $0.15. Total added: $0.225
         # New total cost: $0.675
@@ -124,14 +126,59 @@ class TestCostTracker:
     def test_add_usage_unknown_model_fallback(self):
         # Do not mock PricingModel.get_rate, so we test the actual fallback logic returning (0.0, 0.0)
         tracker = CostTracker()
-        tracker.add_usage(
-            input_tokens=1_000_000, output_tokens=1_000_000, model="unknown-model-fallback"
-        )
+        tracker.add_usage(model="unknown-model-fallback", tokens=1_000_000, direction="input")
+        tracker.add_usage(model="unknown-model-fallback", tokens=1_000_000, direction="output")
 
         assert tracker.total_input_tokens == 1_000_000
         assert tracker.total_output_tokens == 1_000_000
         assert tracker.total_cost == 0.0
         assert tracker.estimated_cost() == 0.0
+
+    def test_add_usage_invalid_direction(self):
+        tracker = CostTracker()
+        tracker.add_usage(model="gpt-4o-mini", tokens=1_000_000, direction="invalid_direction")
+
+        # Should not update input or output tokens, cost should remain 0
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    def test_add_usage_zero_tokens(self):
+        tracker = CostTracker()
+        tracker.add_usage(model="gpt-4o-mini", tokens=0, direction="input")
+        tracker.add_usage(model="gpt-4o-mini", tokens=0, direction="output")
+        assert tracker.total_input_tokens == 0
+        assert tracker.total_output_tokens == 0
+        assert tracker.total_cost == 0.0
+        assert tracker.estimated_cost() == 0.0
+
+    def test_add_usage_multiple_models(self):
+        tracker = CostTracker()
+        # gpt-4o-mini: input 0.15, output 0.6
+        tracker.add_usage(model="gpt-4o-mini", tokens=1_000_000, direction="input")
+        tracker.add_usage(model="gpt-4o-mini", tokens=1_000_000, direction="output")
+        assert pytest.approx(tracker.total_cost) == 0.75
+
+        # gpt-4o: input 5.0, output 15.0
+        tracker.add_usage(model="gpt-4o", tokens=2_000_000, direction="input")
+        tracker.add_usage(model="gpt-4o", tokens=500_000, direction="output")
+        # 2M * 5.0 = 10.0, 0.5M * 15.0 = 7.5 -> 17.5. Total cost: 0.75 + 17.5 = 18.25
+        assert tracker.total_input_tokens == 3_000_000
+        assert tracker.total_output_tokens == 1_500_000
+        assert pytest.approx(tracker.total_cost) == 18.25
+        assert pytest.approx(tracker.estimated_cost()) == 18.25
+
+    def test_add_usage_float_cost_accumulation(self):
+        tracker = CostTracker()
+        # Very small amounts to test float accumulation
+        tracker.add_usage(model="gpt-4o-mini", tokens=1, direction="input")
+        assert tracker.total_input_tokens == 1
+        assert pytest.approx(tracker.total_cost) == 0.15 / 1_000_000
+
+        tracker.add_usage(model="gpt-4o", tokens=1, direction="output")
+        assert tracker.total_output_tokens == 1
+        assert pytest.approx(tracker.total_cost) == (0.15 / 1_000_000) + (15.0 / 1_000_000)
 
     def test_pricing_model_get_rate_unknown_explicit(self):
         # Explicit test for PricingModel.get_rate fallback

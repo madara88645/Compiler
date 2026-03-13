@@ -285,7 +285,8 @@ class EvolutionEngine:
             out_tokens = sum(
                 TokenCounter.count(c.prompt_text, self.config.model) for c in new_candidates
             )
-            self.cost_tracker.add_usage(in_tokens, out_tokens, self.config.model)
+            self.cost_tracker.add_usage(model=self.config.model, tokens=in_tokens, direction="input")
+            self.cost_tracker.add_usage(model=self.config.model, tokens=out_tokens, direction="output")
 
             # Evaluation
             evaluated_candidates = []

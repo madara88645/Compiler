@@ -93,18 +93,20 @@ class CostTracker:
         self.total_output_tokens: int = 0
         self.total_cost: float = 0.0
 
-    def add_usage(self, input_tokens: int, output_tokens: int, model: str) -> None:
-        """Accumulates usage and updates cost."""
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
-
+    def add_usage(self, model: str, tokens: int, direction: str) -> None:
+        """Accumulate token usage and costs."""
         input_rate, output_rate = PricingModel.get_rate(model)
 
-        # Calculate cost: (tokens / 1M) * rate
-        input_cost = (input_tokens / 1_000_000) * input_rate
-        output_cost = (output_tokens / 1_000_000) * output_rate
+        if direction == "input":
+            self.total_input_tokens += tokens
+            cost = (tokens / 1_000_000) * input_rate
+        elif direction == "output":
+            self.total_output_tokens += tokens
+            cost = (tokens / 1_000_000) * output_rate
+        else:
+            cost = 0.0
 
-        self.total_cost += input_cost + output_cost
+        self.total_cost += cost
 
     def estimated_cost(self) -> float:
         """Returns the total estimated cost in USD."""
