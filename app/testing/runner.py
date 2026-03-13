@@ -1,6 +1,7 @@
 import re
 import time
 import json
+import jsonschema
 from typing import Dict, Any, Optional
 from pathlib import Path
 from .models import TestSuite, TestCase, TestResult, SuiteResult, Assertion
@@ -202,8 +203,11 @@ class TestRunner:
         elif assertion.type == "json_schema":
             # Basic validation that it IS json
             try:
-                json.loads(output)
-                return True  # TODO: Validate against schema if value is a schema dict
+                parsed = json.loads(output)
+                # Validate against schema if value is provided and not a simple True boolean
+                if isinstance(assertion.value, dict) or assertion.value is False:
+                    jsonschema.validate(instance=parsed, schema=assertion.value)
+                return True
             except Exception:
                 return False
         elif assertion.type == "llm_judge":
