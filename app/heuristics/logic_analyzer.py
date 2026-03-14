@@ -129,6 +129,9 @@ MISSING_REFERENCE_PATTERNS = [
     (r"\b(?:it|they|them|this|that|these|those)\s+(?:should|must|will|can)\b", "Pronoun Reference"),
 ]
 
+# Critical missing entity keywords that escalate severity to error
+ERROR_SEVERITY_KEYWORDS = ("database", "api", "schema", "config")
+
 # Input/Output detection patterns
 INPUT_PATTERNS = [
     (
@@ -396,7 +399,8 @@ class LogicAnalyzer:
 
                 # Determine severity based on context
                 severity = "warning"
-                if any(word in entity.lower() for word in ["database", "api", "schema", "config"]):
+                entity_lower = entity.lower()
+                if any(word in entity_lower for word in ERROR_SEVERITY_KEYWORDS):
                     severity = "error"
 
                 missing.append(
