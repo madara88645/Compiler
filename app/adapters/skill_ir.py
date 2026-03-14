@@ -33,7 +33,17 @@ class SkillExportIR(BaseModel):
 
 
 def _clean_section(text: str) -> str:
-    return text.strip()
+    """Remove markdown fences and leading/trailing whitespace."""
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        # If it ends with ``` and has at least 2 lines (opening and closing fence)
+        if len(lines) > 1 and lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1]).strip()
+        # If it just starts with ``` but doesn't end with it
+        elif len(lines) > 0:
+            return "\n".join(lines[1:]).strip()
+    return text
 
 
 def _extract_sections(markdown: str) -> dict[str, str]:
