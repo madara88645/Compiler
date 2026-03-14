@@ -58,10 +58,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Prompt Compiler API", lifespan=lifespan)
 
 
+allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
+allow_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    # Allow specific origins from env (comma separated) or default to *
-    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
+    # Allow specific origins from env (comma separated) or default to empty list
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
