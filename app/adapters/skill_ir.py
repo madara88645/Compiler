@@ -4,6 +4,7 @@ skill_ir.py — Parse Skills Generator markdown output into a structured IR.
 Skills Generator output has sections: Name, Purpose, Input Schema, Output Schema,
 Implementation, Dependencies, Error Handling, Implementation Example (optional).
 """
+
 from __future__ import annotations
 
 import re

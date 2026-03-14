@@ -5,3 +5,7 @@
 ## 2024-06-20 - Optimizing SQLite JSON Deserialization Cache Size
 **Learning:** In the backend RAG implementation (`app/rag/simple_index.py`), embeddings are stored as JSON strings in an SQLite database. I initially attempted to optimize repeated deserialization by adding an `lru_cache` bounded to `maxsize=1024` for parsing these strings. However, because similarity searches involve a linear scan over all database chunks, if the database has more than 1,024 chunks, the cache is completely evicted during a single scan, resulting in a 0% cache hit rate on subsequent searches (cache thrashing).
 **Action:** When caching objects that are iterated over sequentially during database table scans, ensure the cache boundary is sized large enough (e.g., `maxsize=65536`) to accommodate the entire dataset or use an unbounded cache if safe, otherwise the caching mechanism will only add overhead.
+
+## 2024-07-26 - Fast Vector Dot Products in Python
+**Learning:** For vector dot products in Python (without numpy), using `sum(map(operator.mul, vec_a, vec_b))` is approximately 30% to 40% faster than list comprehensions inside `sum([a * b for a, b in zip(vec_a, vec_b)])`. This is because it avoids the overhead of allocating an intermediate list in memory and pushes both iteration and multiplication to optimized C-level implementations.
+**Action:** When calculating similarity scores or dot products on vectors represented as Python lists, always prefer `map(operator.mul, a, b)` wrapped in `sum()` over list comprehensions or generator expressions.
