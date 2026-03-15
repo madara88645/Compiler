@@ -65,8 +65,9 @@ def test_benchmark_run_endpoint(client):
     mock_raw = "Here is a basic answer about Python."
     mock_improved = "# Python Overview\n\n- Python is a high-level language\n- It supports OOP\n\n```python\nprint('hello')\n```"
 
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         # First call returns raw, second returns improved
         mock_llm.side_effect = [mock_raw, mock_improved]
@@ -102,8 +103,9 @@ def test_benchmark_run_endpoint(client):
 
 def test_benchmark_run_empty_prompt(client):
     """Should handle empty prompt gracefully (compiler still works)."""
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.return_value = "mock output"
 
