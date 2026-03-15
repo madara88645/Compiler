@@ -7,6 +7,12 @@ from app.models import IR
 from app.models_v2 import IRv2, ConstraintV2
 
 
+_CONTEXT_RE = re.compile(r"context:|background:|situation:|context is")
+_TASK_RE = re.compile(r"task:|goal:|objective:|do this:|please|write a|create a|your task|task is")
+_CONSTRAINT_RE = re.compile(r"constraint|avoid|do not|limit:|rule|don't")
+_ROLE_RE = re.compile(r"act as|your role|role:")
+
+
 class StructureHandler(BaseHandler):
     """
     Deterministic structure engine that formats raw prompts into DeepSpec standard.
@@ -150,42 +156,21 @@ class StructureHandler(BaseHandler):
 
             # Heuristics to switch buckets
             # We prioritize explicit headers first
-            if any(
-                x in lower_part for x in ["context:", "background:", "situation:", "context is"]
-            ):
+            if _CONTEXT_RE.search(lower_part):
                 current_bucket = "Context"
-            elif any(
-                x in lower_part
-                for x in [
-                    "task:",
-                    "goal:",
-                    "objective:",
-                    "do this:",
-                    "please",
-                    "write a",
-                    "create a",
-                    "your task",
-                    "task is",
-                ]
-            ):
+            elif _TASK_RE.search(lower_part):
                 current_bucket = "Task"
-            elif any(
-                x in lower_part
-                for x in ["constraint", "avoid", "do not", "limit:", "rule", "don't"]
-            ):
+            elif _CONSTRAINT_RE.search(lower_part):
                 current_bucket = "Constraints"
             # Specific role markers check - do this LAST or restrict it
-            elif any(x in lower_part for x in ["act as", "your role", "role:"]):
+            elif _ROLE_RE.search(lower_part):
                 current_bucket = "Role"
             elif "you are" in lower_part:
                 # Only switch to Role if we aren't already in Context/Task strings that might contain "you are"
                 # For now, let's treat "you are" as Role only if it's at the start or explicit
                 if current_bucket not in ("Context", "Task"):
                     current_bucket = "Role"
-            elif any(
-                x in lower_part
-                for x in ["constraint", "avoid", "do not", "limit:", "rule", "don't"]
-            ):
+            elif _CONSTRAINT_RE.search(lower_part):
                 current_bucket = "Constraints"
 
             # append to bucket
