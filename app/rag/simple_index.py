@@ -120,7 +120,9 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         return []
 
 
-def _needs_ingest(conn: sqlite3.Connection, path: Path, stat: Optional[os.stat_result] = None) -> bool:
+def _needs_ingest(
+    conn: sqlite3.Connection, path: Path, stat: Optional[os.stat_result] = None
+) -> bool:
     if stat is None:
         stat = path.stat()
     cur = conn.execute("SELECT mtime, size FROM docs WHERE path=?", (str(path),))
