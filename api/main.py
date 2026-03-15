@@ -284,7 +284,7 @@ def validate_endpoint(req: ValidateRequest):
         return report
     except Exception as e:
         print(f"[ERROR] validate_endpoint failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
 # ============================================================================
