@@ -201,7 +201,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                 </pre>
                 <button
                   onClick={handleCopy}
-                  className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                  className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
                   aria-label="Copy code"
                 >
                   {copied ? (

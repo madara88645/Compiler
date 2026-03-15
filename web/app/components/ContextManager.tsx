@@ -404,7 +404,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                             </div>
                             <button
                                 onClick={() => onInsertContext(r.content)}
-                                className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 font-medium"
+                                className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                             >
                                 <span>+</span> Insert into Prompt
                             </button>
