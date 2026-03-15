@@ -3,7 +3,8 @@ from dataclasses import dataclass
 
 
 class VectorDBConnection(Protocol):
-    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]: ...
+    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        ...
 
 
 @dataclass
