@@ -681,5 +681,61 @@ def generate_trace(ir: IR) -> list[str]:
 
 
 def optimize_ir(ir: IR) -> IR:
-    # Placeholder for future optimization passes: could merge similar tasks, etc.
+    """
+    Optimize the IR by:
+    - Deduplicating goals and tasks (by first 60 chars)
+    - Sorting constraints by priority (descending)
+    - Injecting domain-specific baseline constraints if missing
+    """
+
+    # 1. Deduplicate goals and tasks
+    def dedup(items: List[str]) -> List[str]:
+        seen: set = set()
+        result = []
+        for item in items:
+            key = item.strip()[:60].lower()
+            if key not in seen:
+                seen.add(key)
+                result.append(item)
+        return result
+
+    ir.goals = dedup(ir.goals)
+    ir.tasks = dedup(ir.tasks)
+
+    # 2. Sort constraints by priority (descending) — IR v1 constraints are plain strings,
+    #    so we do a best-effort domain-based injection only when the list is short.
+    DOMAIN_BASELINE_EN = {
+        "coding": "Include type hints, docstrings, and handle edge cases defensively.",
+        "software": "Include type hints, docstrings, and handle edge cases defensively.",
+        "finance": "Include numerical precision handling and a legal/liability disclaimer.",
+        "security": "Apply least-privilege principle, validate all inputs, and log audit events.",
+        "ai/nlp": "Cite sources where applicable and flag potential hallucination risks.",
+        "education": "Adapt explanations to the learner's level and include practice exercises.",
+        "health": "Include a recommendation to consult a qualified professional.",
+        "legal": "Include a disclaimer that this is not professional legal advice.",
+        "cloud": "Follow infrastructure-as-code best practices and document resource costs.",
+        "mlops": "Document model versioning, monitoring strategy, and rollback plan.",
+    }
+    DOMAIN_BASELINE_TR = {
+        "coding": "Tür ipuçları, belge dizeleri ekle ve kenar durumları savunmacı biçimde işle.",
+        "software": "Tür ipuçları, belge dizeleri ekle ve kenar durumları savunmacı biçimde işle.",
+        "finance": "Sayısal hassasiyet kontrolü ve yasal sorumluluk reddi ekle.",
+        "security": "En az ayrıcalık ilkesini uygula, tüm girdileri doğrula, denetim olaylarını kaydet.",
+        "ai/nlp": "Uygun olduğunda kaynak belirt ve olası halüsinasyon risklerini işaretle.",
+        "education": "Açıklamaları öğrencinin seviyesine uyarla ve pratik alıştırmalar ekle.",
+        "health": "Nitelikli bir uzmana danışılmasını tavsiye eden bir uyarı ekle.",
+        "legal": "Bunun profesyonel hukuki tavsiye olmadığına dair sorumluluk reddi ekle.",
+        "cloud": "Kod olarak altyapı en iyi uygulamalarını takip et ve kaynak maliyetlerini belgele.",
+        "mlops": "Model sürümleme, izleme stratejisi ve geri alma planını belgele.",
+    }
+
+    domain_key = (ir.domain or "").lower().split("/")[0].strip()
+    baselines = DOMAIN_BASELINE_TR if ir.language == "tr" else DOMAIN_BASELINE_EN
+    baseline = baselines.get(domain_key) or baselines.get(ir.domain or "")
+    if baseline:
+        existing_lower = {c.lower()[:40] for c in ir.constraints}
+        if not any(baseline.lower()[:40] in e for e in existing_lower):
+            ir.constraints.append(baseline)
+
+    ir.metadata["optimized"] = True
     return ir

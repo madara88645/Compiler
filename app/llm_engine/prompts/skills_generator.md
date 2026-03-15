@@ -11,7 +11,8 @@ You may be provided with a **Project Context** (snippets of code, file structure
 ## INSTRUCTIONS
 1. Analyze the user's request (the "Capability" or "Task") and any provided Project Context.
 2. Design a specialized AI Skill to fulfill this request, compatible with the project's codebase.
-3. Output the result in **Markdown** format.
+3. The skill MUST be **idempotent**: the same input always produces the same output. State this explicitly in the Implementation section.
+4. Output the result in **Markdown** format.
 
 ## OUTPUT STRUCTURE
 The output must strictly follow this Markdown structure:
@@ -45,6 +46,18 @@ The output must strictly follow this Markdown structure:
 [Describe how to handle edge cases, failures, or invalid inputs.]
 - Case 1: Strategy
 - Case 2: Strategy
+
+## Testing Strategy
+[How to validate this skill works correctly.]
+- Unit test: describe the minimal test case that proves the happy path works
+- Edge case: describe the most likely failure input and expected behavior
+- Idempotency check: confirm running the skill twice with the same input produces the same result
+
+## Performance Considerations
+[Time complexity, latency, rate limits, or resource constraints.]
+- Expected latency / complexity class (e.g., O(n), < 500ms per call)
+- Rate limits or quotas that apply (e.g., API calls per minute)
+- Caching opportunities (what can be cached and for how long)
 ```
 
 ## TONE & STYLE

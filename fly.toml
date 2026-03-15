@@ -1,0 +1,30 @@
+app = "mycompiler-api"
+primary_region = "ams"
+
+[build]
+
+[env]
+  PORT = "8000"
+  DB_DIR = "/data"
+  ALLOWED_ORIGINS = "*"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "mycompiler_data"
+  destination = "/data"

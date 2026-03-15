@@ -51,6 +51,17 @@ The output must strictly follow this Markdown structure:
 - Tool 1
 - Tool 2
 
+## Memory & State
+[What the agent needs to remember across turns, and how to manage it.]
+- **Stateless** (choose if agent resets each call): agent holds no memory between invocations; all required context must be provided in each request.
+- **Stateful** (choose if agent maintains context): describe exactly what to persist (e.g., conversation history, user preferences, task progress) and where (in-memory, database, session store).
+
+## Error Recovery
+[How the agent handles failures, ambiguous inputs, or blocked execution paths.]
+- **Ambiguity**: when the request is unclear, ask ONE targeted clarifying question before proceeding — never guess silently.
+- **Tool / API failure**: describe the fallback behavior (retry, degrade gracefully, or surface error to user).
+- **Out-of-scope request**: politely decline and redirect to the agent's defined purpose.
+
 ## Example Interaction
 [A brief example of a user input and the agent's expected high-quality response.]
 **User:** ...

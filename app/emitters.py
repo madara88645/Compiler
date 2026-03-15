@@ -551,4 +551,162 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
 
         if diag_lines:
             prompt.extend(["", "Diagnostics:", *diag_lines])
+
+    # --- Domain-Specific Best Practices ---
+    _BEST_PRACTICES_EN: dict = {
+        "coding": [
+            "Write defensive code and handle edge cases explicitly.",
+            "Include unit tests or testable code structure.",
+            "Use type hints and meaningful variable names.",
+        ],
+        "software": [
+            "Write defensive code and handle edge cases explicitly.",
+            "Include unit tests or testable code structure.",
+            "Use type hints and meaningful variable names.",
+        ],
+        "finance": [
+            "Ensure numerical precision (use Decimal, not float for money).",
+            "Include a legal/liability disclaimer in any output.",
+            "Validate all financial inputs and flag outliers.",
+        ],
+        "security": [
+            "Apply the least-privilege principle throughout.",
+            "Validate and sanitize all inputs before processing.",
+            "Log audit events for every sensitive action.",
+        ],
+        "ai/nlp": [
+            "Cite sources or flag statements that may be speculative.",
+            "Acknowledge model limitations and potential hallucination risks.",
+            "Avoid over-confident language; use hedging where appropriate.",
+        ],
+        "education": [
+            "Adapt the explanation depth to the learner's stated level.",
+            "Include at least one practical exercise or example.",
+            "Encourage questions and confirm understanding at each step.",
+        ],
+        "health": [
+            "Always recommend consulting a qualified healthcare professional.",
+            "Avoid definitive diagnoses; present information as general guidance.",
+            "Cite reputable sources (WHO, NHS, peer-reviewed literature).",
+        ],
+        "legal": [
+            "Clarify this is not professional legal advice.",
+            "Refer to jurisdiction-specific rules where relevant.",
+            "Use precise language and avoid ambiguous legal terms.",
+        ],
+        "cloud": [
+            "Prefer infrastructure-as-code over manual configuration.",
+            "Document estimated resource costs and scaling limits.",
+            "Plan for failure: include retry logic and circuit breakers.",
+        ],
+        "mlops": [
+            "Document model versioning and reproducibility steps.",
+            "Define monitoring metrics and alert thresholds.",
+            "Include a rollback plan for model deployments.",
+        ],
+    }
+    _BEST_PRACTICES_TR: dict = {
+        "coding": [
+            "Savunmacı kod yaz ve kenar durumları açıkça işle.",
+            "Birim testleri veya test edilebilir kod yapısı ekle.",
+            "Tür ipuçları ve anlamlı değişken adları kullan.",
+        ],
+        "software": [
+            "Savunmacı kod yaz ve kenar durumları açıkça işle.",
+            "Birim testleri veya test edilebilir kod yapısı ekle.",
+            "Tür ipuçları ve anlamlı değişken adları kullan.",
+        ],
+        "finance": [
+            "Sayısal hassasiyeti sağla (para için float değil Decimal kullan).",
+            "Çıktılara yasal sorumluluk reddi ekle.",
+            "Tüm finansal girdileri doğrula ve aykırı değerleri işaretle.",
+        ],
+        "security": [
+            "En az ayrıcalık ilkesini uygula.",
+            "Tüm girdileri işlemeden önce doğrula ve temizle.",
+            "Her hassas işlem için denetim olaylarını kaydet.",
+        ],
+        "ai/nlp": [
+            "Spekülatif ifadeleri kaynakla destekle veya işaretle.",
+            "Model sınırlılıklarını ve halüsinasyon risklerini kabul et.",
+            "Aşırı güvenli dilden kaçın; gerektiğinde çekinceli ifade kullan.",
+        ],
+        "education": [
+            "Açıklama derinliğini öğrencinin seviyesine göre ayarla.",
+            "En az bir pratik alıştırma veya örnek ekle.",
+            "Her adımda soruları teşvik et ve anlamayı doğrula.",
+        ],
+        "health": [
+            "Her zaman nitelikli bir sağlık profesyoneline danışılmasını tavsiye et.",
+            "Kesin tanıdan kaçın; bilgiyi genel rehberlik olarak sun.",
+            "Güvenilir kaynakları (WHO, TÜBİTAK, hakemli literatür) kaynak göster.",
+        ],
+        "legal": [
+            "Bu bilginin profesyonel hukuki tavsiye olmadığını belirt.",
+            "İlgili yargı yetki alanına özgü kurallara atıfta bulun.",
+            "Kesin dil kullan ve belirsiz hukuki terimlerden kaçın.",
+        ],
+        "cloud": [
+            "Manuel yapılandırma yerine kod olarak altyapıyı tercih et.",
+            "Tahmini kaynak maliyetlerini ve ölçekleme sınırlarını belgele.",
+            "Hata için plan yap: yeniden deneme mantığı ve devre kesiciler ekle.",
+        ],
+        "mlops": [
+            "Model sürümleme ve yeniden üretilebilirlik adımlarını belgele.",
+            "İzleme metriklerini ve uyarı eşiklerini tanımla.",
+            "Model dağıtımları için geri alma planı ekle.",
+        ],
+    }
+    domain_key_bp = (ir.domain or "").lower().split("/")[0].strip()
+    bp_map = _BEST_PRACTICES_TR if lang == "tr" else _BEST_PRACTICES_EN
+    best_practices = bp_map.get(domain_key_bp) or bp_map.get(ir.domain or "")
+    if not best_practices:
+        # Generic professional standards fallback
+        if lang == "tr":
+            best_practices = [
+                "Net ve öz ol; belirsizlikten kaçın.",
+                "Önemli kararlar için gerekçe sun.",
+                "Çıktının ölçülebilir ya da doğrulanabilir olduğundan emin ol.",
+            ]
+        else:
+            best_practices = [
+                "Be clear and concise; avoid ambiguity.",
+                "Provide rationale for important decisions.",
+                "Ensure the output is measurable or verifiable.",
+            ]
+    bp_header = (
+        "En İyi Uygulamalar"
+        if lang == "tr"
+        else ("Mejores prácticas" if lang == "es" else "Best Practices")
+    )
+    prompt.extend(["", f"{bp_header}:"])
+    for bp in best_practices:
+        prompt.append(f"- {bp}")
+
+    # --- Chain-of-Thought Scaffold ---
+    if lang == "tr":
+        cot_header = "Yanıtlamadan Önce"
+        cot_steps = [
+            "Hedefi kendi cümlelerinle yeniden ifade et.",
+            "Yaptığın varsayımları listele.",
+            "Belirsizlikleri tespit et ve yanıt vermeden önce işaretle.",
+        ]
+    elif lang == "es":
+        cot_header = "Antes de responder"
+        cot_steps = [
+            "Reformula el objetivo con tus propias palabras.",
+            "Lista los supuestos que estás haciendo.",
+            "Identifica ambigüedades y señálalas antes de continuar.",
+        ]
+    else:
+        cot_header = "Before Responding"
+        cot_steps = [
+            "Restate the goal in your own words.",
+            "List the assumptions you are making.",
+            "Flag any ambiguities before proceeding.",
+        ]
+    prompt.extend(["", f"{cot_header}:"])
+    for i, step in enumerate(cot_steps, 1):
+        prompt.append(f"{i}. {step}")
+
     return "\n".join(prompt)

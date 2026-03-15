@@ -7,7 +7,10 @@ from sqlalchemy import create_engine, Column, String, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # --- Database ---
-SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
+import os as _os
+
+_db_dir = _os.environ.get("DB_DIR", ".")
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{_db_dir}/users.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
