@@ -120,8 +120,9 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         return []
 
 
-def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
-    stat = path.stat()
+def _needs_ingest(conn: sqlite3.Connection, path: Path, stat: Optional[os.stat_result] = None) -> bool:
+    if stat is None:
+        stat = path.stat()
     cur = conn.execute("SELECT mtime, size FROM docs WHERE path=?", (str(path),))
     row = cur.fetchone()
     return not row or row[0] != stat.st_mtime or row[1] != stat.st_size
@@ -401,8 +402,10 @@ def _insert_document(
     embed: bool = False,
     embed_dim: int = 64,
     chunking_strategy: str = "paragraph",
+    stat: Optional[os.stat_result] = None,
 ) -> None:
-    stat = path.stat()
+    if stat is None:
+        stat = path.stat()
     cur = conn.execute(
         "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
         (str(path), stat.st_mtime, stat.st_size),
@@ -492,6 +495,23 @@ def ingest_paths(
             allowed_exts = set(get_supported_extensions())
         else:
             allowed_exts = set(e.lower() for e in (exts or [".txt", ".md", ".py"]))
+
+        # Bolt Optimization: Pre-fetch all existing document metadata to avoid N+1 DB queries in the loop
+        existing_docs = {}
+        try:
+            cur = conn.execute("SELECT path, mtime, size FROM docs")
+            for row in cur.fetchall():
+                existing_docs[row[0]] = (row[1], row[2])
+        except Exception:
+            pass
+
+        def _check_needs_ingest(fp: Path, stat: os.stat_result) -> bool:
+            path_str = str(fp)
+            if path_str in existing_docs:
+                mtime, size = existing_docs[path_str]
+                return mtime != stat.st_mtime or size != stat.st_size
+            return True
+
         for p in paths:
             pth = Path(p)
             if not pth.exists():
@@ -502,7 +522,13 @@ def ingest_paths(
                         fp = Path(root) / f
                         if fp.suffix.lower() not in allowed_exts:
                             continue
-                        if _needs_ingest(conn, fp):
+
+                        try:
+                            file_stat = fp.stat()
+                        except OSError:
+                            continue
+
+                        if _check_needs_ingest(fp, file_stat):
                             try:
                                 if _HAS_PARSERS and can_parse(fp):
                                     result = parse_file(fp)
@@ -520,12 +546,19 @@ def ingest_paths(
                                 embed=embed,
                                 embed_dim=embed_dim,
                                 chunking_strategy=chunking_strategy,
+                                stat=file_stat,
                             )
                             n_docs += 1
             else:
                 if pth.suffix.lower() not in allowed_exts:
                     continue
-                if _needs_ingest(conn, pth):
+
+                try:
+                    file_stat = pth.stat()
+                except OSError:
+                    continue
+
+                if _check_needs_ingest(pth, file_stat):
                     try:
                         if _HAS_PARSERS and can_parse(pth):
                             result = parse_file(pth)
@@ -543,6 +576,7 @@ def ingest_paths(
                         embed=embed,
                         embed_dim=embed_dim,
                         chunking_strategy=chunking_strategy,
+                        stat=file_stat,
                     )
                     n_docs += 1
         # count chunks
