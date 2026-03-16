@@ -488,7 +488,10 @@ def ingest_paths(
         n_docs = 0
         n_chunks = 0
         # Bolt Optimization: pre-fetch existing document metadata to avoid N+1 queries during ingest
-        existing_docs = {row[0]: (row[1], row[2]) for row in conn.execute("SELECT path, mtime, size FROM docs").fetchall()}
+        existing_docs = {
+            row[0]: (row[1], row[2])
+            for row in conn.execute("SELECT path, mtime, size FROM docs").fetchall()
+        }
 
         # Use parser-supported extensions if available, else fallback
         if _HAS_PARSERS and exts is None:
@@ -526,6 +529,7 @@ def ingest_paths(
                                 embed_dim=embed_dim,
                                 chunking_strategy=chunking_strategy,
                             )
+                            existing_docs[str(fp)] = (stat_result.st_mtime, stat_result.st_size)
                             n_docs += 1
             else:
                 if pth.suffix.lower() not in allowed_exts:
@@ -551,6 +555,7 @@ def ingest_paths(
                         embed_dim=embed_dim,
                         chunking_strategy=chunking_strategy,
                     )
+                    existing_docs[str(pth)] = (stat_result.st_mtime, stat_result.st_size)
                     n_docs += 1
         # count chunks
         cur = conn.execute("SELECT COUNT(*) FROM chunks")
