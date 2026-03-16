@@ -120,13 +120,6 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         return []
 
 
-def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
-    stat = path.stat()
-    cur = conn.execute("SELECT mtime, size FROM docs WHERE path=?", (str(path),))
-    row = cur.fetchone()
-    return not row or row[0] != stat.st_mtime or row[1] != stat.st_size
-
-
 def _split_sentences(text: str) -> List[str]:
     """Split text into sentences using regex.
 
@@ -401,8 +394,11 @@ def _insert_document(
     embed: bool = False,
     embed_dim: int = 64,
     chunking_strategy: str = "paragraph",
+    stat: Optional[os.stat_result] = None,
 ) -> None:
-    stat = path.stat()
+    # Use cached stat if provided to avoid redundant syscalls
+    if stat is None:
+        stat = path.stat()
     cur = conn.execute(
         "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
         (str(path), stat.st_mtime, stat.st_size),
@@ -487,64 +483,70 @@ def ingest_paths(
         _init_schema(conn)
         n_docs = 0
         n_chunks = 0
+        # Pre-fetch existing document metadata into memory to prevent N+1 queries during loop
+        cur = conn.execute("SELECT path, mtime, size FROM docs")
+        existing_docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+
         # Use parser-supported extensions if available, else fallback
         if _HAS_PARSERS and exts is None:
             allowed_exts = set(get_supported_extensions())
         else:
             allowed_exts = set(e.lower() for e in (exts or [".txt", ".md", ".py"]))
+
         for p in paths:
             pth = Path(p)
             if not pth.exists():
                 continue
+
+            # Helper function for checking ingest and inserting
+            def _process_file(fp: Path) -> None:
+                nonlocal n_docs
+                fp_str = str(fp)
+                try:
+                    stat = fp.stat()
+                except OSError:
+                    return
+
+                # Check dictionary instead of hitting SQL
+                existing = existing_docs.get(fp_str)
+                needs_ingest = not existing or existing[0] != stat.st_mtime or existing[1] != stat.st_size
+
+                if needs_ingest:
+                    try:
+                        if _HAS_PARSERS and can_parse(fp):
+                            result = parse_file(fp)
+                            content = result.content
+                        else:
+                            content = fp.read_text(encoding="utf-8", errors="ignore")
+                    except Exception:
+                        return
+                    if not content:
+                        return
+
+                    _insert_document(
+                        conn,
+                        fp,
+                        content,
+                        embed=embed,
+                        embed_dim=embed_dim,
+                        chunking_strategy=chunking_strategy,
+                        stat=stat,
+                    )
+                    n_docs += 1
+                    # Update cache to prevent staleness
+                    existing_docs[fp_str] = (stat.st_mtime, stat.st_size)
+
             if pth.is_dir():
                 for root, _, files in os.walk(pth):
                     for f in files:
                         fp = Path(root) / f
                         if fp.suffix.lower() not in allowed_exts:
                             continue
-                        if _needs_ingest(conn, fp):
-                            try:
-                                if _HAS_PARSERS and can_parse(fp):
-                                    result = parse_file(fp)
-                                    content = result.content
-                                else:
-                                    content = fp.read_text(encoding="utf-8", errors="ignore")
-                            except Exception:
-                                continue
-                            if not content:
-                                continue
-                            _insert_document(
-                                conn,
-                                fp,
-                                content,
-                                embed=embed,
-                                embed_dim=embed_dim,
-                                chunking_strategy=chunking_strategy,
-                            )
-                            n_docs += 1
+                        _process_file(fp)
             else:
                 if pth.suffix.lower() not in allowed_exts:
                     continue
-                if _needs_ingest(conn, pth):
-                    try:
-                        if _HAS_PARSERS and can_parse(pth):
-                            result = parse_file(pth)
-                            content = result.content
-                        else:
-                            content = pth.read_text(encoding="utf-8", errors="ignore")
-                    except Exception:
-                        continue
-                    if not content:
-                        continue
-                    _insert_document(
-                        conn,
-                        pth,
-                        content,
-                        embed=embed,
-                        embed_dim=embed_dim,
-                        chunking_strategy=chunking_strategy,
-                    )
-                    n_docs += 1
+                _process_file(pth)
         # count chunks
         cur = conn.execute("SELECT COUNT(*) FROM chunks")
         n_chunks = int(cur.fetchone()[0])
