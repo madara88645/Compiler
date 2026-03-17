@@ -70,6 +70,9 @@ class LogicAnalysisResult:
 # PATTERN DEFINITIONS
 # ==============================================================================
 
+# Compiled regex for fast substring matching in hot loops
+_CRITICAL_ENTITIES_PATTERN = re.compile(r"database|api|schema|config", re.IGNORECASE)
+
 # Negation patterns - ordered by specificity
 NEGATION_PATTERNS = [
     # Strong negations
@@ -390,17 +393,17 @@ class LogicAnalyzer:
             matches = pattern.finditer(text)
             for match in matches:
                 entity = match.group(1) if match.lastindex else match.group(0)
+                entity_lower = entity.lower()
                 context = self._get_context(text, match.start(), match.end())
 
-                key = f"{info_type}:{entity.lower()}"
+                key = f"{info_type}:{entity_lower}"
                 if key in seen:
                     continue
                 seen.add(key)
 
                 # Determine severity based on context
                 severity = "warning"
-                entity_lower = entity.lower()
-                if any(word in entity_lower for word in ERROR_SEVERITY_KEYWORDS):
+                if _CRITICAL_ENTITIES_PATTERN.search(entity):
                     severity = "error"
 
                 missing.append(
