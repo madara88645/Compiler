@@ -273,9 +273,16 @@ def _chunk_text_semantic(
     def cosine_similarity(v1: Dict[str, float], v2: Dict[str, float]) -> float:
         if not v1 or not v2:
             return 0.0
-        common_keys = set(v1.keys()) & set(v2.keys())
-        # Bolt Optimization: List comprehensions inside sum() are faster than generator expressions for small lists
-        dot = sum([v1[k] * v2[k] for k in common_keys])
+
+        # Bolt Optimization: Iterating over the smaller dictionary is faster than set intersection for sparse vectors
+        if len(v1) > len(v2):
+            v1, v2 = v2, v1
+
+        dot = 0.0
+        for k, v in v1.items():
+            if k in v2:
+                dot += v * v2[k]
+
         # Bolt Optimization: math.hypot is ~5x faster than math.sqrt(sum(v*v))
         norm1 = math.hypot(*v1.values())
         norm2 = math.hypot(*v2.values())
