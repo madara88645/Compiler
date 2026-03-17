@@ -34,10 +34,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompileResponse | null>(null);
   const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "json" | "quality">("system");
-  const [liveMode] = useState(true);
   const [diagnostics] = useState(true);
+  const [conservativeMode, setConservativeMode] = useState(true);
   const [status, setStatus] = useState("Ready");
-  const [debouncedPrompt, setDebouncedPrompt] = useState("");
 
   // Security Alert State
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,11 +44,16 @@ export default function Home() {
   const [redactedText, setRedactedText] = useState("");
   const [pendingText, setPendingText] = useState(""); // Text waiting to be sent to V2
 
-  // Sync debounced prompt
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedPrompt(prompt), 600);
-    return () => clearTimeout(timer);
-  }, [prompt]);
+    const saved = window.localStorage.getItem("promptc_conservative_mode");
+    if (saved !== null) {
+      setConservativeMode(saved !== "false");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("promptc_conservative_mode", String(conservativeMode));
+  }, [conservativeMode]);
 
   const handleGenerate = useCallback(async (textOverride?: string) => {
     const textToCompile = typeof textOverride === 'string' ? textOverride : prompt;
@@ -57,7 +61,7 @@ export default function Home() {
 
     setLoading(true);
     // 1. Instant Heuristic Feedback (Optimistic UI)
-    setStatus(liveMode ? "Live Compiling..." : "Generating (Fast)...");
+    setStatus("Generating...");
 
     try {
       // 2. Perform Request based on Mode
@@ -82,50 +86,39 @@ export default function Home() {
         return false;
       };
 
-      if (!liveMode) {
-        // OFFLINE MODE
-        const resV1 = await fetch(`${API_BASE}/compile`, {
+      setStatus("AI Thinking...");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 190000);
+
+      try {
+        const resV2 = await fetch(`${API_BASE}/compile`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-Prompt-Mode": conservativeMode ? "conservative" : "default",
+          },
+          body: JSON.stringify({
+            text: textToCompile,
+            diagnostics,
+            v2: true,
+            render_v2_prompts: true,
+            mode: conservativeMode ? "conservative" : "default",
+          }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
-        if (resV1.ok) {
-          data = await resV1.json();
-          // V1 response is CompileResponse (same as V2)
-          if (checkSecurity(data, false)) return; // treat as structured response (isV1=false effectively)
+        if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
 
-          setResult(data);
-          setStatus("Reasoning with Advanced AI...");
-        }
-      } else {
-        // LIVE MODE (Default)
-        setStatus("AI Thinking...");
+        data = await resV2.json();
+        if (checkSecurity(data, false)) return;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 190000);
-
-        try {
-          const resV2 = await fetch(`${API_BASE}/compile`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: textToCompile, diagnostics, v2: true, render_v2_prompts: true }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-
-          if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
-
-          data = await resV2.json();
-          // V2 response is { ir: ..., system_prompt: ... }
-          if (checkSecurity(data, false)) return;
-
-          setResult(data);
-          setStatus(`Done in ${data.processing_ms}ms`);
-        } catch (e: unknown) {
-          if (e instanceof Error && e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
-          throw e;
-        }
+        setResult(data);
+        setStatus(`Done in ${data.processing_ms}ms`);
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
+        throw e;
       }
 
     } catch (e: unknown) {
@@ -141,15 +134,7 @@ export default function Home() {
       // Let's rely on setStatus/Alert state.
       setLoading(false);
     }
-  }, [prompt, diagnostics, liveMode]);
-
-  // Trigger generation on debounced prompt change (if Live Mode is on)
-  useEffect(() => {
-    if (liveMode && debouncedPrompt.trim()) {
-      handleGenerate(debouncedPrompt);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedPrompt, liveMode]); // Exclude handleGenerate to avoid infinite renders, since it changes on 'prompt'
+  }, [prompt, diagnostics, conservativeMode]);
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
     setSecurityFindings([]); // Close modal
@@ -165,8 +150,17 @@ export default function Home() {
 
       const resV2 = await fetch(`${API_BASE}/compile`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textToUse, diagnostics, v2: true, render_v2_prompts: true }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Prompt-Mode": conservativeMode ? "conservative" : "default",
+        },
+        body: JSON.stringify({
+          text: textToUse,
+          diagnostics,
+          v2: true,
+          render_v2_prompts: true,
+          mode: conservativeMode ? "conservative" : "default",
+        }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -224,9 +218,33 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 ${liveMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${liveMode ? 'bg-green-400 animate-pulse' : 'bg-zinc-500'}`} />
-              {liveMode ? 'LIVE SYNC' : 'OFFLINE'}
+            <button
+              type="button"
+              onClick={() => setConservativeMode((prev) => !prev)}
+              aria-pressed={conservativeMode}
+              title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                conservativeMode
+                  ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-900/20"
+                  : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
+                  conservativeMode ? "bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" : "bg-zinc-500"
+                }`}
+              />
+              <span className="flex flex-col items-start leading-none">
+                <span>Conservative</span>
+                <span className="mt-1 text-[10px] font-normal opacity-75">
+                  {conservativeMode ? "No hallucinations" : "Aggressive optimize"}
+                </span>
+              </span>
+            </button>
+
+            <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 bg-green-500/10 border-green-500/30 text-green-400">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              AI MODE
             </div>
 
             <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">

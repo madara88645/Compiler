@@ -22,6 +22,7 @@ DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
 DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
+WORKER_CONSERVATIVE_PROMPT_PATH = PROMPTS_DIR / "worker_conservative.md"
 COACH_PROMPT_PATH = PROMPTS_DIR / "quality_coach.md"
 AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
 SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
@@ -59,7 +60,11 @@ class WorkerClient:
             base_url=self.base_url,
             timeout=HARD_TIMEOUT_SECONDS,  # Pass timeout to underlying httpx client
         )
+        self.default_mode = (
+            (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
+        )
         self.system_prompt = self._load_prompt(WORKER_PROMPT_PATH)
+        self.system_prompt_conservative = self._load_prompt(WORKER_CONSERVATIVE_PROMPT_PATH)
         self.coach_prompt = self._load_prompt(COACH_PROMPT_PATH)
         self.optimizer_prompt = self._load_prompt(PROMPTS_DIR / "optimizer.md")
         self.editor_prompt = self._load_prompt(PROMPTS_DIR / "editor.md")
@@ -71,6 +76,16 @@ class WorkerClient:
         if not path.exists():
             return ""
         return path.read_text(encoding="utf-8")
+
+    def _resolve_mode(self, mode: Optional[str]) -> str:
+        m = (mode or self.default_mode or "conservative").strip().lower()
+        return m if m in {"conservative", "default"} else "conservative"
+
+    def _worker_system_prompt_for_mode(self, mode: str) -> str:
+        if mode == "default":
+            return self.system_prompt
+        # Conservative by default. If the conservative file is missing, fall back to worker_v1.md
+        return self.system_prompt_conservative or self.system_prompt
 
     def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
@@ -200,19 +215,36 @@ class WorkerClient:
         )
         return prompt
 
-    def process(self, user_text: str, context: Optional[Dict[str, Any]] = None) -> WorkerResponse:
+    def process(
+        self,
+        user_text: str,
+        context: Optional[Dict[str, Any]] = None,
+        mode: Optional[str] = None,
+    ) -> WorkerResponse:
         """Compile user text into structured prompt components."""
         if self.api_key == "missing_key":
             raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
 
+        resolved_mode = self._resolve_mode(mode)
+        system_prompt = self._worker_system_prompt_for_mode(resolved_mode)
+
         messages = [
-            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},
         ]
 
         if context:
             ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(1, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(
+                1,
+                {
+                    "role": "system",
+                    "content": f"Context:\nmode: {resolved_mode}\n{ctx_str}",
+                },
+            )
+        else:
+            # Still include the mode hint, so the template can stay stable across deployments.
+            messages.insert(1, {"role": "system", "content": f"Context:\nmode: {resolved_mode}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # Increased max tokens to prevent JSON truncation (reliability > speed cap)
@@ -235,13 +267,23 @@ class WorkerClient:
         # This saves the LLM from generating redundant text
         if not response.optimized_content or len(response.optimized_content) < 50:
             parts = []
-            if response.system_prompt:
-                parts.append(response.system_prompt)
-            if response.user_prompt:
-                parts.append(response.user_prompt)
-            if response.plan:
-                parts.append(response.plan)
-            response.optimized_content = "\n\n---\n\n".join(parts)
+            if resolved_mode == "conservative":
+                # In conservative mode, keep the returned "expanded prompt" close to the user intent.
+                # Avoid front-loading a heavy system prompt which can implicitly add requirements.
+                if response.user_prompt:
+                    parts.append(response.user_prompt)
+                if response.plan:
+                    parts.append(response.plan)
+                if not parts and response.system_prompt:
+                    parts.append(response.system_prompt)
+            else:
+                if response.system_prompt:
+                    parts.append(response.system_prompt)
+                if response.user_prompt:
+                    parts.append(response.user_prompt)
+                if response.plan:
+                    parts.append(response.plan)
+            response.optimized_content = "\n\n---\n\n".join([p for p in parts if p])
 
         # Apply guardrails to LLM output
         security_result = scan_text(response.optimized_content)

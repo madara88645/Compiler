@@ -7,7 +7,7 @@ import anyio
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from app.llm_engine.schemas import QualityReport
@@ -62,6 +62,14 @@ app = FastAPI(title="Prompt Compiler API", lifespan=lifespan)
 
 allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
 allow_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+if not allow_origins:
+    # Local development defaults so the Next.js app can talk to the API
+    allow_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -97,6 +105,10 @@ class CompileRequest(BaseModel):
     user_level: str = "intermediate"
     task_type: str = "general"
     tags: Optional[List[str]] = None
+    mode: Optional[str] = Field(
+        default=None,
+        description='Optional prompt compiler mode, e.g. "conservative" or "default". If omitted, falls back to headers/env.',
+    )
 
 
 class CompileResponse(BaseModel):
@@ -118,8 +130,50 @@ class CompileResponse(BaseModel):
     critique: dict | None = None
 
 
+_META_LEAK_PATTERNS = [
+    "output only valid json",
+    "output only json",
+    "sadece gecerli json",
+    "sadece json",
+    "only valid json",
+    "json only",
+    "return only json",
+]
+
+
+def _is_meta_leaked(text: str) -> bool:
+    """Return True if the LLM accidentally leaked its own internal system instructions."""
+    lower = text.lower().strip()
+    # Very short AND contains a meta keyword -> leaked
+    if len(lower) < 120:
+        for pat in _META_LEAK_PATTERNS:
+            if pat in lower:
+                return True
+    return False
+
+
+def _resolve_mode(req_mode: Optional[str], request: Request) -> str:
+    """
+    Determine the effective compiler mode in a backwards-compatible way.
+    Priority:
+    1) JSON body field: mode
+    2) Header: X-Prompt-Mode
+    3) Environment: PROMPT_COMPILER_MODE (default -> conservative)
+    """
+    if req_mode:
+        m = req_mode.strip().lower()
+        if m in {"conservative", "default"}:
+            return m
+    header_val = request.headers.get("X-Prompt-Mode") or request.headers.get("x-prompt-mode")
+    if header_val:
+        m = header_val.strip().lower()
+        if m in {"conservative", "default"}:
+            return m
+    return (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
+
+
 @app.post("/compile", response_model=CompileResponse)
-def compile_endpoint(req: CompileRequest):
+def compile_endpoint(req: CompileRequest, request: Request):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
@@ -134,20 +188,22 @@ def compile_endpoint(req: CompileRequest):
 
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
 
+    mode = _resolve_mode(req.mode, request)
+
     if req.v2:
         # Online Mode: Use HybridCompiler (LLM)
         try:
             compiler = get_compiler()
-            worker_res = compiler.compile(req.text)
+            worker_res = compiler.compile(req.text, mode=mode)
             ir2 = worker_res.ir
 
-            if worker_res.system_prompt:
+            if worker_res.system_prompt and not _is_meta_leaked(worker_res.system_prompt):
                 sys_v2 = worker_res.system_prompt
-            if worker_res.user_prompt:
+            if worker_res.user_prompt and not _is_meta_leaked(worker_res.user_prompt):
                 user_v2 = worker_res.user_prompt
             if worker_res.plan:
                 plan_v2 = worker_res.plan
-            if worker_res.optimized_content:
+            if worker_res.optimized_content and not _is_meta_leaked(worker_res.optimized_content):
                 exp_v2 = worker_res.optimized_content
         except Exception as e:
             print(f"LLM Failed, falling back to local V2: {e}")
@@ -191,7 +247,11 @@ def compile_endpoint(req: CompileRequest):
         system_prompt=emit_system_prompt(ir),
         user_prompt=emit_user_prompt(ir),
         plan=emit_plan(ir),
-        expanded_prompt=emit_expanded_prompt(ir, diagnostics=req.diagnostics),
+        expanded_prompt=emit_expanded_prompt(
+            ir,
+            diagnostics=req.diagnostics,
+            conservative=(mode != "default"),
+        ),
         system_prompt_v2=sys_v2,
         user_prompt_v2=user_v2,
         plan_v2=plan_v2,
@@ -208,6 +268,7 @@ def compile_endpoint(req: CompileRequest):
 @app.post("/compile/fast", response_model=CompileResponse)
 async def compile_fast(
     req: CompileRequest,
+    request: Request,
     api_key: APIKey = Depends(verify_api_key),
 ):
     """
@@ -219,11 +280,13 @@ async def compile_fast(
     compiler = get_compiler()
 
     try:
-        if req.text in compiler.cache:
-            res = compiler.cache[req.text]
+        mode = _resolve_mode(req.mode, request)
+        cache_key = (req.text, mode)
+        if cache_key in compiler.cache:
+            res = compiler.cache[cache_key]
         else:
-            res = compiler.worker.process(req.text)
-            compiler.cache[req.text] = res
+            res = compiler.worker.process(req.text, mode=mode)
+            compiler.cache[cache_key] = res
 
         return {
             "ir": res.ir.model_dump(),

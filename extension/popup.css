@@ -47,6 +47,12 @@ header {
     gap: var(--space-2);
 }
 
+.header-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .eyebrow {
     margin: 0;
     letter-spacing: 0.06em;
@@ -68,6 +74,69 @@ h1 {
     color: var(--text-muted);
     padding: 4px 10px;
     font-size: 11px;
+}
+
+/* Conservative mode toggle */
+.pc-conservative {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 212, 240, 0.5);
+    background: rgba(17, 21, 32, 0.96);
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.1s ease,
+        color 0.15s ease;
+}
+
+.pc-conservative:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(3, 5, 12, 0.8);
+}
+
+.pc-conservative-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pc-conservative-label {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.pc-conservative-sub {
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.pc-conservative.pc-conservative-off {
+    background: transparent;
+    border-color: rgba(75, 85, 99, 0.8);
+    color: var(--text-muted);
+}
+
+.pc-conservative.pc-conservative-off .pc-conservative-dot {
+    background: #4b5563;
+    box-shadow: none;
+}
+
+.pc-conservative.pc-conservative-off .pc-conservative-sub {
+    color: #6b7280;
 }
 
 .panel {

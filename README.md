@@ -1,157 +1,233 @@
-# Prompt Compiler (Pruned & Modernized)
+# Prompt Compiler
 
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <p align="center">
-  <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Live Sync Mode" width="100%">
+  <img src="docs/images/comp1.PNG" alt="Prompt Compiler" width="100%">
 </p>
 
-**Prompt Compiler** is a powerful tool that transforms messy natural language ideas into structured, optimized System Instructions and User Prompts.
-
-> **✨ New in v2.0**: Now powered by **LLM** for superior reasoning, with a fully modernized UI and AI-driven Token Optimization.
+**Prompt Compiler** transforms messy natural language ideas into structured, optimized System Instructions and User Prompts — powered by an LLM engine with local heuristic fallback.
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-### 🧠 Core Prompt Compiler
-The engine uses **LLM** to analyze your intent. It automatically generates:
-- **System Prompts**: Expertly crafted personas and constraints.
-- **User Prompts**: Structured and clear task definitions.
-- **Execution Plans**: Step-by-step logic for complex tasks.
-- **Expanded Prompts**: A combined, unified prompt ready to inject into your LLM.
+### Core Prompt Compiler
 
-### 🤖 Multi-Agent Generator (New!)
-Skip the manual prompt engineering for complex autonomous systems. The **Agent Generator** allows you to describe a role or task, and it will architect a comprehensive, constraint-driven system prompt for an autonomous AI agent or a multi-agent swarm.
-- **Constraint Handling**: Automatically builds bulletproof boundary conditions.
-- **Multi-Agent Flag**: Toggle between a single specialized worker or a cooperative swarm architect.
+The engine analyzes your intent and produces four output layers:
 
-<p align="center">
-  <img src="docs/images/agent_generator.png" alt="Agent Generator" width="80%">
-</p>
+- **System Prompt** — Persona, role, constraints, and output format rules for the target AI.
+- **User Prompt** — Structured, clean task definition derived from your input.
+- **Execution Plan** — Step-by-step logic decomposed from your request.
+- **Expanded Prompt** — A single combined prompt ready to paste into any LLM chat.
 
-### 🎯 Skill & Tool Generator (New!)
-Describe a capability, and the **Skill Generator** will translate it into a structured Tool/Skill definition.
-- Automatically generates **Input Schema** and **Output Schema** in valid JSON.
-- Provides a detailed stringified structure ready to be plugged into LangChain, OpenAI functions, or your custom agent framework.
+Switch between the output tabs in the UI to view each layer. A one-click copy button is available on every tab.
 
 <p align="center">
-  <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
+  <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Main View" width="100%">
 </p>
 
-### 🎨 Modern Web UI
-A premium Next.js 14 + TailwindCSS interface:
-- **Clean Layout**: A split-screen editor aimed at focus.
-- **Live Mode**: Auto-compiles your prompt as you type.
-- **Diagnostics**: Real-time health checks for your prompt structure.
-- **Dark Mode**: By default, because we are developers.
+---
+
+### Conservative Mode (Anti-Hallucination)
+
+The **Conservative** toggle controls how aggressively the compiler interprets your input.
+
+| State | Behavior |
+|---|---|
+| **ON** (default) | Stays strictly grounded in what you wrote. No invented details, no extra requirements, no hallucinated libraries or APIs. Short inputs produce minimal, sensible prompts. Missing information triggers clarifying questions instead of fabricated answers. |
+| **OFF** | Aggressive optimization mode — expands context, infers likely best practices, adds scaffolding. Use when you want the compiler to fill gaps and produce richer prompts. |
+
+The toggle is available in both the **web app** (top-right header) and the **browser extension** popup. Its state is persisted locally (localStorage / chrome.storage).
+
+**Why this matters:** Without conservative mode, a one-word input like "hello" could generate an unrelated Python code snippet. With conservative mode on, the same input produces a clean, friendly greeting prompt.
 
 <p align="center">
   <img src="docs/images/comp3offlineheuristics.PNG" alt="Offline Compiler - Heuristics Mode" width="80%">
 </p>
 
-### 📉 Token Optimization
-Save money and context window space. The **"Magic Optimize"** feature uses AI to compress your prompt by **20-30%** without losing any meaning, logic, or variables.
+---
+
+### Agent Generator
+
+Describe a role or autonomous task, and the **Agent Generator** will produce a complete, constraint-driven system prompt for an AI agent.
+
+- **Single Agent** — Generates a focused, single-role agent prompt with strict boundary conditions.
+- **Multi-Agent Swarm** — Toggle the "Multi-Agent" flag to generate a cooperative swarm architect prompt instead, describing how multiple specialized workers should coordinate.
+
+#### Export Button
+
+After generating an agent, an **Export** section appears below the output. It converts your agent's system prompt into ready-to-run framework code:
+
+| Framework | Output |
+|---|---|
+| **Claude SDK** | Python code using the `anthropic` client |
+| **LangChain** | Python agent with LangChain's `ChatPromptTemplate` |
+| **LangGraph** | Python graph definition with node/edge structure |
+
+Each framework tab produces both a **Python Code** file and a **YAML Config** file. Hover over the code block to reveal the copy button.
+
+<p align="center">
+  <img src="docs/images/agent_generator.png" alt="Agent Generator" width="80%">
+</p>
+
+---
+
+### Skill & Tool Generator
+
+Describe a capability in plain English, and the **Skill Generator** translates it into a structured tool definition.
+
+- Produces a complete **Input Schema** and **Output Schema** in valid JSON.
+- Generates a stringified skill definition ready for LangChain, OpenAI functions, or custom agent frameworks.
+
+#### Export Button
+
+After generating a skill, an **Export** section appears below the output. It wraps your skill definition in framework-specific code:
+
+| Format | Output |
+|---|---|
+| **LangChain Tool** | Python `@tool` decorated function + JSON schema |
+| **Claude tool_use** | JSON config compatible with the `tools` parameter in Anthropic's API |
+
+Each format produces both a **Python Tool** file and a **JSON Schema / Config** file. Hover over the code block to reveal the copy button.
+
+<p align="center">
+  <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
+</p>
+
+---
+
+### Token Optimizer
+
+Compresses your prompt by **20–30%** without losing meaning, logic, or variables. Useful when working near context window limits.
 
 <p align="center">
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
 </p>
 
-### ⚡ Benchmark Playground
-A dedicated **Arena** to A/B test your prompts.
-- **Raw vs. Compiled**: Compare how a raw prompt performs against the compiler-optimized version.
-- **Auto-Judge**: Real-time scoring of response quality, relevance, and clarity.
-- **Visual Metrics**: See improvement percentages and detailed breakdowns side-by-side using dynamic Radar Charts.
+---
+
+### Benchmark Playground
+
+A/B test your prompts against compiled versions:
+
+- **Raw vs. Compiled** — Side-by-side quality comparison.
+- **Auto-Judge** — Real-time scoring of response quality, relevance, and clarity.
+- **Visual Metrics** — Improvement percentages and radar charts.
 
 <p align="center">
   <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
 </p>
 
-### 📚 RAG & Knowledge Base
-Your prompts shouldn't live in a vacuum. **Upload your project files** (PDF, MD, TXT, Code) and let the AI understand your world.
+---
 
-*   **Context Manager**: Drag & drop your "Brand Guidelines", "API Documentation", or "Game Lore" files directly into the UI.
-*   **🕵️ Agent 6 (The Strategist)**: Actively scans your uploaded files to find relevant info (e.g., specific hex codes, character backstories) and injects them into the prompt generation process.
-*   **🛡️ Agent 7 (The Critic)**: A dedicated "Quality Assurance" agent that reads your prompt and cross-references it with your knowledge base. If the AI hallucinates a fact that contradicts your PDF, Agent 7 blocks it.
-*   **Intelligent Caching**: Uses a local SQLite vector store (`~/.promptc_index_v2.db`) for instant retrieval without re-uploading.
+### RAG & Knowledge Base
+
+Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain context.
+
+- **Context Manager** — Drag-and-drop your brand guidelines, API docs, or any reference material.
+- **Agent 6 (The Strategist)** — Scans uploaded files for relevant facts and injects them into prompt generation.
+- **Agent 7 (The Critic)** — Cross-references the generated prompt against your knowledge base and blocks hallucinated facts.
+- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v2.db`) for instant retrieval without re-uploading.
 
 ---
 
-## 🛠️ Installation & Usage
+## Installation
 
-1. **Clone and Install**:
-   ```bash
-   git clone https://github.com/madara88645/Compiler.git
-   cd Compiler
-   # Install Backend
-   pip install -r requirements.txt
-   # Install Frontend
-   cd web && npm install && cd ..
-   ```
+```bash
+git clone https://github.com/madara88645/Compiler.git
+cd Compiler
 
-2. **Setup API Key**:
-   Copy the example environment file and add your API key:
-   ```bash
-   cp .env.example .env
-   ```
-   Then edit `.env` and replace `sk-your-llm-key-here` with your actual LLM API key.
+# Backend
+pip install -r requirements.txt
 
-   Optional: Add the LLM base URL if needed:
-   ```env
-   OPENAI_API_KEY=sk-your-actual-key
-   OPENAI_BASE_URL=https://api.openai.com
-   # Required for Benchmark Arena:
-   GROQ_API_KEY=gsk_your_groq_key
-   ```
+# Frontend
+cd web && npm install && cd ..
+```
 
-3. **Run the App (One-Click)**:
-   Double-click `start_app.bat` (Windows).
+### Environment Setup
 
-   *Or manually:*
-   ```bash
-   # Terminal 1
-   python -m uvicorn api.main:app --reload --port 8080
+```bash
+cp .env.example .env
+```
 
-   # Terminal 2
-   cd web && npm run dev
-   ```
+Edit `.env`:
+
+```env
+OPENAI_API_KEY=sk-your-actual-key
+OPENAI_BASE_URL=https://api.openai.com   # optional
+
+# Required for Benchmark Arena:
+GROQ_API_KEY=gsk_your_groq_key
+
+# Compiler mode: conservative (default) or default
+PROMPT_COMPILER_MODE=conservative
+```
 
 ---
 
-## 🧩 Workflow
+## Running the App
 
-1. **Type your idea** in the "Input" box on any of the specific tool pages.
-   * *Example: "Create a python script to scrape data from a website, handle errors, and save to CSV."*
-2. **Click "Generate"** or enable **Live Mode** (on the Main Compiler).
-   * The LLM will analyze your intent and produce a structured prompt, agent, or skill.
-3. **Review**:
-   * Navigate through the contextual tabs (System, User, Plan, Expanded).
-4. **Copy**:
-   * Click the "Copy" icon in the output area to instantly copy the artifact.
+**Windows (one-click):** double-click `start_app.bat`
 
----
+**Manual:**
 
-## 📦 Project Structure
+```bash
+# Terminal 1 — Backend
+python -m uvicorn api.main:app --reload --port 8080
 
-* `web/`: **Frontend**. Next.js 14, React, TailwindCSS. Contains all tool pages (`/agent-generator`, `/skills-generator`, `/benchmark`, etc).
-* `api/`: **Backend**. FastAPI, Pydantic, Uvicorn endpoints.
-* `app/llm_engine/`: **Intelligence**. LLM logic, HybridCompiler, and worker classes.
-* `start_app.bat`: **Launcher**. Convenience script for dev environment.
-* `app/heuristics/`: **Safety Net**. Local algorithms for risk detection and offline heuristics parsing.
+# Terminal 2 — Frontend
+cd web && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 📄 License
+## How to Use
+
+1. **Type your idea** in the input box (any page).
+2. **Click Generate** — the LLM analyzes your intent and produces structured output.
+3. **Review** the output tabs: System, User, Plan, Expanded.
+4. **Copy** the result with the copy button, or use the **Export** button (Agent / Skill pages) to get framework-ready code.
+5. **Toggle Conservative** to control how strictly the compiler stays within your original text.
+
+---
+
+## Project Structure
+
+```
+api/            FastAPI endpoints (compile, agent-generator, skills-generator, optimize…)
+app/
+  compiler.py       Chain-of-Responsibility heuristic compiler (V1 + V2)
+  emitters.py       Prompt rendering layer (system, user, plan, expanded)
+  llm_engine/       HybridCompiler, WorkerClient, LLM prompts
+    prompts/
+      worker_v1.md            Standard compiler system prompt
+      worker_conservative.md  Conservative (anti-hallucination) system prompt
+  heuristics/       Local risk detection and offline parsing
+  rag/              SQLite FTS5 RAG index and context retrieval
+web/
+  app/
+    page.tsx                    Main compiler UI
+    agent-generator/            Agent Generator page + ExportPanel
+    skills-generator/           Skill Generator page + SkillExportPanel
+    benchmark/                  Benchmark Playground
+    optimizer/                  Token Optimizer
+    components/                 Shared UI components
+tests/          Full test suite (200+ tests, all offline-safe)
+```
+
+---
+
+## License
 
 Copyright © 2026 Mehmet Özel. All rights reserved.
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Licensed under the [Apache License 2.0](LICENSE).
 
-### Commercial Use
-
-The source code is free to use under Apache 2.0.
-For managed/hosted service inquiries, please contact: [mehmet.ozel2701@gmail.com]
+For managed/hosted service inquiries: [mehmet.ozel2701@gmail.com](mailto:mehmet.ozel2701@gmail.com)
 
 Self-hosting is free and always will be.
 

@@ -9,6 +9,7 @@ from cachetools import TTLCache
 
 
 from .rag import ContextStrategist, MockVectorDB
+import os
 
 
 class HybridCompiler:
@@ -19,6 +20,9 @@ class HybridCompiler:
         model: str = DEFAULT_MODEL,
     ):
         self.worker = WorkerClient(api_key=api_key, base_url=base_url, model=model)
+        self.default_mode = (
+            (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
+        )
         # Initialize RAG components
         self.vector_db = MockVectorDB()  # In real app, connect to actual DB
         self.context_strategist = ContextStrategist(self.vector_db, self.worker)
@@ -26,7 +30,7 @@ class HybridCompiler:
         # Cache: 100 items, expires in 1 hour
         self.cache = TTLCache(maxsize=100, ttl=3600)
 
-    def compile(self, text: str) -> WorkerResponse:
+    def compile(self, text: str, mode: Optional[str] = None) -> WorkerResponse:
         """
         Attempt to compile using the Worker LLM with RAG context.
         Falls back to local heuristics if LLM fails.
@@ -36,8 +40,9 @@ class HybridCompiler:
             return self._fallback(text, "Input was empty")
 
         # 2. Check Cache
-        if text in self.cache:
-            return self.cache[text]
+        cache_key = (text, (mode or self.default_mode or "conservative").strip().lower())
+        if cache_key in self.cache:
+            return self.cache[cache_key]
 
         # 3. Worker LLM (Slow but Smart)
         try:
@@ -46,7 +51,7 @@ class HybridCompiler:
             rag_context = self.context_strategist.process(text)
 
             # Pass context to Worker
-            res = self.worker.process(text, context=rag_context)
+            res = self.worker.process(text, context=rag_context, mode=mode or self.default_mode)
 
             # --- Safety Heuristics Check (Post-Processing) ---
             # Even if LLM is smart, we enforce safety flags via heuristics
@@ -88,7 +93,7 @@ class HybridCompiler:
             except Exception:
                 pass  # Non-critical logic
 
-            self.cache[text] = res
+            self.cache[cache_key] = res
             return res
         except Exception as e:
             # Log error (in a real app)

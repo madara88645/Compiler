@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List
+import os
 from .models import IR
 from .models_v2 import IRv2, ConstraintV2, StepV2
 
@@ -57,9 +58,42 @@ def emit_plan(ir: IR) -> str:
     return "\n".join(out) if out else "1. Analyze request\n   Rationale: establish understanding"
 
 
-def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
+def _is_conservative_mode(conservative: bool | None) -> bool:
+    if conservative is not None:
+        return bool(conservative)
+    mode = (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
+    return mode != "default"
+
+
+def _is_trivial_input(original_text: str, domain: str, complexity: str) -> bool:
+    """Return True for very short or greeting-only inputs that should not be expanded with generic boilerplate."""
+    stripped = original_text.strip()
+    if len(stripped) < 30 and domain == "general" and complexity in ("low", None, ""):
+        return True
+    return False
+
+
+def _minimal_greeting_prompt(original_text: str, lang: str) -> str:
+    """Return a minimal, sensible prompt for greeting/very-short inputs instead of boilerplate."""
+    orig = original_text.strip()
+    if lang == "tr":
+        return f"{orig.capitalize()}\n\nNasil yardimci olabilirim?"
+    return f"{orig.capitalize()}\n\nHow can I help you?"
+
+
+def emit_expanded_prompt(
+    ir: IR, diagnostics: bool = False, conservative: bool | None = None
+) -> str:
     # Natural, example-based one-shot style expansion for everyday users
+    conservative_on = _is_conservative_mode(conservative)
     lang = ir.language
+
+    # Short/greeting inputs: skip the generic suggestions template entirely
+    orig_text = (ir.metadata or {}).get("original_text") or ""
+    complexity = (ir.metadata or {}).get("complexity") or ""
+    if conservative_on and _is_trivial_input(orig_text, ir.domain, complexity):
+        return _minimal_greeting_prompt(orig_text, lang)
+
     title = (
         "Genişletilmiş İstem"
         if lang == "tr"
@@ -157,32 +191,45 @@ def emit_expanded_prompt(ir: IR, diagnostics: bool = False) -> str:
         example_header + ":",
         example_block,
     ]
-    # Assumptions block (lightweight) before clarification questions
+    # Assumptions / grounding note (conservative avoids prompting fabrication)
     meta = ir.metadata or {}
     risk_flags = meta.get("risk_flags") or []
     variant_count = meta.get("variant_count") or 0
-    assumptions = []
-    if lang == "tr":
-        assumptions.append("Eksik ayrıntılar makul örnek değerlerle doldurulacaktır.")
-        if risk_flags:
-            assumptions.append("Profesyonel tavsiye değildir; yalnızca bilgilendiricidir.")
+    notes: list[str] = []
+    if conservative_on:
+        if lang == "tr":
+            notes.append("Eksik ayrıntılar varsa uydurma yapma; netleştirici soru sor.")
+        else:
+            notes.append("If details are missing, do not fabricate them; ask clarifying questions.")
         if variant_count and variant_count > 1:
-            assumptions.append(
-                'Her varyant benzersiz bir bakış açısı için "Distinct Angle:" satırı ile başlayacaktır.'
-            )
-        header_assump = "Varsayımlar" if assumptions else None
-    else:
-        assumptions.append("Missing details will be filled with reasonable sample values.")
-        if risk_flags:
-            assumptions.append("Not professional advice; informational only.")
-        if variant_count and variant_count > 1:
-            assumptions.append(
+            notes.append(
                 'Each variant begins with "Distinct Angle:" to mark a unique perspective.'
+                if lang != "tr"
+                else 'Her varyant benzersiz bir bakış açısı için "Distinct Angle:" satırı ile başlayacaktır.'
             )
-        header_assump = "Assumptions" if assumptions else None
-    if assumptions:
-        prompt.extend(["", f"{header_assump}:"])
-        for a in assumptions[:5]:
+        header_notes = "Notlar" if lang == "tr" else "Notes"
+    else:
+        # Legacy behavior
+        if lang == "tr":
+            notes.append("Eksik ayrıntılar makul örnek değerlerle doldurulacaktır.")
+        else:
+            notes.append("Missing details will be filled with reasonable sample values.")
+        if risk_flags:
+            notes.append(
+                "Profesyonel tavsiye değildir; yalnızca bilgilendiricidir."
+                if lang == "tr"
+                else "Not professional advice; informational only."
+            )
+        if variant_count and variant_count > 1:
+            notes.append(
+                'Her varyant benzersiz bir bakış açısı için "Distinct Angle:" satırı ile başlayacaktır.'
+                if lang == "tr"
+                else 'Each variant begins with "Distinct Angle:" to mark a unique perspective.'
+            )
+        header_notes = "Varsayımlar" if lang == "tr" else "Assumptions"
+    if notes:
+        prompt.extend(["", f"{header_notes}:"])
+        for a in notes[:5]:
             prompt.append(f"- {a}")
     # Clarification questions block (always if present) before diagnostics
     clarify_all = (ir.metadata or {}).get("clarify_questions") or []
@@ -361,7 +408,15 @@ def emit_plan_v2(ir: IRv2) -> str:
 
 
 def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
+    conservative_on = _is_conservative_mode(None)
     lang = ir.language
+
+    # Short/greeting inputs: skip the generic suggestions template entirely
+    orig_text_v2 = (ir.metadata or {}).get("original_text") or ""
+    complexity_v2 = (ir.metadata or {}).get("complexity") or ""
+    if conservative_on and _is_trivial_input(orig_text_v2, ir.domain, complexity_v2):
+        return _minimal_greeting_prompt(orig_text_v2, lang)
+
     title = (
         "Genişletilmiş İstem"
         if lang == "tr"
@@ -553,6 +608,27 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             prompt.extend(["", "Diagnostics:", *diag_lines])
 
     # --- Domain-Specific Best Practices ---
+    if conservative_on:
+        # Keep this section minimal to avoid injecting new requirements.
+        bp_header = "İpuçları" if lang == "tr" else ("Consejos" if lang == "es" else "Tips")
+        tips = (
+            [
+                "Sadece kullanıcının istediğini yap; yeni gereksinim ekleme.",
+                "Eksik bilgi varsa uydurma yapma; kısa netleştirici sorular sor.",
+            ]
+            if lang == "tr"
+            else (
+                [
+                    "Stay within what the user asked; do not add new requirements.",
+                    "If information is missing, ask short clarifying questions instead of guessing.",
+                ]
+            )
+        )
+        prompt.extend(["", f"{bp_header}:"])
+        for t in tips[:3]:
+            prompt.append(f"- {t}")
+        return "\n".join(prompt)
+
     _BEST_PRACTICES_EN: dict = {
         "coding": [
             "Write defensive code and handle edge cases explicitly.",
