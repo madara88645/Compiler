@@ -196,8 +196,7 @@ PERSONA_KEYWORDS = {
 
 
 _COMPILED_PERSONA_RX = {
-    persona: [re.compile(p) for p in pats]
-    for persona, pats in PERSONA_KEYWORDS.items()
+    persona: [re.compile(p) for p in pats] for persona, pats in PERSONA_KEYWORDS.items()
 }
 
 
@@ -870,9 +869,9 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
             unit = cur3 or cur1 or cur2 or ""
             if cur1 or cur2 or cur3:
                 if v2:
-                    inputs[
-                        "budget_hint"
-                    ] = f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
+                    inputs["budget_hint"] = (
+                        f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
+                    )
                 else:
                     inputs["budget_hint"] = f"{_normalize_currency(v1)} {unit}".strip()
 
