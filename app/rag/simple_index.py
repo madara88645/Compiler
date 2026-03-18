@@ -278,10 +278,12 @@ def _chunk_text_semantic(
         if len(v1) > len(v2):
             v1, v2 = v2, v1
 
+        missing = object()
         dot = 0.0
         for k, v in v1.items():
-            if k in v2:
-                dot += v * v2[k]
+            v2_val = v2.get(k, missing)
+            if v2_val is not missing:
+                dot += v * v2_val
 
         # Bolt Optimization: math.hypot is ~5x faster than math.sqrt(sum(v*v))
         norm1 = math.hypot(*v1.values())
