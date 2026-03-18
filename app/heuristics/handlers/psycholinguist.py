@@ -220,7 +220,7 @@ def detect_sentiment(text: str) -> UserSentiment:
         if kw in text_lower:
             return UserSentiment.URGENT
 
-    # Check for frustration (patterns on original text for CAPS detection)
+    # Check for frustration using pre-compiled regex
     if _FRUSTRATION_REGEX.search(text):
         return UserSentiment.FRUSTRATED
 
