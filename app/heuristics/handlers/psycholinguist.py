@@ -143,23 +143,23 @@ TR_INFORMAL_PATTERNS = [
 
 # Cultural/Regional patterns
 UK_SPELLING = [
-    r"colour",
-    r"flavour",
-    r"centre",
-    r"metre",
-    r"organise",
-    r"realise",
-    r"defence",
+    "colour",
+    "flavour",
+    "centre",
+    "metre",
+    "organise",
+    "realise",
+    "defence",
 ]
 
 US_SPELLING = [
-    r"color",
-    r"flavor",
-    r"center",
-    r"meter",
-    r"organize",
-    r"realize",
-    r"defense",
+    "color",
+    "flavor",
+    "center",
+    "meter",
+    "organize",
+    "realize",
+    "defense",
 ]
 
 CURRENCY_PATTERNS = {
@@ -170,13 +170,20 @@ CURRENCY_PATTERNS = {
 }
 
 
+# Pre-compiled regexes for performance
+_CURRENCY_REGEXES = {
+    region: re.compile("|".join(patterns)) for region, patterns in CURRENCY_PATTERNS.items()
+}
+
+
 def detect_cultural_context(text: str) -> Optional[str]:
     """Detect cultural context based on spelling and currency."""
     text_lower = text.lower()
 
     # Check spelling
-    uk_score = sum(1 for p in UK_SPELLING if re.search(p, text_lower))
-    us_score = sum(1 for p in US_SPELLING if re.search(p, text_lower))
+    # Bolt Optimization: direct string `in` check is faster than `re.search` without word boundaries
+    uk_score = sum(1 for p in UK_SPELLING if p in text_lower)
+    us_score = sum(1 for p in US_SPELLING if p in text_lower)
 
     if uk_score > us_score:
         return "British"
@@ -184,8 +191,9 @@ def detect_cultural_context(text: str) -> Optional[str]:
         return "American"
 
     # Check currency
-    for region, patterns in CURRENCY_PATTERNS.items():
-        if any(re.search(p, text_lower) for p in patterns):
+    for region, regex in _CURRENCY_REGEXES.items():
+        # Bolt Optimization: compiled regex `search` on joined patterns avoids overhead of multiple `re.search` calls
+        if regex.search(text_lower):
             if region == "TR":
                 return "Turkish"
             if region == "US":
@@ -198,34 +206,43 @@ def detect_cultural_context(text: str) -> Optional[str]:
     return None
 
 
+_FRUSTRATION_REGEX = re.compile("|".join(FRUSTRATION_PATTERNS), re.IGNORECASE)
+_CASUAL_REGEX = re.compile("|".join(CASUAL_PATTERNS))
+
+
 def detect_sentiment(text: str) -> UserSentiment:
     """Analyze text to detect user sentiment."""
     text_lower = text.lower()
 
     # Check for urgency
+    # Bolt Optimization: use pre-compiled regex and `in` for faster matching
     for kw in URGENT_KEYWORDS:
         if kw in text_lower:
             return UserSentiment.URGENT
 
     # Check for frustration (patterns on original text for CAPS detection)
-    for pattern in FRUSTRATION_PATTERNS:
-        if re.search(pattern, text, re.IGNORECASE):
-            return UserSentiment.FRUSTRATED
+    if _FRUSTRATION_REGEX.search(text):
+        return UserSentiment.FRUSTRATED
 
     # Check for casual tone
-    for pattern in CASUAL_PATTERNS:
-        if re.search(pattern, text_lower):
-            return UserSentiment.CASUAL
+    if _CASUAL_REGEX.search(text_lower):
+        return UserSentiment.CASUAL
 
     return UserSentiment.NEUTRAL
+
+
+_TR_FORMAL_REGEXES = [re.compile(p) for p in TR_FORMAL_PATTERNS]
+_TR_INFORMAL_REGEXES = [re.compile(p) for p in TR_INFORMAL_PATTERNS]
 
 
 def detect_formality(text: str) -> FormalityLevel:
     """Detect Turkish formality level (Siz vs Sen)."""
     text_lower = text.lower()
 
-    formal_score = sum(1 for p in TR_FORMAL_PATTERNS if re.search(p, text_lower))
-    informal_score = sum(1 for p in TR_INFORMAL_PATTERNS if re.search(p, text_lower))
+    # Bolt Optimization: pre-compiled regexes avoid looping `re.compile`
+    # Kept as separate regexes to match original logic of counting distinct matched patterns
+    formal_score = sum(1 for r in _TR_FORMAL_REGEXES if r.search(text_lower))
+    informal_score = sum(1 for r in _TR_INFORMAL_REGEXES if r.search(text_lower))
 
     if formal_score > informal_score:
         return FormalityLevel.FORMAL
@@ -297,16 +314,23 @@ class AmbiguityResult:
     suggestions: list[str] = field(default_factory=list)
 
 
+_AMBIGUOUS_REGEXES = {
+    key: (re.compile(rule["pattern"]), rule["suggestion"])
+    for key, rule in AMBIGUOUS_PATTERNS.items()
+}
+
+
 def detect_ambiguity(text: str) -> AmbiguityResult:
     """Detect vague or ambiguous terms in the prompt."""
     text_lower = text.lower()
     result = AmbiguityResult()
 
-    for key, rule in AMBIGUOUS_PATTERNS.items():
-        if re.search(rule["pattern"], text_lower):
+    # Bolt Optimization: avoid re.search compiling the pattern each time
+    for key, (regex, suggestion) in _AMBIGUOUS_REGEXES.items():
+        if regex.search(text_lower):
             result.is_ambiguous = True
             result.ambiguous_terms.append(key)
-            result.suggestions.append(rule["suggestion"])
+            result.suggestions.append(suggestion)
 
     return result
 

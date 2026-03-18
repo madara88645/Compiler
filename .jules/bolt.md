@@ -9,3 +9,7 @@
 ## 2024-07-26 - Fast Vector Dot Products in Python
 **Learning:** For vector dot products in Python (without numpy), using `sum(map(operator.mul, vec_a, vec_b))` is approximately 30% to 40% faster than list comprehensions inside `sum([a * b for a, b in zip(vec_a, vec_b)])`. This is because it avoids the overhead of allocating an intermediate list in memory and pushes both iteration and multiplication to optimized C-level implementations.
 **Action:** When calculating similarity scores or dot products on vectors represented as Python lists, always prefer `map(operator.mul, a, b)` wrapped in `sum()` over list comprehensions or generator expressions.
+
+## 2024-08-14 - Optimizing Multiple Regex Pattern Matching Logic
+**Learning:** When optimizing Python loops that count distinct regex pattern matches (e.g., `sum(1 for p in PATTERNS if re.search(p, text))`), joining all patterns into a single compiled regex (`re.compile('a|b').findall(text)`) introduces a functional regression because it counts the *total occurrences* of any pattern, not the *number of distinct patterns* matched.
+**Action:** To safely optimize this logic while preserving exact functionality, pre-compile a list of distinct regular expressions at the module level and iterate through them: `sum(1 for r in COMPILED_REGEXES if r.search(text))`. Additionally, replace `re.search` with the native `in` operator (`p in text`) for exact string literals that don't rely on regex word boundaries, as it is significantly faster.
