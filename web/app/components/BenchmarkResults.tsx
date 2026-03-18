@@ -80,6 +80,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
             <div className="border-b border-white/5">
                 <button
                     onClick={() => setPromptOpen(!promptOpen)}
+                    aria-expanded={promptOpen}
                     className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group"
                 >
                     <div className="flex items-center gap-2">
