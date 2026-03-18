@@ -1,8 +1,8 @@
 import os
-import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.quick_edit import QuickEditor
+
 
 def test_editor_command_injection():
     editor = QuickEditor()
