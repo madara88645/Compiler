@@ -7,6 +7,7 @@ including text editing, metadata updates, and re-compilation.
 import tempfile
 import subprocess
 import os
+import shlex
 from typing import Optional, Dict, Any, Literal
 
 from rich.console import Console
@@ -106,7 +107,12 @@ class QuickEditor:
             editor = self.get_editor()
 
             # Open editor
-            result = subprocess.run([editor, temp_path])
+            # Safely parse the editor string into arguments to handle cases like "nano -w"
+            # and prevent command injection if the EDITOR env var is maliciously crafted
+            editor_parts = shlex.split(editor)
+            editor_parts.append(temp_path)
+
+            result = subprocess.run(editor_parts)
 
             if result.returncode != 0:
                 console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")

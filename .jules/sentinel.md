@@ -7,3 +7,7 @@
 **Vulnerability:** Multiple endpoints in `api/main.py` (`compile_fast`, `generate_skill_endpoint`, `generate_agent_endpoint`, `optimize_endpoint`) were returning raw exception details `str(e)` directly to the client via HTTP 500 errors.
 **Learning:** Returning raw exception details is a major security risk (Information Exposure) as it can leak sensitive internal implementation details, such as file paths, database schemas, third-party API keys, or stack traces.
 **Prevention:** Catch exceptions, log their details internally (e.g., via `print` or a logger for debugging), and raise an `HTTPException` with a generic `detail` message (like "An internal error occurred.") rather than returning `str(e)` directly to the user.
+## 2024-05-24 - Command Injection via Unsafe Subprocess Execution with Environment Variables
+**Vulnerability:** The application used `subprocess.run([editor, temp_path])` where `editor` could be derived from `os.environ.get("EDITOR")`. A malicious string with arguments or embedded shell commands (if shell=True was added later) could cause unexpected execution.
+**Learning:** Directly passing unstructured environment variables like `EDITOR` into `subprocess.run()` without splitting them can lead to command execution bugs (e.g., `nano -w` failing as "nano -w" file not found) or security vulnerabilities if the path allows arbitrary strings.
+**Prevention:** Always use `shlex.split()` to safely tokenize shell-like strings containing arguments before passing them as the first argument to `subprocess.run()`.
