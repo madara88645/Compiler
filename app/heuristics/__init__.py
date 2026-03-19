@@ -129,6 +129,11 @@ TEACHING_KEYWORDS = [
     r"öğrenmek istiyorum",
 ]
 
+# Bolt Optimization: Pre-compile regexes for fast evaluation
+_COMPILED_RECENCY = [re.compile(p) for p in RECENCY_KEYWORDS]
+_COMPILED_TEACHING = [re.compile(p) for p in TEACHING_KEYWORDS]
+
+
 # Persona keyword groups (simple scoring)
 PERSONA_KEYWORDS = {
     "teacher": [
@@ -193,6 +198,9 @@ PERSONA_KEYWORDS = {
         r"yeniden düzenle",
     ],
 }
+
+# Bolt Optimization: Pre-compile regexes for developer persona
+_COMPILED_DEV_PATS = [re.compile(p) for p in PERSONA_KEYWORDS["developer"]]
 
 
 def pick_persona(text: str) -> tuple[str, dict]:
@@ -436,14 +444,16 @@ CODE_REQUEST_KEYWORDS = [
     r"algorithm",
 ]
 
+_COMPILED_CODE_REQUEST = [re.compile(p) for p in CODE_REQUEST_KEYWORDS]
+
 
 def detect_coding_context(text: str) -> bool:
     """Broader coding trigger: either explicit code request or developer persona cues."""
     lower = text.lower()
     if detect_code_request(text):
         return True
-    dev_pats = PERSONA_KEYWORDS.get("developer", [])
-    return any(re.search(p, lower) for p in dev_pats)
+    # Bolt Optimization: use pre-compiled regexes rather than re.search inside loop
+    return any(r.search(lower) for r in _COMPILED_DEV_PATS)
 
 
 # Live debug detection (English + Turkish cues)
@@ -471,10 +481,13 @@ LIVE_DEBUG_KEYWORDS = [
     r"istisna",
 ]
 
+_COMPILED_LIVE_DEBUG = [re.compile(p) for p in LIVE_DEBUG_KEYWORDS]
+
 
 def detect_live_debug(text: str) -> bool:
     lower = text.lower()
-    return any(re.search(p, lower) for p in LIVE_DEBUG_KEYWORDS)
+    # Bolt Optimization: use pre-compiled regexes rather than re.search inside loop
+    return any(r.search(lower) for r in _COMPILED_LIVE_DEBUG)
 
 
 # --- Privacy / PII detection (lightweight heuristic, no external deps) ---
@@ -723,7 +736,8 @@ load_external_config()
 
 def detect_code_request(text: str) -> bool:
     lower = text.lower()
-    return any(re.search(p, lower) for p in CODE_REQUEST_KEYWORDS)
+    # Bolt Optimization: use pre-compiled regexes rather than re.search inside loop
+    return any(r.search(lower) for r in _COMPILED_CODE_REQUEST)
 
 
 def detect_language(text: str) -> str:
@@ -775,7 +789,8 @@ def detect_domain_candidates(evidence: List[str], top_k: int = 3) -> List[str]:
 
 def detect_recency(text: str) -> bool:
     lower = text.lower()
-    return any(re.search(p, lower) for p in RECENCY_KEYWORDS)
+    # Bolt Optimization: use pre-compiled regexes rather than re.search inside loop
+    return any(r.search(lower) for r in _COMPILED_RECENCY)
 
 
 def extract_format(text: str) -> str:
@@ -817,7 +832,8 @@ def detect_conflicts(constraints: List[str]) -> List[str]:
 
 def detect_teaching_intent(text: str) -> bool:
     lower = text.lower()
-    return any(re.search(p, lower) for p in TEACHING_KEYWORDS)
+    # Bolt Optimization: use pre-compiled regexes rather than re.search inside loop
+    return any(r.search(lower) for r in _COMPILED_TEACHING)
 
 
 def _normalize_currency(val: str) -> str:
