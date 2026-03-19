@@ -8,7 +8,7 @@ from .models import HistoryEntry
 
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_history.db")
 if os.name == "nt":
-    DEFAULT_DB_PATH = r"C:\Users\User\.promptc_history.db"
+    DEFAULT_DB_PATH = os.path.join(os.environ.get("USERPROFILE", "C:\\"), ".promptc_history.db")
 
 
 class HistoryManager:
