@@ -1,5 +1,5 @@
 fastapi==0.135.1
-uvicorn==0.41.0
+uvicorn==0.42.0
 pydantic==2.12.5
 typer==0.24.1
 click==8.3.1  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
