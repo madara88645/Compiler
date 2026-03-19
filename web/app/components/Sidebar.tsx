@@ -40,7 +40,7 @@ export default function Sidebar() {
                         )}
 
                         {/* Tooltip */}
-                        <div className="absolute left-14 bg-zinc-900 border border-white/10 px-2 py-1 rounded text-xs text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                        <div className="absolute left-14 bg-zinc-900 border border-white/10 px-2 py-1 rounded text-xs text-zinc-200 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                             {item.name}
                         </div>
                     </Link>
