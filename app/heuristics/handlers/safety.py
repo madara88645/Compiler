@@ -6,6 +6,7 @@ Provides deterministic safety checks without LLM calls:
 - Unsafe Content Flags (Profanity, Injection keywords)
 - Complexity/Length Guardrails
 """
+
 import re
 from typing import List, Dict, Any
 from app.models import IR

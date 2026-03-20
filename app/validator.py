@@ -139,9 +139,18 @@ class PromptValidator:
         score = self._calculate_score(ir, issues)
 
         # Count by severity
-        errors = sum(1 for i in issues if i.severity == "error")
-        warnings = sum(1 for i in issues if i.severity == "warning")
-        info = sum(1 for i in issues if i.severity == "info")
+        # Bolt Optimization: a single explicit loop iterating over issues is faster than three separate generator comprehensions
+        errors = 0
+        warnings = 0
+        info = 0
+        for i in issues:
+            severity = i.severity
+            if severity == "error":
+                errors += 1
+            elif severity == "warning":
+                warnings += 1
+            elif severity == "info":
+                info += 1
 
         return ValidationResult(
             score=score,
