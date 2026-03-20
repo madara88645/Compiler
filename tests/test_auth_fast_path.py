@@ -91,3 +91,13 @@ def test_rate_limit(test_key):
         mock.cache = {}
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
         assert resp.status_code == 429
+
+
+def test_compile_no_key():
+    resp = client.post("/compile", json={"text": "hello"})
+    assert resp.status_code == 403
+
+
+def test_compile_invalid_key():
+    resp = client.post("/compile", json={"text": "hello"}, headers={"x-api-key": "invalid"})
+    assert resp.status_code == 403
