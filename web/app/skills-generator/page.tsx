@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 import InfoButton from "../components/InfoButton";
 import ContextManager from "../components/ContextManager";
 import SkillExportPanel from "./components/ExportPanel";
@@ -23,7 +23,7 @@ export default function SkillsGenerator() {
     setResult(null);
 
     try {
-      const res = await fetch(`${API_BASE}/skills-generator/generate`, {
+      const res = await apiFetch("/skills-generator/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

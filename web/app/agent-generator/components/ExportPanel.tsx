@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 type Framework = "claude-sdk" | "langchain" | "langgraph";
 type OutputTab = "python" | "yaml";
@@ -65,7 +65,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/agent-generator/export`, {
+      const res = await apiFetch("/agent-generator/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

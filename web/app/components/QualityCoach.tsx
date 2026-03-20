@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 type ValidationResponse = {
     score: number;
@@ -27,7 +27,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
         if (!prompt.trim()) return;
         setAnalyzing(true);
         try {
-            const res = await fetch(`${API_BASE}/validate`, {
+            const res = await apiFetch("/validate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: prompt }),

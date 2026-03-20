@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 type SkillFormat = "langchain-tool" | "claude-tool-use";
 type OutputTab = "python" | "json";
@@ -58,7 +58,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/skills-generator/export`, {
+      const res = await apiFetch("/skills-generator/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

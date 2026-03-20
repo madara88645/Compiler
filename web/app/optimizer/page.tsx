@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 import InfoButton from "../components/InfoButton";
 
@@ -18,7 +18,7 @@ export default function OptimizerPage() {
         if (!input.trim()) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/optimize`, {
+            const res = await apiFetch("/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
