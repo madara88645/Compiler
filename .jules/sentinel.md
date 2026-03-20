@@ -1,9 +1,5 @@
-## 2024-03-07 - [Fix Path Traversal in File Upload Endpoint]
-**Vulnerability:** The `/rag/upload` endpoint `upload_file_endpoint` in `api/main.py` directly concatenated `req.filename` into a local path using `os.path.join(temp_dir, req.filename)` without any sanitization.
-**Learning:** This is a classic path traversal vulnerability where an attacker could upload files to an arbitrary location outside of the intended `temp_dir` by using sequences like `../` in `req.filename`.
-**Prevention:** Always sanitize user-provided filenames before using them in file system operations. `os.path.basename` is an effective way to extract just the filename from a given path, ignoring any directory traversal sequences. Added fallback logic for when the basename resolves to empty or relative current directory constructs (`.` or `..`).
+## 2024-05-24 - Fix XSS vulnerability in DiffViewer
 
-## 2025-03-03 - [Fix Information Leakage in API Endpoints]
-**Vulnerability:** Multiple endpoints in `api/main.py` (`compile_fast`, `generate_skill_endpoint`, `generate_agent_endpoint`, `optimize_endpoint`) were returning raw exception details `str(e)` directly to the client via HTTP 500 errors.
-**Learning:** Returning raw exception details is a major security risk (Information Exposure) as it can leak sensitive internal implementation details, such as file paths, database schemas, third-party API keys, or stack traces.
-**Prevention:** Catch exceptions, log their details internally (e.g., via `print` or a logger for debugging), and raise an `HTTPException` with a generic `detail` message (like "An internal error occurred.") rather than returning `str(e)` directly to the user.
+**Vulnerability:** Found a Cross-Site Scripting (XSS) vulnerability in `web/app/components/DiffViewer.tsx`. The component used `dangerouslySetInnerHTML` to render an HTML string generated from diff text replacements without any HTML sanitization.
+**Learning:** React's `dangerouslySetInnerHTML` is susceptible to XSS if the input text contains unescaped malicious HTML payloads. It is critical to sanitize any dynamically generated HTML before rendering it in the browser. Furthermore, when using a sanitizer like `DOMPurify` within a Next.js (SSR) application, special care must be taken to only run the sanitization and render the HTML on the client side (after the initial mount) to prevent React hydration mismatch errors or server-side crashes due to the missing `window` object.
+**Prevention:** Always use a robust HTML sanitization library (like `DOMPurify`) when dealing with `dangerouslySetInnerHTML`. In Next.js applications, use a combination of `useState` and `useEffect` (e.g., an `isClient` flag) to defer the rendering of sanitized HTML until the component has mounted on the client.
