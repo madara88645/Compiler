@@ -591,7 +591,10 @@ async def rag_upload(
     req: dict,
     api_key: APIKey = Depends(verify_api_key),
 ):
-    filename = req.get("filename", "upload.txt")
+    raw_filename = req.get("filename", "upload.txt")
+    filename = os.path.basename(raw_filename)
+    if not filename or filename in (".", ".."):
+        filename = "upload.txt"
     # Satisfy tests by returning expected fields
     return {
         "status": "indexed",
