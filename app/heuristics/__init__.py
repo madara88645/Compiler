@@ -209,7 +209,7 @@ def pick_persona(text: str) -> tuple[str, dict]:
     evidence: dict[str, list[str]] = {k: [] for k in PERSONA_KEYWORDS}
     for persona, pats in PERSONA_KEYWORDS.items():
         for p in pats:
-            if re.search(p, lower):
+            if p in lower:
                 scores[persona] += 1
                 evidence[persona].append(p)
     # choose highest score, tie -> deterministic alphabetical order of persona key
@@ -530,7 +530,7 @@ def detect_risk_flags(text: str) -> list[str]:
     lower = text.lower()
     flags: list[str] = []
     for cat, pats in RISK_KEYWORDS.items():
-        if any(re.search(p, lower) for p in pats):
+        if any(p in lower for p in pats):
             flags.append(cat)
     return flags
 
@@ -759,7 +759,7 @@ def detect_domain(text: str) -> Tuple[str, List[str]]:
     evidence: List[str] = []
     for domain, pats in DOMAIN_PATTERNS.items():
         for p in pats:
-            if re.search(p, lower):
+            if p in lower:
                 evidence.append(f"{domain}:{p}")
     if not evidence:
         return "general", []
@@ -797,7 +797,7 @@ def extract_format(text: str) -> str:
     lower = text.lower()
     for fmt, pats in FORMAT_KEYWORDS.items():
         for p in pats:
-            if re.search(p, lower):
+            if p in lower:
                 return fmt
     return "markdown"
 
@@ -806,7 +806,7 @@ def detect_length_hint(text: str) -> str:
     lower = text.lower()
     for hint, pats in LENGTH_KEYWORDS.items():
         for p in pats:
-            if re.search(p, lower):
+            if p in lower:
                 if hint == "short":
                     return "short"
                 if hint == "long":
@@ -889,7 +889,7 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
     # Format hint: only set if explicitly present in text
     for fmt, pats in FORMAT_KEYWORDS.items():
         for p in pats:
-            if re.search(p, lower):
+            if p in lower:
                 inputs["format"] = fmt
                 break
         if "format" in inputs:

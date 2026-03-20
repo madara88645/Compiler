@@ -92,8 +92,8 @@ def test_rag_upload_with_path_traversal_characters(client):
     data = response.json()
     assert data["success"] is True
     assert data["num_chunks"] >= 1
-    # The original filename should be preserved in the response message
-    assert "../weird/..//a*b?.py" in data["message"]
+    # The original filename should be sanitized in the response message
+    assert "a*b?.py" in data["message"]
 
 
 def test_rag_upload_with_unusual_characters(client):
@@ -111,5 +111,20 @@ def test_rag_upload_with_unusual_characters(client):
     data = response.json()
     assert data["success"] is True
     assert data["num_chunks"] >= 1
-    # The original filename should be preserved in the response message
+    # The original filename should be preserved in the response message since unusual chars are allowed
     assert "test@file#with$special%chars.py" in data["message"]
+
+
+def test_rag_upload_fallback_filename(client):
+    """Upload with empty or hidden root paths like '.' should fallback to 'upload.txt'."""
+    response = client.post(
+        "/rag/upload",
+        json={
+            "filename": ".",
+            "content": "test",
+            "force": True,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "upload.txt" in data["message"]

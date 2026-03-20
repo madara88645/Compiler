@@ -56,6 +56,16 @@ def test_compile_fast_success(test_key):
         assert "processing_ms" in data
 
 
+def test_compile_fast_internal_error(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.cache = {}
+        mock_compiler.worker.process.side_effect = Exception("Test Internal Error")
+
+        resp = client.post("/compile/fast", json={"text": "hello"}, headers={"x-api-key": test_key})
+        assert resp.status_code == 500
+        assert resp.json() == {"detail": "An internal error occurred."}
+
+
 def test_rate_limit(test_key):
     # Depending on how the rate limiter is implemented (in-memory global),
     # we might need to reset it or just spam enough requests.
@@ -81,3 +91,13 @@ def test_rate_limit(test_key):
         mock.cache = {}
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
         assert resp.status_code == 429
+
+
+def test_compile_no_key():
+    resp = client.post("/compile", json={"text": "hello"})
+    assert resp.status_code == 403
+
+
+def test_compile_invalid_key():
+    resp = client.post("/compile", json={"text": "hello"}, headers={"x-api-key": "invalid"})
+    assert resp.status_code == 403
