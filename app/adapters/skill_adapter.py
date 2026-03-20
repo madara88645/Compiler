@@ -1,7 +1,6 @@
 """
 skill_adapter.py — Generate LangChain Tool and Claude tool_use JSON from SkillExportIR.
 """
-
 from __future__ import annotations
 
 import json

@@ -4,7 +4,6 @@ tests/test_export_adapters.py — Tests for the Export Adapter layer.
 Covers IR extraction, code generation, and API endpoints for both
 agent and skill exports.
 """
-
 from __future__ import annotations
 
 import json

@@ -740,7 +740,7 @@ def run_all() -> int:
     print("  RESULTS SUMMARY")
     print("█" * 60)
 
-    print(f"\n  Offline:  {OfflineResults.passed} passed, {OfflineResults.failed} failed")
+    print(f"\n  Offline:  {OfflineResults.passed} passed, " f"{OfflineResults.failed} failed")
     print(
         f"  Online:   {OnlineResults.passed} passed, "
         f"{OnlineResults.failed} failed, "
@@ -751,7 +751,7 @@ def run_all() -> int:
     total_failed = OfflineResults.failed + OnlineResults.failed
     total = total_passed + total_failed + OnlineResults.skipped
 
-    print(f"\n  Total:    {total_passed}/{total} passed  ({elapsed:.1f}s)")
+    print(f"\n  Total:    {total_passed}/{total} passed  " f"({elapsed:.1f}s)")
 
     if total_failed > 0:
         print(f"\n  ❌  {total_failed} TEST(S) FAILED")

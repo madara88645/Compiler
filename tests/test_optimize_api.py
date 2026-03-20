@@ -28,7 +28,12 @@ def test_api_optimize_basic_reduces_whitespace(mock_optimize):
 def test_api_optimize_preserves_fenced_code_block(mock_optimize):
     # Mock response: preserves code block
     code_block = (
-        "Intro with spaces\n\n```python\ndef foo():\n    return 1\n```\n\nOutro with spaces"
+        "Intro with spaces\n\n"
+        "```python\n"
+        "def foo():\n"
+        "    return 1\n"
+        "```\n\n"
+        "Outro with spaces"
     )
     mock_optimize.return_value = code_block
 
