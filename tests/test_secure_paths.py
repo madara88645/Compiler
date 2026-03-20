@@ -20,7 +20,9 @@ def test_history_manager_secure_path():
         path = app.history.manager.DEFAULT_DB_PATH
 
         # Verify it uses the user's home directory fallback instead of C:\
-        assert "C:\\" not in path or os.path.expanduser("~") == "C:\\"
+        assert path != "C:\\.promptc_history.db"
+        # It should combine the home directory correctly
+        assert path == os.path.join(os.path.expanduser("~"), ".promptc_history.db")
         assert path.endswith(".promptc_history.db")
 
 
@@ -34,5 +36,7 @@ def test_rag_simple_index_secure_path():
         path = app.rag.simple_index.DEFAULT_DB_PATH
 
         # Verify it uses the user's home directory fallback instead of C:\
-        assert "C:\\" not in path or os.path.expanduser("~") == "C:\\"
+        assert path != "C:\\.promptc_index_v3.db"
+        # It should combine the home directory correctly
+        assert path == os.path.join(os.path.expanduser("~"), ".promptc_index_v3.db")
         assert path.endswith(".promptc_index_v3.db")
