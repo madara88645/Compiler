@@ -84,7 +84,7 @@ export default function Home() {
 
       if (!liveMode) {
         // OFFLINE MODE
-        const resV1 = await fetch(`${API_BASE}/compile`, {
+        const resV1 = await fetch('/api/compile', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
@@ -106,7 +106,7 @@ export default function Home() {
         const timeoutId = setTimeout(() => controller.abort(), 190000);
 
         try {
-          const resV2 = await fetch(`${API_BASE}/compile`, {
+          const resV2 = await fetch('/api/compile', {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: textToCompile, diagnostics, v2: true, render_v2_prompts: true }),
@@ -163,7 +163,7 @@ export default function Home() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 190000);
 
-      const resV2 = await fetch(`${API_BASE}/compile`, {
+      const resV2 = await fetch('/api/compile', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: textToUse, diagnostics, v2: true, render_v2_prompts: true }),
