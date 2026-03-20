@@ -12,10 +12,10 @@ Purpose: track open PR intake, integration order, verification, and keep/drop de
 | #201 | Add error handling test for compile_fast endpoint | MERGEABLE | green | low | merged, verified |
 | #202 | optimize heuristic multiple-substring matching in hot loops | MERGEABLE | green | medium | merged, verified |
 | #203 | Add visual feedback to Copy to Clipboard buttons | MERGEABLE | green but empty diff | suspicious | hold, empty via API |
-| #204 | Optimize aggregation loops | MERGEABLE | green | medium but noisy | hold / extract subset only |
+| #204 | Optimize aggregation loops | MERGEABLE | green | medium but noisy | hold / drop as-is |
 | #205 | Optimize vector dot product calculation | CONFLICTING | partial green | medium | merged, re-resolved, verified |
 | #206 | Fix path traversal in /rag/upload | MERGEABLE | lint failed | high | merged, re-resolved, verified |
-| #207 | Fix XSS vulnerability in DiffViewer | CONFLICTING | partial green | high | patch/re-resolve |
+| #207 | Fix XSS vulnerability in DiffViewer | CONFLICTING | partial green | high | merged, re-resolved, verified |
 | #208 | Optimize regex pattern matching in psycholinguist | MERGEABLE | green | medium | merged, verified |
 | #209 | Add authentication to missing API endpoints | CONFLICTING | partial green | critical | merged, re-resolved, verified |
 
@@ -40,7 +40,7 @@ Purpose: track open PR intake, integration order, verification, and keep/drop de
 - [x] Wave 4: `#209`
 - [x] Wave 4: `#206`
 - [x] Wave 4: `#205`
-- [ ] Wave 5: `#207`
+- [x] Wave 5: `#207`
 
 ## Notes
 
@@ -65,3 +65,23 @@ Purpose: track open PR intake, integration order, verification, and keep/drop de
   - `#209`: preserved the existing `Request` parameter on `/compile` while adding `Depends(verify_api_key)`
   - `#206`: preserved auth on `/rag/upload` and added basename sanitization with `upload.txt` fallback
   - `#205`: preserved the Windows default DB path fix from `#200` and resolved only duplicate import/comment noise
+- Wave 5 verification:
+  - `python -m pytest tests/test_prompt_diff.py -q`
+  - `corepack pnpm install --frozen-lockfile`
+  - `corepack pnpm lint`
+  - `corepack pnpm build`
+  - static DiffViewer check confirmed `DOMPurify.sanitize`, client-only gating, and `dangerouslySetInnerHTML` use in the merged component
+
+## Final Keep / Drop
+
+- Keep on integration branch: `#200`, `#201`, `#202`, `#205`, `#206`, `#207`, `#208`, `#209`
+- Hold / drop as PR: `#203`, `#204`
+- Special review before `main`:
+  - `#209` because it changes public auth behavior across existing endpoints
+  - `#206` because it changes `/rag/upload` response contract for echoed filenames
+  - `#207` because it changes frontend rendering behavior and dependencies
+
+## Final Verification
+
+- `python -m pre_commit run --all-files`
+- `python -m pytest -q --cov=app --cov=cli --cov=api --cov-report=term-missing --cov-report=xml`
