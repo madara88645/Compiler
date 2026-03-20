@@ -114,6 +114,7 @@ def test_rag_upload_with_unusual_characters(client):
     # The original filename should be preserved in the response message since unusual chars are allowed
     assert "test@file#with$special%chars.py" in data["message"]
 
+
 def test_rag_upload_fallback_filename(client):
     """Upload with empty or hidden root paths like '.' should fallback to 'upload.txt'."""
     response = client.post(
