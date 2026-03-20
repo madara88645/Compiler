@@ -94,10 +94,42 @@ def test_rate_limit(test_key):
 
 
 def test_compile_no_key():
-    resp = client.post("/compile", json={"text": "hello"})
-    assert resp.status_code == 403
+    resp = client.post("/compile", json={"text": "hello", "v2": False})
+    assert resp.status_code == 200
 
 
 def test_compile_invalid_key():
-    resp = client.post("/compile", json={"text": "hello"}, headers={"x-api-key": "invalid"})
-    assert resp.status_code == 403
+    resp = client.post(
+        "/compile", json={"text": "hello", "v2": False}, headers={"x-api-key": "invalid"}
+    )
+    assert resp.status_code == 200
+
+
+def test_validate_no_key():
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_report = MagicMock()
+        mock_report.weaknesses = []
+        mock_report.strengths = ["clear"]
+        mock_report.suggestions = ["none"]
+        mock_report.score = 95
+        mock_report.category_scores = {}
+        mock_report.summary = "Looks good"
+        mock_get_compiler.return_value.worker.analyze_prompt.return_value = mock_report
+
+        resp = client.post("/validate", json={"text": "hello"})
+
+    assert resp.status_code == 200
+
+
+def test_optimize_no_key():
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_get_compiler.return_value.worker.optimize_prompt.return_value = "short prompt"
+
+        resp = client.post("/optimize", json={"text": "a much longer prompt"})
+
+    assert resp.status_code == 200
+
+
+def test_rag_stats_no_key():
+    resp = client.get("/rag/stats")
+    assert resp.status_code == 200

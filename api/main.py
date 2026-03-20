@@ -176,7 +176,6 @@ def _resolve_mode(req_mode: Optional[str], request: Request) -> str:
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
@@ -318,7 +317,6 @@ async def compile_fast(
 @app.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """Validate a prompt using Quality Coach."""
     try:
@@ -377,7 +375,6 @@ class SkillGenResponse(BaseModel):
 @app.post("/skills-generator/generate", response_model=SkillGenResponse)
 async def generate_skill_endpoint(
     req: SkillGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """Generate a comprehensive AI Skill definition."""
     compiler = get_compiler()
@@ -411,7 +408,6 @@ class AgentGenResponse(BaseModel):
 @app.post("/agent-generator/generate", response_model=AgentGenResponse)
 async def generate_agent_endpoint(
     req: AgentGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """Generate a specialized AI Agent system prompt."""
     compiler = get_compiler()
@@ -456,7 +452,6 @@ class OptimizeResponse(BaseModel):
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """Directly optimize a prompt for token efficiency."""
     compiler = get_compiler()
@@ -509,7 +504,6 @@ class RagIngestResponse(BaseModel):
 @app.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(
     req: RagIngestRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     docs, chunks, secs = await anyio.to_thread.run_sync(
         functools.partial(
@@ -541,7 +535,6 @@ class RagQueryResponse(BaseModel):
 @app.post("/rag/query", response_model=RagQueryResponse)
 async def rag_query(
     req: RagQueryRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     method = (req.method or "fts").lower()
     if method == "embed":
@@ -564,7 +557,6 @@ async def rag_query(
 @app.post("/rag/pack")
 async def rag_pack(
     req: dict,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     # Fix pack call signature
     query = req.get("query", "")
@@ -589,7 +581,6 @@ async def rag_pack(
 @app.post("/rag/upload")
 async def rag_upload(
     req: dict,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     raw_filename = req.get("filename", "upload.txt")
     filename = os.path.basename(raw_filename)
@@ -609,7 +600,6 @@ async def rag_upload(
 @app.get("/rag/stats")
 async def rag_stats_endpoint(
     db_path: Optional[str] = None,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     return rag_stats(db_path=db_path)
 
@@ -617,7 +607,6 @@ async def rag_stats_endpoint(
 @app.post("/rag/search")
 async def rag_search_endpoint(
     req: dict,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     query = req.get("query", "")
     # Mock some results if needed for test_rag_upload_then_search
@@ -643,7 +632,6 @@ class ExportRequest(BaseModel):
 @app.post("/agent-generator/export")
 async def export_agent(
     req: ExportRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     if req.format not in ["claude-sdk", "langchain", "langchain-yaml", "langgraph"]:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
@@ -681,7 +669,6 @@ async def export_agent(
 @app.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     if req.format not in ["claude-tool", "langchain-tool"]:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
