@@ -1,7 +1,6 @@
 """
 claude_sdk.py — Generate Claude SDK-compatible Python code and YAML config from AgentExportIR.
 """
-
 from __future__ import annotations
 
 import textwrap

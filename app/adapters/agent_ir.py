@@ -4,7 +4,6 @@ agent_ir.py — Parse Agent Generator markdown output into a structured IR.
 The Agent Generator produces consistent section headers (## Role, ## Goals, etc.).
 We exploit this to extract structured data without any LLM call.
 """
-
 from __future__ import annotations
 
 import re
