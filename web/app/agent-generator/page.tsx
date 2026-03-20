@@ -92,54 +92,64 @@ export default function AgentGenerator() {
 
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-zinc-300">Agent Description</label>
-              <p className="text-xs text-zinc-500">
+          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-y-auto">
+            <div className="flex flex-col gap-2 shrink-0">
+              <label htmlFor="agent-description" className="text-sm font-medium text-zinc-300">Agent Description</label>
+              <p id="agent-description-hint" className="text-xs text-zinc-500">
                 Describe the &quot;Vibe&quot;, Task, or Role of the agent you want to build. Be as specific or vague as you like.
               </p>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col relative group">
+            <div className="flex-1 min-h-[240px] md:min-h-[200px] flex flex-col relative group shrink-0">
               <textarea
-                className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                id="agent-description"
+                aria-describedby="agent-description-hint"
+                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-              <div
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5 shrink-0">
+              <button
+                role="switch"
+                aria-checked={multiAgent}
+                aria-labelledby="multi-agent-label"
+                aria-describedby="multi-agent-desc"
                 onClick={() => setMultiAgent(!multiAgent)}
-                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${multiAgent ? 'bg-green-500' : 'bg-zinc-700'}`}
+                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 shrink-0 ${multiAgent ? 'bg-green-500' : 'bg-zinc-700'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${multiAgent ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
+              </button>
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
-                <span className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>
+                <span id="multi-agent-label" className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
+                <span id="multi-agent-desc" className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-              <div
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5 shrink-0">
+              <button
+                role="switch"
+                aria-checked={includeExampleCode}
+                aria-labelledby="example-code-label"
+                aria-describedby="example-code-desc"
                 onClick={() => setIncludeExampleCode(v => !v)}
-                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? 'bg-blue-500' : 'bg-zinc-700'}`}
+                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 shrink-0 ${includeExampleCode ? 'bg-blue-500' : 'bg-zinc-700'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
+              </button>
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-zinc-200">Example Code?</span>
-                <span className="text-[10px] text-zinc-500">
+                <span id="example-code-label" className="text-xs font-medium text-zinc-200">Example Code?</span>
+                <span id="example-code-desc" className="text-[10px] text-zinc-500">
                   Yes = include example code, No = keep it code-free to avoid confusion
                 </span>
               </div>
             </div>
 
             {history.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-zinc-300">Previous results</label>
+              <div className="flex flex-col gap-2 shrink-0">
+                <label htmlFor="previous-results" className="text-xs font-medium text-zinc-300">Previous results</label>
                 <select
                   className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
                   defaultValue=""
