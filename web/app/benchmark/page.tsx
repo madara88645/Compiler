@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import DiffViewer from "../components/DiffViewer";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 type BenchmarkPayload = {
     raw_output: string;
@@ -73,7 +73,7 @@ export default function BenchmarkPage() {
 
             // --- Real API call ---
             const apiModel = modelApiMap[selectedModel] || selectedModel;
-            const res = await fetch(`${API_BASE}/benchmark/run`, {
+            const res = await apiFetch("/benchmark/run", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: prompt, model: apiModel }),

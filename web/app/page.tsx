@@ -25,7 +25,7 @@ type CompileResponse = {
   };
 };
 
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 import InfoButton from "./components/InfoButton";
 
@@ -92,7 +92,7 @@ export default function Home() {
       const timeoutId = setTimeout(() => controller.abort(), 190000);
 
       try {
-        const resV2 = await fetch(`${API_BASE}/compile`, {
+        const resV2 = await apiFetch("/compile", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -148,7 +148,7 @@ export default function Home() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 190000);
 
-      const resV2 = await fetch(`${API_BASE}/compile`, {
+      const resV2 = await apiFetch("/compile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

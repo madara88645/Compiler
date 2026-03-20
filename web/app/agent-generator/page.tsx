@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
 import ExportPanel from "./components/ExportPanel";
@@ -24,7 +24,7 @@ export default function AgentGenerator() {
     setResult(null);
 
     try {
-      const res = await fetch(`${API_BASE}/agent-generator/generate`, {
+      const res = await apiFetch("/agent-generator/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

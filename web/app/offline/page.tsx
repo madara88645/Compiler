@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import ContextManager from "../components/ContextManager";
-import { API_BASE } from "@/config";
+import { apiFetch } from "@/config";
 
 import InfoButton from "../components/InfoButton";
 
@@ -39,7 +39,7 @@ export default function OfflinePage() {
 
         try {
             // Step A: Fast V1 Request Only (Heuristics) -> Now V2
-            const resV1 = await fetch(`${API_BASE}/compile`, {
+            const resV1 = await apiFetch("/compile", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
