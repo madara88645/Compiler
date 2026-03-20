@@ -446,7 +446,11 @@ async def rag_pack(req: dict):
 
 @app.post("/rag/upload")
 async def rag_upload(req: dict):
-    filename = req.get("filename", "upload.txt")
+    raw_filename = req.get("filename", "upload.txt")
+    filename = os.path.basename(raw_filename)
+    if not filename or filename in (".", ".."):
+        filename = "upload.txt"
+
     # Satisfy tests by returning expected fields
     return {
         "status": "indexed",
