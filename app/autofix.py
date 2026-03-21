@@ -233,9 +233,12 @@ def auto_fix_prompt(text: str, max_fixes: int = 5, min_score_target: float = 75.
             new_text = fixed_text
             fix_type = ""
 
+            # Re-evaluate lowercase text inside the loop so it's not stale after modifications
+            fixed_text_lower = fixed_text.lower()
+
             # Fix vague terms - check actual text, not just IR
             if "vague" in issue.message.lower() or any(
-                term in fixed_text.lower() for term in ["something", "stuff", "maybe", "probably"]
+                term in fixed_text_lower for term in ["something", "stuff", "maybe", "probably"]
             ):
                 new_text, changes = _replace_vague_terms(fixed_text)
                 if changes:
