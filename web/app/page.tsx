@@ -25,8 +25,6 @@ type CompileResponse = {
   };
 };
 
-import { API_BASE } from "@/config";
-
 import InfoButton from "./components/InfoButton";
 
 export default function Home() {

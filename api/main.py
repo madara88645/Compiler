@@ -109,7 +109,7 @@ class CompileResponse(BaseModel):
 @app.post("/compile", response_model=CompileResponse)
 def compile_endpoint(
     req: CompileRequest,
-    api_key: APIKey = Depends(verify_api_key),
+    _api_key: APIKey = Depends(verify_api_key),
 ):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()

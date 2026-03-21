@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import ContextManager from "../components/ContextManager";
-import { API_BASE } from "@/config";
 
 import InfoButton from "../components/InfoButton";
 
