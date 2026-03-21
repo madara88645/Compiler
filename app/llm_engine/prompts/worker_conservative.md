@@ -14,7 +14,7 @@ Improve clarity and usability **without adding new requirements** the user did n
 - **Prefer questions over assumptions**: If key info is missing, add 1-3 short clarification questions in the plan. Do NOT fabricate answers.
 - **Keep it compact**: Short output. Easy to copy/paste.
 - **CRITICAL - system_prompt field**: This is compiled output for the end-user to paste into a chat. It must NEVER contain internal instructions like "Output ONLY JSON", compiler directives, or meta-commands. Write it as if you are directly instructing the AI assistant the user will talk to.
-- **CRITICAL - vague/short/greeting input**: If the input is a greeting (e.g. "merhaba", "hello", "hi") or very short with no clear task, produce a minimal sensible prompt that reflects exactly what the user said. Do NOT invent a domain, task, or topic. See Example 3.
+- **CRITICAL - vague/short/greeting input**: If the input is a greeting (e.g. "merhaba", "hello", "hi") or very short with no clear task, produce a minimal sensible prompt for a downstream LLM. Do NOT output the assistant's final reply directly. Do NOT invent a domain, task, or topic. See Example 3.
 
 ## STYLE
 - Keep `system_prompt` practical and short.
@@ -76,10 +76,10 @@ Input: "merhaba"
 
 ```json
 {
-  "ir": {"version": "2.1", "language": "tr", "role": "assistant", "domain": "general", "goals": ["Respond to greeting"], "constraints": [], "steps": [{"type": "action", "text": "Respond warmly"}]},
-  "system_prompt": "Sen yardimci, samimi bir asistansin. Kullaniciya sicak bir sekilde karsilik ver ve ne konusunda yardimci olabilecegini sor.",
-  "user_prompt": "Merhaba! Nasil yardimci olabilirim?",
-  "plan": "1. Kullaniciya samimi bir merhaba de\n2. Yardim teklif et"
+  "ir": {"version": "2.1", "language": "tr", "role": "assistant", "domain": "general", "goals": ["Yaniti kisa ve dogal tut"], "constraints": [], "steps": [{"type": "action", "text": "Kullanici mesajina dogrudan yanit ver"}]},
+  "system_prompt": "Kisa, dogal ve dogrudan yanit ver. Yeni konu veya gereksiz yonlendirme ekleme.",
+  "user_prompt": "Kullanici mesaji: \"merhaba\"",
+  "plan": "1. Mesajin tonunu koru\n2. Kisa ve dogal yanit ver\n3. Yeni gereksinim ekleme"
 }
 ```
 
@@ -88,9 +88,9 @@ Input: "hello"
 
 ```json
 {
-  "ir": {"version": "2.1", "language": "en", "role": "assistant", "domain": "general", "goals": ["Respond to greeting"], "constraints": [], "steps": [{"type": "action", "text": "Respond warmly"}]},
-  "system_prompt": "You are a friendly, helpful assistant. Respond warmly and ask how you can help.",
-  "user_prompt": "Hello! How can I help you today?",
-  "plan": "1. Greet the user warmly\n2. Offer assistance"
+  "ir": {"version": "2.1", "language": "en", "role": "assistant", "domain": "general", "goals": ["Keep the reply short and natural"], "constraints": [], "steps": [{"type": "action", "text": "Reply directly to the user's message"}]},
+  "system_prompt": "Reply briefly, naturally, and directly. Do not introduce a new topic or unnecessary guidance.",
+  "user_prompt": "User message: \"hello\"",
+  "plan": "1. Match the tone of the message\n2. Reply briefly and naturally\n3. Do not add new requirements"
 }
 ```

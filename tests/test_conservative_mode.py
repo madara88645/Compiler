@@ -17,6 +17,9 @@ from app.emitters import (
     _is_trivial_input,
     _minimal_greeting_prompt,
 )
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+from api.main import app
 
 
 # ---------------------------------------------------------------------------
@@ -67,15 +70,16 @@ def test_trivial_input_not_triggered_for_medium_complexity():
 
 def test_minimal_greeting_english():
     result = _minimal_greeting_prompt("hello", "en")
-    assert "Hello" in result
-    assert "help" in result.lower()
+    assert "user message" in result.lower()
+    assert '"hello"' in result.lower()
+    assert "how can i help" not in result.lower()
 
 
 def test_minimal_greeting_turkish():
     result = _minimal_greeting_prompt("merhaba", "tr")
-    assert "Merhaba" in result
-    # Should contain a Turkish offer to help
-    assert "yardim" in result.lower() or "yardım" in result.lower()
+    assert "kullanici mesaji" in result.lower()
+    assert '"merhaba"' in result.lower()
+    assert "yardimci olabilirim" not in result.lower()
 
 
 def test_minimal_greeting_no_boilerplate():
@@ -85,6 +89,13 @@ def test_minimal_greeting_no_boilerplate():
     assert "Follow-up Questions" not in result
     assert "Which success metrics" not in result
     assert "Example output format" not in result
+
+
+def test_minimal_greeting_is_instruction_not_assistant_reply():
+    result = _minimal_greeting_prompt("hello", "en")
+    assert "reply briefly" in result.lower()
+    assert "hello!" not in result.lower()
+    assert "how can i help" not in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +162,40 @@ def test_greeting_v2_turkish_conservative_returns_minimal(monkeypatch):
     result = emit_expanded_prompt_v2(ir2)
     assert "Generate clear, actionable suggestions" not in result
     assert len(result.strip()) > 0
+
+
+def test_greeting_v2_is_instruction_not_chat_reply(monkeypatch):
+    _force_conservative(monkeypatch)
+    ir2 = compile_text_v2("merhaba", offline_only=True)
+    result = emit_expanded_prompt_v2(ir2)
+    assert "kullanici mesaji" in result.lower()
+    assert "yardimci olabilirim" not in result.lower()
+
+
+def test_compile_endpoint_forces_instruction_prompt_for_trivial_input(monkeypatch):
+    _force_conservative(monkeypatch)
+    ir2 = compile_text_v2("merhaba", offline_only=True)
+    mock_response = MagicMock()
+    mock_response.ir = ir2
+    mock_response.system_prompt = ""
+    mock_response.user_prompt = "Merhaba! Nasil yardimci olabilirim?"
+    mock_response.plan = "1. Selam ver"
+    mock_response.optimized_content = "Merhaba! Nasil yardimci olabilirim?"
+
+    mock_compiler = MagicMock()
+    mock_compiler.compile.return_value = mock_response
+
+    with patch("api.main.get_compiler", return_value=mock_compiler):
+        client = TestClient(app)
+        response = client.post(
+            "/compile",
+            json={"text": "merhaba", "v2": True, "render_v2_prompts": True, "mode": "conservative"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "kullanici mesaji" in data["expanded_prompt_v2"].lower()
+    assert "yardimci olabilirim" not in data["expanded_prompt_v2"].lower()
 
 
 def test_substantive_v2_still_expands(monkeypatch):

@@ -26,6 +26,7 @@ from app.emitters import (
     emit_user_prompt_v2,
     emit_plan_v2,
     emit_expanded_prompt_v2,
+    _is_trivial_input,
 )
 from app.rag.simple_index import (
     ingest_paths,
@@ -174,6 +175,16 @@ def _resolve_mode(req_mode: Optional[str], request: Request) -> str:
     return (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
 
 
+def _forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -> str | None:
+    """Force deterministic trivial-input handling for downstream prompt output."""
+    if ir2 is None:
+        return None
+    complexity = (ir2.metadata or {}).get("complexity") or ""
+    if _is_trivial_input(text, ir2.domain, complexity):
+        return emit_expanded_prompt_v2(ir2, diagnostics=diagnostics)
+    return None
+
+
 @app.post("/compile", response_model=CompileResponse)
 def compile_endpoint(
     req: CompileRequest,
@@ -216,6 +227,11 @@ def compile_endpoint(
     else:
         # Offline Mode: Use local V2 Heuristics
         pass
+
+    if mode != "default":
+        forced_expanded = _forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
+        if forced_expanded:
+            exp_v2 = forced_expanded
 
     # Optional: render prompts with IR v2 emitters (fallback if LLM didn't provide)
     if req.render_v2_prompts and ir2 is not None:
@@ -293,17 +309,21 @@ async def compile_fast(
             res = compiler.worker.process(req.text, mode=mode)
             compiler.cache[cache_key] = res
 
+        forced_expanded = None
+        if mode != "default":
+            forced_expanded = _forced_minimal_expanded_prompt(req.text, res.ir)
+
         return {
             "ir": res.ir.model_dump(),
             "ir_v2": res.ir.model_dump(),
             "system_prompt": res.system_prompt,
             "user_prompt": res.user_prompt,
             "plan": res.plan,
-            "expanded_prompt": res.optimized_content,
+            "expanded_prompt": forced_expanded or res.optimized_content,
             "system_prompt_v2": res.system_prompt,
             "user_prompt_v2": res.user_prompt,
             "plan_v2": res.plan,
-            "expanded_prompt_v2": res.optimized_content,
+            "expanded_prompt_v2": forced_expanded or res.optimized_content,
             "processing_ms": int((time.time() - start) * 1000),
             "request_id": "fast_" + str(int(time.time())),
             "heuristic_version": "v2-fast",
