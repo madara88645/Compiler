@@ -2,7 +2,6 @@
 
 import { useDeferredValue, useMemo, useEffect, useState } from "react";
 import { diff_match_patch, DIFF_INSERT, DIFF_DELETE, DIFF_EQUAL } from "diff-match-patch";
-import DOMPurify from "dompurify";
 
 interface DiffViewerProps {
     oldText: string;
@@ -40,10 +39,10 @@ function buildDarkThemeHtml(diffs: [number, string][]): string {
 
 export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
     const [isClient, setIsClient] = useState(false);
+    const [sanitizedHtml, setSanitizedHtml] = useState<string | null>(null);
 
     useEffect(() => {
-        const timer = setTimeout(() => setIsClient(true), 0);
-        return () => clearTimeout(timer);
+        setIsClient(true);
     }, []);
 
     // Stabilize both texts as a single object so they are always deferred atomically,
@@ -51,24 +50,48 @@ export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
     const texts = useMemo(() => ({ oldText, newText }), [oldText, newText]);
     const deferredTexts = useDeferredValue(texts);
 
-    const htmlContent = useMemo(() => {
+    const rawHtmlContent = useMemo(() => {
         try {
             const dmp = new diff_match_patch();
             const diffs = dmp.diff_main(deferredTexts.oldText, deferredTexts.newText);
             dmp.diff_cleanupSemantic(diffs);
-            // Use our custom builder instead of diff_prettyHtml
-            const rawHtml = buildDarkThemeHtml(diffs);
-
-            // Sanitize HTML output to prevent XSS vulnerabilities when rendered via dangerouslySetInnerHTML
-            // Only run DOMPurify on the client side to avoid SSR errors
-            return typeof window !== 'undefined' ? DOMPurify.sanitize(rawHtml) : rawHtml;
+            return buildDarkThemeHtml(diffs);
         } catch {
             return "<div>Error loading diff tool</div>";
         }
     }, [deferredTexts]);
 
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!isClient) {
+            return undefined;
+        }
+
+        setSanitizedHtml(null);
+
+        async function sanitizeHtml() {
+            try {
+                const { default: DOMPurify } = await import("dompurify");
+                if (!cancelled) {
+                    setSanitizedHtml(DOMPurify.sanitize(rawHtmlContent));
+                }
+            } catch {
+                if (!cancelled) {
+                    setSanitizedHtml(rawHtmlContent);
+                }
+            }
+        }
+
+        void sanitizeHtml();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isClient, rawHtmlContent]);
+
     // Avoid hydration mismatch by not rendering the dangerouslySetInnerHTML until client mounts
-    if (!isClient) {
+    if (!isClient || sanitizedHtml === null) {
         return <div className="w-full h-full bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col">
             <div className="px-4 py-2 border-b border-white/5 bg-white/5 flex items-center justify-between shrink-0">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Semantic Diff</span>
@@ -92,7 +115,7 @@ export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
             </div>
             <div
                 className="p-4 font-mono text-xs md:text-sm text-zinc-300 overflow-auto whitespace-pre-wrap leading-relaxed diff-content flex-1"
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
             />
             <style jsx global>{`
                 .diff-content .diff-added {

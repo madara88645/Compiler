@@ -231,18 +231,16 @@ def detect_sentiment(text: str) -> UserSentiment:
     return UserSentiment.NEUTRAL
 
 
-_TR_FORMAL_REGEX = re.compile("|".join(TR_FORMAL_PATTERNS))
-_TR_INFORMAL_REGEX = re.compile("|".join(TR_INFORMAL_PATTERNS))
+_TR_FORMAL_REGEXES = [re.compile(pattern) for pattern in TR_FORMAL_PATTERNS]
+_TR_INFORMAL_REGEXES = [re.compile(pattern) for pattern in TR_INFORMAL_PATTERNS]
 
 
 def detect_formality(text: str) -> FormalityLevel:
     """Detect Turkish formality level (Siz vs Sen)."""
     text_lower = text.lower()
 
-    # Bolt Optimization: joined regexes with set() avoid the overhead of multiple `re.search`
-    # calls while correctly counting the number of distinct patterns matched.
-    formal_score = len(set(_TR_FORMAL_REGEX.findall(text_lower)))
-    informal_score = len(set(_TR_INFORMAL_REGEX.findall(text_lower)))
+    formal_score = sum(1 for regex in _TR_FORMAL_REGEXES if regex.search(text_lower))
+    informal_score = sum(1 for regex in _TR_INFORMAL_REGEXES if regex.search(text_lower))
 
     if formal_score > informal_score:
         return FormalityLevel.FORMAL

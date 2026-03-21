@@ -1,5 +1,9 @@
 import pytest
-from app.heuristics.handlers.psycholinguist import PsycholinguistHandler
+from app.heuristics.handlers.psycholinguist import (
+    FormalityLevel,
+    PsycholinguistHandler,
+    detect_formality,
+)
 from app.models_v2 import IRv2
 from app.models import IR
 
@@ -497,3 +501,7 @@ def test_cultural_detection_tie_break(handler):
 
     assert ir_v2.metadata["cultural_context"] == "British"
     assert "(Use British English norms)" in ir_v2.role
+
+
+def test_detect_formality_counts_distinct_patterns_not_repeated_matches():
+    assert detect_formality("siz siz sen") == FormalityLevel.UNKNOWN

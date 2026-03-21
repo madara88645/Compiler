@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -45,6 +46,7 @@ def test_jules_reply_endpoint_uses_latest_agent_message():
     mock_client.send_message.assert_called_once_with("session-123", "Short automated answer")
 
 
+@pytest.mark.auth_required
 def test_jules_sources_endpoint_requires_auth():
     client = TestClient(app)
 
