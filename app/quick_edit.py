@@ -107,7 +107,28 @@ class QuickEditor:
             editor = self.get_editor()
 
             # Open editor
-            result = subprocess.run(shlex.split(editor) + [temp_path])
+            try:
+                editor_cmd = shlex.split(editor, posix=os.name != "nt")
+            except ValueError as exc:
+                console.print(
+                    f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]"
+                )
+                return None
+
+            if os.name == "nt":
+                editor_cmd = [
+                    part[1:-1] if len(part) >= 2 and part[0] == part[-1] == '"' else part
+                    for part in editor_cmd
+                ]
+
+            editor_cmd = [part for part in editor_cmd if part]
+            if not editor_cmd:
+                console.print(
+                    "[red]⚠️ EDITOR/VISUAL environment variable is empty or invalid.[/red]"
+                )
+                return None
+
+            result = subprocess.run(editor_cmd + [temp_path])
 
             if result.returncode != 0:
                 console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
