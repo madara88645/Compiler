@@ -151,6 +151,7 @@ export default function AgentGenerator() {
               <div className="flex flex-col gap-2 shrink-0">
                 <label htmlFor="previous-results" className="text-xs font-medium text-zinc-300">Previous results</label>
                 <select
+                  id="previous-results"
                   className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
                   defaultValue=""
                   onChange={(e) => {
