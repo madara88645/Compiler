@@ -548,16 +548,21 @@ def extract_entities(text: str) -> list[str]:
 
 
 def estimate_complexity(text: str) -> str:
+    # Bolt Optimization: compute lower once and use it instead of redundant calls
+    # and lower() generators.
+    lower = text.lower()
     length = len(text.split())
-    unique = len(set(w.lower() for w in re.findall(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9]+", text)))
+    # Keep uppercase letters in regex pattern so it accurately matches tokens
+    # that contain combining character variants when lowered (e.g. \u0307)
+    unique = len(set(re.findall(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9\u0307]+", lower)))
     score = 0
     if length > 40:
         score += 1
     if unique > 30:
         score += 1
-    if any(k in text.lower() for k in [" vs ", "compare", "karşılaştır"]):
+    if any(k in lower for k in [" vs ", "compare", "karşılaştır"]):
         score += 1
-    if any(k in text.lower() for k in ["teach", "öğret", "explain"]):
+    if any(k in lower for k in ["teach", "öğret", "explain"]):
         score += 1
     return "high" if score >= 3 else "medium" if score == 2 else "low"
 
