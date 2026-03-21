@@ -12,3 +12,7 @@
 **Vulnerability:** The application used `subprocess.run([editor, temp_path])` where `editor` could be derived from `os.environ.get("EDITOR")`. A malicious string with arguments or embedded shell commands (if shell=True was added later) could cause unexpected execution.
 **Learning:** Directly passing unstructured environment variables like `EDITOR` into `subprocess.run()` without splitting them can lead to command execution bugs (e.g., `nano -w` failing as "nano -w" file not found) or security vulnerabilities if the path allows arbitrary strings.
 **Prevention:** Always use `shlex.split()` to safely tokenize shell-like strings containing arguments before passing them as the first argument to `subprocess.run()`.
+## 2025-05-30 - Fix Insecure Absolute Fallback Paths for Local Databases
+**Vulnerability:** The application used a hardcoded absolute fallback path (`C:\`) to construct the default database directory when the `USERPROFILE` environment variable was missing on Windows systems (e.g., in `app/history/manager.py` and `app/rag/simple_index.py`).
+**Learning:** Hardcoding root directories like `C:\` as fallbacks for storing sensitive user databases exposes data cross-user, and often leads to permission errors or path traversal vulnerabilities in environments with restricted permissions.
+**Prevention:** Always use safe, dynamic cross-platform resolution methods like `os.path.expanduser('~')` as fallbacks to ensure user-specific data is safely scoped to their personal home directory.
