@@ -608,6 +608,29 @@ class DomainHandler(BaseHandler):
                 pattern = r"\b(" + "|".join(re.escape(k) for k in keywords) + r")\b"
                 self._domain_keywords[domain] = re.compile(pattern, re.IGNORECASE)
 
+        # Pre-compile universal checks for coding
+        for check_rules in DOMAIN_RULES["coding"]["universal_checks"].values():
+            if "missing_patterns" in check_rules and "compiled_missing_patterns" not in check_rules:
+                check_rules["compiled_missing_patterns"] = [
+                    re.compile(p) for p in check_rules["missing_patterns"]
+                ]
+            if "risk_patterns" in check_rules and "compiled_risk_patterns" not in check_rules:
+                check_rules["compiled_risk_patterns"] = [
+                    re.compile(p) for p in check_rules["risk_patterns"]
+                ]
+
+        # Pre-compile business required elements
+        for element_rules in DOMAIN_RULES["business"]["required_elements"].values():
+            if "patterns" in element_rules and "compiled_patterns" not in element_rules:
+                element_rules["compiled_patterns"] = [
+                    re.compile(p) for p in element_rules["patterns"]
+                ]
+
+        # Pre-compile data science checks
+        for check_rules in DOMAIN_RULES["data_science"]["checks"].values():
+            if "patterns" in check_rules and "compiled_patterns" not in check_rules:
+                check_rules["compiled_patterns"] = [re.compile(p) for p in check_rules["patterns"]]
+
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
         Apply domain-specific heuristics to enhance IR.
@@ -791,12 +814,12 @@ class DomainHandler(BaseHandler):
 
         # Check universal coding requirements
         for check_name, check_rules in rules["universal_checks"].items():
-            missing_patterns = check_rules.get("missing_patterns", [])
+            missing_patterns = check_rules.get("compiled_missing_patterns", [])
 
             # Check if any pattern matches
             has_mention = False
             for pattern in missing_patterns:
-                if re.search(pattern, text_lower):
+                if pattern.search(text_lower):
                     has_mention = True
                     break
 
@@ -806,7 +829,8 @@ class DomainHandler(BaseHandler):
 
             # Special case: Security Scanning (Expanded)
             if check_name == "security":
-                self._scan_for_secrets(text, analysis)
+                risk_patterns = check_rules.get("compiled_risk_patterns", [])
+                self._scan_for_secrets(text, analysis, risk_patterns)
 
         # Snippet Injection
         self._inject_snippets(text, analysis)
@@ -900,7 +924,9 @@ class DomainHandler(BaseHandler):
                 )
             )
 
-    def _scan_for_secrets(self, text: str, analysis: DomainAnalysis) -> None:
+    def _scan_for_secrets(
+        self, text: str, analysis: DomainAnalysis, additional_patterns: List[re.Pattern] = None
+    ) -> None:
         """Scan for API keys, tokens, and secrets using regex."""
         # Common secret patterns
         patterns = [
@@ -910,9 +936,16 @@ class DomainHandler(BaseHandler):
             r"https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@",  # Basic Auth in URL
         ]
 
+        # NOTE: the original code hardcoded patterns here and didn't actually use the risk_patterns
+        # from the universal_checks dictionary. We will use both for thoroughness, but pre-compile the local ones once.
+        if not hasattr(self, "_compiled_secret_patterns"):
+            self._compiled_secret_patterns = [re.compile(p) for p in patterns]
+
         found = False
-        for p in patterns:
-            if re.search(p, text):
+        all_patterns = self._compiled_secret_patterns + (additional_patterns or [])
+
+        for p in all_patterns:
+            if p.search(text):
                 found = True
                 break
 
@@ -939,8 +972,13 @@ class DomainHandler(BaseHandler):
         scores: Dict[str, int] = {}
 
         for lang, rules in language_rules.items():
-            indicators = rules.get("indicators", [])
-            score = sum(1 for ind in indicators if ind.lower() in text_lower)
+            # some indicators might have uppercase chars (e.g. C# if we had it), we pre-compute lower()
+            if "compiled_indicators" not in rules:
+                rules["compiled_indicators"] = [ind.lower() for ind in rules.get("indicators", [])]
+
+            indicators_lower = rules["compiled_indicators"]
+            # checking `ind in text_lower` avoids allocating strings in .lower() on every run
+            score = sum(1 for ind in indicators_lower if ind in text_lower)
             if score > 0:
                 scores[lang] = score
 
@@ -1027,8 +1065,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for element_name, element_rules in rules["required_elements"].items():
-            patterns = element_rules.get("patterns", [])
-            has_mention = any(re.search(p, text_lower) for p in patterns)
+            patterns = element_rules.get("compiled_patterns", [])
+            has_mention = any(p.search(text_lower) for p in patterns)
 
             if not has_mention:
                 analysis.suggestions.append(element_rules["suggestion"])
@@ -1088,8 +1126,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for check_name, check_rules in rules["checks"].items():
-            patterns = check_rules.get("patterns", [])
-            has_mention = any(re.search(p, text_lower) for p in patterns)
+            patterns = check_rules.get("compiled_patterns", [])
+            has_mention = any(p.search(text_lower) for p in patterns)
 
             if not has_mention:
                 analysis.suggestions.append(check_rules["suggestion"])
