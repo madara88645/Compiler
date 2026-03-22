@@ -189,6 +189,7 @@ def _forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
@@ -339,6 +340,7 @@ async def compile_fast(
 @app.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Validate a prompt using Quality Coach."""
     try:
@@ -397,6 +399,7 @@ class SkillGenResponse(BaseModel):
 @app.post("/skills-generator/generate", response_model=SkillGenResponse)
 async def generate_skill_endpoint(
     req: SkillGenRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Generate a comprehensive AI Skill definition."""
     compiler = get_compiler()
@@ -430,6 +433,7 @@ class AgentGenResponse(BaseModel):
 @app.post("/agent-generator/generate", response_model=AgentGenResponse)
 async def generate_agent_endpoint(
     req: AgentGenRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Generate a specialized AI Agent system prompt."""
     compiler = get_compiler()
@@ -474,6 +478,7 @@ class OptimizeResponse(BaseModel):
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Directly optimize a prompt for token efficiency."""
     compiler = get_compiler()
