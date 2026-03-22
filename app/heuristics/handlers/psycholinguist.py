@@ -181,9 +181,16 @@ def detect_cultural_context(text: str) -> Optional[str]:
     text_lower = text.lower()
 
     # Check spelling
-    # Bolt Optimization: direct string `in` check is faster than `re.search` without word boundaries
-    uk_score = sum(1 for p in UK_SPELLING if p in text_lower)
-    us_score = sum(1 for p in US_SPELLING if p in text_lower)
+    # Bolt Optimization: explicit loops are faster than generator expressions
+    uk_score = 0
+    for p in UK_SPELLING:
+        if p in text_lower:
+            uk_score += 1
+
+    us_score = 0
+    for p in US_SPELLING:
+        if p in text_lower:
+            us_score += 1
 
     if uk_score > us_score:
         return "British"
