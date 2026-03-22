@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 from api.main import app
 from api.auth import APIKey, SessionLocal
+from app.compiler import compile_text_v2
 
 client = TestClient(app)
 
@@ -54,6 +55,30 @@ def test_compile_fast_success(test_key):
         data = resp.json()
         assert data["heuristic_version"] == "v2-fast"
         assert "processing_ms" in data
+
+
+def test_compile_fast_trivial_input_forces_instruction_prompt(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        ir2 = compile_text_v2("merhaba", offline_only=True)
+        mock_res = MagicMock()
+        mock_res.ir = ir2
+        mock_res.system_prompt = "Sen yardimci bir asistansin."
+        mock_res.user_prompt = "Merhaba! Nasil yardimci olabilirim?"
+        mock_res.plan = "1. Selam ver"
+        mock_res.optimized_content = "Merhaba! Nasil yardimci olabilirim?"
+
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast",
+            json={"text": "merhaba", "mode": "conservative"},
+            headers={"x-api-key": test_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "kullanici mesaji" in data["expanded_prompt_v2"].lower()
+        assert "yardimci olabilirim" not in data["expanded_prompt_v2"].lower()
 
 
 def test_compile_fast_internal_error(test_key):

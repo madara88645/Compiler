@@ -109,7 +109,27 @@ class QuickEditor:
             # Open editor
             # Safely parse the editor string into arguments to handle cases like "nano -w"
             # and prevent command injection if the EDITOR env var is maliciously crafted
-            editor_parts = shlex.split(editor)
+            try:
+                editor_parts = shlex.split(editor, posix=os.name != "nt")
+            except ValueError as exc:
+                console.print(
+                    f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]"
+                )
+                return None
+
+            if os.name == "nt":
+                editor_parts = [
+                    part[1:-1] if len(part) >= 2 and part[0] == part[-1] == '"' else part
+                    for part in editor_parts
+                ]
+
+            editor_parts = [part for part in editor_parts if part]
+            if not editor_parts:
+                console.print(
+                    "[red]⚠️ EDITOR/VISUAL environment variable is empty or invalid.[/red]"
+                )
+                return None
+
             editor_parts.append(temp_path)
 
             result = subprocess.run(editor_parts)

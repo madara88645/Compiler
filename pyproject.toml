@@ -65,3 +65,8 @@ all = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+	"auth_required: run the test without the global auth dependency override",
+]

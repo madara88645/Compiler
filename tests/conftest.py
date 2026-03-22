@@ -5,7 +5,9 @@ from api.auth import verify_api_key, APIKey
 
 @pytest.fixture(autouse=True)
 def override_auth_dependencies(request):
-    if request.module.__name__ == "tests.test_auth_fast_path":
+    if request.module.__name__ == "tests.test_auth_fast_path" or request.node.get_closest_marker(
+        "auth_required"
+    ):
         yield
         return
 
