@@ -189,6 +189,7 @@ def _forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
