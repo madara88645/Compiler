@@ -21,3 +21,25 @@ def test_editor_command_injection():
         assert args[2] == "-K"
         # The last argument should be the temp file path
         assert args[3].endswith(".txt")
+
+
+def test_editor_invalid_shell_syntax_returns_none():
+    editor = QuickEditor()
+
+    with patch("subprocess.run") as mock_run:
+        with patch.dict(os.environ, {"EDITOR": '"unterminated'}):
+            result = editor.edit_text_in_editor("test content")
+
+    assert result is None
+    mock_run.assert_not_called()
+
+
+def test_editor_empty_command_returns_none():
+    editor = QuickEditor()
+
+    with patch("subprocess.run") as mock_run:
+        with patch.dict(os.environ, {"EDITOR": "   "}):
+            result = editor.edit_text_in_editor("test content")
+
+    assert result is None
+    mock_run.assert_not_called()

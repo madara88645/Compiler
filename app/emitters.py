@@ -74,11 +74,23 @@ def _is_trivial_input(original_text: str, domain: str, complexity: str) -> bool:
 
 
 def _minimal_greeting_prompt(original_text: str, lang: str) -> str:
-    """Return a minimal, sensible prompt for greeting/very-short inputs instead of boilerplate."""
-    orig = original_text.strip()
-    if lang == "tr":
-        return f"{orig.capitalize()}\n\nNasil yardimci olabilirim?"
-    return f"{orig.capitalize()}\n\nHow can I help you?"
+    """Return a minimal downstream instruction for greeting/very-short inputs."""
+    orig = " ".join(original_text.strip().split())
+    if not orig:
+        orig = "hello" if lang != "tr" else "merhaba"
+    lowered = orig.lower()
+    turkish_markers = ("merhaba", "selam", "slm", "gunaydin", "iyi aksamlar", "nasilsin")
+    if lang == "tr" or any(marker in lowered for marker in turkish_markers):
+        return (
+            "Asagidaki kisa kullanici mesajina kisa, dogal ve dogrudan yanit ver. "
+            "Yeni konu ekleme veya gereksiz yonlendirme yapma.\n\n"
+            f'Kullanici mesaji: "{orig}"'
+        )
+    return (
+        "Reply briefly, naturally, and directly to the short user message below. "
+        "Do not introduce a new topic or unnecessary guidance.\n\n"
+        f'User message: "{orig}"'
+    )
 
 
 def emit_expanded_prompt(
