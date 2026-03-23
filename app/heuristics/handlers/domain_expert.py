@@ -608,6 +608,48 @@ class DomainHandler(BaseHandler):
                 pattern = r"\b(" + "|".join(re.escape(k) for k in keywords) + r")\b"
                 self._domain_keywords[domain] = re.compile(pattern, re.IGNORECASE)
 
+        # Compile universal checks (coding domain)
+        self._compiled_universal_checks: Dict[str, Dict[str, List[re.Pattern]]] = {}
+        for check_name, check_rules in DOMAIN_RULES["coding"]["universal_checks"].items():
+            compiled: Dict[str, List[re.Pattern]] = {}
+            for key in ("missing_patterns", "risk_patterns"):
+                target_key = key.replace("_patterns", "")  # "missing" or "risk"
+                raw = check_rules.get(key, [])
+                compiled[target_key] = [re.compile(p) for p in raw]
+            self._compiled_universal_checks[check_name] = compiled
+
+        # Compile business required_elements patterns
+        self._compiled_business_elements: Dict[str, List[re.Pattern]] = {}
+        for element_name, element_rules in DOMAIN_RULES["business"]["required_elements"].items():
+            raw = element_rules.get("patterns", [])
+            self._compiled_business_elements[element_name] = [re.compile(p) for p in raw]
+
+        # Compile data_science checks patterns
+        self._compiled_ds_checks: Dict[str, List[re.Pattern]] = {}
+        for check_name, check_rules in DOMAIN_RULES["data_science"]["checks"].items():
+            raw = check_rules.get("patterns", [])
+            self._compiled_ds_checks[check_name] = [re.compile(p) for p in raw]
+
+        # Compile secret scanning patterns
+        self._compiled_secret_patterns: List[re.Pattern] = [
+            re.compile(
+                r"(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]"
+            ),
+            re.compile(r"sk-[a-zA-Z0-9]{48}"),
+            re.compile(r"ghp_[a-zA-Z0-9]{36}"),
+            re.compile(r"https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@"),
+        ]
+
+        # Compile adverb pattern
+        self._compiled_adverb_pattern: re.Pattern = re.compile(
+            DOMAIN_RULES["creative_writing"]["style_checks"]["adverb_overuse"]["pattern"]
+        )
+
+        # Pre-lowercase language indicators
+        self._lowered_indicators: Dict[str, List[str]] = {}
+        for lang, rules in DOMAIN_RULES["coding"]["languages"].items():
+            self._lowered_indicators[lang] = [ind.lower() for ind in rules.get("indicators", [])]
+
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
         Apply domain-specific heuristics to enhance IR.
