@@ -61,9 +61,8 @@ export default function OptimizerPage() {
                 {/* Controls */}
                 <div className="flex items-center gap-4 bg-zinc-900/50 p-2 rounded-xl border border-white/5">
                     <div className="flex flex-col gap-1 px-2">
-                        <label htmlFor="max-tokens" className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Max Tokens</label>
+                        <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Max Tokens</label>
                         <input
-                            id="max-tokens"
                             type="range" min="100" max="4096" step="100"
                             value={maxTokens}
                             onChange={(e) => setMaxTokens(parseInt(e.target.value))}
