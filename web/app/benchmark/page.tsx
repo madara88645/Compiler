@@ -140,8 +140,9 @@ export default function BenchmarkPage() {
                     <div className="flex items-center gap-4">
                         {/* Model Selector */}
                         <div className="flex items-center gap-2 bg-black/30 rounded-lg p-1 border border-white/5">
-                            <span className="text-[10px] font-medium text-zinc-500 uppercase px-2">Model</span>
+                            <label htmlFor="benchmark-model" className="text-[10px] font-medium text-zinc-500 uppercase px-2">Model</label>
                             <select
+                                id="benchmark-model"
                                 value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
                                 className="text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none border-none cursor-pointer transition-colors"
@@ -177,6 +178,8 @@ export default function BenchmarkPage() {
                         <div className="flex-1 relative group">
                             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
                             <textarea
+                                id="benchmark-prompt"
+                                aria-label="Benchmark prompt input"
                                 className="w-full h-full bg-black/30 p-4 rounded-xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 font-mono text-sm leading-relaxed text-zinc-300 placeholder-zinc-600 transition-all shadow-inner"
                                 placeholder="Enter a prompt to start the battle...&#10;&#10;e.g. 'Write a python script to scrape data'"
                                 value={prompt}
