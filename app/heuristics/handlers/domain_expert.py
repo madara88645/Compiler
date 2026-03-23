@@ -833,14 +833,10 @@ class DomainHandler(BaseHandler):
 
         # Check universal coding requirements
         for check_name, check_rules in rules["universal_checks"].items():
-            missing_patterns = check_rules.get("missing_patterns", [])
+            compiled = self._compiled_universal_checks.get(check_name, {})
 
             # Check if any pattern matches
-            has_mention = False
-            for pattern in missing_patterns:
-                if re.search(pattern, text_lower):
-                    has_mention = True
-                    break
+            has_mention = any(p.search(text_lower) for p in compiled.get("missing", []))
 
             # If not mentioned, suggest it
             if not has_mention:
@@ -848,7 +844,7 @@ class DomainHandler(BaseHandler):
 
             # Special case: Security Scanning (Expanded)
             if check_name == "security":
-                self._scan_for_secrets(text, analysis)
+                self._scan_for_secrets(text, analysis, compiled.get("risk", []))
 
         # Snippet Injection
         self._inject_snippets(text, analysis)
@@ -942,21 +938,16 @@ class DomainHandler(BaseHandler):
                 )
             )
 
-    def _scan_for_secrets(self, text: str, analysis: DomainAnalysis) -> None:
-        """Scan for API keys, tokens, and secrets using regex."""
-        # Common secret patterns
-        patterns = [
-            r"(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]",
-            r"sk-[a-zA-Z0-9]{48}",  # OpenAI style
-            r"ghp_[a-zA-Z0-9]{36}",  # GitHub Personal Access Token
-            r"https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@",  # Basic Auth in URL
-        ]
+    def _scan_for_secrets(
+        self,
+        text: str,
+        analysis: DomainAnalysis,
+        additional_patterns: List[re.Pattern] = None,
+    ) -> None:
+        """Scan for API keys, tokens, and secrets using pre-compiled regex."""
+        all_patterns = self._compiled_secret_patterns + (additional_patterns or [])
 
-        found = False
-        for p in patterns:
-            if re.search(p, text):
-                found = True
-                break
+        found = any(p.search(text) for p in all_patterns)
 
         if found:
             analysis.suggestions.append(
@@ -980,13 +971,13 @@ class DomainHandler(BaseHandler):
         """Detect the programming language from text."""
         scores: Dict[str, int] = {}
 
-        for lang, rules in language_rules.items():
-            indicators = rules.get("indicators", [])
+        for lang in language_rules:
+            lowered = self._lowered_indicators.get(lang, [])
 
             # Bolt Optimization: Explicit loop is faster than generator expression
             score = 0
-            for ind in indicators:
-                if ind.lower() in text_lower:
+            for ind in lowered:
+                if ind in text_lower:
                     score += 1
 
             if score > 0:
@@ -1027,7 +1018,7 @@ class DomainHandler(BaseHandler):
 
         # Adverb check
         adverb_check = style_checks["adverb_overuse"]
-        adverbs = re.findall(adverb_check["pattern"], text_lower)
+        adverbs = self._compiled_adverb_pattern.findall(text_lower)
         words = text_lower.split()
         if words and len(adverbs) / len(words) > adverb_check["threshold"]:
             analysis.suggestions.append(adverb_check["suggestion"])
@@ -1075,8 +1066,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for element_name, element_rules in rules["required_elements"].items():
-            patterns = element_rules.get("patterns", [])
-            has_mention = any(re.search(p, text_lower) for p in patterns)
+            compiled = self._compiled_business_elements.get(element_name, [])
+            has_mention = any(p.search(text_lower) for p in compiled)
 
             if not has_mention:
                 analysis.suggestions.append(element_rules["suggestion"])
@@ -1136,8 +1127,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for check_name, check_rules in rules["checks"].items():
-            patterns = check_rules.get("patterns", [])
-            has_mention = any(re.search(p, text_lower) for p in patterns)
+            compiled = self._compiled_ds_checks.get(check_name, [])
+            has_mention = any(p.search(text_lower) for p in compiled)
 
             if not has_mention:
                 analysis.suggestions.append(check_rules["suggestion"])
