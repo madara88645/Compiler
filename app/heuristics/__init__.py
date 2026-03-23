@@ -209,7 +209,7 @@ def pick_persona(text: str) -> tuple[str, dict]:
     evidence: dict[str, list[str]] = {k: [] for k in PERSONA_KEYWORDS}
     for persona, pats in PERSONA_KEYWORDS.items():
         for p in pats:
-            if p in lower:
+            if re.search(p, lower):
                 scores[persona] += 1
                 evidence[persona].append(p)
     # choose highest score, tie -> deterministic alphabetical order of persona key

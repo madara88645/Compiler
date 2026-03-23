@@ -977,8 +977,13 @@ class DomainHandler(BaseHandler):
                 rules["compiled_indicators"] = [ind.lower() for ind in rules.get("indicators", [])]
 
             indicators_lower = rules["compiled_indicators"]
-            # checking `ind in text_lower` avoids allocating strings in .lower() on every run
-            score = sum(1 for ind in indicators_lower if ind in text_lower)
+
+            # Bolt Optimization: Explicit loop is faster than generator expression,
+            # and checking `ind in text_lower` avoids allocating strings in .lower() on every run
+            score = 0
+            for ind in indicators_lower:
+                if ind in text_lower:
+                    score += 1
             if score > 0:
                 scores[lang] = score
 

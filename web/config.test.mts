@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 const originalApiKey = process.env.NEXT_PUBLIC_API_KEY;
 
-test("buildApiHeaders adds x-api-key when NEXT_PUBLIC_API_KEY is set", async () => {
+test("buildApiHeaders does not inject x-api-key from NEXT_PUBLIC_API_KEY", async () => {
   process.env.NEXT_PUBLIC_API_KEY = "test-key";
 
   const { buildApiHeaders } = await import("./config.ts");
@@ -12,7 +12,7 @@ test("buildApiHeaders adds x-api-key when NEXT_PUBLIC_API_KEY is set", async () 
   const normalizedHeaders = new Headers(headers);
 
   assert.equal(normalizedHeaders.get("content-type"), "application/json");
-  assert.equal(normalizedHeaders.get("x-api-key"), "test-key");
+  assert.equal(normalizedHeaders.has("x-api-key"), false);
 });
 
 test("buildApiHeaders leaves headers unchanged when NEXT_PUBLIC_API_KEY is empty", async () => {
