@@ -94,7 +94,7 @@ export default function AgentGenerator() {
           {/* Left Panel: Input */}
           <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-zinc-300">Agent Description</label>
+              <label htmlFor="agent-description" className="text-sm font-medium text-zinc-300">Agent Description</label>
               <p className="text-xs text-zinc-500">
                 Describe the &quot;Vibe&quot;, Task, or Role of the agent you want to build. Be as specific or vague as you like.
               </p>
@@ -102,6 +102,7 @@ export default function AgentGenerator() {
 
             <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
+                id="agent-description"
                 className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
@@ -147,8 +148,9 @@ export default function AgentGenerator() {
 
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-zinc-300">Previous results</label>
+                <label htmlFor="agent-history" className="text-xs font-medium text-zinc-300">Previous results</label>
                 <select
+                  id="agent-history"
                   className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
                   defaultValue=""
                   onChange={(e) => {
