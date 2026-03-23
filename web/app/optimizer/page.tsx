@@ -115,7 +115,8 @@ export default function OptimizerPage() {
                                 className="w-full h-full bg-transparent resize-none outline-none text-emerald-100 font-mono text-sm selection:bg-emerald-500/30"
                             />
                             <button
-                                onClick={() => navigator.clipboard.writeText(output)}
+                                type="button"
+                                onClick={() => void navigator.clipboard.writeText(output).catch(() => {})}
                                 className="absolute bottom-4 right-4 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                                 title="Copy optimized result"
                                 aria-label="Copy optimized result"

@@ -844,7 +844,7 @@ class DomainHandler(BaseHandler):
 
             # Special case: Security Scanning (Expanded)
             if check_name == "security":
-                self._scan_for_secrets(text, analysis, compiled.get("risk", []))
+                self._scan_for_secrets(text, analysis)
 
         # Snippet Injection
         self._inject_snippets(text, analysis)
@@ -942,7 +942,7 @@ class DomainHandler(BaseHandler):
         self,
         text: str,
         analysis: DomainAnalysis,
-        additional_patterns: List[re.Pattern] = None,
+        additional_patterns: Optional[List[re.Pattern]] = None,
     ) -> None:
         """Scan for API keys, tokens, and secrets using pre-compiled regex."""
         all_patterns = self._compiled_secret_patterns + (additional_patterns or [])

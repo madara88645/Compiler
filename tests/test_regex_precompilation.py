@@ -68,7 +68,8 @@ class TestPrecompiledPatternsWork:
         assert found
 
     def test_secret_pattern_detects_github_token(self, handler):
-        text = "token = ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+        # Use a clearly fake token that matches the ghp_ pattern (36 alphanumeric chars)
+        text = "token = ghp_" + "x" * 36  # nosec: fake test token
         found = any(p.search(text) for p in handler._compiled_secret_patterns)
         assert found
 
