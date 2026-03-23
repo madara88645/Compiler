@@ -95,7 +95,7 @@ export default function AgentGenerator() {
           <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
             <div className="flex flex-col gap-2">
               <label htmlFor="agent-description" className="text-sm font-medium text-zinc-300">Agent Description</label>
-              <p className="text-xs text-zinc-500">
+              <p id="agent-description-help" className="text-xs text-zinc-500">
                 Describe the &quot;Vibe&quot;, Task, or Role of the agent you want to build. Be as specific or vague as you like.
               </p>
             </div>
@@ -103,6 +103,7 @@ export default function AgentGenerator() {
             <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
                 id="agent-description"
+                aria-describedby="agent-description-help"
                 className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
