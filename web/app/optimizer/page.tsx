@@ -61,9 +61,9 @@ export default function OptimizerPage() {
                 {/* Controls */}
                 <div className="flex items-center gap-4 bg-zinc-900/50 p-2 rounded-xl border border-white/5">
                     <div className="flex flex-col gap-1 px-2">
-                        <label htmlFor="maxTokens" className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Max Tokens</label>
+                        <label htmlFor="max-tokens" className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Max Tokens</label>
                         <input
-                            id="maxTokens"
+                            id="max-tokens"
                             type="range" min="100" max="4096" step="100"
                             value={maxTokens}
                             onChange={(e) => setMaxTokens(parseInt(e.target.value))}
@@ -85,9 +85,10 @@ export default function OptimizerPage() {
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
                 {/* Input */}
                 <div className="flex flex-col gap-2">
-                    <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Original Prompt</span>
+                    <label htmlFor="original-prompt" className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Original Prompt</label>
                     <div className="flex-1 bg-zinc-900/30 rounded-2xl border border-white/5 p-4 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all">
                         <textarea
+                            id="original-prompt"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="Paste your verbose prompt here..."
@@ -103,14 +104,25 @@ export default function OptimizerPage() {
 
                 {/* Output */}
                 <div className="flex flex-col gap-2">
-                    <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Optimized Result</span>
+                    <label htmlFor="optimized-result" className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Optimized Result</label>
                     <div className="flex-1 bg-zinc-900/50 rounded-2xl border border-emerald-500/20 p-4 relative group">
                         {output ? (
+                            <>
                             <textarea
+                                id="optimized-result"
                                 readOnly
                                 value={output}
                                 className="w-full h-full bg-transparent resize-none outline-none text-emerald-100 font-mono text-sm selection:bg-emerald-500/30"
                             />
+                            <button
+                                onClick={() => navigator.clipboard.writeText(output)}
+                                className="absolute bottom-4 right-4 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                title="Copy optimized result"
+                                aria-label="Copy optimized result"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            </button>
+                            </>
                         ) : (
                             <div className="h-full flex items-center justify-center text-zinc-700 text-sm italic">
                                 Ready to optimize...
