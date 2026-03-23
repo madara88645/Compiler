@@ -239,8 +239,17 @@ def detect_formality(text: str) -> FormalityLevel:
     """Detect Turkish formality level (Siz vs Sen)."""
     text_lower = text.lower()
 
-    formal_score = sum(1 for regex in _TR_FORMAL_REGEXES if regex.search(text_lower))
-    informal_score = sum(1 for regex in _TR_INFORMAL_REGEXES if regex.search(text_lower))
+    # Bolt Optimization: replacing multiple generator expressions with explicit for loops
+    # avoids generator setup and function call overhead, making it significantly faster
+    formal_score = 0
+    for regex in _TR_FORMAL_REGEXES:
+        if regex.search(text_lower):
+            formal_score += 1
+
+    informal_score = 0
+    for regex in _TR_INFORMAL_REGEXES:
+        if regex.search(text_lower):
+            informal_score += 1
 
     if formal_score > informal_score:
         return FormalityLevel.FORMAL
