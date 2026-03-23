@@ -122,7 +122,9 @@ def _add_persona_prefix(text: str, domain: str) -> Tuple[str, str]:
     """
     # Check if already has persona marker
     persona_markers = ["as a", "as an", "you are", "act as", "role:"]
-    if any(marker in text.lower()[:50] for marker in persona_markers):
+    # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
+    text_lower = text.lower()[:50]
+    if any(marker in text_lower for marker in persona_markers):
         return text, ""
 
     # Get suggested persona
@@ -141,7 +143,9 @@ def _add_example_section(text: str, domain: str) -> Tuple[str, str]:
     """
     # Check if already has examples
     example_markers = ["example:", "for example", "e.g.", "such as"]
-    if any(marker in text.lower() for marker in example_markers):
+    # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
+    text_lower = text.lower()
+    if any(marker in text_lower for marker in example_markers):
         return text, ""
 
     # Get domain-specific example
@@ -161,7 +165,9 @@ def _add_output_format(text: str) -> Tuple[str, str]:
     """
     # Check if already has format
     format_markers = ["format:", "output:", "response format", "structure:"]
-    if any(marker in text.lower() for marker in format_markers):
+    # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
+    text_lower = text.lower()
+    if any(marker in text_lower for marker in format_markers):
         return text, ""
 
     # Add format specification
