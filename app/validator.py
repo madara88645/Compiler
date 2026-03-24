@@ -244,7 +244,8 @@ class PromptValidator:
         # Check for overly broad goals
         if ir.goals:
             for goal in ir.goals[:3]:  # Check first 3 goals
-                if any(broad in goal.lower() for broad in self.OVERLY_BROAD):
+                goal_lower = goal.lower()
+                if any(broad in goal_lower for broad in self.OVERLY_BROAD):
                     issues.append(
                         ValidationIssue(
                             severity="info",
