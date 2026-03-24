@@ -221,7 +221,9 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setConservativeMode((prev) => !prev)}
-              aria-pressed={conservativeMode}
+              role="switch"
+              aria-checked={conservativeMode}
+              aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                 conservativeMode
@@ -262,6 +264,8 @@ export default function Home() {
               <textarea
                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="Describe your prompt idea here... e.g. 'Act as a senior python dev teaching FastAPI'"
+                id="prompt-input"
+                aria-label="Prompt input"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
@@ -372,6 +376,8 @@ export default function Home() {
                       </div>
 
                       <textarea
+                        id="compiled-output"
+                        aria-label="Compiled prompt output"
                         className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                         readOnly
                         value={
