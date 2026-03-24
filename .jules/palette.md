@@ -1,3 +1,3 @@
-## 2024-03-14 - Fix Hidden Interactive Elements
-**Learning:** Hiding buttons with `opacity-0` and only showing them on hover (like `group-hover:opacity-100`) creates a keyboard accessibility trap. Screen reader and keyboard-only users can focus the element, but cannot see it because it remains invisible when focused.
-**Action:** Always pair `opacity-0 group-hover:opacity-100` with an explicit focus state like `focus-visible:opacity-100 focus-visible:ring-2` to ensure the element becomes visible when navigated to via keyboard.
+## 2024-05-18 - Added Keyboard Accessibility to Critic Agent Badge
+**Learning:** Hidden elements like tooltips using `opacity-0` and `group-hover:opacity-100` must be accessible via keyboard. If the parent container is a `div` and not naturally focusable, it needs `tabIndex={0}`. Furthermore, you can use `group-focus-visible/groupname:opacity-100` on the child element to trigger visibility when the parent container receives keyboard focus, paired with standard `focus-visible:ring-2` on the parent for clear visual feedback.
+**Action:** When adding hover-based visibility classes (`opacity-0 group-hover:opacity-100`), ensure there's a corresponding `group-focus-visible:opacity-100` state. If the trigger isn't an interactive element like a button, explicitly add `tabIndex={0}` so it can receive focus.
