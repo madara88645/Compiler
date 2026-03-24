@@ -100,8 +100,28 @@ def test_benchmark_run_endpoint(client):
     assert data["compiled_output"] == mock_improved
 
 
-def test_benchmark_run_empty_prompt(client):
-    """Should handle empty prompt gracefully (compiler still works)."""
+def test_benchmark_run_uses_selected_model_for_both_generations(client):
+    """The requested benchmark model should be used for raw and compiled generations."""
+    selected_model = "openai/gpt-oss-20b"
+
+    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
+        "app.routers.benchmark._judge_with_llm", return_value=None
+    ):
+        mock_llm.side_effect = ["raw output", "compiled output"]
+
+        response = client.post(
+            "/benchmark/run",
+            json={"text": "Explain Python", "model": selected_model},
+        )
+
+    assert response.status_code == 200
+    assert mock_llm.call_count == 2
+    assert mock_llm.call_args_list[0].args[1] == selected_model
+    assert mock_llm.call_args_list[1].args[1] == selected_model
+
+
+def test_benchmark_run_short_prompt_with_valid_model(client):
+    """A short prompt with a supported model should still succeed."""
     with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
         "app.routers.benchmark._judge_with_llm", return_value=None
     ):
@@ -109,7 +129,7 @@ def test_benchmark_run_empty_prompt(client):
 
         response = client.post(
             "/benchmark/run",
-            json={"text": "hello", "model": "test-model"},
+            json={"text": "hello", "model": "llama-3.1-8b-instant"},
         )
 
     assert response.status_code == 200
@@ -122,3 +142,38 @@ def test_benchmark_request_validation(client):
         json={"model": "some-model"},
     )
     assert response.status_code == 422
+
+
+def test_benchmark_request_rejects_invalid_model(client):
+    """Unsupported benchmark models should be rejected by validation."""
+    response = client.post(
+        "/benchmark/run",
+        json={"text": "Explain Python", "model": "not-a-real-model"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_benchmark_request_rejects_blank_text(client):
+    """Blank prompts should be rejected before any LLM work starts."""
+    response = client.post(
+        "/benchmark/run",
+        json={"text": "", "model": "llama-3.1-8b-instant"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_benchmark_provider_failure_returns_safe_error(client):
+    """Provider/model failures should return a safe upstream error instead of a mock result."""
+    with patch(
+        "app.routers.benchmark._generate_llm_output",
+        side_effect=RuntimeError("provider exploded"),
+    ), patch("app.routers.benchmark._judge_with_llm", return_value=None):
+        response = client.post(
+            "/benchmark/run",
+            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
+        )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Benchmark model request failed"

@@ -41,12 +41,75 @@
             <p id="statusLabel" class="status status-enabled">Enabled</p>
         </section>
 
+        <section class="panel">
+            <div class="panel-row panel-row-start">
+                <div>
+                    <h2>Connection</h2>
+                    <p class="muted">Stored locally in this browser. No API key is bundled in the extension.</p>
+                </div>
+            </div>
+
+            <div class="field-stack">
+                <label class="field" for="backendUrlInput">
+                    <span class="field-label">Backend URL</span>
+                    <input id="backendUrlInput" class="input" type="url" placeholder="https://your-backend.example.com">
+                </label>
+
+                <label class="field" for="apiKeyInput">
+                    <span class="field-label">API Key</span>
+                    <input id="apiKeyInput" class="input" type="password" placeholder="pc_live_...">
+                </label>
+
+                <div class="panel-actions">
+                    <button id="saveConfig" class="btn btn-secondary" type="button">Save Config</button>
+                    <p id="configStatus" class="status status-disabled">Missing config</p>
+                </div>
+            </div>
+        </section>
+
         <section class="actions" aria-label="Actions">
             <button id="openPlayground" class="btn btn-primary" type="button">Open Playground</button>
             <button id="openDocs" class="btn btn-ghost" type="button">View Docs</button>
         </section>
+
+        <section class="panel preview-panel" aria-labelledby="previewHeading">
+            <div class="panel-row panel-row-start">
+                <div>
+                    <h2 id="previewHeading">Latest Preview</h2>
+                    <p class="muted">Extra visibility lives here. Select any recent result and restore it to your clipboard.</p>
+                </div>
+                <button id="restorePreview" class="btn btn-ghost btn-small" type="button">Restore</button>
+            </div>
+
+            <p id="previewEmpty" class="muted preview-empty">No optimized prompts yet. Run the chat-bar button once and the latest result will show up here.</p>
+
+            <div id="previewContent" class="preview-content" hidden>
+                <div class="preview-meta">
+                    <span id="previewSite" class="status status-enabled">ChatGPT</span>
+                    <span id="previewTime" class="preview-meta-text">Just now</span>
+                    <span id="previewDelta" class="preview-meta-text">-12 chars</span>
+                </div>
+
+                <div class="preview-stack">
+                    <article class="preview-card">
+                        <div class="field-label">Original</div>
+                        <pre id="previewOriginal" class="preview-pre"></pre>
+                    </article>
+
+                    <article class="preview-card preview-card-optimized">
+                        <div class="field-label">Optimized</div>
+                        <pre id="previewOptimized" class="preview-pre"></pre>
+                    </article>
+                </div>
+
+                <div class="preview-history">
+                    <div class="field-label">Recent</div>
+                    <div id="previewHistoryList" class="history-list"></div>
+                </div>
+            </div>
+        </section>
     </main>
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
 </body>
 
 </html>
