@@ -940,7 +940,11 @@ class DomainHandler(BaseHandler):
 
         for lang, rules in language_rules.items():
             indicators = rules.get("indicators", [])
-            score = sum(1 for ind in indicators if ind.lower() in text_lower)
+            # Bolt Optimization: explicit loop is faster than sum generator expression
+            score = 0
+            for ind in indicators:
+                if ind.lower() in text_lower:
+                    score += 1
             if score > 0:
                 scores[lang] = score
 
