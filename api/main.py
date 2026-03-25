@@ -189,6 +189,7 @@ def _forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Compile a prompt using the Hybrid Compiler Engine."""
     t0 = time.time()
@@ -339,6 +340,7 @@ async def compile_fast(
 @app.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Validate a prompt using Quality Coach."""
     try:
@@ -474,6 +476,7 @@ class OptimizeResponse(BaseModel):
 @app.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """Directly optimize a prompt for token efficiency."""
     compiler = get_compiler()
@@ -622,6 +625,7 @@ async def rag_upload(
 @app.get("/rag/stats")
 async def rag_stats_endpoint(
     db_path: Optional[str] = None,
+    api_key: APIKey = Depends(verify_api_key),
 ):
     return rag_stats(db_path=db_path)
 
