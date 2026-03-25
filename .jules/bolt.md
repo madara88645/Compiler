@@ -17,3 +17,7 @@
 ## 2026-03-18 - Optimizing Pattern Counting Logic
 **Learning:** When trying to count how many distinct patterns match a given text (like `sum(1 for r in REGEXES if r.search(text))`), joining all patterns with `|` and using `re.findall()` then counting the distinct matches with `len(set())` avoids the overhead of executing multiple regex searches in a Python loop and delegates more work to the optimized C engine, offering a significant speedup while preserving the exact semantic of counting distinct pattern occurrences.
 **Action:** When replacing a loop that counts distinct regex pattern matches (`sum(1 for r in COMPILED_REGEXES if r.search(text))`), use `len(set(re.compile('|'.join(PATTERNS)).findall(text)))` to avoid the loop overhead and get exactly the number of distinct patterns matched.
+
+## 2026-03-22 - Safely Handling Monkeypatched Constants with Pre-compiled Caches
+**Learning:** When pre-compiling dictionaries of regular expressions at the module level (e.g., `_COMPILED_PATS = {k: [re.compile(p) for p in v] for k, v in PATTERNS.items()}`), do not implement fragile runtime cache-invalidation logic (like checking list lengths or comparing first elements). Such logic adds overhead, risks `IndexError` on empty lists, and fails to invalidate if internal elements change.
+**Action:** Simply iterate over the pre-compiled dictionary. If tests monkeypatch the original raw dictionary, modify those tests to explicitly `monkeypatch` the pre-compiled cache as well to ensure consistent test environments.
