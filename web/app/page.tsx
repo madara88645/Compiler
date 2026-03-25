@@ -332,7 +332,7 @@ export default function Home() {
 
                         {/* Agent 7 Badge */}
                         {result.critique && (
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative ${result.critique.verdict === "REJECT"
+                          <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
                             ? "bg-red-500/10 border-red-500/30"
                             : "bg-green-500/10 border-green-500/30"
                             }`}>
@@ -342,7 +342,7 @@ export default function Home() {
                             </span>
 
                             {/* Hover Popup */}
-                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible transition-all z-50">
+                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
