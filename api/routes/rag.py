@@ -47,7 +47,6 @@ class RagUploadRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=1_000_000)
     embed: bool = Field(default=False)
     embed_dim: int = Field(default=64, ge=8, le=1024)
-    force: bool = Field(default=False)
 
 
 class RagUploadResponse(RagIngestResponse):

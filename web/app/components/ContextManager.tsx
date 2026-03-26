@@ -112,9 +112,9 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 <div className="flex flex-col gap-2 mb-4 animate-fade-in">
                     <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest px-1">Suggested Files</span>
                     <div className="flex flex-wrap gap-2">
-                        {suggestions.map((suggestion, index) => (
+                        {suggestions.map((suggestion) => (
                             <button
-                                key={index}
+                                key={suggestion.path}
                                 onClick={() => onInsertContext(`[File: ${suggestion.name}]\n(Reason: ${suggestion.reason})`)}
                                 className="group flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-full transition-all text-left"
                                 title={`Add ${suggestion.path} to context`}
@@ -263,8 +263,8 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         </div>
                     )}
 
-                    {results.map((result, index) => (
-                        <div key={index} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
+                    {results.map((result) => (
+                        <div key={result.path} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
                             <div className="flex justify-between items-center gap-2">
                                 <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[180px] bg-black/20 px-1.5 py-0.5 rounded">{result.path}</span>
                                 <span className="text-[10px] text-green-400/80 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">{formatSearchScore(result)}</span>

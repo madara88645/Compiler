@@ -113,7 +113,8 @@ class WorkerClient:
             raise e
 
     def _tagged_block(self, tag: str, content: str) -> str:
-        return f"<{tag}>\n<![CDATA[\n{content}\n]]>\n</{tag}>"
+        safe_content = content.replace("]]>", "]]]]><![CDATA[>")
+        return f"<{tag}>\n<![CDATA[\n{safe_content}\n]]>\n</{tag}>"
 
     def _context_message(self, *, mode: str, context: Optional[Dict[str, Any]]) -> str:
         payload = {

@@ -52,7 +52,11 @@ export function useContextManager() {
       }
 
       setIsConnected(true);
-      await refreshStats();
+      try {
+        await refreshStats();
+      } catch (error: unknown) {
+        setStatus(`Stats unavailable: ${toUserMessage(error)}`);
+      }
     } catch {
       setIsConnected(false);
     }
@@ -80,7 +84,6 @@ export function useContextManager() {
           const response = await uploadContextFile({
             filename: file.name,
             content,
-            force: true,
           });
 
           if (response.success) {
