@@ -10,6 +10,7 @@ rich==14.3.3
 textual==8.1.1
 pyyaml>=6.0
 ttkbootstrap>=1.10.1
+pillow>=10.3.0
 openai>=1.108.1
 python-dotenv>=1.2.1
 Jinja2>=3.1.0
