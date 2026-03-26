@@ -4,7 +4,7 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <p align="center">
-  <img src="docs/images/comp1.PNG" alt="Prompt Compiler" width="100%">
+  <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
 **Prompt Compiler** transforms messy natural language ideas into structured, optimized System Instructions and User Prompts — powered by an LLM engine with local heuristic fallback.
