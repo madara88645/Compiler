@@ -26,6 +26,39 @@ test("buildApiHeaders leaves headers unchanged when NEXT_PUBLIC_API_KEY is empty
   assert.equal(normalizedHeaders.has("x-api-key"), false);
 });
 
+test("resolveApiBase prefers same-origin in non-local browser environments when env is unset", async () => {
+  delete process.env.NEXT_PUBLIC_API_URL;
+
+  const { resolveApiBase } = await import("./config.ts");
+  const apiBase = resolveApiBase({
+    hostname: "compiler.memo.dev",
+    origin: "https://compiler.memo.dev",
+  });
+
+  assert.equal(apiBase, "https://compiler.memo.dev");
+});
+
+test("resolveApiBase keeps local backend default for localhost development", async () => {
+  delete process.env.NEXT_PUBLIC_API_URL;
+
+  const { resolveApiBase } = await import("./config.ts");
+  const apiBase = resolveApiBase({
+    hostname: "localhost",
+    origin: "http://localhost:3000",
+  });
+
+  assert.equal(apiBase, "http://127.0.0.1:8080");
+});
+
+test("describeRequestError rewrites raw browser fetch failures into helpful copy", async () => {
+  const { describeRequestError } = await import("./config.ts");
+
+  assert.equal(
+    describeRequestError(new Error("Failed to fetch")),
+    "Could not reach the backend. Check the API URL or make sure the server is running.",
+  );
+});
+
 test.after(() => {
   if (originalApiUrl === undefined) {
     delete process.env.NEXT_PUBLIC_API_URL;

@@ -20,7 +20,36 @@ function getStatusTone(status: string): string {
         return "bg-red-500/10 text-red-400";
     }
 
+    if (
+        status.startsWith("Stats unavailable") ||
+        status.startsWith("Could not reach") ||
+        status.startsWith("Backend health check failed")
+    ) {
+        return "bg-amber-500/10 text-amber-300";
+    }
+
     return "bg-zinc-800/50 text-zinc-400";
+}
+
+function getConnectionBadge(isConnected: boolean | null): { label: string; tone: string } {
+    if (isConnected === true) {
+        return {
+            label: "Connected",
+            tone: "text-green-400 bg-green-500/10",
+        };
+    }
+
+    if (isConnected === false) {
+        return {
+            label: "Connection Issue",
+            tone: "text-amber-300 bg-amber-500/10",
+        };
+    }
+
+    return {
+        label: "Checking",
+        tone: "text-zinc-400 bg-zinc-800/80",
+    };
 }
 
 export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
@@ -38,10 +67,26 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         status,
         isConnected,
         indexStats,
+        uploadProgress,
         uploadFiles,
         ingestPath,
         runSearch,
     } = useContextManager();
+    const connectionBadge = getConnectionBadge(isConnected);
+    const uploadPercent = uploadProgress
+        ? Math.max(
+              8,
+              Math.min(
+                  100,
+                  Math.round(
+                      ((uploadProgress.completed + (uploadProgress.currentFile ? 0.45 : 0)) / uploadProgress.total) * 100,
+                  ),
+              ),
+          )
+        : 0;
+    const currentUploadStep = uploadProgress
+        ? Math.min(uploadProgress.total, uploadProgress.completed + (uploadProgress.currentFile ? 1 : 0))
+        : 0;
 
     const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -96,16 +141,9 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     <span>Context Manager</span>
                     <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
                 </div>
-                {isConnected === false && (
-                    <span className="text-[9px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded animate-pulse">
-                        Backend Offline
-                    </span>
-                )}
-                {isConnected === true && (
-                    <span className="text-[9px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                        Connected
-                    </span>
-                )}
+                <span className={`text-[9px] px-1.5 py-0.5 rounded ${connectionBadge.tone}`}>
+                    {connectionBadge.label}
+                </span>
             </h3>
 
             {suggestions.length > 0 && (
@@ -178,9 +216,32 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 />
 
                 {ingesting ? (
-                    <div className="flex items-center gap-2 text-blue-400">
-                        <span className="animate-spin">Loading</span>
-                        <span className="text-xs">Indexing...</span>
+                    <div className="w-full max-w-sm rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.08] p-4 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+                        <div className="flex items-start gap-3">
+                            <span className="mt-1 relative flex h-3 w-3 shrink-0">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-300/30 animate-ping" />
+                                <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-300" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-medium text-cyan-100">Uploading context</span>
+                                    {uploadProgress && (
+                                        <span className="text-[10px] font-mono text-cyan-200/80">
+                                            {currentUploadStep}/{uploadProgress.total}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-[11px] leading-relaxed text-cyan-100/70">
+                                    {uploadProgress?.currentFile ? uploadProgress.currentFile : "Preparing files..."}
+                                </p>
+                                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/20">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-400 transition-[width] duration-500"
+                                        style={{ width: `${uploadPercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -210,7 +271,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             </div>
 
             {status && (
-                <div className={`text-[10px] px-2 py-1.5 rounded-lg ${getStatusTone(status)}`}>
+                <div aria-live="polite" className={`text-[10px] px-2 py-1.5 rounded-lg ${getStatusTone(status)}`}>
                     {status}
                 </div>
             )}

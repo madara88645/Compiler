@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import { ApiError } from "../../config";
+import { describeRequestError } from "../../config";
 import { compilePrompt } from "../../lib/api/promptc";
 import type {
   CompileMode,
@@ -30,19 +30,10 @@ function extractSecurityMetadata(result: CompileResponse): SecurityMetadata | un
 }
 
 function toUserMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.detail;
-  }
-
-  if (error instanceof Error && error.name === "AbortError") {
-    return "Timeout: AI model took too long.";
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Connection failed.";
+  return describeRequestError(error, {
+    timeout: "Timeout: AI model took too long.",
+    network: "Could not reach the compiler backend. Check the API URL or make sure the server is running.",
+  });
 }
 
 export function useCompiler() {
