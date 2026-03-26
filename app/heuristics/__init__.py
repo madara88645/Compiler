@@ -880,10 +880,17 @@ def _tokenize_money_text(text: str) -> list[str]:
     return tokens
 
 
+def _match_money_token(token: str) -> re.Match[str] | None:
+    stripped = token.rstrip(".,")
+    if not stripped:
+        return None
+    return _MONEY_TOKEN_RE.match(stripped)
+
+
 def _extract_money_candidate(text: str, require_currency: bool) -> str | None:
     tokens = _tokenize_money_text(text)
     for index, token in enumerate(tokens):
-        match = _MONEY_TOKEN_RE.match(token)
+        match = _match_money_token(token)
         if not match:
             continue
 
@@ -897,7 +904,7 @@ def _extract_money_candidate(text: str, require_currency: bool) -> str | None:
 
         ranged_value = value
         if cursor + 1 < len(tokens) and tokens[cursor] == "-":
-            next_match = _MONEY_TOKEN_RE.match(tokens[cursor + 1])
+            next_match = _match_money_token(tokens[cursor + 1])
             if next_match:
                 ranged_value = f"{value}-{_normalize_currency(next_match.group('value'))}"
                 unit = unit or next_match.group("prefix") or next_match.group("suffix") or ""

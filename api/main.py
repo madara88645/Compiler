@@ -8,10 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import get_build_info
 
-from api.shared import logger
+from api.shared import is_meta_leaked, logger
 
 # Global Hybrid Compiler Instance (Lazy Load)
 hybrid_compiler = None
+
+# Backwards-compatibility export for tests and legacy imports.
+_is_meta_leaked = is_meta_leaked
 
 
 def get_compiler():
