@@ -76,7 +76,6 @@ export type CompileRequest = {
 export type RagUploadRequest = {
   filename: string;
   content: string;
-  force?: boolean;
 };
 
 export type RagUploadResponse = {

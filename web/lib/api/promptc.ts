@@ -101,8 +101,8 @@ function normalizeMetadata(value: unknown): CompileMetadata | undefined {
     security: normalizeSecurityMetadata(record.security),
     context_suggestions: normalizeSuggestions(record.context_suggestions),
     context_snippets: normalizeSnippets(record.context_snippets),
-    retrieval_status: readString(record.retrieval_status),
-    retrieval_note: readString(record.retrieval_note),
+    retrieval_status: readString(record.retrieval_status) || undefined,
+    retrieval_note: readString(record.retrieval_note) || undefined,
   };
 }
 
@@ -209,7 +209,7 @@ export function normalizeRagStats(value: unknown): RagStats {
     docs: readNumber(record.docs),
     chunks: readNumber(record.chunks),
     total_bytes: readNumber(record.total_bytes),
-    avg_bytes: readNumber(record.avg_bytes),
+    avg_bytes: readOptionalNumber(record.avg_bytes),
     largest: Array.isArray(record.largest)
       ? record.largest.map((item) => {
           const largestRecord = asObject(item);
@@ -218,7 +218,7 @@ export function normalizeRagStats(value: unknown): RagStats {
             size: readNumber(largestRecord?.size),
           };
         })
-      : [],
+      : undefined,
   };
 }
 
