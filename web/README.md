@@ -31,7 +31,7 @@ npm run test:contracts
 
 ## Backend Assumptions
 
-- The frontend expects the API at `NEXT_PUBLIC_API_URL` or `http://127.0.0.1:8080`.
+- The frontend prefers `NEXT_PUBLIC_API_URL`. Without it, local development falls back to `http://127.0.0.1:8080`, while hosted environments fall back to the current origin.
 - `/rag/search` returns canonical items shaped like `{ path, snippet, score }`.
 - `/rag/upload` returns canonical ingest metadata and may also include compatibility fields.
 - Some routes can now return `403` when API key protection is enabled on the backend.
