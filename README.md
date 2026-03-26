@@ -4,10 +4,21 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <p align="center">
-  <img src="docs/images/comp1.PNG" alt="Prompt Compiler" width="100%">
+  <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
 **Prompt Compiler** transforms messy natural language ideas into structured, optimized System Instructions and User Prompts — powered by an LLM engine with local heuristic fallback.
+
+---
+
+## Latest PR Updates
+
+This stabilization pass focused on making the project safer, more consistent, and easier to maintain.
+
+- Replaced mock-style RAG behavior with real upload, indexing, search, and pack flows backed by the local SQLite knowledge base.
+- Standardized backend and frontend contracts for compile and RAG operations, and moved frontend request handling into shared hooks/services.
+- Hardened security around file paths, prompt boundaries, regex-heavy heuristics, and protected routes that now require API keys.
+- Split API responsibilities into clearer route modules and pinned `pillow` above the current Snyk vulnerability floor for safer dependency resolution.
 
 ---
 
@@ -129,7 +140,7 @@ Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain 
 - **Context Manager** — Drag-and-drop your brand guidelines, API docs, or any reference material.
 - **Agent 6 (The Strategist)** — Scans uploaded files for relevant facts and injects them into prompt generation.
 - **Agent 7 (The Critic)** — Cross-references the generated prompt against your knowledge base and blocks hallucinated facts.
-- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v2.db`) for instant retrieval without re-uploading.
+- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v3.db`) for instant retrieval without re-uploading.
 
 ---
 
@@ -139,11 +150,13 @@ Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain 
 git clone https://github.com/madara88645/Compiler.git
 cd Compiler
 
-# Backend
-pip install -r requirements.txt
+# Backend: pyproject.toml is the source of truth
+python -m pip install -e .[dev,docs]
 
-# Frontend
-cd web && npm install && cd ..
+# Frontend: npm + package-lock only
+cd web
+npm ci
+cd ..
 ```
 
 ### Environment Setup
@@ -152,18 +165,30 @@ cd web && npm install && cd ..
 cp .env.example .env
 ```
 
-Edit `.env`:
+Core variables:
 
 ```env
 OPENAI_API_KEY=sk-your-actual-key
-OPENAI_BASE_URL=https://api.openai.com   # optional
-
-# Required for Benchmark Arena:
+OPENAI_BASE_URL=https://api.openai.com
 GROQ_API_KEY=gsk_your_groq_key
 
-# Compiler mode: conservative (default) or default
+# Prompt compiler mode: conservative (default) or default
 PROMPT_COMPILER_MODE=conservative
+
+# Optional auth hardening
+ADMIN_API_KEY=replace-me
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=false
+
+# Optional RAG storage controls
+PROMPTC_UPLOAD_DIR=.promptc_uploads
+PROMPTC_RAG_ALLOWED_ROOTS=
 ```
+
+Notes:
+
+- Leave `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false` for backwards-compatible local development.
+- `/compile/fast`, generator routes, and RAG mutation routes require an API key.
+- If you set `PROMPTC_RAG_ALLOWED_ROOTS`, only files inside those roots can be ingested by path.
 
 ---
 
@@ -178,7 +203,8 @@ PROMPT_COMPILER_MODE=conservative
 python -m uvicorn api.main:app --reload --port 8080
 
 # Terminal 2 — Frontend
-cd web && npm run dev
+cd web
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).

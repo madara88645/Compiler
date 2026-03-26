@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import time
+import logging
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Dict
 import math
@@ -8,6 +9,10 @@ import operator
 import json
 import functools
 from collections import OrderedDict
+
+from app.rag.uploads import resolve_allowed_path
+
+logger = logging.getLogger("promptc.rag.index")
 
 # Document parser for multi-format support
 try:
@@ -66,10 +71,15 @@ def _cache_put(key: str, value):
 
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
     path = db_path or DEFAULT_DB_PATH
+    Path(path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     # Increase timeout to 60s (from default 5.0) to handle multiple uvicorn workers
     conn = sqlite3.connect(path, timeout=60.0)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
     return conn
 
 
@@ -475,6 +485,7 @@ def ingest_paths(
     embed: bool = False,
     embed_dim: int = 64,
     chunking_strategy: str = "paragraph",
+    allowed_roots: Optional[Iterable[Path]] = None,
 ) -> Tuple[int, int, float]:
     """Ingest files into the RAG index.
 
@@ -504,7 +515,11 @@ def ingest_paths(
         else:
             allowed_exts = set(e.lower() for e in (exts or [".txt", ".md", ".py"]))
         for p in paths:
-            pth = Path(p)
+            pth = (
+                resolve_allowed_path(p, allowed_roots=allowed_roots)
+                if allowed_roots is not None
+                else Path(p)
+            )
             if not pth.exists():
                 continue
             if pth.is_dir():
@@ -601,9 +616,7 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                     }
                 )
         except Exception as e:
-            import sys
-
-            print(f"[DEBUG] FTS Search failed or returned error: {e}", file=sys.stderr)
+            logger.debug("FTS search failed or returned error: %s", e)
             results = []
 
         # 2. Fallback to LIKE if not enough results

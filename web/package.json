@@ -3,12 +3,14 @@
   "version": "0.1.1",
   "description": "Prompt Compiler with LLM integration",
   "private": true,
+  "type": "module",
   "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:contracts": "node --test config.test.mts promptc-api.test.mts"
   },
   "dependencies": {
     "@types/diff-match-patch": "^1.0.36",

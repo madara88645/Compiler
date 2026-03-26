@@ -102,33 +102,46 @@ class StructureHandler(BaseHandler):
         # Excluding common keywords like JSON, XML, CSV, HTTP, API
         ignored = {"JSON", "XML", "CSV", "HTTP", "HTTPS", "API", "URL", "ID", "HTML", "CSS", "SQL"}
 
-        def replace_var(match):
-            word = match.group(0)
-            if word in ignored:
-                return word
-            variables.add(word)
-            return f"{{{{{word}}}}}"
-
         # Look for standalone uppercase words, avoiding ones inside existing brackets
-        pattern = r"\b[A-Z][A-Z0-9_]{2,}\b"
+        pattern = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
-        # Simple approach: Identify potential vars first
-        matches = re.findall(pattern, text)
-        for m in matches:
-            if m not in ignored:
-                variables.add(m)
-                # Naive replacement - careful not to replace inside {{...}} if already there
-                # But for this task, we assume raw text input.
-                # To be detailed: we should only replace if not already surrounded.
-                # Regex lookbehind/ahead for {{ is tricky in one pass.
+        rebuilt: List[str] = []
+        cursor = 0
+        for match in pattern.finditer(text):
+            start, end = match.span()
+            word = match.group(0)
+            rebuilt.append(text[cursor:start])
 
-        # Let's do a uniform replacement for identified variables
-        for var in variables:
-            # Replace 'VAR' but not '{{VAR}}'
-            # Regex: (citation needed) - simple replace for now is safer for raw input
-            text = re.sub(rf"(?<!{{{{)\b{var}\b(?!}}}})", f"{{{{{var}}}}}", text)
+            if word in ignored:
+                rebuilt.append(word)
+            elif start >= 2 and text[start - 2 : start] == "{{" and text[end : end + 2] == "}}":
+                variables.add(word)
+                rebuilt.append(word)
+            else:
+                variables.add(word)
+                rebuilt.append(f"{{{{{word}}}}}")
+
+            cursor = end
+
+        rebuilt.append(text[cursor:])
+        text = "".join(rebuilt)
 
         return text, sorted(list(variables))
+
+    def _strip_parenthetical_content(self, text: str) -> str:
+        result: List[str] = []
+        depth = 0
+        for ch in text:
+            if ch == "(":
+                depth += 1
+                continue
+            if ch == ")":
+                if depth > 0:
+                    depth -= 1
+                    continue
+            if depth == 0:
+                result.append(ch)
+        return " ".join("".join(result).split())
 
     def _segment_sections(self, text: str) -> Dict[str, str]:
         """
@@ -264,7 +277,7 @@ class StructureHandler(BaseHandler):
             base_name = " ".join(clean_words)
 
             # Remove type hints in parens: "age (int)" -> "age"
-            clean_name = re.sub(r"\s*\(.*?\)", "", base_name).strip()
+            clean_name = self._strip_parenthetical_content(base_name).strip()
             # Convert to snake_case only if it has spaces
             clean_name = clean_name.replace(" ", "_")
 

@@ -24,3 +24,8 @@ def _clear_rate_limits():
     from api.auth import RATE_LIMIT_STORE
 
     RATE_LIMIT_STORE.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_security_env(monkeypatch):
+    monkeypatch.delenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", raising=False)

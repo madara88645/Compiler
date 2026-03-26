@@ -1,5 +1,12 @@
-from typing import List, Dict, Any, Protocol
+from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol
+
+from app.rag.simple_index import search, search_hybrid
+
+logger = logging.getLogger("promptc.llm.rag")
 
 
 class VectorDBConnection(Protocol):
@@ -19,9 +26,48 @@ class MockVectorDB:
     """Simulates a vector DB for testing or standalone mode."""
 
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        # In a real app, this would use embeddings.
-        # Here we just return dummy results or empty list.
         return []
+
+
+class SQLiteVectorDB:
+    """Thin adapter over the local SQLite RAG index."""
+
+    def __init__(self, db_path: Optional[str] = None, embed_dim: int = 64, alpha: float = 0.35):
+        self.db_path = db_path
+        self.embed_dim = embed_dim
+        self.alpha = alpha
+
+    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        try:
+            results = search_hybrid(
+                query,
+                k=limit,
+                db_path=self.db_path,
+                embed_dim=self.embed_dim,
+                alpha=self.alpha,
+            )
+        except Exception:
+            results = search(query, k=limit, db_path=self.db_path)
+
+        mapped: List[Dict[str, Any]] = []
+        for item in results:
+            mapped.append(
+                {
+                    "file_path": item.get("path", "unknown"),
+                    "content": item.get("snippet", ""),
+                    "score": float(
+                        item.get(
+                            "hybrid_score",
+                            item.get("similarity", 1.0 - float(item.get("score", 0.0) or 0.0)),
+                        )
+                    ),
+                    "metadata": {
+                        "chunk_index": item.get("chunk_index"),
+                        "chunk_id": item.get("chunk_id"),
+                    },
+                }
+            )
+        return mapped
 
 
 class ContextStrategist:
@@ -35,86 +81,62 @@ class ContextStrategist:
         self.llm = llm_client
 
     def expand_query(self, user_text: str) -> List[str]:
-        """
-        Uses LLM to expand the user's prompt into multiple search queries.
-        """
         try:
-            # We assume the LLM client has a method for this, or we call it generically
-            # For now, let's implement a specific method in WorkerClient or use a generic one
             response = self.llm.expand_query_intent(user_text)
             return response.get("queries", [user_text])
-        except Exception as e:
-            print(f"[ContextStrategist] Query expansion failed: {e}")
+        except Exception as exc:
+            logger.debug("Query expansion failed: %s", exc)
             return [user_text]
 
     def retrieve(self, queries: List[str]) -> List[Snippet]:
-        """
-        Performs hybrid search (conceptually) using the generated queries.
-        Uses Reciprocal Rank Fusion (RRF) to merge results.
-        """
         all_results: Dict[str, Snippet] = {}
 
-        # 1. Execute searches
-        for q in queries:
-            results = self.vector_db.search(q, limit=5)
-            for i, res in enumerate(results):
-                path = res.get("file_path", "unknown")
+        for query in queries:
+            results = self.vector_db.search(query, limit=5)
+            for index, result in enumerate(results):
+                path = result.get("file_path", "unknown")
                 if path in all_results:
-                    # Simple score accumulation (RRF-ish)
-                    # rank = i + 1, score += 1/rank
-                    all_results[path].score += 1.0 / (i + 1)
+                    all_results[path].score += 1.0 / (index + 1)
                 else:
                     all_results[path] = Snippet(
                         file_path=path,
-                        content=res.get("content", ""),
-                        score=1.0 / (i + 1),
-                        metadata=res.get("metadata", {}),
+                        content=result.get("content", ""),
+                        score=1.0 / (index + 1),
+                        metadata=result.get("metadata", {}),
                     )
 
-        # 2. Convert to list
         snippets = list(all_results.values())
-
-        # 3. Sort by score descending
-        snippets.sort(key=lambda x: x.score, reverse=True)
-
+        snippets.sort(key=lambda item: item.score, reverse=True)
         return snippets
 
     def rank_and_prune(self, snippets: List[Snippet], max_tokens: int = 4000) -> List[Snippet]:
-        """
-        Selects the top snippets that fit within the token budget.
-        """
-        selected = []
+        selected: List[Snippet] = []
         current_tokens = 0
 
-        # Simple approximation: 1 token ~= 4 chars
         for snippet in snippets:
-            # Estimate token count
             tokens = len(snippet.content) // 4
             if current_tokens + tokens > max_tokens:
                 continue
-
             selected.append(snippet)
             current_tokens += tokens
 
         return selected
 
     def process(self, user_text: str) -> Dict[str, Any]:
-        """
-        Main entry point for Agent 6.
-        """
-        # 1. Expand
         queries = self.expand_query(user_text)
-
-        # 2. Retrieve
         raw_snippets = self.retrieve(queries)
-
-        # 3. Prune
         final_snippets = self.rank_and_prune(raw_snippets)
 
-        # 4. Format for context
-        context_data = {
-            "retrieved_files": [s.file_path for s in final_snippets],
-            "snippets": [{"file": s.file_path, "content": s.content} for s in final_snippets],
+        return {
+            "retrieved_files": [snippet.file_path for snippet in final_snippets],
+            "snippets": [
+                {"file": snippet.file_path, "content": snippet.content}
+                for snippet in final_snippets
+            ],
+            "retrieval_status": "ok" if final_snippets else "empty",
+            "retrieval_note": (
+                f"Retrieved {len(final_snippets)} context snippets."
+                if final_snippets
+                else "No indexed context available."
+            ),
         }
-
-        return context_data
