@@ -101,7 +101,9 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setConservativeMode((prev) => !prev)}
-              aria-pressed={conservativeMode}
+              role="switch"
+              aria-checked={conservativeMode}
+              aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                 conservativeMode
@@ -142,6 +144,8 @@ export default function Home() {
               <textarea
                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="Describe your prompt idea here... e.g. 'Act as a senior python dev teaching FastAPI'"
+                id="prompt-input"
+                aria-label="Prompt input"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
@@ -208,7 +212,7 @@ export default function Home() {
 
                         {/* Agent 7 Badge */}
                         {result.critique && (
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative ${result.critique.verdict === "REJECT"
+                          <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
                             ? "bg-red-500/10 border-red-500/30"
                             : "bg-green-500/10 border-green-500/30"
                             }`}>
@@ -218,7 +222,7 @@ export default function Home() {
                             </span>
 
                             {/* Hover Popup */}
-                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible transition-all z-50">
+                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
@@ -252,6 +256,8 @@ export default function Home() {
                       </div>
 
                       <textarea
+                        id="compiled-output"
+                        aria-label="Compiled prompt output"
                         className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                         readOnly
                         value={getTabContent(result, activeTab)}

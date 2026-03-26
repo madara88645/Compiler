@@ -202,16 +202,23 @@ PERSONA_KEYWORDS = {
 # Bolt Optimization: Pre-compile regexes for developer persona
 _COMPILED_DEV_PATS = [re.compile(p) for p in PERSONA_KEYWORDS["developer"]]
 
+# Bolt Optimization: Pre-compile regexes for all personas
+_COMPILED_PERSONA_KEYWORDS = {k: [re.compile(p) for p in v] for k, v in PERSONA_KEYWORDS.items()}
+
 
 def pick_persona(text: str) -> tuple[str, dict]:
     lower = text.lower()
     scores = {k: 0 for k in PERSONA_KEYWORDS}
     evidence: dict[str, list[str]] = {k: [] for k in PERSONA_KEYWORDS}
-    for persona, pats in PERSONA_KEYWORDS.items():
-        for p in pats:
-            if re.search(p, lower):
+
+    for persona, compiled_pats in _COMPILED_PERSONA_KEYWORDS.items():
+        if persona not in scores:
+            scores[persona] = 0
+            evidence[persona] = []
+        for r in compiled_pats:
+            if r.search(lower):
                 scores[persona] += 1
-                evidence[persona].append(p)
+                evidence[persona].append(r.pattern)
     # choose highest score, tie -> deterministic alphabetical order of persona key
     ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
     if ranked and ranked[0][1] > 0:

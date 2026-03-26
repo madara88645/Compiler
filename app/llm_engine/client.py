@@ -89,12 +89,18 @@ class WorkerClient:
         # Conservative by default. If the conservative file is missing, fall back to worker_v1.md
         return self.system_prompt_conservative or self.system_prompt
 
-    def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
+    def _call_api(
+        self,
+        messages: list,
+        max_tokens: int = 1500,
+        json_mode: bool = True,
+        model_override: Optional[str] = None,
+    ) -> str:
         """Internal: Makes the actual API call."""
         logger.debug("Connecting to LLM service at %s", self.base_url)
 
         kwargs = {
-            "model": self.model,
+            "model": model_override or self.model,
             "messages": messages,
             "temperature": 0.2,  # Low temp for deterministic structure
             "max_tokens": max_tokens,

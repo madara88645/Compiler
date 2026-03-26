@@ -1,68 +1,73 @@
-// Background Service Worker
+import { STORAGE_KEYS, loadRuntimeConfig } from "./config.mjs";
+import { buildPreviewEntry, mergePreviewHistory } from "./preview-history.mjs";
+
 console.log("MyCompiler Background Worker Loaded");
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'OPTIMIZE_PROMPT') {
-        handleOptimization(request, sendResponse);
-        return true; // Keep channel open for async response
-    }
+  if (request.type !== "OPTIMIZE_PROMPT") {
+    return false;
+  }
+
+  handleOptimization(request, sender)
+    .then(sendResponse)
+    .catch((error) => {
+      console.error("Optimization failed:", error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : "Optimization failed.",
+      });
+    });
+
+  return true;
 });
 
-// Hardcoded Credentials (Public Mode)
-const _p1 = "gsk_TQV3OCCToZuQXSty0EB1WGdyb3FYgTCvx";
-const _p2 = "6jswSvrQjLV7tiFi6Ki";
-const CONFIG = {
-    apiKey: _p1 + _p2, // User's Groq Key (Split to avoid git scanning)
-    backendUrl: "https://compiler-production-626b.up.railway.app"     // Railway URL
-};
+async function handleOptimization(request, sender) {
+  const storage = await chrome.storage.local.get([STORAGE_KEYS.enabled]);
+  if (storage[STORAGE_KEYS.enabled] === false) {
+    return { success: false, error: "Extension is disabled." };
+  }
 
-async function handleOptimization(request, sendResponse) {
-    // Check if enabled
-    const storage = await chrome.storage.local.get(['enabled']);
-    if (storage.enabled === false) {
-        sendResponse({ success: false, error: "Extension is disabled." });
-        return;
-    }
+  const runtimeConfig = await loadRuntimeConfig(chrome.storage.local);
+  if (!runtimeConfig.ok) {
+    return { success: false, error: runtimeConfig.error };
+  }
 
-    const { text } = request;
-    const { apiKey, backendUrl } = CONFIG;
+  const text = typeof request.text === "string" ? request.text.trim() : "";
+  if (!text) {
+    return { success: false, error: "Prompt is empty." };
+  }
 
-    try {
-        // Ensure backendUrl doesn't have trailing slash
-        let baseUrl = backendUrl.replace(/\/$/, "");
-        if (!baseUrl.startsWith("http")) {
-            baseUrl = "https://" + baseUrl;
-        }
+  const response = await fetch(`${runtimeConfig.value.backendUrl}/compile/fast`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": runtimeConfig.value.apiKey,
+    },
+    body: JSON.stringify({
+      text,
+      v2: true,
+    }),
+  });
 
-        console.log(`Sending request to ${baseUrl}/compile/fast`);
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`API Error ${response.status}: ${errText}`);
+  }
 
-        const response = await fetch(`${baseUrl}/compile/fast`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey // Updated to match FastAPI 'name=x-api-key'
-            },
-            body: JSON.stringify({
-                text: text,
-                // Ensure we match the backend's expected schema
-                v2: true
-            })
-        });
+  const data = await response.json();
+  const result = data.expanded_prompt_v2 || data.expanded_prompt || data.system_prompt;
+  await persistPreviewHistory({
+    originalText: text,
+    optimizedText: result,
+    sourceUrl: sender?.tab?.url || sender?.url || "",
+  });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`API Error ${response.status}: ${errText}`);
-        }
+  return { success: true, data: result };
+}
 
-        const data = await response.json();
-
-        // Map response logic (matching API response model)
-        const result = data.expanded_prompt_v2 || data.expanded_prompt || data.system_prompt;
-
-        sendResponse({ success: true, data: result });
-
-    } catch (error) {
-        console.error("Optimization failed:", error);
-        sendResponse({ success: false, error: error.message });
-    }
+async function persistPreviewHistory({ originalText, optimizedText, sourceUrl }) {
+  const stored = await chrome.storage.local.get([STORAGE_KEYS.previewHistory]);
+  const entry = buildPreviewEntry({ originalText, optimizedText, sourceUrl });
+  const history = mergePreviewHistory(stored[STORAGE_KEYS.previewHistory], entry);
+  await chrome.storage.local.set({ [STORAGE_KEYS.previewHistory]: history });
 }

@@ -1,5 +1,6 @@
 import app.heuristics as heuristics
 from app.compiler import compile_text
+import re
 
 
 def test_risk_flag_financial():
@@ -31,6 +32,9 @@ def test_code_request_constraint():
 
 def test_pick_persona_preserves_regex_keyword_semantics(monkeypatch):
     monkeypatch.setitem(heuristics.PERSONA_KEYWORDS, "regex_persona", [r"\bfoo\b"])
+    monkeypatch.setitem(
+        heuristics._COMPILED_PERSONA_KEYWORDS, "regex_persona", [re.compile(r"\bfoo\b")]
+    )
 
     persona, meta = heuristics.pick_persona("please explain foo clearly")
 

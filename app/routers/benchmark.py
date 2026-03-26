@@ -19,12 +19,23 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.compiler import compile_text_v2
 from app.emitters import emit_expanded_prompt_v2
 
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
+
+MAX_BENCHMARK_TEXT_LENGTH = 4000
+SUPPORTED_BENCHMARK_MODELS = {
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "mistral-saba-24b",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "qwen/qwen3-32b",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -35,11 +46,31 @@ router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 class BenchmarkRequest(BaseModel):
     """Input for a benchmark run."""
 
-    text: str = Field(..., description="Raw user input prompt")
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_BENCHMARK_TEXT_LENGTH,
+        description="Raw user input prompt",
+    )
     model: str = Field(
         default="llama-3.1-8b-instant",
         description="LLM model identifier (e.g. 'llama-3.1-8b-instant')",
     )
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("Prompt text must not be blank")
+        return text
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str) -> str:
+        if value not in SUPPORTED_BENCHMARK_MODELS:
+            raise ValueError("Unsupported benchmark model")
+        return value
 
 
 class MetricPair(BaseModel):
@@ -80,24 +111,25 @@ def _generate_llm_output(prompt: str, model: str) -> str:
     """
     Call the LLM with a simple user message and return the text response.
 
-    Falls back to a descriptive placeholder when the LLM is unavailable
-    so the endpoint remains testable in offline / CI environments.
+    Raises when the provider is unavailable so callers can return a safe
+    upstream error instead of silently benchmarking the wrong model.
     """
-    try:
-        from api.main import hybrid_compiler  # type: ignore[import]  # noqa: E402
+    from api.main import hybrid_compiler  # type: ignore[import]  # noqa: E402
 
-        if hybrid_compiler is None:
-            raise RuntimeError("HybridCompiler not initialised yet")
+    if hybrid_compiler is None:
+        raise RuntimeError("HybridCompiler not initialised yet")
 
-        worker = hybrid_compiler.worker
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ]
-        return worker._call_api(messages, max_tokens=1500, json_mode=False)
-
-    except Exception as e:
-        return f"[LLM unavailable – mock output for: {prompt[:80]}] (error: {e})"
+    worker = hybrid_compiler.worker
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": prompt},
+    ]
+    return worker._call_api(
+        messages,
+        max_tokens=1500,
+        json_mode=False,
+        model_override=model,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -244,20 +276,20 @@ async def benchmark_run(req: BenchmarkRequest):
     try:
         raw_output = _generate_llm_output(req.text, req.model)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Step A failed: {e}")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed") from e
 
     # --- Step B: Compile the prompt ---------------------------------------
     try:
         ir_v2 = compile_text_v2(req.text)
         compiled_prompt = emit_expanded_prompt_v2(ir_v2, diagnostics=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Step B (compile) failed: {e}")
+        raise HTTPException(status_code=500, detail="Benchmark compilation failed") from e
 
     # --- Step C: Generate with compiled prompt ----------------------------
     try:
         compiled_output = _generate_llm_output(compiled_prompt, req.model)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Step C failed: {e}")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed") from e
 
     # --- Step D: Judge — LLM first, heuristic fallback --------------------
     judge_result = _judge_with_llm(req.text, raw_output, compiled_output)
