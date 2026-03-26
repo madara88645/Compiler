@@ -21,3 +21,7 @@
 ## 2026-03-22 - Safely Handling Monkeypatched Constants with Pre-compiled Caches
 **Learning:** When pre-compiling dictionaries of regular expressions at the module level (e.g., `_COMPILED_PATS = {k: [re.compile(p) for p in v] for k, v in PATTERNS.items()}`), do not implement fragile runtime cache-invalidation logic (like checking list lengths or comparing first elements). Such logic adds overhead, risks `IndexError` on empty lists, and fails to invalidate if internal elements change.
 **Action:** Simply iterate over the pre-compiled dictionary. If tests monkeypatch the original raw dictionary, modify those tests to explicitly `monkeypatch` the pre-compiled cache as well to ensure consistent test environments.
+
+## 2025-03-26 - Optimize Regex Pattern Masking and Counting loops
+**Learning:** When finding occurrences of regex patterns to count or mask strings in a hot loop (like detecting PII digits or censoring it), using multiple regex passes (`finditer` then `sub`) or recreating stripped strings (`re.sub(r"[^0-9]", "", val)`) creates unnecessary allocations and overhead. Furthermore, executing checks inside a loop for patterns without early exits causes redundant iterations.
+**Action:** Replace `finditer` + `sub` with a single `subn` call, which returns both the modified string and the number of substitutions (`masked_text, count = pattern.subn(replacement, text)`). Replace `len(re.sub(...))` checks with `sum(1 for c in val if c.isdigit())`. Add `break` and `continue` to avoid executing subsequent identical logic once a condition is fully met.
