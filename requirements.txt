@@ -1,23 +1,18 @@
+# Runtime dependency snapshot for deploy targets.
+# Update `pyproject.toml` first, then refresh this file to keep packaging in sync.
 fastapi==0.135.1
-uvicorn==0.42.0
+uvicorn==0.41.0
 pydantic==2.12.5
 typer==0.24.1
-click==8.3.1  # pin: Typer 0.9 compatibility; avoid make_metavar signature mismatch
+click==8.3.1
 jsonschema==4.26.0
 rich==14.3.3
-textual==8.1.1  # modern terminal UI framework
-pyyaml>=6.0  # required for template system
-ttkbootstrap>=1.10.1  # modern theming for Tk desktop UI
-pytest==9.0.2
-openai>=1.30.0  # optional for examples/openai_pipe.py
-python-dotenv>=1.0.0  # required for loading .env (Groq API)
-httpx<0.29  # pin: Starlette TestClient older style requires httpx<0.29
-h11>=0.16.0 # not directly required, pinned by Snyk to avoid a vulnerability
-anyio>=4.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
-zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
-pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
-
-Jinja2>=3.1.0  # required for report generation
-tiktoken>=0.7.0  # required for token counting
-cachetools>=5.3.3  # required for hybrid engine caching
-sqlalchemy>=2.0.0  # required for api keys
+textual==8.1.1
+pyyaml>=6.0
+ttkbootstrap>=1.10.1
+openai>=1.108.1
+python-dotenv>=1.2.1
+Jinja2>=3.1.0
+tiktoken>=0.12.0
+cachetools>=7.0.0
+sqlalchemy>=2.0.47

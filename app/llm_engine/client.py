@@ -1,6 +1,7 @@
 import os
+import json
+import logging
 import re
-import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
@@ -36,6 +37,7 @@ except ValueError:
     HARD_TIMEOUT_SECONDS = 30
 
 COACH_TIMEOUT_SECONDS = 20
+logger = logging.getLogger("promptc.llm.client")
 
 
 class WorkerClient:
@@ -89,11 +91,7 @@ class WorkerClient:
 
     def _call_api(self, messages: list, max_tokens: int = 1500, json_mode: bool = True) -> str:
         """Internal: Makes the actual API call."""
-        print(f"[DEBUG] Connecting to LLM Service (Base URL: {self.base_url})...", file=sys.stderr)
-        print(
-            f"[DEBUG] Key Loaded: {'Yes' if self.api_key != 'missing_key' else 'NO'}",
-            file=sys.stderr,
-        )
+        logger.debug("Connecting to LLM service at %s", self.base_url)
 
         kwargs = {
             "model": self.model,
@@ -105,16 +103,31 @@ class WorkerClient:
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            print("[DEBUG] Sending request...", file=sys.stderr)
             completion = self.client.chat.completions.create(**kwargs)
             content = completion.choices[0].message.content
-            print(f"[DEBUG] Received response ({len(content)} types)", file=sys.stderr)
             if not content:
                 raise ValueError("Empty response from LLM Service")
             return content
         except Exception as e:
-            print(f"[DEBUG] API CALL FAILED: {e}", file=sys.stderr)
+            logger.debug("LLM API call failed: %s", e)
             raise e
+
+    def _tagged_block(self, tag: str, content: str) -> str:
+        return f"<{tag}>\n<![CDATA[\n{content}\n]]>\n</{tag}>"
+
+    def _context_message(self, *, mode: str, context: Optional[Dict[str, Any]]) -> str:
+        payload = {
+            "mode": mode,
+            **(
+                context
+                or {"retrieval_status": "empty", "retrieval_note": "No runtime context supplied."}
+            ),
+        }
+        return (
+            "<runtime_context>\n"
+            f"<context_json><![CDATA[\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n]]></context_json>\n"
+            "</runtime_context>"
+        )
 
     def _single_agent_prompt(self, include_example_code: bool) -> str:
         prompt = (
@@ -230,21 +243,12 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
+            {
+                "role": "system",
+                "content": self._context_message(mode=resolved_mode, context=context),
+            },
+            {"role": "user", "content": self._tagged_block("user_input", user_text)},
         ]
-
-        if context:
-            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(
-                1,
-                {
-                    "role": "system",
-                    "content": f"Context:\nmode: {resolved_mode}\n{ctx_str}",
-                },
-            )
-        else:
-            # Still include the mode hint, so the template can stay stable across deployments.
-            messages.insert(1, {"role": "system", "content": f"Context:\nmode: {resolved_mode}"})
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # Increased max tokens to prevent JSON truncation (reliability > speed cap)
@@ -312,7 +316,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.coach_prompt},
-            {"role": "user", "content": f"Analyze this prompt:\n\n{user_text}"},
+            {"role": "user", "content": self._tagged_block("prompt_under_review", user_text)},
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -349,7 +353,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": f"Optimize this prompt:\n\n{user_text}"},
+            {"role": "user", "content": self._tagged_block("prompt_to_optimize", user_text)},
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -376,7 +380,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": self.editor_prompt},
-            {"role": "user", "content": f"Fix this prompt:\n\n{user_text}"},
+            {"role": "user", "content": self._tagged_block("prompt_to_fix", user_text)},
         ]
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -404,7 +408,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
+            {"role": "user", "content": self._tagged_block("query_expansion_request", user_text)},
         ]
 
         try:
@@ -415,7 +419,7 @@ class WorkerClient:
 
                 return json.loads(content)
         except Exception as e:
-            print(f"[WorkerClient] Query expansion failed: {e}")
+            logger.debug("Query expansion failed: %s", e)
             return {"queries": [user_text]}
 
     def generate_agent(
@@ -436,7 +440,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
+            {"role": "user", "content": self._tagged_block("generator_request", user_text)},
         ]
 
         # Changed: add anti-hallucination guidance so generated examples stay honest when API/library details are unknown.
@@ -469,8 +473,13 @@ class WorkerClient:
         messages.insert(2, {"role": "system", "content": example_code_note})
 
         if context:
-            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(3, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(
+                3,
+                {
+                    "role": "system",
+                    "content": self._context_message(mode="generator", context=context),
+                },
+            )
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back
@@ -517,7 +526,7 @@ class WorkerClient:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
+            {"role": "user", "content": self._tagged_block("generator_request", user_text)},
         ]
 
         safety_note = (
@@ -538,8 +547,13 @@ class WorkerClient:
         messages.insert(2, {"role": "system", "content": example_code_note})
 
         if context:
-            ctx_str = "\n".join([f"{k}: {v}" for k, v in context.items()])
-            messages.insert(3, {"role": "system", "content": f"Context:\n{ctx_str}"})
+            messages.insert(
+                3,
+                {
+                    "role": "system",
+                    "content": self._context_message(mode="generator", context=context),
+                },
+            )
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back

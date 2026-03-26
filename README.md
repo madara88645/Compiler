@@ -129,7 +129,7 @@ Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain 
 - **Context Manager** — Drag-and-drop your brand guidelines, API docs, or any reference material.
 - **Agent 6 (The Strategist)** — Scans uploaded files for relevant facts and injects them into prompt generation.
 - **Agent 7 (The Critic)** — Cross-references the generated prompt against your knowledge base and blocks hallucinated facts.
-- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v2.db`) for instant retrieval without re-uploading.
+- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v3.db`) for instant retrieval without re-uploading.
 
 ---
 
@@ -139,11 +139,13 @@ Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain 
 git clone https://github.com/madara88645/Compiler.git
 cd Compiler
 
-# Backend
-pip install -r requirements.txt
+# Backend: pyproject.toml is the source of truth
+python -m pip install -e .[dev,docs]
 
-# Frontend
-cd web && npm install && cd ..
+# Frontend: npm + package-lock only
+cd web
+npm ci
+cd ..
 ```
 
 ### Environment Setup
@@ -152,18 +154,30 @@ cd web && npm install && cd ..
 cp .env.example .env
 ```
 
-Edit `.env`:
+Core variables:
 
 ```env
 OPENAI_API_KEY=sk-your-actual-key
-OPENAI_BASE_URL=https://api.openai.com   # optional
-
-# Required for Benchmark Arena:
+OPENAI_BASE_URL=https://api.openai.com
 GROQ_API_KEY=gsk_your_groq_key
 
-# Compiler mode: conservative (default) or default
+# Prompt compiler mode: conservative (default) or default
 PROMPT_COMPILER_MODE=conservative
+
+# Optional auth hardening
+ADMIN_API_KEY=replace-me
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=false
+
+# Optional RAG storage controls
+PROMPTC_UPLOAD_DIR=.promptc_uploads
+PROMPTC_RAG_ALLOWED_ROOTS=
 ```
+
+Notes:
+
+- Leave `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false` for backwards-compatible local development.
+- `/compile/fast`, generator routes, and RAG mutation routes require an API key.
+- If you set `PROMPTC_RAG_ALLOWED_ROOTS`, only files inside those roots can be ingested by path.
 
 ---
 
@@ -178,7 +192,8 @@ PROMPT_COMPILER_MODE=conservative
 python -m uvicorn api.main:app --reload --port 8080
 
 # Terminal 2 — Frontend
-cd web && npm run dev
+cd web
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).

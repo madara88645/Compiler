@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from .client import WorkerClient, WorkerResponse, DEFAULT_MODEL
 from .schemas import DiagnosticItem
@@ -7,9 +8,10 @@ from app.heuristics import detect_risk_flags
 
 from cachetools import TTLCache
 
-
-from .rag import ContextStrategist, MockVectorDB
+from .rag import ContextStrategist, SQLiteVectorDB
 import os
+
+logger = logging.getLogger("promptc.llm.hybrid")
 
 
 class HybridCompiler:
@@ -24,7 +26,7 @@ class HybridCompiler:
             (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
         )
         # Initialize RAG components
-        self.vector_db = MockVectorDB()  # In real app, connect to actual DB
+        self.vector_db = SQLiteVectorDB()
         self.context_strategist = ContextStrategist(self.vector_db, self.worker)
 
         # Cache: 100 items, expires in 1 hour
@@ -96,8 +98,7 @@ class HybridCompiler:
             self.cache[cache_key] = res
             return res
         except Exception as e:
-            # Log error (in a real app)
-            print(f"Worker LLM failed: {e}")
+            logger.warning("Worker LLM failed; using heuristic fallback: %s", e)
             return self._fallback(text, str(e))
 
     def _fallback(self, text: str, error_msg: str) -> WorkerResponse:
