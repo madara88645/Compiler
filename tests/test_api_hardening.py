@@ -107,7 +107,7 @@ def test_rag_ingest_rejects_path_outside_allowed_root(test_key, monkeypatch):
         )
 
         assert response.status_code == 400
-        assert "allowed root" in response.json()["detail"].lower()
+        assert response.json()["detail"] == "Path security check failed."
 
 
 def test_worker_client_wraps_user_input_and_context_with_tags():
