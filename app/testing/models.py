@@ -7,20 +7,8 @@ class Assertion(BaseModel):
     """A single assertion to run against the output."""
 
     type: Literal[
-        "contains",
-        "not_contains",
-        "regex",
-        "max_length",
-        "min_length",
-        "json_schema",
-        "llm_judge",
-        "equals",
-        "includes",
-        "risk_at_least",
-        "execution_mode_is",
-        "policy_contains",
+        "contains", "not_contains", "regex", "max_length", "min_length", "json_schema", "llm_judge"
     ]
-    target: Literal["output", "ir", "policy"] = "output"
     value: Union[str, int, float, Dict[str, Any]]
     threshold: Optional[float] = None  # For similarity or fuzzy matching if added later
     error_message: Optional[str] = None

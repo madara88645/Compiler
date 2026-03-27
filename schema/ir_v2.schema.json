@@ -1,11 +1,11 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["version","language","persona","role","domain","goals","tasks","constraints","style","tone","output_format","length_hint","steps","examples","banned","tools","policy","metadata","intents"],
+  "required": ["version","language","persona","role","domain","goals","tasks","constraints","style","tone","output_format","length_hint","steps","examples","banned","tools","metadata","intents"],
   "properties": {
     "version": { "const": "2.0" },
   "language": { "enum": ["tr","en","es"] },
-    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer"] },
+    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor"] },
     "role": { "type": "string" },
     "domain": { "type": "string" },
     "intents": { "type": "array", "items": { "enum": ["teaching","summary","compare","variants","recency","risk","code","ambiguous"] } },
@@ -21,7 +21,7 @@
           "id": { "type": "string" },
           "text": { "type": "string" },
           "origin": { "type": "string" },
-          "priority": { "enum": [10,20,30,40,50,60,65,70,75,80,90] },
+          "priority": { "enum": [10,20,30,40,50,60,65,70,80,90] },
           "rationale": { "type": ["string","null"] }
         },
         "additionalProperties": false
@@ -46,21 +46,6 @@
     "examples": { "type": "array", "items": { "type": "string" } },
     "banned": { "type": "array", "items": { "type": "string" } },
     "tools": { "type": "array", "items": { "type": "string" } },
-    "policy": {
-      "type": "object",
-      "required": ["risk_level","risk_domains","allowed_tools","forbidden_tools","sanitization_rules","data_sensitivity","execution_mode"],
-      "properties": {
-        "risk_level": { "enum": ["low","medium","high"] },
-        "risk_domains": { "type": "array", "items": { "type": "string" } },
-        "allowed_tools": { "type": "array", "items": { "type": "string" } },
-        "forbidden_tools": { "type": "array", "items": { "type": "string" } },
-        "sanitization_rules": { "type": "array", "items": { "type": "string" } },
-        "data_sensitivity": { "enum": ["public","internal","confidential","restricted"] },
-        "execution_mode": { "enum": ["advice_only","human_approval_required","auto_ok"] }
-      },
-      "additionalProperties": false
-    },
-    "diagnostics": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
     "metadata": { "type": "object", "additionalProperties": true }
   },
   "additionalProperties": false

@@ -7,7 +7,7 @@ export const STORAGE_KEYS = {
 };
 
 const CONFIGURATION_ERROR =
-  "Extension is not configured yet. Add your backend URL in the popup.";
+  "Extension is not configured yet. Add your backend URL and API key in the popup.";
 
 export function normalizeBackendUrl(input) {
   if (typeof input !== "string") {
@@ -32,8 +32,9 @@ export function normalizeBackendUrl(input) {
 
 export function resolveRuntimeConfig(rawConfig = {}) {
   const backendUrl = normalizeBackendUrl(rawConfig.backendUrl);
+  const apiKey = typeof rawConfig.apiKey === "string" ? rawConfig.apiKey.trim() : "";
 
-  if (!backendUrl) {
+  if (!backendUrl || !apiKey) {
     return { ok: false, error: CONFIGURATION_ERROR };
   }
 
@@ -41,6 +42,7 @@ export function resolveRuntimeConfig(rawConfig = {}) {
     ok: true,
     value: {
       backendUrl,
+      apiKey,
     },
   };
 }

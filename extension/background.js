@@ -3,8 +3,6 @@ import { buildPreviewEntry, mergePreviewHistory } from "./preview-history.mjs";
 
 console.log("MyCompiler Background Worker Loaded");
 
-const CONSERVATIVE_KEY = STORAGE_KEYS.conservativeMode;
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type !== "OPTIMIZE_PROMPT") {
     return false;
@@ -39,21 +37,15 @@ async function handleOptimization(request, sender) {
     return { success: false, error: "Prompt is empty." };
   }
 
-  const modeStorage = await chrome.storage.local.get([CONSERVATIVE_KEY]);
-  const mode = modeStorage[CONSERVATIVE_KEY] === false ? "default" : "conservative";
-
-  const response = await fetch(`${runtimeConfig.value.backendUrl}/compile`, {
+  const response = await fetch(`${runtimeConfig.value.backendUrl}/compile/fast`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Prompt-Mode": mode,
+      "x-api-key": runtimeConfig.value.apiKey,
     },
     body: JSON.stringify({
       text,
-      diagnostics: false,
       v2: true,
-      render_v2_prompts: true,
-      mode,
     }),
   });
 

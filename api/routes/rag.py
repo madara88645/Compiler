@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
 from app.rag.simple_index import (
-    ingest_text,
     ingest_paths,
     pack as rag_pack_ctx,
     search as rag_search,
@@ -23,6 +22,7 @@ from app.rag.uploads import (
     get_allowed_roots,
     normalize_display_name,
     resolve_allowed_path,
+    store_uploaded_text,
 )
 
 router = APIRouter(tags=["rag"])
@@ -44,7 +44,6 @@ class RagIngestResponse(BaseModel):
 
 class RagUploadRequest(BaseModel):
     filename: str = Field(default="upload.txt", max_length=255)
-    relative_path: Optional[str] = Field(default=None, max_length=1024)
     content: str = Field(..., min_length=1, max_length=1_000_000)
     embed: bool = Field(default=False)
     embed_dim: int = Field(default=64, ge=8, le=1024)
@@ -198,27 +197,26 @@ async def rag_upload(
     del api_key
 
     try:
-        display_name = normalize_display_name(req.filename)
-        _, chunks, secs = await anyio.to_thread.run_sync(
+        stored_path, display_name = await anyio.to_thread.run_sync(
+            functools.partial(store_uploaded_text, req.filename, req.content)
+        )
+        docs, chunks, secs = await anyio.to_thread.run_sync(
             functools.partial(
-                ingest_text,
-                display_name,
-                req.content,
-                relative_path=req.relative_path,
+                ingest_paths,
+                [str(stored_path)],
                 embed=req.embed,
                 embed_dim=req.embed_dim,
+                allowed_roots=get_allowed_roots(),
             )
         )
         return RagUploadResponse(
-            filename=display_name,
-            ingested_docs=1,
+            filename=normalize_display_name(display_name),
+            ingested_docs=docs,
             total_chunks=chunks,
             elapsed_ms=int(secs * 1000),
             num_chunks=chunks,
-            message=f"Indexed {display_name} into the RAG index.",
+            message=f"Indexed {normalize_display_name(display_name)} into the RAG index.",
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("rag upload failed")
         raise HTTPException(status_code=500, detail="Failed to upload and index content.") from exc
