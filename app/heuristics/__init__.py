@@ -526,18 +526,15 @@ def detect_pii(text: str) -> list[str]:
         for m in pat.finditer(text):
             val = m.group(0)
             if kind == "credit_card":
-                digits = re.sub(r"[^0-9]", "", val)
-                if len(digits) < 13:
+                digits = sum(1 for c in val if c.isdigit())
+                if digits < 13:
                     continue
-            if kind == "phone":
-                digits = re.sub(r"[^0-9]", "", val)
-                if len(digits) < 7:
+            elif kind == "phone":
+                digits = sum(1 for c in val if c.isdigit())
+                if digits < 7:
                     continue
-            if kind not in flags:
-                flags.append(kind)
-            # Do not collect more than 5 kinds to keep metadata small
-            if len(flags) >= 5:
-                break
+            flags.append(kind)
+            break
         if len(flags) >= 5:
             break
     return flags

@@ -216,13 +216,10 @@ class PromptLinter:
         masked_text = text
         for label, pattern in PII_PATTERNS:
             # Mask logic: detect, flag, and replace in masked_text
-            matches = list(pattern.finditer(text))
-            if matches:
+            masked_text, count = pattern.subn(f"[{label}]", masked_text)
+            if count > 0:
                 if f"PII_{label}" not in safety_flags:
                     safety_flags.append(f"PII_{label}")
-                # Simple replace for masking (reverse order to preserve indices? No, string replace is safer for overlapping)
-                # Actually, regex sub is best
-                masked_text = pattern.sub(f"[{label}]", masked_text)
 
         # 6. Conflict Detection
         for group_a, group_b in CONFLICT_PAIRS:
