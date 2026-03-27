@@ -185,7 +185,7 @@ def _forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -
     return None
 
 
-@app.post("/compile", response_model=CompileResponse)
+@app.post("/compile", response_model=CompileResponse, dependencies=[Depends(verify_api_key)])
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
@@ -336,7 +336,7 @@ async def compile_fast(
         raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 
-@app.post("/validate", response_model=QualityReport)
+@app.post("/validate", response_model=QualityReport, dependencies=[Depends(verify_api_key)])
 def validate_endpoint(
     req: ValidateRequest,
 ):
@@ -394,7 +394,7 @@ class SkillGenResponse(BaseModel):
     skill_definition: str
 
 
-@app.post("/skills-generator/generate", response_model=SkillGenResponse)
+@app.post("/skills-generator/generate", response_model=SkillGenResponse, dependencies=[Depends(verify_api_key)])
 async def generate_skill_endpoint(
     req: SkillGenRequest,
 ):
@@ -427,7 +427,7 @@ class AgentGenResponse(BaseModel):
     system_prompt: str
 
 
-@app.post("/agent-generator/generate", response_model=AgentGenResponse)
+@app.post("/agent-generator/generate", response_model=AgentGenResponse, dependencies=[Depends(verify_api_key)])
 async def generate_agent_endpoint(
     req: AgentGenRequest,
 ):
@@ -471,7 +471,7 @@ class OptimizeResponse(BaseModel):
     changed: bool
 
 
-@app.post("/optimize", response_model=OptimizeResponse)
+@app.post("/optimize", response_model=OptimizeResponse, dependencies=[Depends(verify_api_key)])
 async def optimize_endpoint(
     req: OptimizeRequest,
 ):
@@ -523,7 +523,7 @@ class RagIngestResponse(BaseModel):
     elapsed_ms: int
 
 
-@app.post("/rag/ingest", response_model=RagIngestResponse)
+@app.post("/rag/ingest", response_model=RagIngestResponse, dependencies=[Depends(verify_api_key)])
 async def rag_ingest(
     req: RagIngestRequest,
 ):
@@ -554,7 +554,7 @@ class RagQueryResponse(BaseModel):
     count: int
 
 
-@app.post("/rag/query", response_model=RagQueryResponse)
+@app.post("/rag/query", response_model=RagQueryResponse, dependencies=[Depends(verify_api_key)])
 async def rag_query(
     req: RagQueryRequest,
 ):
@@ -576,7 +576,7 @@ async def rag_query(
     return RagQueryResponse(results=res, count=len(res))
 
 
-@app.post("/rag/pack")
+@app.post("/rag/pack", dependencies=[Depends(verify_api_key)])
 async def rag_pack(
     req: dict,
 ):
@@ -600,7 +600,7 @@ async def rag_pack(
     return context_data
 
 
-@app.post("/rag/upload")
+@app.post("/rag/upload", dependencies=[Depends(verify_api_key)])
 async def rag_upload(
     req: dict,
 ):
@@ -619,14 +619,14 @@ async def rag_upload(
     }
 
 
-@app.get("/rag/stats")
+@app.get("/rag/stats", dependencies=[Depends(verify_api_key)])
 async def rag_stats_endpoint(
     db_path: Optional[str] = None,
 ):
     return rag_stats(db_path=db_path)
 
 
-@app.post("/rag/search")
+@app.post("/rag/search", dependencies=[Depends(verify_api_key)])
 async def rag_search_endpoint(
     req: dict,
 ):
@@ -651,7 +651,7 @@ class ExportRequest(BaseModel):
     is_multi_agent: bool = False
 
 
-@app.post("/agent-generator/export")
+@app.post("/agent-generator/export", dependencies=[Depends(verify_api_key)])
 async def export_agent(
     req: ExportRequest,
 ):
@@ -688,7 +688,7 @@ async def export_agent(
     }
 
 
-@app.post("/skills-generator/export")
+@app.post("/skills-generator/export", dependencies=[Depends(verify_api_key)])
 async def export_skill(
     req: ExportRequest,
 ):

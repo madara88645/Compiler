@@ -25,8 +25,31 @@ def client():
             os.unlink(f)
 
 
+def get_test_key():
+    from api.auth import SessionLocal, APIKey
+    db = SessionLocal()
+    key = APIKey(key="sk_rag_test_123", owner="pytest")
+    db.add(key)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+    db.close()
+    return "sk_rag_test_123"
+
+def cleanup_test_key(key_str):
+    from api.auth import SessionLocal, APIKey
+    db = SessionLocal()
+    key = db.query(APIKey).filter(APIKey.key == key_str).first()
+    if key:
+        db.delete(key)
+        db.commit()
+    db.close()
+
+
 def test_rag_upload_indexes_file(client):
     """Uploading a file should index it and return chunk count."""
+    test_key = get_test_key()
     response = client.post(
         "/rag/upload",
         json={
@@ -34,7 +57,9 @@ def test_rag_upload_indexes_file(client):
             "content": "def login(username, password):\n    if username == 'admin':\n        return True\n    return False",
             "force": True,
         },
+        headers={"x-api-key": test_key}
     )
+    cleanup_test_key(test_key)
 
     assert response.status_code == 200
     data = response.json()
@@ -45,7 +70,9 @@ def test_rag_upload_indexes_file(client):
 
 def test_rag_stats_get(client):
     """GET /rag/stats should return index statistics."""
-    response = client.get("/rag/stats")
+    test_key = get_test_key()
+    response = client.get("/rag/stats", headers={"x-api-key": test_key})
+    cleanup_test_key(test_key)
     assert response.status_code == 200
     data = response.json()
     assert "docs" in data
@@ -54,6 +81,7 @@ def test_rag_stats_get(client):
 
 def test_rag_upload_then_search(client):
     """Upload a file, then search for its content."""
+    test_key = get_test_key()
     # Upload
     client.post(
         "/rag/upload",
@@ -62,12 +90,14 @@ def test_rag_upload_then_search(client):
             "content": "def add(a, b):\n    return a + b\n\ndef multiply(x, y):\n    return x * y",
             "force": True,
         },
+        headers={"x-api-key": test_key}
     )
 
     # Search
     response = client.post(
-        "/rag/search", json={"query": "multiply", "limit": 3, "method": "keyword"}
+        "/rag/search", json={"query": "multiply", "limit": 3, "method": "keyword"}, headers={"x-api-key": test_key}
     )
+    cleanup_test_key(test_key)
 
     assert response.status_code == 200
     results = response.json()
@@ -79,6 +109,7 @@ def test_rag_upload_then_search(client):
 
 def test_rag_upload_with_path_traversal_characters(client):
     """Upload with path traversal characters should sanitize but succeed."""
+    test_key = get_test_key()
     response = client.post(
         "/rag/upload",
         json={
@@ -86,7 +117,9 @@ def test_rag_upload_with_path_traversal_characters(client):
             "content": "def test_function():\n    return 'This is a test'",
             "force": True,
         },
+        headers={"x-api-key": test_key}
     )
+    cleanup_test_key(test_key)
 
     assert response.status_code == 200
     data = response.json()
@@ -98,6 +131,7 @@ def test_rag_upload_with_path_traversal_characters(client):
 
 def test_rag_upload_with_unusual_characters(client):
     """Upload with unusual characters should sanitize but succeed."""
+    test_key = get_test_key()
     response = client.post(
         "/rag/upload",
         json={
@@ -105,7 +139,9 @@ def test_rag_upload_with_unusual_characters(client):
             "content": "def special_function():\n    return 42",
             "force": True,
         },
+        headers={"x-api-key": test_key}
     )
+    cleanup_test_key(test_key)
 
     assert response.status_code == 200
     data = response.json()
@@ -117,6 +153,7 @@ def test_rag_upload_with_unusual_characters(client):
 
 def test_rag_upload_fallback_filename(client):
     """Upload with empty or hidden root paths like '.' should fallback to 'upload.txt'."""
+    test_key = get_test_key()
     response = client.post(
         "/rag/upload",
         json={
@@ -124,7 +161,9 @@ def test_rag_upload_fallback_filename(client):
             "content": "test",
             "force": True,
         },
+        headers={"x-api-key": test_key}
     )
+    cleanup_test_key(test_key)
     assert response.status_code == 200
     data = response.json()
     assert "upload.txt" in data["message"]
