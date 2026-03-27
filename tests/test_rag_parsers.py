@@ -6,10 +6,50 @@ from unittest.mock import patch
 from app.rag.parsers import (
     can_parse,
     get_supported_extensions,
+    parse_plain_text,
     parse_yaml,
     parse_yaml_file,
     ParseResult,
 )
+
+
+def test_parse_plain_text_success(tmp_path):
+    txt_content = "Hello world.\nThis is a test document."
+    test_file = tmp_path / "test.txt"
+    test_file.write_text(txt_content)
+
+    result = parse_plain_text(test_file)
+
+    assert isinstance(result, ParseResult)
+    assert result.content == txt_content
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".txt"
+    assert result.word_count == 7
+
+
+def test_parse_plain_text_extension(tmp_path):
+    py_content = "def hello():\n    print('world')"
+    test_file = tmp_path / "test.py"
+    test_file.write_text(py_content)
+
+    result = parse_plain_text(test_file)
+
+    assert isinstance(result, ParseResult)
+    assert result.content == py_content
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".py"
+    assert result.word_count == 3
+
+
+def test_parse_plain_text_error(tmp_path):
+    non_existent_path = tmp_path / "non_existent.txt"
+    result = parse_plain_text(non_existent_path)
+
+    assert isinstance(result, ParseResult)
+    assert result.content == ""
+    assert "error" in result.metadata
+    assert "No such file or directory" in result.metadata["error"] or "cannot find the file specified" in result.metadata["error"]
+    assert result.word_count == 0
 
 
 def test_parse_yaml_str_success():
