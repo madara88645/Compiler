@@ -75,21 +75,21 @@ export default function SecurityAlert({
                 <div className="p-6 pt-0 flex gap-3 justify-end">
                     <button
                         onClick={onCancel}
-                        className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                        className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
                     >
                         Cancel
                     </button>
 
                     <button
                         onClick={onProceedOriginal}
-                        className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all"
+                        className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
                     >
                         Proceed Unsafe (Original)
                     </button>
 
                     <button
                         onClick={onProceedRedacted}
-                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95"
+                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
                     >
                         Strip Secrets & Proceed
                     </button>

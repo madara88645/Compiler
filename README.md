@@ -7,7 +7,25 @@
   <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
-**Prompt Compiler** transforms messy natural language ideas into structured, optimized System Instructions and User Prompts — powered by an LLM engine with local heuristic fallback.
+**Prompt Compiler** transforms messy natural language ideas into structured, optimized system instructions and user prompts.
+
+The project is still growing into a more production-ready developer workflow tool, but the product name, deploy surface, and core experience remain **Prompt Compiler / PromptC**. The newer policy-aware IR, GitHub artifacts, and VS Code flow are additions to that platform, not a rename.
+
+Try the deployed app at [pcompiler.com](https://pcompiler.com).
+
+---
+
+## What Prompt Compiler Does
+
+Prompt Compiler helps you go from a vague request to usable output fast:
+
+- **System Prompt** for behavior, role, and constraints
+- **User Prompt** for the cleaned task definition
+- **Execution Plan** for step-by-step decomposition
+- **Expanded Prompt** ready to paste into an LLM chat
+- **Policy & IR layer** for safer workflows when the task touches risky domains, tools, or sensitive data
+
+This means the project is still a broad prompt platform, while quietly becoming stronger for developer workflows behind the scenes.
 
 ---
 
@@ -28,12 +46,12 @@ This stabilization pass focused on making the project safer, more consistent, an
 
 The engine analyzes your intent and produces four output layers:
 
-- **System Prompt** — Persona, role, constraints, and output format rules for the target AI.
-- **User Prompt** — Structured, clean task definition derived from your input.
-- **Execution Plan** — Step-by-step logic decomposed from your request.
-- **Expanded Prompt** — A single combined prompt ready to paste into any LLM chat.
+- **System Prompt**: persona, role, constraints, and output format rules for the target AI
+- **User Prompt**: structured task definition derived from your input
+- **Execution Plan**: decomposed steps based on your request
+- **Expanded Prompt**: a combined prompt ready to paste into chat-based LLMs
 
-Switch between the output tabs in the UI to view each layer. A one-click copy button is available on every tab.
+Switch between the output tabs in the UI to inspect each layer, and copy any result with one click.
 
 <p align="center">
   <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Main View" width="100%">
@@ -41,18 +59,16 @@ Switch between the output tabs in the UI to view each layer. A one-click copy bu
 
 ---
 
-### Conservative Mode (Anti-Hallucination)
+### Conservative Mode
 
 The **Conservative** toggle controls how aggressively the compiler interprets your input.
 
 | State | Behavior |
 |---|---|
-| **ON** (default) | Stays strictly grounded in what you wrote. No invented details, no extra requirements, no hallucinated libraries or APIs. Short inputs produce minimal, sensible prompts. Missing information triggers clarifying questions instead of fabricated answers. |
-| **OFF** | Aggressive optimization mode — expands context, infers likely best practices, adds scaffolding. Use when you want the compiler to fill gaps and produce richer prompts. |
+| **ON** (default) | Stays grounded in what you actually wrote. No invented libraries, fake APIs, or made-up requirements. Missing information leads to clarification instead of fabrication. |
+| **OFF** | Expands more aggressively, fills gaps, and leans into richer prompt optimization. |
 
-The toggle is available in both the **web app** (top-right header) and the **browser extension** popup. Its state is persisted locally (localStorage / chrome.storage).
-
-**Why this matters:** Without conservative mode, a one-word input like "hello" could generate an unrelated Python code snippet. With conservative mode on, the same input produces a clean, friendly greeting prompt.
+The toggle is available in both the **web app** and the **browser extension**, and its state is persisted locally.
 
 <p align="center">
   <img src="docs/images/comp3offlineheuristics.PNG" alt="Offline Compiler - Heuristics Mode" width="80%">
@@ -60,24 +76,36 @@ The toggle is available in both the **web app** (top-right header) and the **bro
 
 ---
 
+### Policy-Aware Prompt Workflows
+
+Prompt Compiler now also exposes a structured IR and policy layer for more sensitive or execution-heavy requests.
+
+- **Risk Level**: `low`, `medium`, `high`
+- **Execution Mode**: `advice_only`, `human_approval_required`, `auto_ok`
+- **Data Sensitivity**: `public`, `internal`, `confidential`, `restricted`
+- **Allowed / Forbidden Tools**
+- **Sanitization Rules**
+
+This is not a separate product. It is a new capability inside Prompt Compiler that helps you inspect risky requests before you run them downstream in coding, research, or automation flows.
+
+---
+
 ### Agent Generator
 
-Describe a role or autonomous task, and the **Agent Generator** will produce a complete, constraint-driven system prompt for an AI agent.
+Describe a role or autonomous task, and the **Agent Generator** produces a complete, constraint-driven system prompt for an AI agent.
 
-- **Single Agent** — Generates a focused, single-role agent prompt with strict boundary conditions.
-- **Multi-Agent Swarm** — Toggle the "Multi-Agent" flag to generate a cooperative swarm architect prompt instead, describing how multiple specialized workers should coordinate.
+- **Single Agent**: generates a focused, single-role agent prompt with boundary conditions
+- **Multi-Agent Swarm**: toggle the multi-agent mode to generate a cooperative swarm-style prompt for specialized workers
 
 #### Export Button
 
-After generating an agent, an **Export** section appears below the output. It converts your agent's system prompt into ready-to-run framework code:
+After generating an agent, the **Export** section can turn the output into framework-ready code:
 
 | Framework | Output |
 |---|---|
 | **Claude SDK** | Python code using the `anthropic` client |
-| **LangChain** | Python agent with LangChain's `ChatPromptTemplate` |
+| **LangChain** | Python agent with `ChatPromptTemplate` |
 | **LangGraph** | Python graph definition with node/edge structure |
-
-Each framework tab produces both a **Python Code** file and a **YAML Config** file. Hover over the code block to reveal the copy button.
 
 <p align="center">
   <img src="docs/images/agent_generator.png" alt="Agent Generator" width="80%">
@@ -89,19 +117,17 @@ Each framework tab produces both a **Python Code** file and a **YAML Config** fi
 
 Describe a capability in plain English, and the **Skill Generator** translates it into a structured tool definition.
 
-- Produces a complete **Input Schema** and **Output Schema** in valid JSON.
-- Generates a stringified skill definition ready for LangChain, OpenAI functions, or custom agent frameworks.
+- Produces **Input Schema** and **Output Schema** in valid JSON
+- Generates a stringified skill definition ready for LangChain, OpenAI functions, or custom agent frameworks
 
 #### Export Button
 
-After generating a skill, an **Export** section appears below the output. It wraps your skill definition in framework-specific code:
+After generating a skill, the **Export** section can wrap the output in framework-specific code:
 
 | Format | Output |
 |---|---|
-| **LangChain Tool** | Python `@tool` decorated function + JSON schema |
-| **Claude tool_use** | JSON config compatible with the `tools` parameter in Anthropic's API |
-
-Each format produces both a **Python Tool** file and a **JSON Schema / Config** file. Hover over the code block to reveal the copy button.
+| **LangChain Tool** | Python `@tool` function plus JSON schema |
+| **Claude tool_use** | JSON config compatible with Anthropic's `tools` parameter |
 
 <p align="center">
   <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
@@ -111,7 +137,7 @@ Each format produces both a **Python Tool** file and a **JSON Schema / Config** 
 
 ### Token Optimizer
 
-Compresses your prompt by **20–30%** without losing meaning, logic, or variables. Useful when working near context window limits.
+Compresses your prompt by roughly **20-30%** without losing meaning, logic, or variables. Useful near context-window limits.
 
 <p align="center">
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
@@ -121,11 +147,11 @@ Compresses your prompt by **20–30%** without losing meaning, logic, or variabl
 
 ### Benchmark Playground
 
-A/B test your prompts against compiled versions:
+A/B test raw prompts against compiled versions:
 
-- **Raw vs. Compiled** — Side-by-side quality comparison.
-- **Auto-Judge** — Real-time scoring of response quality, relevance, and clarity.
-- **Visual Metrics** — Improvement percentages and radar charts.
+- **Raw vs. Compiled** side-by-side comparison
+- **Auto-Judge** scoring for relevance, quality, and clarity
+- **Visual Metrics** including improvement percentages
 
 <p align="center">
   <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
@@ -135,12 +161,40 @@ A/B test your prompts against compiled versions:
 
 ### RAG & Knowledge Base
 
-Upload project files (PDF, MD, TXT, code) to ground the compiler in your domain context.
+Upload project files such as PDF, Markdown, text, or code to ground Prompt Compiler in your own domain context.
 
-- **Context Manager** — Drag-and-drop your brand guidelines, API docs, or any reference material.
-- **Agent 6 (The Strategist)** — Scans uploaded files for relevant facts and injects them into prompt generation.
-- **Agent 7 (The Critic)** — Cross-references the generated prompt against your knowledge base and blocks hallucinated facts.
-- **Intelligent Caching** — Local SQLite vector store (`~/.promptc_index_v3.db`) for instant retrieval without re-uploading.
+- **Context Manager** for drag-and-drop reference files
+- **Strategist/Critic flow** for injecting grounded context and catching hallucinated claims
+- **Local SQLite-backed retrieval** for fast reuse without re-uploading
+
+---
+
+### GitHub Workflow Artifacts
+
+Prompt Compiler can render deterministic markdown artifacts from natural language requests:
+
+- **Issue Brief**
+- **Implementation Checklist**
+- **PR Review Brief**
+
+Example:
+
+```bash
+python -m cli.main github render --type pr-review-brief --from-file prompt.txt
+```
+
+---
+
+### VS Code Extension MVP
+
+The new VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension):
+
+- `PromptC: Compile Selection`
+- `PromptC: Open Panel`
+- Tabs: `Intent`, `Policy`, `Prompts`, `Raw JSON`
+- Settings: `promptc.apiBaseUrl`, `promptc.conservativeMode`
+
+API keys are stored in VS Code secret storage, not workspace settings.
 
 ---
 
@@ -153,7 +207,7 @@ cd Compiler
 # Backend: pyproject.toml is the source of truth
 python -m pip install -e .[dev,docs]
 
-# Frontend: npm + package-lock only
+# Frontend
 cd web
 npm ci
 cd ..
@@ -199,10 +253,10 @@ Notes:
 **Manual:**
 
 ```bash
-# Terminal 1 — Backend
+# Terminal 1 - Backend
 python -m uvicorn api.main:app --reload --port 8080
 
-# Terminal 2 — Frontend
+# Terminal 2 - Frontend
 cd web
 npm run dev
 ```
@@ -211,39 +265,53 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## How to Use
+## How To Use
 
-1. **Type your idea** in the input box (any page).
-2. **Click Generate** — the LLM analyzes your intent and produces structured output.
-3. **Review** the output tabs: System, User, Plan, Expanded.
-4. **Copy** the result with the copy button, or use the **Export** button (Agent / Skill pages) to get framework-ready code.
-5. **Toggle Conservative** to control how strictly the compiler stays within your original text.
+1. Type your idea, prompt, task, or workflow request into the input box.
+2. Click **Generate**.
+3. Review the output tabs: `Intent`, `System`, `User`, `Plan`, `Expanded`, `JSON`, `Quality`.
+4. Use **Conservative** mode when you want grounded output.
+5. If the task is sensitive, inspect the policy layer before using the result downstream.
+6. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
 
 ---
 
 ## Project Structure
 
-```
-api/            FastAPI endpoints (compile, agent-generator, skills-generator, optimize…)
+```text
+api/            FastAPI endpoints (compile, agent-generator, skills-generator, optimize, rag)
 app/
-  compiler.py       Chain-of-Responsibility heuristic compiler (V1 + V2)
-  emitters.py       Prompt rendering layer (system, user, plan, expanded)
-  llm_engine/       HybridCompiler, WorkerClient, LLM prompts
-    prompts/
-      worker_v1.md            Standard compiler system prompt
-      worker_conservative.md  Conservative (anti-hallucination) system prompt
-  heuristics/       Local risk detection and offline parsing
-  rag/              SQLite FTS5 RAG index and context retrieval
+  compiler.py       Core compiler pipeline
+  emitters.py       Prompt rendering layer
+  models_v2.py      IR v2 and policy contract
+  llm_engine/       HybridCompiler and provider logic
+  heuristics/       Offline parsing, safety, risk, and policy inference
+  rag/              SQLite FTS5 RAG index and retrieval
+  testing/          Regression runner
+  github_artifacts.py
 web/
   app/
     page.tsx                    Main compiler UI
-    agent-generator/            Agent Generator page + ExportPanel
-    skills-generator/           Skill Generator page + SkillExportPanel
+    agent-generator/            Agent Generator page
+    skills-generator/           Skill Generator page
     benchmark/                  Benchmark Playground
     optimizer/                  Token Optimizer
     components/                 Shared UI components
-tests/          Full test suite (200+ tests, all offline-safe)
+cli/            CLI entrypoints
+integrations/
+  vscode-extension/
+extension/      Browser extension
+tests/          Offline-safe test suite
+docs/           Product, pattern, and workflow docs
 ```
+
+---
+
+## Docs
+
+- [`docs/pattern-library.md`](docs/pattern-library.md)
+- [`docs/promptc-safe-workflows.md`](docs/promptc-safe-workflows.md)
+- [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml)
 
 ---
 
@@ -256,7 +324,3 @@ Licensed under the [Apache License 2.0](LICENSE).
 For managed/hosted service inquiries: [mehmet.ozel2701@gmail.com](mailto:mehmet.ozel2701@gmail.com)
 
 Self-hosting is free and always will be.
-
----
-
-*Built with ❤️ for Prompt Engineers.*

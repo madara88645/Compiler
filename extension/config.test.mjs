@@ -7,16 +7,14 @@ test("resolveRuntimeConfig reports missing credentials without embedded defaults
   const result = resolveRuntimeConfig({});
 
   assert.equal(result.ok, false);
-  assert.equal(result.error, "Extension is not configured yet. Add your backend URL and API key in the popup.");
+  assert.equal(result.error, "Extension is not configured yet. Add your backend URL in the popup.");
 });
 
-test("resolveRuntimeConfig normalizes backend URLs and keeps secrets out of source", () => {
+test("resolveRuntimeConfig normalizes backend URLs without requiring an API key", () => {
   const result = resolveRuntimeConfig({
     backendUrl: "compiler-production-626b.up.railway.app/",
-    apiKey: "pc_test_key",
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.value?.backendUrl, "https://compiler-production-626b.up.railway.app");
-  assert.equal(result.value?.apiKey, "pc_test_key");
 });
