@@ -59,6 +59,7 @@ export type CompileResponse = {
   plan_v2?: string;
   expanded_prompt_v2?: string;
   ir: CompileIr;
+  ir_v2?: CompileIr;
   processing_ms: number;
   critique?: Critique | null;
 };

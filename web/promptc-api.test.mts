@@ -67,6 +67,26 @@ test("normalizeCompileResponse preserves nested security metadata", () => {
   assert.equal(response.ir.metadata?.security?.findings[0]?.type, "api_key");
 });
 
+test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
+  const response = normalizeCompileResponse({
+    system_prompt: "sys",
+    user_prompt: "usr",
+    plan: "1. step",
+    expanded_prompt: "expanded",
+    ir: {},
+    ir_v2: {
+      domain: "coding",
+      metadata: {
+        risk_flags: ["security"],
+      },
+    },
+    processing_ms: 25,
+  });
+
+  assert.equal(response.ir_v2?.domain, "coding");
+  assert.deepEqual(response.ir_v2?.metadata?.risk_flags, ["security"]);
+});
+
 test("formatSearchResultForPrompt includes path header", () => {
   assert.equal(
     formatSearchResultForPrompt({

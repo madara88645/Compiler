@@ -2,31 +2,14 @@
 
 import { useEffect, useState } from "react";
 import ContextManager from "./components/ContextManager";
+import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
+import { useCompiler } from "./hooks/useCompiler";
+import type { CompileMode, CompileResponse } from "../lib/api/types";
 
-type CompileResponse = {
-  system_prompt: string;
-  user_prompt: string;
-  plan: string;
-  expanded_prompt: string;
-  system_prompt_v2?: string;
-  user_prompt_v2?: string;
-  plan_v2?: string;
-  expanded_prompt_v2?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ir: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ir_v2?: any;
-  processing_ms: number;
-  critique?: {
-    verdict: string;
-    score: number;
-    issues: Array<{ type: string; description: string; severity: string }>;
-    feedback: string;
-  };
-};
+type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";
 
 function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   if (activeTab === "system") {
@@ -46,27 +29,15 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<CompileResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<"intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality">("intent");
-  const [diagnostics] = useState(true);
-  const [conservativeMode, setConservativeMode] = useState(true);
-  const [status, setStatus] = useState("Ready");
-
-  // Security Alert State
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [securityFindings, setSecurityFindings] = useState<any[]>([]);
-  const [redactedText, setRedactedText] = useState("");
-  const [pendingText, setPendingText] = useState(""); // Text waiting to be sent to V2
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem("promptc_conservative_mode");
-    if (saved !== null) {
-      setConservativeMode(saved !== "false");
+  const [activeTab, setActiveTab] = useState<OutputTab>("intent");
+  const [conservativeMode, setConservativeMode] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
     }
 
     return window.localStorage.getItem("promptc_conservative_mode") !== "false";
   });
+
   const {
     loading,
     result,
