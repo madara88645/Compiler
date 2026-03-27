@@ -21,7 +21,10 @@ def render(
 ):
     """Render a GitHub-friendly markdown artifact from natural language intent."""
     if from_file is not None:
-        source_text = from_file.read_text(encoding="utf-8")
+        try:
+            source_text = from_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise typer.BadParameter(f"Could not read from file '{from_file}': {exc}") from exc
     else:
         source_text = " ".join(text or [])
 
