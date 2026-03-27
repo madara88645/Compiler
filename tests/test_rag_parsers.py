@@ -48,7 +48,10 @@ def test_parse_plain_text_error(tmp_path):
     assert isinstance(result, ParseResult)
     assert result.content == ""
     assert "error" in result.metadata
-    assert "No such file or directory" in result.metadata["error"] or "cannot find the file specified" in result.metadata["error"]
+    assert (
+        "No such file or directory" in result.metadata["error"]
+        or "cannot find the file specified" in result.metadata["error"]
+    )
     assert result.word_count == 0
 
 
