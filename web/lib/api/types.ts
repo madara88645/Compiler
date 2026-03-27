@@ -75,6 +75,7 @@ export type CompileRequest = {
 
 export type RagUploadRequest = {
   filename: string;
+  relative_path?: string;
   content: string;
 };
 

@@ -53,6 +53,20 @@ def test_rag_upload_indexes_file(client):
     assert "auth.py" in data["message"]
 
 
+@pytest.mark.auth_required
+def test_rag_upload_allows_requests_without_api_key_by_default(client):
+    response = client.post(
+        "/rag/upload",
+        json={
+            "filename": "public.txt",
+            "content": "public upload should not require x-api-key",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+
+
 def test_rag_stats_get(client):
     """GET /rag/stats should return index statistics."""
     response = client.get("/rag/stats")
@@ -83,6 +97,68 @@ def test_rag_upload_then_search(client):
     found = any("multiply" in r["snippet"].lower() for r in results)
     assert found, f"Expected 'multiply' in results: {results}"
     assert all(set(result.keys()) == {"path", "snippet", "score"} for result in results)
+
+
+def test_rag_upload_indexes_unique_content_for_search(client):
+    """Uploaded content should become searchable, not just return a stub success payload."""
+    unique_term = "neuroflux_unique_signal_4271"
+
+    upload = client.post(
+        "/rag/upload",
+        json={
+            "filename": "notes.md",
+            "content": f"Project notes: keep track of {unique_term} in the context index.",
+            "force": True,
+        },
+    )
+
+    assert upload.status_code == 200
+    upload_data = upload.json()
+    assert upload_data["success"] is True
+
+    search = client.post(
+        "/rag/search", json={"query": unique_term, "limit": 3, "method": "keyword"}
+    )
+
+    assert search.status_code == 200
+    results = search.json()
+    found = any(unique_term in str(r) for r in results)
+    assert found, f"Expected uploaded term in results: {results}"
+
+
+def test_rag_upload_preserves_relative_paths_for_duplicate_filenames(client):
+    """Folder uploads should not collapse files that share the same basename."""
+    first = client.post(
+        "/rag/upload",
+        json={
+            "filename": "index.ts",
+            "relative_path": "src/components/index.ts",
+            "content": "export const headerMarker = 'header_unique_signal';",
+            "force": True,
+        },
+    )
+    second = client.post(
+        "/rag/upload",
+        json={
+            "filename": "index.ts",
+            "relative_path": "src/pages/index.ts",
+            "content": "export const pageMarker = 'page_unique_signal';",
+            "force": True,
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    stats = client.get("/rag/stats")
+    assert stats.status_code == 200
+    assert stats.json()["docs"] == 2
+
+    header_search = client.post("/rag/search", json={"query": "header_unique_signal", "limit": 5})
+    page_search = client.post("/rag/search", json={"query": "page_unique_signal", "limit": 5})
+
+    assert any("src/components/index.ts" in str(row) for row in header_search.json())
+    assert any("src/pages/index.ts" in str(row) for row in page_search.json())
 
 
 def test_rag_upload_with_path_traversal_characters(client):
