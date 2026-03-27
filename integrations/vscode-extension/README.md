@@ -1,11 +1,11 @@
-# PromptC Intent Compiler
+# PromptC for VS Code
 
 VS Code extension surface for PromptC.
 
 ## Commands
 
 - `PromptC: Compile Selection`
-- `PromptC: Open Intent Panel`
+- `PromptC: Open Panel`
 
 ## Panel Tabs
 

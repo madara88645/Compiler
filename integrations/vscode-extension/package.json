@@ -1,7 +1,7 @@
 {
-  "name": "promptc-intent-compiler",
-  "displayName": "PromptC Intent Compiler",
-  "description": "Compile natural language intent into prompts, plans, and visible safety policy inside VS Code.",
+  "name": "promptc-vscode",
+  "displayName": "PromptC for VS Code",
+  "description": "Compile prompts, tasks, and workflow requests into structured output and visible policy inside VS Code.",
   "version": "0.0.1",
   "publisher": "memo",
   "engines": {
@@ -23,7 +23,7 @@
       },
       {
         "command": "promptc.openPanel",
-        "title": "PromptC: Open Intent Panel"
+        "title": "PromptC: Open Panel"
       }
     ],
     "configuration": {

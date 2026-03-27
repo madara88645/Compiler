@@ -1,49 +1,73 @@
-# PromptC Intent Compiler
+# Prompt Compiler
 
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <p align="center">
-  <img src="docs/images/comp1.PNG" alt="PromptC Intent Compiler" width="100%">
+  <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
-PromptC is evolving from a general prompt tool into an open-source, security-aware intent compiler for developers.
+**Prompt Compiler** transforms messy natural language ideas into structured, optimized system instructions and user prompts.
 
-Natural language intent goes in. Structured prompts, explicit execution policy, and reusable workflow artifacts come out.
+The project is still growing into a more production-ready developer workflow tool, but the product name, deploy surface, and core experience remain **Prompt Compiler / PromptC**. The newer policy-aware IR, GitHub artifacts, and VS Code flow are additions to that platform, not a rename.
 
----
-
-## Why PromptC
-
-PromptC compiles intent into:
-
-- **IR-first structure** for downstream tooling
-- **Policy visibility** for risky or sensitive requests
-- **Prompt packs** for direct LLM usage
-- **Workflow artifacts** for GitHub and developer loops
-- **Regression-friendly outputs** for testing behavior over time
-
-The main thesis is now:
-
-> `natural language intent -> structured IR -> visible policy -> reusable workflow artifact`
+Try the deployed app at [pcompiler.com](https://pcompiler.com).
 
 ---
 
-## Core Features
+## What Prompt Compiler Does
 
-### Intent Compiler Core
+Prompt Compiler helps you go from a vague request to usable output fast:
 
-The compiler analyzes a request and produces:
+- **System Prompt** for behavior, role, and constraints
+- **User Prompt** for the cleaned task definition
+- **Execution Plan** for step-by-step decomposition
+- **Expanded Prompt** ready to paste into an LLM chat
+- **Policy & IR layer** for safer workflows when the task touches risky domains, tools, or sensitive data
 
-- **System Prompt**: persona, role, and behavioral rules
-- **User Prompt**: cleaned task definition
-- **Execution Plan**: decomposed steps
-- **Expanded Prompt**: combined prompt ready for chat-based LLMs
-- **Policy Envelope**: risk level, execution mode, data sensitivity, tool bounds, sanitization rules
+This means the project is still a broad prompt platform, while quietly becoming stronger for developer workflows behind the scenes.
 
-### Security-Aware Policy Inference
+---
 
-PromptC treats policy as a first-class part of the IR:
+## Key Features
+
+### Core Prompt Compiler
+
+The engine analyzes your intent and produces four output layers:
+
+- **System Prompt**: persona, role, constraints, and output format rules for the target AI
+- **User Prompt**: structured task definition derived from your input
+- **Execution Plan**: decomposed steps based on your request
+- **Expanded Prompt**: a combined prompt ready to paste into chat-based LLMs
+
+Switch between the output tabs in the UI to inspect each layer, and copy any result with one click.
+
+<p align="center">
+  <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Main View" width="100%">
+</p>
+
+---
+
+### Conservative Mode
+
+The **Conservative** toggle controls how aggressively the compiler interprets your input.
+
+| State | Behavior |
+|---|---|
+| **ON** (default) | Stays grounded in what you actually wrote. No invented libraries, fake APIs, or made-up requirements. Missing information leads to clarification instead of fabrication. |
+| **OFF** | Expands more aggressively, fills gaps, and leans into richer prompt optimization. |
+
+The toggle is available in both the **web app** and the **browser extension**, and its state is persisted locally.
+
+<p align="center">
+  <img src="docs/images/comp3offlineheuristics.PNG" alt="Offline Compiler - Heuristics Mode" width="80%">
+</p>
+
+---
+
+### Policy-Aware Prompt Workflows
+
+Prompt Compiler now also exposes a structured IR and policy layer for more sensitive or execution-heavy requests.
 
 - **Risk Level**: `low`, `medium`, `high`
 - **Execution Mode**: `advice_only`, `human_approval_required`, `auto_ok`
@@ -51,31 +75,92 @@ PromptC treats policy as a first-class part of the IR:
 - **Allowed / Forbidden Tools**
 - **Sanitization Rules**
 
-This turns PromptC into an inspectable intent compiler rather than a prompt-only optimizer.
+This is not a separate product. It is a new capability inside Prompt Compiler that helps you inspect risky requests before you run them downstream in coding, research, or automation flows.
 
-### Conservative Mode
+---
 
-The **Conservative** toggle keeps output grounded in the original request:
+### Agent Generator
 
-- no invented details
-- no hallucinated APIs or libraries
-- short inputs stay short
-- missing information triggers clarification instead of fabrication
+Describe a role or autonomous task, and the **Agent Generator** produces a complete, constraint-driven system prompt for an AI agent.
 
-### Intent Regression Runner
+- **Single Agent**: generates a focused, single-role agent prompt with boundary conditions
+- **Multi-Agent Swarm**: toggle the multi-agent mode to generate a cooperative swarm-style prompt for specialized workers
 
-The CLI test runner can validate:
+#### Export Button
 
-- output content
-- compiled IR
-- inferred policy
-- risk thresholds
-- execution mode
-- expected tool and sanitization rules
+After generating an agent, the **Export** section can turn the output into framework-ready code:
+
+| Framework | Output |
+|---|---|
+| **Claude SDK** | Python code using the `anthropic` client |
+| **LangChain** | Python agent with `ChatPromptTemplate` |
+| **LangGraph** | Python graph definition with node/edge structure |
+
+<p align="center">
+  <img src="docs/images/agent_generator.png" alt="Agent Generator" width="80%">
+</p>
+
+---
+
+### Skill & Tool Generator
+
+Describe a capability in plain English, and the **Skill Generator** translates it into a structured tool definition.
+
+- Produces **Input Schema** and **Output Schema** in valid JSON
+- Generates a stringified skill definition ready for LangChain, OpenAI functions, or custom agent frameworks
+
+#### Export Button
+
+After generating a skill, the **Export** section can wrap the output in framework-specific code:
+
+| Format | Output |
+|---|---|
+| **LangChain Tool** | Python `@tool` function plus JSON schema |
+| **Claude tool_use** | JSON config compatible with Anthropic's `tools` parameter |
+
+<p align="center">
+  <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
+</p>
+
+---
+
+### Token Optimizer
+
+Compresses your prompt by roughly **20-30%** without losing meaning, logic, or variables. Useful near context-window limits.
+
+<p align="center">
+  <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
+</p>
+
+---
+
+### Benchmark Playground
+
+A/B test raw prompts against compiled versions:
+
+- **Raw vs. Compiled** side-by-side comparison
+- **Auto-Judge** scoring for relevance, quality, and clarity
+- **Visual Metrics** including improvement percentages
+
+<p align="center">
+  <img src="docs/images/comp4benchmark.PNG" alt="Benchmark Playground Interface" width="80%">
+</p>
+
+---
+
+### RAG & Knowledge Base
+
+Upload project files such as PDF, Markdown, text, or code to ground Prompt Compiler in your own domain context.
+
+- **Context Manager** for drag-and-drop reference files
+- **Strategist/Critic flow** for injecting grounded context and catching hallucinated claims
+- **Local SQLite-backed retrieval** for fast reuse without re-uploading
+
+---
 
 ### GitHub Workflow Artifacts
 
-PromptC can render deterministic markdown artifacts from natural language intent:
+Prompt Compiler can render deterministic markdown artifacts from natural language requests:
 
 - **Issue Brief**
 - **Implementation Checklist**
@@ -87,29 +172,18 @@ Example:
 python -m cli.main github render --type pr-review-brief --from-file prompt.txt
 ```
 
+---
+
 ### VS Code Extension MVP
 
 The new VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension):
 
 - `PromptC: Compile Selection`
-- `PromptC: Open Intent Panel`
+- `PromptC: Open Panel`
 - Tabs: `Intent`, `Policy`, `Prompts`, `Raw JSON`
 - Settings: `promptc.apiBaseUrl`, `promptc.conservativeMode`
-- API keys stored in VS Code secret storage, not settings JSON
 
----
-
-## Secondary Surfaces
-
-PromptC still includes additional surfaces that now sit behind the core intent-compiler story:
-
-- Agent Generator
-- Skill & Tool Generator
-- Token Optimizer
-- Benchmark Playground
-- RAG & Knowledge Base
-
-These remain useful, but they are now secondary to the main intent-compiler positioning.
+API keys are stored in VS Code secret storage, not workspace settings.
 
 ---
 
@@ -119,11 +193,13 @@ These remain useful, but they are now secondary to the main intent-compiler posi
 git clone https://github.com/madara88645/Compiler.git
 cd Compiler
 
-# Backend
-pip install -r requirements.txt
+# Backend: pyproject.toml is the source of truth
+python -m pip install -e .[dev,docs]
 
 # Frontend
-cd web && npm install && cd ..
+cd web
+npm ci
+cd ..
 ```
 
 ### Environment Setup
@@ -132,25 +208,46 @@ cd web && npm install && cd ..
 cp .env.example .env
 ```
 
-Edit `.env`:
+Core variables:
 
 ```env
 OPENAI_API_KEY=sk-your-actual-key
 OPENAI_BASE_URL=https://api.openai.com
 GROQ_API_KEY=gsk_your_groq_key
+
+# Prompt compiler mode: conservative (default) or default
 PROMPT_COMPILER_MODE=conservative
+
+# Optional auth hardening
+ADMIN_API_KEY=replace-me
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=false
+
+# Optional RAG storage controls
+PROMPTC_UPLOAD_DIR=.promptc_uploads
+PROMPTC_RAG_ALLOWED_ROOTS=
 ```
+
+Notes:
+
+- Leave `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false` for backwards-compatible local development.
+- `/compile/fast`, generator routes, and RAG mutation routes require an API key.
+- If you set `PROMPTC_RAG_ALLOWED_ROOTS`, only files inside those roots can be ingested by path.
 
 ---
 
 ## Running the App
 
+**Windows (one-click):** double-click `start_app.bat`
+
+**Manual:**
+
 ```bash
-# Terminal 1
+# Terminal 1 - Backend
 python -m uvicorn api.main:app --reload --port 8080
 
-# Terminal 2
-cd web && npm run dev
+# Terminal 2 - Frontend
+cd web
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -159,31 +256,42 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## How To Use
 
-1. Type your intent in the web app or select text in VS Code.
-2. Click **Generate** or run **Compile Selection**.
-3. Inspect the **Policy** view before running anything downstream.
-4. Copy prompts or render GitHub artifacts from the CLI.
-5. Use **Conservative Mode** when you want grounded, low-hallucination output.
+1. Type your idea, prompt, task, or workflow request into the input box.
+2. Click **Generate**.
+3. Review the output tabs: `Intent`, `System`, `User`, `Plan`, `Expanded`, `JSON`, `Quality`.
+4. Use **Conservative** mode when you want grounded output.
+5. If the task is sensitive, inspect the policy layer before using the result downstream.
+6. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
 
 ---
 
 ## Project Structure
 
 ```text
-api/            FastAPI endpoints
+api/            FastAPI endpoints (compile, agent-generator, skills-generator, optimize, rag)
 app/
   compiler.py       Core compiler pipeline
+  emitters.py       Prompt rendering layer
   models_v2.py      IR v2 and policy contract
+  llm_engine/       HybridCompiler and provider logic
+  heuristics/       Offline parsing, safety, risk, and policy inference
+  rag/              SQLite FTS5 RAG index and retrieval
   testing/          Regression runner
   github_artifacts.py
-  heuristics/       Offline inference handlers
-web/            Next.js app
+web/
+  app/
+    page.tsx                    Main compiler UI
+    agent-generator/            Agent Generator page
+    skills-generator/           Skill Generator page
+    benchmark/                  Benchmark Playground
+    optimizer/                  Token Optimizer
+    components/                 Shared UI components
 cli/            CLI entrypoints
 integrations/
   vscode-extension/
 extension/      Browser extension
-tests/          Python test suite
-docs/           Positioning and pattern docs
+tests/          Offline-safe test suite
+docs/           Product, pattern, and workflow docs
 ```
 
 ---
@@ -191,13 +299,17 @@ docs/           Positioning and pattern docs
 ## Docs
 
 - [`docs/pattern-library.md`](docs/pattern-library.md)
-- [`docs/why-promptc-is-an-intent-compiler.md`](docs/why-promptc-is-an-intent-compiler.md)
+- [`docs/promptc-safe-workflows.md`](docs/promptc-safe-workflows.md)
 - [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml)
 
 ---
 
 ## License
 
-Copyright © 2026 Mehmet Özel.
+Copyright © 2026 Mehmet Özel. All rights reserved.
 
 Licensed under the [Apache License 2.0](LICENSE).
+
+For managed/hosted service inquiries: [mehmet.ozel2701@gmail.com](mailto:mehmet.ozel2701@gmail.com)
+
+Self-hosting is free and always will be.

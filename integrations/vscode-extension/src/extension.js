@@ -37,7 +37,7 @@ function activate(context) {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "PromptC is compiling your intent",
+          title: "PromptC is compiling your request",
         },
         async () => {
           const config = vscode.workspace.getConfiguration("promptc");
@@ -95,7 +95,7 @@ function getOrCreatePanel(context) {
 
   panelInstance = vscode.window.createWebviewPanel(
     "promptcIntentPanel",
-    "PromptC Intent Panel",
+    "PromptC Panel",
     vscode.ViewColumn.Beside,
     { enableScripts: true }
   );

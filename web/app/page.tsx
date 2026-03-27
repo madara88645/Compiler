@@ -210,13 +210,13 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
               <div>
-                <h1 className="font-semibold text-lg tracking-tight text-white">PromptC Intent Compiler</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Safe Workflow Ready</div>
+                <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
               </div>
             </div>
             <InfoButton
-              title="Intent Compiler"
-              description="Compiles natural language intent into prompts, execution plans, and an inspectable safety policy for developer workflows."
+              title="Prompt Compiler"
+              description="Turns messy natural language into structured prompts, plans, and an inspectable policy layer when the task needs safer workflow guidance."
             />
           </div>
 
@@ -264,7 +264,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <textarea
                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
-                placeholder="Describe the intent you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
+                placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
@@ -433,8 +433,8 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="max-w-xs space-y-2">
-                  <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile Intent</h3>
-                  <p className="text-sm text-zinc-500">Enter intent to generate prompts, a plan, and a visible execution policy before you run anything.</p>
+                  <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile</h3>
+                  <p className="text-sm text-zinc-500">Enter a prompt, task, or workflow request to generate structured output and inspect policy when needed.</p>
                   <p className="text-[10px] text-zinc-700 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>
