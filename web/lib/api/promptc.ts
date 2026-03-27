@@ -159,7 +159,6 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     plan_v2: readString(record.plan_v2) || undefined,
     expanded_prompt_v2: readString(record.expanded_prompt_v2) || undefined,
     ir: normalizeIr(record.ir),
-    ir_v2: record.ir_v2 ? normalizeIr(record.ir_v2) : undefined,
     processing_ms: readNumber(record.processing_ms),
     critique: normalizeCritique(record.critique),
   };

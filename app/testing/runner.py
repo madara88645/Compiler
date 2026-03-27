@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 from .models import TestSuite, TestCase, TestResult, SuiteResult, Assertion
 from .judge import LLMJudge
-from app.compiler import compile_text, compile_text_v2
+from app.compiler import compile_text
 from app.emitters import emit_expanded_prompt
 
 
@@ -156,7 +156,6 @@ class TestRunner:
 
             # Re-compile to get final prompt to send to LLM
             ir = compile_text(filled_text)
-            ir_v2 = compile_text_v2(filled_text, offline_only=True)
 
             # Emit the prompt string that would go to the LLM
             final_prompt_str = emit_expanded_prompt(ir)
@@ -169,7 +168,7 @@ class TestRunner:
             # 3. Assert
             failures = []
             for assertion in case.assertions:
-                if not self._check_assertion(assertion, output, ir_v2):
+                if not self._check_assertion(assertion, output):
                     failures.append(
                         assertion.error_message
                         or f"Assertion failed: {assertion.type} {assertion.value}"
@@ -190,37 +189,8 @@ class TestRunner:
                 test_case_id=case.id, passed=False, output="", duration_ms=duration, error=str(e)
             )
 
-    def _check_assertion(self, assertion: Assertion, output: str, ir_v2=None) -> bool:
-        policy = getattr(ir_v2, "policy", None)
-
-        if assertion.target == "policy" and policy is not None:
-            if assertion.type == "risk_at_least":
-                ordering = {"low": 1, "medium": 2, "high": 3}
-                expected = ordering.get(str(assertion.value), 0)
-                actual = ordering.get(policy.risk_level, 0)
-                return actual >= expected
-            elif assertion.type == "execution_mode_is":
-                return policy.execution_mode == str(assertion.value)
-            elif assertion.type == "policy_contains":
-                combined = " ".join(
-                    policy.risk_domains
-                    + policy.allowed_tools
-                    + policy.forbidden_tools
-                    + policy.sanitization_rules
-                    + [policy.data_sensitivity, policy.execution_mode, policy.risk_level]
-                )
-                return str(assertion.value) in combined
-
-        if assertion.target == "ir" and ir_v2 is not None:
-            payload = json.dumps(ir_v2.model_dump(), ensure_ascii=False)
-            if assertion.type in {"contains", "includes"}:
-                return str(assertion.value) in payload
-            elif assertion.type == "not_contains":
-                return str(assertion.value) not in payload
-            elif assertion.type == "equals":
-                return payload == str(assertion.value)
-
-        if assertion.type in {"contains", "includes"}:
+    def _check_assertion(self, assertion: Assertion, output: str) -> bool:
+        if assertion.type == "contains":
             return str(assertion.value) in output
         elif assertion.type == "not_contains":
             return str(assertion.value) not in output
@@ -230,8 +200,6 @@ class TestRunner:
             return len(output) <= int(assertion.value)
         elif assertion.type == "min_length":
             return len(output) >= int(assertion.value)
-        elif assertion.type == "equals":
-            return output == str(assertion.value)
         elif assertion.type == "json_schema":
             # Basic validation that it IS json
             try:

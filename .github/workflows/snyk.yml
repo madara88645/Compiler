@@ -36,8 +36,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
+      - name: Setup Snyk
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions/setup@master
+
       - name: Run Snyk (dependencies)
         if: ${{ env.SNYK_TOKEN != '' }}
-        uses: snyk/actions/python@master
-        with:
-          args: --severity-threshold=high
+        run: snyk test --severity-threshold=high

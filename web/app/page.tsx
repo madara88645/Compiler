@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import ContextManager from "./components/ContextManager";
-import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
-import IntentPolicyPanel from "./components/IntentPolicyPanel";
+import InfoButton from "./components/InfoButton";
 import { useCompiler } from "./hooks/useCompiler";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
-type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";
+type OutputTab = "system" | "user" | "plan" | "expanded" | "json" | "quality";
 
 function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   if (activeTab === "system") {
@@ -29,7 +28,7 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
-  const [activeTab, setActiveTab] = useState<OutputTab>("intent");
+  const [activeTab, setActiveTab] = useState<OutputTab>("system");
   const [conservativeMode, setConservativeMode] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -37,7 +36,6 @@ export default function Home() {
 
     return window.localStorage.getItem("promptc_conservative_mode") !== "false";
   });
-
   const {
     loading,
     result,
@@ -90,12 +88,12 @@ export default function Home() {
               <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">AI Optimized</div>
               </div>
             </div>
             <InfoButton
               title="Prompt Compiler"
-              description="Turns messy natural language into structured prompts, plans, and an inspectable policy layer when the task needs safer workflow guidance."
+              description="Compiles natural language requests into highly structured, AI-optimized system prompts, user prompts, and execution plans using advanced heuristics and RAG."
             />
           </div>
 
@@ -145,7 +143,9 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <textarea
                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
-                placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
+                placeholder="Describe your prompt idea here... e.g. 'Act as a senior python dev teaching FastAPI'"
+                id="prompt-input"
+                aria-label="Prompt input"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
@@ -180,7 +180,7 @@ export default function Home() {
               <>
                 {/* Tabs */}
                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
-                  {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
+                  {(["system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -196,13 +196,7 @@ export default function Home() {
 
                 {/* Content */}
                 <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20">
-                  {activeTab === "intent" && (
-                    <div className="absolute inset-0 bg-transparent z-20">
-                      <IntentPolicyPanel result={result} />
-                    </div>
-                  )}
-
-                  {activeTab !== "intent" && activeTab !== "quality" && activeTab !== "json" && (
+                  {activeTab !== "quality" && activeTab !== "json" && (
                     <>
                       {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
                       <div className="absolute top-4 right-6 z-10 flex gap-2">
@@ -307,7 +301,7 @@ export default function Home() {
                 </div>
                 <div className="max-w-xs space-y-2">
                   <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile</h3>
-                  <p className="text-sm text-zinc-500">Enter a prompt, task, or workflow request to generate structured output and inspect policy when needed.</p>
+                  <p className="text-sm text-zinc-500">Enter a prompt to generate optimized system instructions, planning, and structured reasoning.</p>
                   <p className="text-[10px] text-zinc-700 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>

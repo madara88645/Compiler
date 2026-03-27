@@ -69,10 +69,6 @@ def _cache_put(key: str, value):
         _query_cache.popitem(last=False)
 
 
-def _clear_query_cache() -> None:
-    _query_cache.clear()
-
-
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
     path = db_path or DEFAULT_DB_PATH
     Path(path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
@@ -85,42 +81,6 @@ def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
     except OSError:
         pass
     return conn
-
-
-def _upsert_doc(conn: sqlite3.Connection, path_value: str, *, mtime: float, size: int) -> int:
-    cur = conn.execute(
-        "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n"
-        "            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n"
-        "            RETURNING id",
-        (path_value, mtime, size),
-    )
-    return int(cur.fetchone()[0])
-
-
-def _normalize_upload_name(filename: str) -> str:
-    safe_name = os.path.basename((filename or "").replace("\\", "/")).strip()
-    if not safe_name or safe_name in {".", ".."}:
-        return "upload.txt"
-    return safe_name
-
-
-def _normalize_upload_relative_path(relative_path: Optional[str], filename: str) -> str:
-    if not relative_path:
-        return _normalize_upload_name(filename)
-
-    raw_parts = [part.strip() for part in str(relative_path).replace("\\", "/").split("/")]
-    safe_parts = []
-    for part in raw_parts:
-        if not part or part == ".":
-            continue
-        if part == "..":
-            raise ValueError("Invalid upload path")
-        safe_parts.append(part)
-
-    if not safe_parts:
-        return _normalize_upload_name(filename)
-
-    return "/".join(safe_parts)
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
@@ -464,7 +424,11 @@ def _insert_document(
     chunking_strategy: str = "paragraph",
 ) -> None:
     stat = path.stat()
-    doc_id = _upsert_doc(conn, str(path), mtime=stat.st_mtime, size=int(stat.st_size))
+    cur = conn.execute(
+        "INSERT INTO docs(path, mtime, size) VALUES(?, ?, ?)\n            ON CONFLICT(path) DO UPDATE SET mtime=excluded.mtime, size=excluded.size\n            RETURNING id",
+        (str(path), stat.st_mtime, stat.st_size),
+    )
+    doc_id = cur.fetchone()[0]
     conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
 
     chunks = list(_chunk_text(content, strategy=chunking_strategy))
@@ -511,69 +475,6 @@ def _insert_document(
                     time.sleep(0.1 * (attempt + 1) + random.random() * 0.1)
                     continue
                 raise
-
-
-def ingest_text(
-    filename: str,
-    content: str,
-    db_path: Optional[str] = None,
-    *,
-    relative_path: Optional[str] = None,
-    embed: bool = False,
-    embed_dim: int = 64,
-    chunking_strategy: str = "paragraph",
-) -> Tuple[str, int, float]:
-    """Ingest uploaded in-memory text under a virtual uploads path."""
-    start = time.time()
-    conn = _connect(db_path)
-    try:
-        _init_schema(conn)
-
-        safe_relative_path = _normalize_upload_relative_path(relative_path, filename)
-        virtual_path = f"uploads/{safe_relative_path}"
-        doc_id = _upsert_doc(
-            conn,
-            virtual_path,
-            mtime=time.time(),
-            size=len(content.encode("utf-8")),
-        )
-        conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
-
-        chunks = list(_chunk_text(content, strategy=chunking_strategy))
-        if chunks:
-            chunk_rows = [(doc_id, idx, chunk) for idx, chunk in enumerate(chunks)]
-            conn.executemany(
-                "INSERT INTO chunks(doc_id, chunk_index, content) VALUES(?, ?, ?)",
-                chunk_rows,
-            )
-
-            if embed:
-                cur = conn.execute(
-                    "SELECT id, content FROM chunks WHERE doc_id=? ORDER BY chunk_index", (doc_id,)
-                )
-                inserted_chunks = cur.fetchall()
-                embedding_rows = []
-                for chunk_row_id, chunk_text in inserted_chunks:
-                    if _HAS_FASTEMBED and embed_dim >= 128:
-                        emb = _fast_embed(chunk_text)
-                    else:
-                        emb = _simple_embed(chunk_text, dim=embed_dim)
-                    embedding_rows.append((chunk_row_id, embed_dim, json.dumps(emb)))
-
-                if embedding_rows:
-                    conn.executemany(
-                        "INSERT OR REPLACE INTO embeddings(chunk_id, dim, vec) VALUES(?,?,?)",
-                        embedding_rows,
-                    )
-
-        total_chunks = int(
-            conn.execute("SELECT COUNT(*) FROM chunks WHERE doc_id=?", (doc_id,)).fetchone()[0]
-        )
-        conn.commit()
-        _clear_query_cache()
-        return virtual_path, total_chunks, time.time() - start
-    finally:
-        conn.close()
 
 
 def ingest_paths(
@@ -674,7 +575,6 @@ def ingest_paths(
         cur = conn.execute("SELECT COUNT(*) FROM chunks")
         n_chunks = int(cur.fetchone()[0])
         conn.commit()
-        _clear_query_cache()
         return n_docs, n_chunks, time.time() - start
     finally:
         conn.close()

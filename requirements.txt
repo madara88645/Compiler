@@ -1,7 +1,7 @@
 # Runtime dependency snapshot for deploy targets.
 # Update `pyproject.toml` first, then refresh this file to keep packaging in sync.
-fastapi==0.135.2
-uvicorn==0.42.0
+fastapi==0.135.1
+uvicorn==0.41.0
 pydantic==2.12.5
 typer==0.24.1
 click==8.3.1

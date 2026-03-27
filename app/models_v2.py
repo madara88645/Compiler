@@ -37,20 +37,6 @@ class StepV2(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class PolicyV2(BaseModel):
-    """Execution and safety policy inferred from the user's intent."""
-
-    risk_level: str = "low"
-    risk_domains: List[str] = Field(default_factory=list)
-    allowed_tools: List[str] = Field(default_factory=list)
-    forbidden_tools: List[str] = Field(default_factory=list)
-    sanitization_rules: List[str] = Field(default_factory=list)
-    data_sensitivity: str = "public"
-    execution_mode: str = "advice_only"
-
-    model_config = ConfigDict(extra="ignore")
-
-
 class IRv2(BaseModel):
     """
     Flexible IR model - accepts whatever LLM returns.
@@ -75,7 +61,6 @@ class IRv2(BaseModel):
     examples: List[str] = Field(default_factory=list)
     banned: List[str] = Field(default_factory=list)
     tools: List[str] = Field(default_factory=list)
-    policy: PolicyV2 = Field(default_factory=PolicyV2)
 
     # NEW: Diagnostics attached directly to IR for heuristics
     diagnostics: List[DiagnosticItem] = Field(default_factory=list)
@@ -111,11 +96,5 @@ class IRv2(BaseModel):
             else:
                 result.append(item)
         return result
-
-    @field_validator("policy", mode="before")
-    def _norm_policy(cls, v):
-        if not v:
-            return {}
-        return v
 
     model_config = ConfigDict(extra="ignore")

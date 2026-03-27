@@ -17,19 +17,10 @@ type UploadProgress = {
   total: number;
 };
 
-type FileWithRelativePath = File & {
-  webkitRelativePath?: string;
-};
-
 function toUserMessage(error: unknown): string {
   return describeRequestError(error, {
     network: "Could not reach the backend. Check the API URL or make sure the server is running.",
   });
-}
-
-function getUploadRelativePath(file: File): string {
-  const relativePath = (file as FileWithRelativePath).webkitRelativePath?.trim();
-  return relativePath ? relativePath.replace(/\\/g, "/") : file.name;
 }
 
 export function useContextManager() {
@@ -108,7 +99,6 @@ export function useContextManager() {
           const content = await file.text();
           const response = await uploadContextFile({
             filename: file.name,
-            relative_path: getUploadRelativePath(file),
             content,
           });
 
