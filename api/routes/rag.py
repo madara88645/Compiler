@@ -7,7 +7,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key_if_required
+from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
 from app.rag.simple_index import (
     ingest_text,
@@ -118,7 +118,7 @@ def _secure_ingest_paths(paths: list[str]) -> list[str]:
 @router.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(
     req: RagIngestRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
     try:
@@ -193,7 +193,7 @@ async def rag_pack(
 @router.post("/rag/upload", response_model=RagUploadResponse)
 async def rag_upload(
     req: RagUploadRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
 

@@ -53,20 +53,6 @@ def test_rag_upload_indexes_file(client):
     assert "auth.py" in data["message"]
 
 
-@pytest.mark.auth_required
-def test_rag_upload_allows_requests_without_api_key_by_default(client):
-    response = client.post(
-        "/rag/upload",
-        json={
-            "filename": "public.txt",
-            "content": "public upload should not require x-api-key",
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["success"] is True
-
-
 def test_rag_stats_get(client):
     """GET /rag/stats should return index statistics."""
     response = client.get("/rag/stats")
