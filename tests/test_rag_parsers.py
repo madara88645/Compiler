@@ -6,6 +6,7 @@ from unittest.mock import patch
 from app.rag.parsers import (
     can_parse,
     get_supported_extensions,
+    parse_json,
     parse_yaml,
     parse_yaml_file,
     ParseResult,
@@ -64,6 +65,41 @@ def test_parse_yaml_file_success(tmp_path):
 def test_parse_yaml_file_error(tmp_path):
     non_existent_path = tmp_path / "non_existent.yaml"
     result = parse_yaml_file(non_existent_path)
+
+    assert result.content == ""
+    assert "error" in result.metadata
+
+
+def test_parse_json_file_not_found(tmp_path):
+    non_existent_path = tmp_path / "non_existent.json"
+    result = parse_json(non_existent_path)
+
+    assert result.content == ""
+    assert "error" in result.metadata
+
+
+def test_parse_json_success(tmp_path):
+    json_content = '{"key": "value", "number": 42}'
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json_content)
+
+    result = parse_json(test_file)
+
+    assert isinstance(result, ParseResult)
+    parsed = json.loads(result.content)
+    assert parsed["key"] == "value"
+    assert parsed["number"] == 42
+    assert result.metadata["format"] == "json"
+    assert result.metadata["extension"] == ".json"
+    assert result.word_count == len(result.content.split())
+
+
+def test_parse_json_invalid_format(tmp_path):
+    invalid_json = '{"key": "value", "number": 42'  # Missing closing brace
+    test_file = tmp_path / "test_invalid.json"
+    test_file.write_text(invalid_json)
+
+    result = parse_json(test_file)
 
     assert result.content == ""
     assert "error" in result.metadata
