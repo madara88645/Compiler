@@ -21,3 +21,7 @@
 ## 2026-03-22 - Safely Handling Monkeypatched Constants with Pre-compiled Caches
 **Learning:** When pre-compiling dictionaries of regular expressions at the module level (e.g., `_COMPILED_PATS = {k: [re.compile(p) for p in v] for k, v in PATTERNS.items()}`), do not implement fragile runtime cache-invalidation logic (like checking list lengths or comparing first elements). Such logic adds overhead, risks `IndexError` on empty lists, and fails to invalidate if internal elements change.
 **Action:** Simply iterate over the pre-compiled dictionary. If tests monkeypatch the original raw dictionary, modify those tests to explicitly `monkeypatch` the pre-compiled cache as well to ensure consistent test environments.
+
+## 2026-03-22 - Optimizing Whitespace Splitting for Token Estimation
+**Learning:** Using `re.split(r'\s+', text)` followed by a list comprehension `[w for w in ... if w]` to count words is extremely inefficient in Python hot paths. The native `str.split()` method with no arguments automatically splits on any whitespace character and discards empty strings, executing entirely in optimized C code.
+**Action:** When counting words or tokens by splitting on whitespace, always use `len(text.split())` instead of regular expressions combined with list comprehensions or generator expressions.
