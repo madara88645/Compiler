@@ -609,26 +609,35 @@ class DomainHandler(BaseHandler):
                 self._domain_keywords[domain] = re.compile(pattern, re.IGNORECASE)
 
         # Compile universal checks (coding domain)
-        self._compiled_universal_checks: Dict[str, Dict[str, List[re.Pattern]]] = {}
+        self._compiled_universal_checks: Dict[str, Dict[str, Optional[re.Pattern]]] = {}
         for check_name, check_rules in DOMAIN_RULES["coding"]["universal_checks"].items():
-            compiled: Dict[str, List[re.Pattern]] = {}
+            compiled: Dict[str, Optional[re.Pattern]] = {}
             for key in ("missing_patterns", "risk_patterns"):
                 target_key = key.replace("_patterns", "")  # "missing" or "risk"
                 raw = check_rules.get(key, [])
-                compiled[target_key] = [re.compile(p) for p in raw]
+                if raw:
+                    compiled[target_key] = re.compile("|".join(raw))
+                else:
+                    compiled[target_key] = None
             self._compiled_universal_checks[check_name] = compiled
 
         # Compile business required_elements patterns
-        self._compiled_business_elements: Dict[str, List[re.Pattern]] = {}
+        self._compiled_business_elements: Dict[str, Optional[re.Pattern]] = {}
         for element_name, element_rules in DOMAIN_RULES["business"]["required_elements"].items():
             raw = element_rules.get("patterns", [])
-            self._compiled_business_elements[element_name] = [re.compile(p) for p in raw]
+            if raw:
+                self._compiled_business_elements[element_name] = re.compile("|".join(raw))
+            else:
+                self._compiled_business_elements[element_name] = None
 
         # Compile data_science checks patterns
-        self._compiled_ds_checks: Dict[str, List[re.Pattern]] = {}
+        self._compiled_ds_checks: Dict[str, Optional[re.Pattern]] = {}
         for check_name, check_rules in DOMAIN_RULES["data_science"]["checks"].items():
             raw = check_rules.get("patterns", [])
-            self._compiled_ds_checks[check_name] = [re.compile(p) for p in raw]
+            if raw:
+                self._compiled_ds_checks[check_name] = re.compile("|".join(raw))
+            else:
+                self._compiled_ds_checks[check_name] = None
 
         # Compile secret scanning patterns
         self._compiled_secret_patterns: List[re.Pattern] = [
@@ -834,9 +843,10 @@ class DomainHandler(BaseHandler):
         # Check universal coding requirements
         for check_name, check_rules in rules["universal_checks"].items():
             compiled = self._compiled_universal_checks.get(check_name, {})
+            missing_pat = compiled.get("missing")
 
             # Check if any pattern matches
-            has_mention = any(p.search(text_lower) for p in compiled.get("missing", []))
+            has_mention = missing_pat.search(text_lower) if missing_pat else False
 
             # If not mentioned, suggest it
             if not has_mention:
@@ -1066,8 +1076,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for element_name, element_rules in rules["required_elements"].items():
-            compiled = self._compiled_business_elements.get(element_name, [])
-            has_mention = any(p.search(text_lower) for p in compiled)
+            compiled = self._compiled_business_elements.get(element_name)
+            has_mention = compiled.search(text_lower) if compiled else False
 
             if not has_mention:
                 analysis.suggestions.append(element_rules["suggestion"])
@@ -1127,8 +1137,8 @@ class DomainHandler(BaseHandler):
 
         # Check for required elements
         for check_name, check_rules in rules["checks"].items():
-            compiled = self._compiled_ds_checks.get(check_name, [])
-            has_mention = any(p.search(text_lower) for p in compiled)
+            compiled = self._compiled_ds_checks.get(check_name)
+            has_mention = compiled.search(text_lower) if compiled else False
 
             if not has_mention:
                 analysis.suggestions.append(check_rules["suggestion"])
