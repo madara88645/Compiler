@@ -100,3 +100,19 @@ def test_batch_summary_json_reports_counts(tmp_path: Path):
     assert payload["failed"] == 0
     assert payload["skipped"] == 0
     assert "errors" in payload and isinstance(payload["errors"], list)
+
+
+def test_github_render_command_outputs_review_brief(tmp_path: Path):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text(
+        "Review a risky finance-related implementation plan for correctness.", encoding="utf-8"
+    )
+
+    code, out, err = run_cli(
+        ["github", "render", "--type", "pr-review-brief", "--from-file", str(prompt_file)],
+        Path.cwd(),
+    )
+
+    assert code == 0, err
+    assert "# PR Review Brief" in out
+    assert "## Policy" in out
