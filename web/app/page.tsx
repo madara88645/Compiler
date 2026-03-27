@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import ContextManager from "./components/ContextManager";
 import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
@@ -28,9 +28,21 @@ type CompileResponse = {
   };
 };
 
-import { apiFetch } from "@/config";
+function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
+  if (activeTab === "system") {
+    return result.system_prompt_v2 || result.system_prompt;
+  }
 
-import InfoButton from "./components/InfoButton";
+  if (activeTab === "user") {
+    return result.user_prompt_v2 || result.user_prompt;
+  }
+
+  if (activeTab === "plan") {
+    return result.plan_v2 || result.plan;
+  }
+
+  return result.expanded_prompt_v2 || result.expanded_prompt;
+}
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -52,132 +64,32 @@ export default function Home() {
     if (saved !== null) {
       setConservativeMode(saved !== "false");
     }
-  }, []);
+
+    return window.localStorage.getItem("promptc_conservative_mode") !== "false";
+  });
+  const {
+    loading,
+    result,
+    status,
+    securityFindings,
+    redactedText,
+    runCompile,
+    resolveSecurityDecision,
+    cancelSecurityReview,
+  } = useCompiler();
 
   useEffect(() => {
     window.localStorage.setItem("promptc_conservative_mode", String(conservativeMode));
   }, [conservativeMode]);
 
-  const handleGenerate = useCallback(async (textOverride?: string) => {
-    const textToCompile = typeof textOverride === 'string' ? textOverride : prompt;
-    if (!textToCompile.trim()) return;
+  const activeMode: CompileMode = conservativeMode ? "conservative" : "default";
 
-    setLoading(true);
-    // 1. Instant Heuristic Feedback (Optimistic UI)
-    setStatus("Generating...");
-
-    try {
-      // 2. Perform Request based on Mode
-      let data = null;
-
-      // Step A: offline/hybrid check (always needed for security/diagnostics)
-      // Even in Live Mode, we might want to check IR via V1 or V2 before showing result
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const checkSecurity = (data: Record<string, any>, isV1: boolean) => {
-        // V1 returns the IR object directly. V2 returns { ir: ... } wrapper.
-        // We need to inspect the correct location for metadata.
-        const ir = isV1 ? data : data.ir;
-
-        if (ir?.metadata?.security && !ir.metadata.security.is_safe) {
-          setSecurityFindings(ir.metadata.security.findings);
-          setRedactedText(ir.metadata.security.redacted_text);
-          setPendingText(textToCompile);
-          setStatus("Security Alert Detected");
-          return true;
-        }
-        return false;
-      };
-
-      setStatus("AI Thinking...");
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 190000);
-
-      try {
-        const resV2 = await apiFetch("/compile", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Prompt-Mode": conservativeMode ? "conservative" : "default",
-          },
-          body: JSON.stringify({
-            text: textToCompile,
-            diagnostics,
-            v2: true,
-            render_v2_prompts: true,
-            mode: conservativeMode ? "conservative" : "default",
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
-
-        data = await resV2.json();
-        if (checkSecurity(data, false)) return;
-
-        setResult(data);
-        setStatus(`Done in ${data.processing_ms}ms`);
-      } catch (e: unknown) {
-        if (e instanceof Error && e.name === 'AbortError') throw new Error("Timeout: AI Model took too long.");
-        throw e;
-      }
-
-    } catch (e: unknown) {
-      console.error(e);
-      setStatus(`Error: ${e instanceof Error ? e.message : "Connection Failed"}`);
-    } finally {
-      // Only unset loading if we didn't trigger security alert (which handles its own loading state)
-      // Actually checkSecurity sets loading=false if blocked.
-      // We can safely set loading=false here if we are NOT blocked, but how to know?
-      // Simple fix: checkSecurity logic handles the 'return', so if we are here, we are either done or errored.
-      // But if we returned early, finally block still runs? Yes.
-      // So we need to be careful not to hide the modal.
-      // Let's rely on setStatus/Alert state.
-      setLoading(false);
-    }
-  }, [prompt, diagnostics, conservativeMode]);
+  const handleGenerate = async () => {
+    await runCompile(prompt, activeMode);
+  };
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
-    setSecurityFindings([]); // Close modal
-    const textToUse = useRedacted ? redactedText : pendingText;
-
-    // Resume Step B (V2 Request)
-    setLoading(true);
-    setStatus("Resuming with " + (useRedacted ? "Safe" : "Unsafe") + " text...");
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 190000);
-
-      const resV2 = await apiFetch("/compile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Prompt-Mode": conservativeMode ? "conservative" : "default",
-        },
-        body: JSON.stringify({
-          text: textToUse,
-          diagnostics,
-          v2: true,
-          render_v2_prompts: true,
-          mode: conservativeMode ? "conservative" : "default",
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!resV2.ok) throw new Error(`API Error: ${resV2.status}`);
-
-      const dataV2 = await resV2.json();
-      setResult(dataV2);
-      setStatus(`Done in ${dataV2.processing_ms}ms`);
-    } catch (e: unknown) {
-      setStatus(`Error: ${e instanceof Error ? e.message : "Unknown Error"}`);
-    } finally {
-      setLoading(false);
-    }
+    await resolveSecurityDecision(useRedacted, activeMode);
   };
 
   return (
@@ -190,11 +102,7 @@ export default function Home() {
           redactedText={redactedText}
           onProceedRedacted={() => handleSecurityDecision(true)}
           onProceedOriginal={() => handleSecurityDecision(false)}
-          onCancel={() => {
-            setSecurityFindings([]);
-            setLoading(false);
-            setStatus("Cancelled");
-          }}
+          onCancel={cancelSecurityReview}
         />
       )}
       {/* Ambient Background Orbs */}
@@ -224,7 +132,9 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setConservativeMode((prev) => !prev)}
-              aria-pressed={conservativeMode}
+              role="switch"
+              aria-checked={conservativeMode}
+              aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                 conservativeMode
@@ -337,7 +247,7 @@ export default function Home() {
 
                         {/* Agent 7 Badge */}
                         {result.critique && (
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative ${result.critique.verdict === "REJECT"
+                          <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
                             ? "bg-red-500/10 border-red-500/30"
                             : "bg-green-500/10 border-green-500/30"
                             }`}>
@@ -347,7 +257,7 @@ export default function Home() {
                             </span>
 
                             {/* Hover Popup */}
-                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible transition-all z-50">
+                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
@@ -381,23 +291,15 @@ export default function Home() {
                       </div>
 
                       <textarea
+                        id="compiled-output"
+                        aria-label="Compiled prompt output"
                         className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                         readOnly
-                        value={
-                          activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
-                            activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
-                              activeTab === "plan" ? (result.plan_v2 || result.plan) :
-                                (result.expanded_prompt_v2 || result.expanded_prompt)
-                        }
+                        value={getTabContent(result, activeTab)}
                       />
 
                       <button
-                        onClick={() => navigator.clipboard.writeText(
-                          activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
-                            activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
-                              activeTab === "plan" ? (result.plan_v2 || result.plan) :
-                                (result.expanded_prompt_v2 || result.expanded_prompt)
-                        )}
+                        onClick={() => navigator.clipboard.writeText(getTabContent(result, activeTab))}
                         className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20"
                         title="Copy to Clipboard"
                         aria-label="Copy to Clipboard"

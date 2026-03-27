@@ -202,16 +202,23 @@ PERSONA_KEYWORDS = {
 # Bolt Optimization: Pre-compile regexes for developer persona
 _COMPILED_DEV_PATS = [re.compile(p) for p in PERSONA_KEYWORDS["developer"]]
 
+# Bolt Optimization: Pre-compile regexes for all personas
+_COMPILED_PERSONA_KEYWORDS = {k: [re.compile(p) for p in v] for k, v in PERSONA_KEYWORDS.items()}
+
 
 def pick_persona(text: str) -> tuple[str, dict]:
     lower = text.lower()
     scores = {k: 0 for k in PERSONA_KEYWORDS}
     evidence: dict[str, list[str]] = {k: [] for k in PERSONA_KEYWORDS}
-    for persona, pats in PERSONA_KEYWORDS.items():
-        for p in pats:
-            if re.search(p, lower):
+
+    for persona, compiled_pats in _COMPILED_PERSONA_KEYWORDS.items():
+        if persona not in scores:
+            scores[persona] = 0
+            evidence[persona] = []
+        for r in compiled_pats:
+            if r.search(lower):
                 scores[persona] += 1
-                evidence[persona].append(p)
+                evidence[persona].append(r.pattern)
     # choose highest score, tie -> deterministic alphabetical order of persona key
     ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
     if ranked and ranked[0][1] > 0:
@@ -266,19 +273,29 @@ def extract_comparison_items(text: str) -> list[str]:
     items: list[str] = []
     # common pattern: "x vs y" or "x vs y vs z"
     if " vs " in lower:
-        raw = [p.strip() for p in re.split(r"\bvs\b", lower) if p.strip()]
+        raw = [p.strip() for p in lower.split(" vs ") if p.strip()]
         items = raw
     # Turkish pattern: "x ile y karşılaştır" or "x ve y karşılaştır"
     if not items and any(k in lower for k in COMPARISON_KEYWORDS):
-        m = re.search(r"(.+?)\s+(karşılaştır|compare)", lower)
-        if m:
-            segment = m.group(1)
-            parts = re.split(r"\b(ve|ile|,|/|&|\|)\b", segment)
-            cand = [
-                p.strip()
-                for p in parts
-                if p and p.strip() and p not in {"ve", "ile", ",", "/", "&", "|"}
-            ]
+        marker_index = min(
+            (
+                pos
+                for pos in (
+                    lower.find(" compare"),
+                    lower.find(" karşılaştır"),
+                )
+                if pos != -1
+            ),
+            default=-1,
+        )
+        if marker_index != -1:
+            segment = " ".join(lower[:marker_index].split())
+            normalized = (
+                segment.replace(",", ";").replace("/", ";").replace("&", ";").replace("|", ";")
+            )
+            padded = f" {normalized} "
+            padded = padded.replace(" ile ", ";").replace(" ve ", ";")
+            cand = [p.strip() for p in padded.split(";") if p.strip()]
             if len(cand) >= 2:
                 items = cand
     # de-dup & shorten
@@ -847,6 +864,69 @@ def _normalize_currency(val: str) -> str:
     return s
 
 
+_MONEY_TOKEN_RE = re.compile(
+    r"^(?P<prefix>[$\u20ac\u20ba]?)(?P<value>\d+(?:[.,]\d+)*)(?P<suffix>[$\u20ac\u20ba]?)$"
+)
+_CURRENCY_WORDS = {"tl", "try", "lira", "usd", "dolar", "eur"}
+
+
+def _tokenize_money_text(text: str) -> list[str]:
+    tokens: list[str] = []
+    current: list[str] = []
+    for ch in text:
+        if ch.isalnum() or ch in ".,$\u20ac\u20ba":
+            current.append(ch)
+            continue
+        if current:
+            tokens.append("".join(current))
+            current = []
+        if ch in "-\u2013":
+            tokens.append("-")
+    if current:
+        tokens.append("".join(current))
+    return tokens
+
+
+def _match_money_token(token: str) -> re.Match[str] | None:
+    stripped = token.rstrip(".,")
+    if not stripped:
+        return None
+    return _MONEY_TOKEN_RE.match(stripped)
+
+
+def _extract_money_candidate(text: str, require_currency: bool) -> str | None:
+    tokens = _tokenize_money_text(text)
+    for index, token in enumerate(tokens):
+        match = _match_money_token(token)
+        if not match:
+            continue
+
+        unit = match.group("prefix") or match.group("suffix") or ""
+        value = _normalize_currency(match.group("value"))
+        cursor = index + 1
+
+        if cursor < len(tokens) and tokens[cursor] in _CURRENCY_WORDS:
+            unit = unit or tokens[cursor]
+            cursor += 1
+
+        ranged_value = value
+        if cursor + 1 < len(tokens) and tokens[cursor] == "-":
+            next_match = _match_money_token(tokens[cursor + 1])
+            if next_match:
+                ranged_value = f"{value}-{_normalize_currency(next_match.group('value'))}"
+                unit = unit or next_match.group("prefix") or next_match.group("suffix") or ""
+                cursor += 2
+                if cursor < len(tokens) and tokens[cursor] in _CURRENCY_WORDS:
+                    unit = unit or tokens[cursor]
+
+        if require_currency and not unit:
+            continue
+
+        return f"{ranged_value} {unit}".strip()
+
+    return None
+
+
 def extract_inputs(text: str, lang: str) -> Dict[str, str]:
     lower = text.lower()
     inputs: Dict[str, str] = {}
@@ -866,30 +946,17 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
 
     # Budget extraction (after duration to avoid capturing "10 dakikada" as money)
     budget_keywords = ["bütçe", "budget", "en fazla", "üst limit", "max", "limit", "under", "below"]
-    money_pattern = re.compile(
-        r"(₺|\$|€)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*|[0-9]+)(?:\s*[-–]\s*(₺|\$|€)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*|[0-9]+))?\s*(tl|₺|try|lira|usd|dolar|\$|eur|€)?"
-    )
     has_budget_kw = any(k in lower for k in budget_keywords)
-    mm = money_pattern.search(lower)
-    if has_budget_kw and mm:
-        cur1, v1, cur2, v2, cur3 = mm.groups()
-        unit = cur3 or cur1 or cur2 or ""
-        if v2:
-            inputs["budget"] = f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
-        else:
-            inputs["budget"] = f"{_normalize_currency(v1)} {unit}".strip()
-    elif not has_budget_kw:
-        # Only treat as budget_hint if currency symbol/word present
-        if mm:
-            cur1, v1, cur2, v2, cur3 = mm.groups()
-            unit = cur3 or cur1 or cur2 or ""
-            if cur1 or cur2 or cur3:
-                if v2:
-                    inputs[
-                        "budget_hint"
-                    ] = f"{_normalize_currency(v1)}-{_normalize_currency(v2)} {unit}".strip()
-                else:
-                    inputs["budget_hint"] = f"{_normalize_currency(v1)} {unit}".strip()
+    if has_budget_kw:
+        keyword_positions = [lower.find(keyword) for keyword in budget_keywords if keyword in lower]
+        budget_search_text = lower[min(keyword_positions) :] if keyword_positions else lower
+        budget_value = _extract_money_candidate(budget_search_text, require_currency=False)
+        if budget_value:
+            inputs["budget"] = budget_value
+    else:
+        budget_hint = _extract_money_candidate(lower, require_currency=True)
+        if budget_hint:
+            inputs["budget_hint"] = budget_hint
 
     # Format hint: only set if explicitly present in text
     for fmt, pats in FORMAT_KEYWORDS.items():

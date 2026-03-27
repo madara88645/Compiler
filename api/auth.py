@@ -1,7 +1,11 @@
+import logging
 import time
 import secrets
+from pathlib import Path
 from typing import Dict
-from fastapi import Security, HTTPException, status
+import os
+
+from fastapi import HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import create_engine, Column, String, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -9,8 +13,23 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # --- Database ---
 import os as _os
 
-_db_dir = _os.environ.get("DB_DIR", ".")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{_db_dir}/users.db"
+logger = logging.getLogger("promptc.auth")
+
+
+def _ensure_private_file(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.touch()
+    try:
+        _os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+_db_dir = Path(_os.environ.get("DB_DIR", ".")).expanduser().resolve()
+_db_path = _db_dir / "users.db"
+_ensure_private_file(_db_path)
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{_db_path}"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -63,15 +82,8 @@ def verify_api_key(
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:
-        # Comparison logic (robust)
         if secrets.compare_digest(api_key.strip(), admin_key):
             return APIKey(key=api_key, owner="admin", is_active=True)
-
-        # Debugging mismatch (only prints to server logs)
-        print("[AUTH ERROR] Admin Key Mismatch.")
-    else:
-        # Debugging missing key
-        print("[AUTH DEBUG] ADMIN_API_KEY not found in environment or is empty.")
 
     db = SessionLocal()
     key_record = db.query(APIKey).filter(APIKey.key == api_key).first()
@@ -101,3 +113,16 @@ def verify_api_key(
     RATE_LIMIT_STORE[api_key] = history
 
     return key_record
+
+
+def verify_api_key_if_required(
+    api_key: str = Security(api_key_header),
+) -> APIKey | None:
+    if os.environ.get("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return verify_api_key(api_key)
+    return None

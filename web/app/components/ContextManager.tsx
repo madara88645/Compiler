@@ -1,82 +1,101 @@
 "use client";
 
-import { useState, useRef, DragEvent, useEffect, useCallback } from "react";
-import { apiFetch } from "@/config";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
-type SearchResult = {
-    content: string;
-    source: string;
-    score: number;
-};
+import { formatSearchResultForPrompt, formatSearchScore } from "../../lib/api/promptc";
+import type { ContextSuggestion } from "../../lib/api/types";
+import { useContextManager } from "../hooks/useContextManager";
 
 type ContextManagerProps = {
     onInsertContext: (text: string) => void;
-    suggestions?: { path: string; name: string; reason: string }[];
+    suggestions?: ContextSuggestion[];
 };
 
-export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
-    const [ingesting, setIngesting] = useState(false);
-    const [searching, setSearching] = useState(false);
-    const [query, setQuery] = useState("");
-    const [results, setResults] = useState<SearchResult[]>([]);
-    const [filePath, setFilePath] = useState("");
-    const [status, setStatus] = useState("");
-    const [isDragging, setIsDragging] = useState(false);
-    const [isConnected, setIsConnected] = useState<boolean | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [indexStats, setIndexStats] = useState<any>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+function getStatusTone(status: string): string {
+    if (status.startsWith("Indexed")) {
+        return "bg-green-500/10 text-green-400";
+    }
 
-    const checkConnection = useCallback(async () => {
-        try {
-            // Use a short timeout to prevent hanging if backend is unresponsive
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+    if (status.startsWith("Error") || status.startsWith("Search failed")) {
+        return "bg-red-500/10 text-red-400";
+    }
 
-            const res = await apiFetch("/health", { signal: controller.signal });
-            clearTimeout(timeoutId);
+    if (
+        status.startsWith("Stats unavailable") ||
+        status.startsWith("Could not reach") ||
+        status.startsWith("Backend health check failed")
+    ) {
+        return "bg-amber-500/10 text-amber-300";
+    }
 
-            if (res.ok) {
-                setIsConnected(true);
-                fetchStats();
-            } else {
-                setIsConnected(false);
-            }
-        } catch {
-            setIsConnected(false);
-            // Silent error for connection checks to avoid console spam
-        }
-    }, []);
+    return "bg-zinc-800/50 text-zinc-400";
+}
 
-    // Check connectivity on mount
-    useEffect(() => {
-        checkConnection();
-    }, [checkConnection]);
+function getConnectionBadge(isConnected: boolean | null): { label: string; tone: string } {
+    if (isConnected === true) {
+        return {
+            label: "Connected",
+            tone: "text-green-400 bg-green-500/10",
+        };
+    }
 
-    const fetchStats = async () => {
-        try {
-            // Use a short timeout to prevent hanging if backend is unresponsive
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+    if (isConnected === false) {
+        return {
+            label: "Connection Issue",
+            tone: "text-amber-300 bg-amber-500/10",
+        };
+    }
 
-            await apiFetch("/health", { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            const statsRes = await apiFetch("/rag/stats");
-            const data = await statsRes.json();
-            setIndexStats(data);
-        } catch (e) {
-            console.error("Stats fetch failed:", e);
-        }
+    return {
+        label: "Checking",
+        tone: "text-zinc-400 bg-zinc-800/80",
     };
+}
 
-    // Handle file drop
+export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const directoryInputRef = useRef<HTMLInputElement>(null);
+    const {
+        ingesting,
+        searching,
+        query,
+        setQuery,
+        results,
+        filePath,
+        setFilePath,
+        status,
+        isConnected,
+        indexStats,
+        uploadProgress,
+        uploadFiles,
+        ingestPath,
+        runSearch,
+    } = useContextManager();
+    const connectionBadge = getConnectionBadge(isConnected);
+    const uploadPercent = uploadProgress
+        ? Math.max(
+              8,
+              Math.min(
+                  100,
+                  Math.round(
+                      ((uploadProgress.completed + (uploadProgress.currentFile ? 0.45 : 0)) / uploadProgress.total) * 100,
+                  ),
+              ),
+          )
+        : 0;
+    const currentUploadStep = uploadProgress
+        ? Math.min(uploadProgress.total, uploadProgress.completed + (uploadProgress.currentFile ? 1 : 0))
+        : 0;
+
     const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         setIsDragging(false);
 
         const files = Array.from(e.dataTransfer.files);
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            return;
+        }
 
         await uploadFiles(files);
     };
@@ -91,115 +110,27 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         setIsDragging(false);
     };
 
-    // Handle file input change
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
-        if (!files || files.length === 0) return;
-        await uploadFiles(Array.from(files));
-    };
-
-    // Ref for directory input
-    const directoryInputRef = useRef<HTMLInputElement>(null);
-
-    // Handle directory input change
-    const handleDirectorySelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        await uploadFiles(Array.from(files));
-    };
-
-    // Upload files to the backend
-    const uploadFiles = async (files: File[]) => {
-        setIngesting(true);
-        setStatus(`Uploading ${files.length} file(s)...`);
-
-        let totalChunks = 0;
-        let successCount = 0;
-
-        for (const file of files) {
-            try {
-                const content = await file.text();
-
-                const res = await apiFetch("/rag/upload", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        filename: file.name,
-                        content: content,
-                        force: true
-                    }),
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    totalChunks += data.num_chunks || 0;
-                    successCount++;
-                } else {
-                    console.error(`Failed to upload ${file.name}: ${data.message || data.detail || 'Unknown error'}`);
-                }
-            } catch (err) {
-                console.error(`Failed to upload ${file.name}:`, err);
-            }
+        if (!files || files.length === 0) {
+            return;
         }
 
-        setStatus(`✓ Indexed ${successCount}/${files.length} files (${totalChunks} chunks)`);
-        setIngesting(false);
-
-        // Reset file input
+        await uploadFiles(Array.from(files));
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
     };
 
-    const handleIngest = async () => {
-        if (!filePath) return;
-        setIngesting(true);
-        setStatus("Ingesting...");
-        try {
-            const res = await apiFetch("/rag/ingest", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paths: [filePath], force: true }),
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setStatus(`Indexed ${data.num_files} files (${data.num_chunks} chunks)`);
-                setFilePath("");
-            } else {
-                setStatus(`Error: ${data.detail}`);
-            }
-        } catch {
-            setStatus("Ingest failed");
-        } finally {
-            setIngesting(false);
+    const handleDirectorySelect = async (e: ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) {
+            return;
         }
-    };
 
-    const handleSearch = async () => {
-        if (!query.trim()) return;
-        setSearching(true);
-        setResults([]); // Clear previous results
-        try {
-            console.log(`Searching for: '${query.trim()}'`);
-            const res = await apiFetch("/rag/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: query.trim(), limit: 5, method: "keyword" }),
-            });
-            const data = await res.json();
-            console.log("Search results:", data);
-
-            if (Array.isArray(data)) {
-                setResults(data);
-            } else {
-                console.error("Invalid search response:", data);
-                setResults([]);
-            }
-        } catch (e) {
-            console.error("Search error:", e);
-            setStatus("Search failed: Connection error");
-        } finally {
-            setSearching(false);
+        await uploadFiles(Array.from(files));
+        if (directoryInputRef.current) {
+            directoryInputRef.current.value = "";
         }
     };
 
@@ -210,32 +141,23 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     <span>Context Manager</span>
                     <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
                 </div>
-                {isConnected === false && (
-                    <span className="text-[9px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded animate-pulse">
-                        Backend Offline
-                    </span>
-                )}
-                {isConnected === true && (
-                    <span className="text-[9px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                        Connected
-                    </span>
-                )}
-
+                <span className={`text-[9px] px-1.5 py-0.5 rounded ${connectionBadge.tone}`}>
+                    {connectionBadge.label}
+                </span>
             </h3>
 
-            {/* Suggestions Area */}
             {suggestions.length > 0 && (
                 <div className="flex flex-col gap-2 mb-4 animate-fade-in">
                     <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest px-1">Suggested Files</span>
                     <div className="flex flex-wrap gap-2">
-                        {suggestions.map((s, i) => (
+                        {suggestions.map((suggestion) => (
                             <button
-                                key={i}
-                                onClick={() => onInsertContext(`[File: ${s.name}]\n(Reason: ${s.reason})`)}
+                                key={suggestion.path}
+                                onClick={() => onInsertContext(`[File: ${suggestion.name}]\n(Reason: ${suggestion.reason})`)}
                                 className="group flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-full transition-all text-left"
-                                title={`Add ${s.path} to context`}
+                                title={`Add ${suggestion.path} to context`}
                             >
-                                <span className="text-[10px] text-blue-300 font-mono">{s.name}</span>
+                                <span className="text-[10px] text-blue-300 font-mono">{suggestion.name}</span>
                                 <span className="text-[9px] text-blue-400/60 group-hover:text-blue-400 opacity-60 group-hover:opacity-100 transition-opacity">
                                     +
                                 </span>
@@ -245,7 +167,6 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 </div>
             )}
 
-            {/* Stats Display */}
             {indexStats && indexStats.docs > 0 && (
                 <div className="flex gap-4 px-3 py-2 bg-white/5 rounded-lg border border-white/5">
                     <div className="flex flex-col">
@@ -263,7 +184,6 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 </div>
             )}
 
-            {/* Drag & Drop Zone */}
             <div
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
@@ -272,10 +192,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     relative flex flex-col items-center justify-center gap-2 p-4
                     border-2 border-dashed rounded-xl
                     transition-all duration-200
-                    ${isDragging
-                        ? "border-blue-500 bg-blue-500/10 scale-[1.02]"
-                        : "border-white/10 bg-white/[0.02]"
-                    }
+                    ${isDragging ? "border-blue-500 bg-blue-500/10 scale-[1.02]" : "border-white/10 bg-white/[0.02]"}
                     ${ingesting ? "pointer-events-none opacity-50" : ""}
                 `}
             >
@@ -299,14 +216,37 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 />
 
                 {ingesting ? (
-                    <div className="flex items-center gap-2 text-blue-400">
-                        <span className="animate-spin">⏳</span>
-                        <span className="text-xs">Indexing...</span>
+                    <div className="w-full max-w-sm rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.08] p-4 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+                        <div className="flex items-start gap-3">
+                            <span className="mt-1 relative flex h-3 w-3 shrink-0">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-300/30 animate-ping" />
+                                <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-300" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-medium text-cyan-100">Uploading context</span>
+                                    {uploadProgress && (
+                                        <span className="text-[10px] font-mono text-cyan-200/80">
+                                            {currentUploadStep}/{uploadProgress.total}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-[11px] leading-relaxed text-cyan-100/70">
+                                    {uploadProgress?.currentFile ? uploadProgress.currentFile : "Preparing files..."}
+                                </p>
+                                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/20">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-400 transition-[width] duration-500"
+                                        style={{ width: `${uploadPercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <>
                         <div className={`text-2xl ${isDragging ? "scale-110" : ""} transition-transform`}>
-                            📂
+                            Files
                         </div>
                         <div className="flex gap-2">
                             <button
@@ -324,28 +264,21 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                             </button>
                         </div>
                         <div className="text-[10px] text-zinc-600 mt-1">
-                            Or drag & drop (Project Context)
+                            Or drag and drop project context
                         </div>
                     </>
                 )}
             </div>
 
-            {/* Status */}
             {status && (
-                <div className={`text-[10px] px-2 py-1.5 rounded-lg ${status.startsWith("✓")
-                    ? "bg-green-500/10 text-green-400"
-                    : status.startsWith("Error")
-                        ? "bg-red-500/10 text-red-400"
-                        : "bg-zinc-800/50 text-zinc-400"
-                    }`}>
+                <div aria-live="polite" className={`text-[10px] px-2 py-1.5 rounded-lg ${getStatusTone(status)}`}>
                     {status}
                 </div>
             )}
 
-            {/* Legacy Path Input (Collapsed) */}
             <details className="group">
                 <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-400 transition-colors">
-                    ⚙️ Advanced: Index by path
+                    Advanced: Index by path
                 </summary>
                 <div className="flex flex-col gap-2 mt-2 pl-2 border-l border-white/5">
                     <input
@@ -356,16 +289,15 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         onChange={(e) => setFilePath(e.target.value)}
                     />
                     <button
-                        onClick={handleIngest}
+                        onClick={() => void ingestPath(filePath)}
                         disabled={ingesting || !filePath}
                         className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"
                     >
-                        {ingesting ? <span className="animate-pulse">Indexing...</span> : "📂 Ingest Path"}
+                        {ingesting ? <span className="animate-pulse">Indexing...</span> : "Ingest Path"}
                     </button>
                 </div>
             </details>
 
-            {/* Search Section */}
             <div className="flex flex-col gap-2">
                 <div className="flex gap-2">
                     <input
@@ -374,10 +306,10 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         placeholder="Search context..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        onKeyDown={(e) => e.key === "Enter" && void runSearch()}
                     />
                     <button
-                        onClick={handleSearch}
+                        onClick={() => void runSearch()}
                         disabled={searching || !query}
                         className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium"
                     >
@@ -385,7 +317,6 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     </button>
                 </div>
 
-                {/* Results List */}
                 <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                     {!searching && query && results.length === 0 && (
                         <div className="text-[10px] text-zinc-500 text-center py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
@@ -393,17 +324,17 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         </div>
                     )}
 
-                    {results.map((r, i) => (
-                        <div key={i} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[120px] bg-black/20 px-1.5 py-0.5 rounded">{r.source}</span>
-                                <span className="text-[10px] text-green-400/80 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">{(r.score * 100).toFixed(0)}%</span>
+                    {results.map((result) => (
+                        <div key={result.path} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
+                            <div className="flex justify-between items-center gap-2">
+                                <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[180px] bg-black/20 px-1.5 py-0.5 rounded">{result.path}</span>
+                                <span className="text-[10px] text-green-400/80 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">{formatSearchScore(result)}</span>
                             </div>
                             <div className="text-xs text-zinc-300 line-clamp-3 leading-relaxed opacity-80 group-hover:opacity-100">
-                                {r.content}
+                                {result.snippet}
                             </div>
                             <button
-                                onClick={() => onInsertContext(r.content)}
+                                onClick={() => onInsertContext(formatSearchResultForPrompt(result))}
                                 className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                             >
                                 <span>+</span> Insert into Prompt

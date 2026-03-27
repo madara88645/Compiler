@@ -29,6 +29,17 @@ This means the project is still a broad prompt platform, while quietly becoming 
 
 ---
 
+## Latest PR Updates
+
+This stabilization pass focused on making the project safer, more consistent, and easier to maintain.
+
+- Replaced mock-style RAG behavior with real upload, indexing, search, and pack flows backed by the local SQLite knowledge base.
+- Standardized backend and frontend contracts for compile and RAG operations, and moved frontend request handling into shared hooks/services.
+- Hardened security around file paths, prompt boundaries, regex-heavy heuristics, and protected routes that now require API keys.
+- Split API responsibilities into clearer route modules and pinned `pillow` above the current Snyk vulnerability floor for safer dependency resolution.
+
+---
+
 ## Key Features
 
 ### Core Prompt Compiler

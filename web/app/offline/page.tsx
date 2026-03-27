@@ -105,6 +105,8 @@ export default function OfflinePage() {
 
                         <div className="flex-1 flex flex-col relative group">
                             <textarea
+                                id="offline-prompt"
+                                aria-label="Offline prompt input"
                                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-zinc-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                                 placeholder="Enter prompt (offline heuristics active)..."
                                 value={prompt}
@@ -163,6 +165,8 @@ export default function OfflinePage() {
                                     {activeTab !== "quality" && activeTab !== "json" && (
                                         <>
                                             <textarea
+                                                id="offline-output"
+                                                aria-label="Compiled prompt output"
                                                 className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-orange-500/30"
                                                 readOnly
                                                 value={

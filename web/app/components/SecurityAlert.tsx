@@ -1,12 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-
-type SecurityFinding = {
-    type: string;
-    original: string;
-    masked: string;
-};
+import type { SecurityFinding } from "../../lib/api/types";
 
 type SecurityAlertProps = {
     findings: SecurityFinding[];

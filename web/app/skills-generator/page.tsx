@@ -92,7 +92,7 @@ export default function SkillsGenerator() {
           {/* Left Panel: Input */}
           <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-zinc-300">Skill Description</label>
+              <label htmlFor="skill-description" className="text-sm font-medium text-zinc-300">Skill Description</label>
               <p className="text-xs text-zinc-500">
                 Describe the skill&apos;s purpose, inputs, and expected behavior.
               </p>
@@ -100,6 +100,7 @@ export default function SkillsGenerator() {
 
             <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
+                id="skill-description"
                 className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
@@ -128,8 +129,9 @@ export default function SkillsGenerator() {
 
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-zinc-300">Previous results</label>
+                <label htmlFor="skill-history" className="text-xs font-medium text-zinc-300">Previous results</label>
                 <select
+                  id="skill-history"
                   className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
                   defaultValue=""
                   onChange={(e) => {
