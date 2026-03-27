@@ -6,6 +6,7 @@ from unittest.mock import patch
 from app.rag.parsers import (
     can_parse,
     get_supported_extensions,
+    parse_markdown,
     parse_yaml,
     parse_yaml_file,
     ParseResult,
@@ -99,3 +100,115 @@ def test_can_parse():
     assert can_parse(Path("test.docx")) is True
     assert can_parse(Path("test.unknown_extension")) is False
     assert can_parse(Path("no_extension")) is False
+
+
+def test_parse_markdown_success(tmp_path):
+    md_content = """# Main Title
+
+Some introductory text.
+
+## Section 1
+More text here.
+```python
+print("Hello World")
+```
+
+### Subsection
+Even more text.
+```bash
+echo "Hello"
+```
+"""
+    test_file = tmp_path / "test.md"
+    test_file.write_text(md_content)
+
+    result = parse_markdown(test_file)
+
+    assert isinstance(result, ParseResult)
+    assert result.content == md_content
+    assert result.word_count == len(md_content.split())
+    assert result.metadata["format"] == "markdown"
+    assert result.metadata["extension"] == ".md"
+    assert result.metadata["header_count"] == 3
+    assert set(result.metadata["code_languages"]) == {"python", "bash"}
+    assert result.metadata["has_code"] is True
+
+    assert len(result.sections) == 3
+    assert result.sections[0]["level"] == 1
+    assert result.sections[0]["title"] == "Main Title"
+    assert result.sections[0]["line"] == 1
+
+    assert result.sections[1]["level"] == 2
+    assert result.sections[1]["title"] == "Section 1"
+    assert result.sections[1]["line"] == 5
+
+    assert result.sections[2]["level"] == 3
+    assert result.sections[2]["title"] == "Subsection"
+    assert result.sections[2]["line"] == 11
+
+
+def test_parse_markdown_empty(tmp_path):
+    test_file = tmp_path / "empty.md"
+    test_file.write_text("")
+
+    result = parse_markdown(test_file)
+
+    assert result.content == ""
+    assert result.word_count == 0
+    assert result.metadata["header_count"] == 0
+    assert result.metadata["code_languages"] == []
+    assert result.metadata["has_code"] is False
+    assert len(result.sections) == 0
+
+
+def test_parse_markdown_no_headers_no_code(tmp_path):
+    md_content = "Just some plain text.\nWith another line."
+    test_file = tmp_path / "plain.md"
+    test_file.write_text(md_content)
+
+    result = parse_markdown(test_file)
+
+    assert result.content == md_content
+    assert result.metadata["header_count"] == 0
+    assert result.metadata["code_languages"] == []
+    assert result.metadata["has_code"] is False
+    assert len(result.sections) == 0
+
+
+def test_parse_markdown_unclosed_code_block(tmp_path):
+    md_content = """# Header
+```python
+def foo():
+    pass
+"""
+    test_file = tmp_path / "unclosed.md"
+    test_file.write_text(md_content)
+
+    result = parse_markdown(test_file)
+
+    assert result.metadata["header_count"] == 1
+    assert result.metadata["code_languages"] == []
+    assert result.metadata["has_code"] is False
+
+
+def test_parse_markdown_code_block_ignores_headers(tmp_path):
+    md_content = """# Real Header
+```python
+# Not A Header
+```
+"""
+    test_file = tmp_path / "ignores.md"
+    test_file.write_text(md_content)
+
+    result = parse_markdown(test_file)
+
+    assert result.metadata["header_count"] == 1
+    assert result.sections[0]["title"] == "Real Header"
+
+
+def test_parse_markdown_error(tmp_path):
+    non_existent_path = tmp_path / "non_existent.md"
+    result = parse_markdown(non_existent_path)
+
+    assert result.content == ""
+    assert "error" in result.metadata
