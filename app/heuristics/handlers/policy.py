@@ -8,7 +8,9 @@ from app.models_v2 import IRv2
 class PolicyHandler(BaseHandler):
     """Infer a minimal execution policy from risk, data, and tooling cues."""
 
-    _PATH_PATTERN = re.compile(r"(?:[A-Za-z]:\\|/)[^\s]+")
+    _PATH_PATTERN = re.compile(
+        r"(?:[A-Za-z]:\\[^\s\\]+(?:\\[^\s\\]+)+|/(?!/|[^:\s]+://)(?:[^/\s]+/)+[^/\s]+)"
+    )
     _FILE_KEYWORDS = (
         "file",
         "path",
