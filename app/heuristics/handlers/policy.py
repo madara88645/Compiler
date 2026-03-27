@@ -8,8 +8,11 @@ from app.models_v2 import IRv2
 class PolicyHandler(BaseHandler):
     """Infer a minimal execution policy from risk, data, and tooling cues."""
 
-    _PATH_PATTERN = re.compile(
-        r"(?:[A-Za-z]:\\[^\s\\]+(?:\\[^\s\\]+)+|/(?!/|[^:\s]+://)(?:[^/\s]+/)+[^/\s]+)"
+    _URL_PATTERN = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://\S+")
+    _WINDOWS_PATH_PATTERN = re.compile(r"\b[A-Za-z]:\\(?:[^\s\\]+\\)*[^\s\\]+\b")
+    _POSIX_PATH_PATTERN = re.compile(r"(?<![:/\w])/(?:[^/\s]+/)+[^/\s]+")
+    _RELATIVE_FILE_PATTERN = re.compile(
+        r"(?<![:/\w])(?:\.{1,2}[\\/])?(?:[\w.-]+[\\/])+[\w.-]+\.[A-Za-z0-9]{1,8}\b"
     )
     _FILE_KEYWORDS = (
         "file",
@@ -28,7 +31,8 @@ class PolicyHandler(BaseHandler):
 
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         md = ir_v1.metadata or {}
-        text = (md.get("original_text") or "").lower()
+        original_text = md.get("original_text") or ""
+        text = original_text.lower()
         risk_flags = list(md.get("risk_flags") or [])
         pii_flags = list(md.get("pii_flags") or [])
         persona_flags = (md.get("persona_evidence") or {}).get("flags") or {}
@@ -39,7 +43,7 @@ class PolicyHandler(BaseHandler):
         high_risk = any(flag in {"financial", "health", "legal"} for flag in risk_flags)
         security_risk = "security" in risk_flags
 
-        has_path = bool(self._PATH_PATTERN.search(md.get("original_text") or ""))
+        has_path = self._has_explicit_path(original_text)
         file_or_system_request = has_path or any(keyword in text for keyword in self._FILE_KEYWORDS)
         debug_request = bool(md.get("code_request")) or bool(persona_flags.get("live_debug"))
 
@@ -84,6 +88,21 @@ class PolicyHandler(BaseHandler):
             policy.data_sensitivity = "internal"
 
         ir_v2.metadata["policy_summary"] = policy.model_dump()
+
+    @classmethod
+    def _has_explicit_path(cls, text: str) -> bool:
+        if not text:
+            return False
+
+        text_without_urls = cls._URL_PATTERN.sub(" ", text)
+        return any(
+            pattern.search(text_without_urls)
+            for pattern in (
+                cls._WINDOWS_PATH_PATTERN,
+                cls._POSIX_PATH_PATTERN,
+                cls._RELATIVE_FILE_PATTERN,
+            )
+        )
 
     @staticmethod
     def _unique(items: list[str]) -> list[str]:

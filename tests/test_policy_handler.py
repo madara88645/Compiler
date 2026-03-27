@@ -30,3 +30,14 @@ def test_policy_detects_sensitive_data_and_tightens_sensitivity():
 
     assert ir2.policy.data_sensitivity in {"confidential", "restricted"}
     assert "mask_sensitive_values" in ir2.policy.sanitization_rules
+
+
+def test_policy_does_not_treat_urls_or_abbreviations_as_file_paths():
+    ir2 = compile_text_v2(
+        "Compare HTTP/2 support and A/B testing patterns from https://example.com/docs."
+    )
+
+    assert ir2.policy.risk_level == "low"
+    assert ir2.policy.execution_mode == "advice_only"
+    assert "workspace_read" not in ir2.policy.allowed_tools
+    assert "path_must_stay_within_workspace" not in ir2.policy.sanitization_rules
