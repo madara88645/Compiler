@@ -59,6 +59,7 @@ export type CompileResponse = {
   plan_v2?: string;
   expanded_prompt_v2?: string;
   ir: CompileIr;
+  ir_v2?: CompileIr;
   processing_ms: number;
   critique?: Critique | null;
 };
@@ -75,6 +76,7 @@ export type CompileRequest = {
 
 export type RagUploadRequest = {
   filename: string;
+  relative_path?: string;
   content: string;
 };
 
