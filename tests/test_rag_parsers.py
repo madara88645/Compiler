@@ -47,6 +47,27 @@ def test_parse_yaml_import_error():
         assert result == yaml_str
 
 
+def test_parse_yaml_import_error_bytes():
+    yaml_bytes = b"key: value\nnumber: 42"
+    # Simulate ImportError for 'yaml' with bytes content
+    with patch.dict(sys.modules, {"yaml": None}):
+        result = parse_yaml(yaml_bytes)
+        # Should decode the bytes and fall back to returning the original plain text content
+        assert result == "key: value\nnumber: 42"
+
+
+def test_parse_yaml_empty_string():
+    # Empty string should return empty string since parsed will be None
+    result = parse_yaml("")
+    assert result == ""
+
+
+def test_parse_yaml_empty_bytes():
+    # Empty bytes should return empty string since parsed will be None
+    result = parse_yaml(b"")
+    assert result == ""
+
+
 def test_parse_yaml_file_success(tmp_path):
     yaml_content = "key: value\nnumber: 42\n"
     test_file = tmp_path / "test.yaml"
