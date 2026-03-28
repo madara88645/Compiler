@@ -99,3 +99,12 @@ def test_can_parse():
     assert can_parse(Path("test.docx")) is True
     assert can_parse(Path("test.unknown_extension")) is False
     assert can_parse(Path("no_extension")) is False
+
+
+def test_parse_yaml_bytes_import_error():
+    yaml_bytes = b"key: value\nnumber: 42"
+    # Simulate ImportError for 'yaml'
+    with patch.dict(sys.modules, {"yaml": None}):
+        result = parse_yaml(yaml_bytes)
+        # Should fall back to returning the original plain text content decoded as string
+        assert result == yaml_bytes.decode("utf-8", errors="ignore")
