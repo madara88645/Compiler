@@ -6,6 +6,7 @@ from unittest.mock import patch
 from app.rag.parsers import (
     can_parse,
     get_supported_extensions,
+    parse_html,
     parse_yaml,
     parse_yaml_file,
     ParseResult,
@@ -99,3 +100,68 @@ def test_can_parse():
     assert can_parse(Path("test.docx")) is True
     assert can_parse(Path("test.unknown_extension")) is False
     assert can_parse(Path("no_extension")) is False
+
+
+def test_parse_html_success(tmp_path):
+    html_content = """
+    <html>
+        <head><title>Test Page</title></head>
+        <body>
+            <h1>Heading 1</h1>
+            <p>This is a <b>paragraph</b> with <a href="https://example.com">a link</a>.</p>
+        </body>
+    </html>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    assert isinstance(result, ParseResult)
+    assert result.content == "Test Page Heading 1 This is a paragraph with a link ."
+    assert result.metadata["format"] == "html"
+    assert result.metadata["extension"] == ".html"
+
+
+def test_parse_html_remove_scripts_and_styles(tmp_path):
+    html_content = """
+    <html>
+        <head>
+            <style type="text/css">
+                body { color: red; }
+            </style>
+            <script>
+                console.log("Hello, World!");
+            </script>
+        </head>
+        <body>
+            <p>Visible content</p>
+        </body>
+    </html>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    assert "console.log" not in result.content
+    assert "body { color: red; }" not in result.content
+    assert result.content == "Visible content"
+
+
+def test_parse_html_decode_entities(tmp_path):
+    html_content = """
+    <p>Entity test: &lt; &gt; &amp; &quot; &nbsp;</p>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    # &nbsp; is replaced with " " which is then normalized by .split() and " ".join()
+    assert result.content == "Entity test: < > & \""
+
+
+def test_parse_html_error(tmp_path):
+    non_existent_path = tmp_path / "non_existent.html"
+    result = parse_html(non_existent_path)
+
+    assert result.content == ""
+    assert "error" in result.metadata
