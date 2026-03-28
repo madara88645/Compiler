@@ -283,6 +283,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 <div className="flex flex-col gap-2 mt-2 pl-2 border-l border-white/5">
                     <input
                         type="text"
+                        aria-label="Path to file or folder..."
                         className="w-full bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
                         placeholder="Path to file or folder..."
                         value={filePath}
@@ -302,6 +303,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 <div className="flex gap-2">
                     <input
                         type="text"
+                        aria-label="Search context..."
                         className="flex-1 bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
                         placeholder="Search context..."
                         value={query}
