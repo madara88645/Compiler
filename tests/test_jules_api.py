@@ -132,6 +132,7 @@ def test_jules_reply_endpoint_passes_session_context_into_generation():
     assert kwargs["session_title"] == "Compiler smoke test"
     assert kwargs["session_prompt"] == "Inspect the repo and answer the current agent question."
 
+
 @pytest.mark.auth_required
 def test_jules_reply_endpoint_requires_auth():
     client = TestClient(app)
@@ -139,6 +140,7 @@ def test_jules_reply_endpoint_requires_auth():
     response = client.post("/jules/sessions/session-123/reply", json={"instruction": "Be concise"})
 
     assert response.status_code == 403
+
 
 def test_jules_reply_endpoint_missing_agent_activity():
     activities = {
@@ -164,6 +166,7 @@ def test_jules_reply_endpoint_missing_agent_activity():
     assert response.status_code == 404
     assert response.json()["detail"] == "No agent message found in session activities."
 
+
 def test_jules_reply_endpoint_client_runtime_error():
     with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
         "app.routers.jules.JulesClient"
@@ -180,6 +183,7 @@ def test_jules_reply_endpoint_client_runtime_error():
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Failed to connect"
+
 
 def test_jules_reply_endpoint_client_generic_error():
     with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
