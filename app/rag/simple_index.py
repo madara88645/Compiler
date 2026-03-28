@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 import time
 import logging
@@ -680,6 +681,26 @@ def ingest_paths(
         conn.close()
 
 
+_FTS_SPECIAL = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def _build_fts_query(query: str) -> str:
+    """Build an FTS5 MATCH expression that uses OR for better recall.
+
+    Strips punctuation, splits into tokens, joins with OR, and applies
+    prefix matching on the last token so partial words still match.
+    """
+    cleaned = _FTS_SPECIAL.sub(" ", query)
+    tokens = cleaned.split()
+    if not tokens:
+        return query
+    if len(tokens) == 1:
+        return f"{tokens[0]}*"
+    # prefix-search only on the last token; OR all terms for recall
+    parts = tokens[:-1] + [f"{tokens[-1]}*"]
+    return " OR ".join(parts)
+
+
 def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
     cache_key = f"fts::{db_path or DEFAULT_DB_PATH}::{k}::{query}"
     cached = _cache_get(cache_key)
@@ -701,7 +722,7 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                 WHERE fts MATCH ?
                 ORDER BY score LIMIT ?
                 """,
-                (f"{query}*", k),
+                (_build_fts_query(query), k),
             )
             results = []
             for row in cur.fetchall():
