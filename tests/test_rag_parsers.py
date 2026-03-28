@@ -3,10 +3,15 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+from unittest.mock import MagicMock
+
 from app.rag.parsers import (
     can_parse,
     get_supported_extensions,
+    parse_file,
+    parse_html,
     parse_markdown,
+    parse_pdf,
     parse_yaml,
     parse_yaml_file,
     ParseResult,
@@ -233,3 +238,214 @@ def test_parse_markdown_error(tmp_path):
 
     assert result.content == ""
     assert "error" in result.metadata
+
+
+# --- parse_file tests (from PR #261) ---
+
+
+def test_parse_file_not_exists(tmp_path):
+    non_existent_path = tmp_path / "does_not_exist.txt"
+    result = parse_file(non_existent_path)
+    assert result.content == ""
+    assert "error" in result.metadata
+    assert "File not found" in result.metadata["error"]
+
+
+def test_parse_file_registered_parser(tmp_path):
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file)
+    assert result.content == "Hello, world!"
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".txt"
+
+
+def test_parse_file_unknown_fallback_true(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file, fallback_to_text=True)
+    assert result.content == "Hello, world!"
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".unknown_extension"
+
+
+def test_parse_file_unknown_fallback_false(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file, fallback_to_text=False)
+    assert result.content == ""
+    assert "error" in result.metadata
+    assert "No parser registered" in result.metadata["error"]
+
+
+def test_parse_file_fallback_exception(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+
+    with patch("app.rag.parsers.parse_plain_text", side_effect=Exception("Mocked error")):
+        result = parse_file(test_file, fallback_to_text=True)
+        assert result.content == ""
+        assert "error" in result.metadata
+        assert "Unable to parse file" in result.metadata["error"]
+
+
+# --- parse_html tests (from PR #263) ---
+
+
+def test_parse_html_success(tmp_path):
+    html_content = """
+    <html>
+        <head><title>Test Page</title></head>
+        <body>
+            <h1>Heading 1</h1>
+            <p>This is a <b>paragraph</b> with <a href="https://example.com">a link</a>.</p>
+        </body>
+    </html>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    assert isinstance(result, ParseResult)
+    assert result.content == "Test Page Heading 1 This is a paragraph with a link ."
+    assert result.metadata["format"] == "html"
+    assert result.metadata["extension"] == ".html"
+
+
+def test_parse_html_remove_scripts_and_styles(tmp_path):
+    html_content = """
+    <html>
+        <head>
+            <style type="text/css">
+                body { color: red; }
+            </style>
+            <script>
+                console.log("Hello, World!");
+            </script>
+        </head>
+        <body>
+            <p>Visible content</p>
+        </body>
+    </html>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    assert "console.log" not in result.content
+    assert "body { color: red; }" not in result.content
+    assert result.content == "Visible content"
+
+
+def test_parse_html_decode_entities(tmp_path):
+    html_content = """
+    <p>Entity test: &lt; &gt; &amp; &quot; &nbsp;</p>
+    """
+    test_file = tmp_path / "test.html"
+    test_file.write_text(html_content)
+
+    result = parse_html(test_file)
+    assert result.content == 'Entity test: < > & "'
+
+
+def test_parse_html_error(tmp_path):
+    non_existent_path = tmp_path / "non_existent.html"
+    result = parse_html(non_existent_path)
+
+    assert result.content == ""
+    assert "error" in result.metadata
+
+
+# --- parse_pdf tests (from PR #265) ---
+
+
+def test_parse_pdf_success_pymupdf(tmp_path):
+    """Test PDF parsing successfully using PyMuPDF (fitz)."""
+    mock_fitz = MagicMock()
+    mock_doc = MagicMock()
+
+    mock_page1 = MagicMock()
+    mock_page1.get_text.return_value = "Hello, Page 1\n"
+    mock_page2 = MagicMock()
+    mock_page2.get_text.return_value = "World, Page 2"
+
+    mock_doc.__iter__.return_value = iter([mock_page1, mock_page2])
+    mock_doc.__len__.return_value = 2
+
+    mock_fitz.open.return_value = mock_doc
+
+    with patch.dict(sys.modules, {"fitz": mock_fitz}):
+        test_file = tmp_path / "test.pdf"
+        test_file.touch()
+
+        result = parse_pdf(test_file)
+
+        assert "Hello, Page 1" in result.content
+        assert "World, Page 2" in result.content
+        assert "[Page 1]" in result.content
+        assert "[Page 2]" in result.content
+
+        assert result.metadata["format"] == "pdf"
+        assert result.metadata["extension"] == ".pdf"
+        assert result.metadata["parser"] == "pymupdf"
+        assert result.metadata["page_count"] == 2
+        assert result.metadata["pages_with_text"] == 2
+
+
+def test_parse_pdf_success_pdfplumber(tmp_path):
+    """Test PDF parsing falling back to pdfplumber when fitz fails to import."""
+    mock_pdfplumber = MagicMock()
+    mock_pdf_context = MagicMock()
+    mock_pdf_instance = MagicMock()
+
+    mock_page1 = MagicMock()
+    mock_page1.extract_text.return_value = "Plumber Page 1"
+
+    mock_pdf_instance.pages = [mock_page1]
+
+    mock_pdf_context.__enter__.return_value = mock_pdf_instance
+    mock_pdfplumber.open.return_value = mock_pdf_context
+
+    with patch.dict(sys.modules, {"fitz": None, "pdfplumber": mock_pdfplumber}):
+        test_file = tmp_path / "test.pdf"
+        test_file.touch()
+
+        result = parse_pdf(test_file)
+
+        assert "Plumber Page 1" in result.content
+        assert "[Page 1]" in result.content
+
+        assert result.metadata["format"] == "pdf"
+        assert result.metadata["extension"] == ".pdf"
+        assert result.metadata["parser"] == "pdfplumber"
+        assert result.metadata["page_count"] == 1
+        assert result.metadata["pages_with_text"] == 1
+
+
+def test_parse_pdf_no_parsers(tmp_path):
+    """Test PDF parsing behavior when neither fitz nor pdfplumber are available."""
+    with patch.dict(sys.modules, {"fitz": None, "pdfplumber": None}):
+        test_file = tmp_path / "test.pdf"
+        test_file.touch()
+
+        result = parse_pdf(test_file)
+
+        assert result.content == ""
+        assert result.metadata["format"] == "pdf"
+        assert "No PDF parser available" in result.metadata.get("error", "")
+
+
+def test_parse_pdf_exception(tmp_path):
+    """Test PDF parsing behavior when an unexpected exception occurs."""
+    mock_fitz = MagicMock()
+    mock_fitz.open.side_effect = ValueError("Corrupt PDF file")
+
+    with patch.dict(sys.modules, {"fitz": mock_fitz}):
+        test_file = tmp_path / "test.pdf"
+        test_file.touch()
+
+        result = parse_pdf(test_file)
+
+        assert result.content == ""
+        assert result.metadata["format"] == "pdf"
+        assert "Corrupt PDF file" in result.metadata.get("error", "")
