@@ -8,6 +8,7 @@ from app.rag.parsers import (
     get_supported_extensions,
     parse_yaml,
     parse_yaml_file,
+    parse_file,
     ParseResult,
 )
 
@@ -99,3 +100,50 @@ def test_can_parse():
     assert can_parse(Path("test.docx")) is True
     assert can_parse(Path("test.unknown_extension")) is False
     assert can_parse(Path("no_extension")) is False
+
+
+def test_parse_file_not_exists(tmp_path):
+    non_existent_path = tmp_path / "does_not_exist.txt"
+    result = parse_file(non_existent_path)
+    assert result.content == ""
+    assert "error" in result.metadata
+    assert "File not found" in result.metadata["error"]
+
+
+def test_parse_file_registered_parser(tmp_path):
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file)
+    assert result.content == "Hello, world!"
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".txt"
+
+
+def test_parse_file_unknown_fallback_true(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file, fallback_to_text=True)
+    assert result.content == "Hello, world!"
+    assert result.metadata["format"] == "plain_text"
+    assert result.metadata["extension"] == ".unknown_extension"
+
+
+def test_parse_file_unknown_fallback_false(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+    result = parse_file(test_file, fallback_to_text=False)
+    assert result.content == ""
+    assert "error" in result.metadata
+    assert "No parser registered" in result.metadata["error"]
+
+
+def test_parse_file_fallback_exception(tmp_path):
+    test_file = tmp_path / "test.unknown_extension"
+    test_file.write_text("Hello, world!")
+
+    # We mock parse_plain_text to raise an exception
+    with patch("app.rag.parsers.parse_plain_text", side_effect=Exception("Mocked error")):
+        result = parse_file(test_file, fallback_to_text=True)
+        assert result.content == ""
+        assert "error" in result.metadata
+        assert "Unable to parse file" in result.metadata["error"]
