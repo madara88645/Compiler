@@ -131,3 +131,73 @@ def test_jules_reply_endpoint_passes_session_context_into_generation():
     kwargs = mock_reply.call_args.kwargs
     assert kwargs["session_title"] == "Compiler smoke test"
     assert kwargs["session_prompt"] == "Inspect the repo and answer the current agent question."
+
+
+@pytest.mark.auth_required
+def test_jules_reply_endpoint_requires_auth():
+    client = TestClient(app)
+
+    response = client.post("/jules/sessions/session-123/reply", json={"instruction": "Be concise"})
+
+    assert response.status_code == 403
+
+
+def test_jules_reply_endpoint_missing_agent_activity():
+    activities = {
+        "activities": [
+            {"id": "u1", "originator": "user", "progressUpdated": {"title": "Manual answer"}},
+        ]
+    }
+
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.list_activities.return_value = activities
+        mock_client.get_session.return_value = {}
+
+        client = TestClient(app)
+        response = client.post(
+            "/jules/sessions/session-123/reply",
+            json={"instruction": "Be concise"},
+            headers=_auth_headers(),
+        )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No agent message found in session activities."
+
+
+def test_jules_reply_endpoint_client_runtime_error():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.get_session.side_effect = RuntimeError("Failed to connect")
+
+        client = TestClient(app)
+        response = client.post(
+            "/jules/sessions/session-123/reply",
+            json={"instruction": "Be concise"},
+            headers=_auth_headers(),
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Failed to connect"
+
+
+def test_jules_reply_endpoint_client_generic_error():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.get_session.side_effect = Exception("Unknown failure")
+
+        client = TestClient(app)
+        response = client.post(
+            "/jules/sessions/session-123/reply",
+            json={"instruction": "Be concise"},
+            headers=_auth_headers(),
+        )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Failed to reply to Jules session."
