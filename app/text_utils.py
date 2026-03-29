@@ -5,7 +5,6 @@ import re
 from typing import List
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
-_WORD_SPLIT = re.compile(r"\s+")
 
 
 def estimate_tokens(text: str) -> int:
@@ -13,7 +12,9 @@ def estimate_tokens(text: str) -> int:
     if not text:
         return 0
     chars = len(text)
-    words = len([w for w in _WORD_SPLIT.split(text.strip()) if w])
+    # Bolt Optimization: Built-in split() with no arguments splits on arbitrary whitespace
+    # and drops empty strings automatically. This avoids regex and generator overhead.
+    words = len(text.split())
     return max(1, math.ceil(min(chars / 4, words / 0.75)))
 
 
