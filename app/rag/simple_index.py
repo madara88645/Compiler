@@ -624,6 +624,9 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
             seen_ids = {r["chunk_id"] for r in results}
             limit_needed = k - len(results)
 
+            # Escape LIKE wildcards to prevent LIKE injection
+            escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
             cur = conn.execute(
                 """
                 SELECT c.id, c.doc_id, d.path, c.chunk_index,
@@ -631,10 +634,10 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                        0.5 as score
                 FROM chunks c
                 JOIN docs d ON d.id = c.doc_id
-                WHERE lower(c.content) LIKE lower(?)
+                WHERE lower(c.content) LIKE lower(?) ESCAPE '\\'
                 LIMIT ?
                 """,
-                (f"%{query}%", limit_needed * 2),  # Grab a few more to filter dupes
+                (f"%{escaped_query}%", limit_needed * 2),  # Grab a few more to filter dupes
             )
 
             for row in cur.fetchall():
