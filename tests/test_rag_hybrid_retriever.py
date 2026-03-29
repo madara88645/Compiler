@@ -8,6 +8,22 @@ def _write(p, txt):
         f.write(txt)
 
 
+def test_hybrid_fallback_like_wildcard():
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "doc.txt")
+        _write(p, "Here is a weird test case: 50% of people use _this_ particular file path daily.")
+        # ingest without embeddings
+        ingest_paths([p], db_path=td + "/idx.db", embed=False)
+        # searching with wildcards like % and _ should match exactly what is written,
+        # avoiding SQL injection issues where % matches any string
+        res = search_hybrid("50% of people use _this_", k=3, db_path=td + "/idx.db", embed_dim=64)
+        assert len(res) > 0, "Hybrid fallback should match literal wildcard characters"
+
+        # 'content' key isn't in search_hybrid, it uses 'snippet' or full string is returned differently
+        # actually let's just check 'snippet'
+        assert "50" in res[0].get("snippet", "")
+        assert "_this_" in res[0].get("snippet", "")
+
 def test_hybrid_fallback_without_embeddings():
     with tempfile.TemporaryDirectory() as td:
         p = os.path.join(td, "doc.txt")
