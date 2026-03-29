@@ -38,6 +38,9 @@ PATTERNS = {
     "credit_card": r"\b(?:\d[ -]*?){13,16}\b",
 }
 
+# Pre-compile regex patterns for faster scanning
+COMPILED_PATTERNS = {k: re.compile(v) for k, v in PATTERNS.items()}
+
 # Allow-list for common IP-like false positives
 IP_ALLOWLIST = {"127.0.0.1", "0.0.0.0", "192.168.0.1", "192.168.1.1", "10.0.0.1"}
 
@@ -55,8 +58,8 @@ def scan_text(text: str) -> SecurityResult:
 
     matches = []
 
-    for label, pattern in PATTERNS.items():
-        for match in re.finditer(pattern, text):
+    for label, pattern in COMPILED_PATTERNS.items():
+        for match in pattern.finditer(text):
             val = match.group(0)
 
             # Special handling for generic key to capture just the value group if present
