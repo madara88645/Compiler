@@ -30,6 +30,7 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [activeTab, setActiveTab] = useState<OutputTab>("intent");
+  const [copied, setCopied] = useState(false);
   const [conservativeMode, setConservativeMode] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -144,6 +145,7 @@ export default function Home() {
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <textarea
+                aria-label="Describe what you want compiled"
                 className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                 value={prompt}
@@ -154,8 +156,8 @@ export default function Home() {
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => handleGenerate()}
-                disabled={loading}
-                className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20"
+                disabled={loading || !prompt.trim()}
+                className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
               >
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
@@ -270,12 +272,20 @@ export default function Home() {
                       />
 
                       <button
-                        onClick={() => navigator.clipboard.writeText(getTabContent(result, activeTab))}
-                        className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20"
-                        title="Copy to Clipboard"
-                        aria-label="Copy to Clipboard"
+                        onClick={() => {
+                          navigator.clipboard.writeText(getTabContent(result, activeTab));
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        title={copied ? "Copied!" : "Copy to Clipboard"}
+                        aria-label={copied ? "Copied" : "Copy to Clipboard"}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                        {copied ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                        )}
                       </button>
                     </>
                   )}
