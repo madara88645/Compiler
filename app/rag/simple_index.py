@@ -760,7 +760,10 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                 WHERE lower(c.content) LIKE lower(?) ESCAPE '\\'
                 LIMIT ?
                 """,
-                (f"%{_escape_like_pattern(query)}%", limit_needed * 2),  # Grab a few more to filter dupes
+                (
+                    f"%{_escape_like_pattern(query)}%",
+                    limit_needed * 2,
+                ),  # Grab a few more to filter dupes
             )
 
             for row in cur.fetchall():
