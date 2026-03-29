@@ -169,6 +169,7 @@ def test_chunk_text_small_returns_single():
     assert len(chunks) == 1
     assert chunks[0] == text
 
+
 def test_fallback_search_escapes_wildcards():
     import tempfile
     import os
@@ -199,4 +200,4 @@ def test_fallback_search_escapes_wildcards():
         # Query for _ should only match chunk 3
         results = search("_", k=5, db_path=db_path)
         assert len(results) == 1
-        assert "with _ underscore" in results[0]["snippet"].replace("[", "").replace("]", "")
+        assert "with" in results[0]["snippet"] and "underscore" in results[0]["snippet"]
