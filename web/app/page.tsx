@@ -150,6 +150,13 @@ export default function Home() {
                 placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    if (!loading && prompt.trim()) {
+                      void handleGenerate();
+                    }
+                  }
+                }}
               />
             </div>
 
@@ -162,7 +169,7 @@ export default function Home() {
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
                 ) : (
-                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">⌘ Enter</kbd></>
                 )}
               </button>
             </div>
@@ -186,7 +193,7 @@ export default function Home() {
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${activeTab === tab
+                      className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:z-10 ${activeTab === tab
                         ? "text-white bg-white/5 border-t border-x border-white/5"
                         : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
                         }`}
