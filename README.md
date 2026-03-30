@@ -11,7 +11,7 @@
 
 The project is still growing into a more production-ready developer workflow tool, but the product name, deploy surface, and core experience remain **Prompt Compiler / PromptC**. The newer policy-aware IR, GitHub artifacts, and VS Code flow are additions to that platform, not a rename.
 
-Try the deployed app at [pcompiler.com](https://pcompiler.com).
+Try the deployed app at [prcompiler.com](https://prcompiler.com).
 
 ---
 
