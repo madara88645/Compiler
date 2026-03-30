@@ -25,3 +25,11 @@
 ## 2025-03-09 - Pre-compiling Regex Patterns for Performance
 **Learning:** In Python, iterating over uncompiled string patterns using `re.finditer(pattern, text)` repeatedly compiles the regex patterns on every call, leading to significant overhead in hot loops like security scanners.
 **Action:** Always pre-compile regular expressions at the module level (e.g., `COMPILED_PATTERNS = {k: re.compile(v) for k, v in PATTERNS.items()}`) and use `.finditer` directly on the compiled objects to improve performance.
+
+## 2025-03-09 - Catastrophic Backtracking Misdiagnosis and Bounded Regex Regressions
+**Learning:** Replacing unbounded lazy matchers (`(.+?)`) with strictly bounded matchers (e.g., `([^.!?\n]{5,200}?)`) to "prevent catastrophic backtracking" in simple dependency parsing regexes (like `(.+?)\s+because\s+(.+)`) introduces severe functional regressions by failing to match short, valid clauses and altering newline handling originally enabled by `re.DOTALL`.
+**Action:** Do not alter core regex semantics (length constraints or boundary characters) for performance unless you have proven exponential backtracking exists for that specific pattern architecture. Linear scanning overhead from simple `.+?` is generally acceptable and preferable to dropping valid matches.
+
+## 2025-03-09 - The False Economy of Native String Matching Over Regex Boundaries
+**Learning:** Attempting to optimize pre-compiled regex word-boundary checks (e.g., `\b(test|spec)\b`) by using native string substring matching (`any(w in text for w in ['test', 'spec'])`) introduces false positives (e.g., matching "latest" for "test"). Performance optimizations must perfectly preserve semantic boundaries.
+**Action:** Always retain `re` for word boundary requirements. If optimizing a hot loop testing multiple boundary regexes, combine them into a single alternated pattern (`re.compile(r'\b(test|spec)\b')`) instead of falling back to loose native string matching.

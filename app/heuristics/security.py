@@ -78,8 +78,8 @@ def scan_text(text: str) -> SecurityResult:
                 if "." in val or re.search(r"[a-fA-F]", val):  # Hex check just in case
                     continue
                 # Length check for raw digits
-                digits = re.sub(r"\D", "", val)
-                if len(digits) < 13 or len(digits) > 19:
+                num_digits = sum(1 for c in val if c.isdigit())
+                if num_digits < 13 or num_digits > 19:
                     continue
 
             matches.append(
