@@ -8,6 +8,24 @@ def _write(p, txt):
         f.write(txt)
 
 
+def test_hybrid_fallback_like_wildcard():
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "doc.txt")
+        _write(p, "Here is a weird test case with wildcards: %_")
+        # ingest without embeddings
+        ingest_paths([p], db_path=td + "/idx.db", embed=False)
+
+        # searching with ONLY wildcards like % and _ will be stripped by FTS,
+        # meaning FTS will return 0 results and trigger the LIKE fallback.
+        res = search_hybrid("%_", k=3, db_path=td + "/idx.db", embed_dim=64)
+        assert len(res) > 0, "Hybrid fallback should match literal wildcard characters"
+
+        # In search_hybrid fallback (and generally), the result contains 'content'
+        # The key returned by search is 'snippet' not 'content' for lexical results in some paths
+        # However if it's returning empty string for 'content', let's check what's actually there
+        assert "weird test case with wildcards" in res[0].get("snippet", "")
+
+
 def test_hybrid_fallback_without_embeddings():
     with tempfile.TemporaryDirectory() as td:
         p = os.path.join(td, "doc.txt")

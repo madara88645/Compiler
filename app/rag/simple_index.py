@@ -684,6 +684,11 @@ def ingest_paths(
 _FTS_SPECIAL = re.compile(r"[^\w\s]", re.UNICODE)
 
 
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape SQL LIKE wildcards."""
+    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _build_fts_query(query: str) -> str:
     """Build an FTS5 MATCH expression that uses OR for better recall.
 
@@ -752,10 +757,13 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
                        0.5 as score
                 FROM chunks c
                 JOIN docs d ON d.id = c.doc_id
-                WHERE lower(c.content) LIKE lower(?)
+                WHERE lower(c.content) LIKE lower(?) ESCAPE '\\'
                 LIMIT ?
                 """,
-                (f"%{query}%", limit_needed * 2),  # Grab a few more to filter dupes
+                (
+                    f"%{_escape_like_pattern(query)}%",
+                    limit_needed * 2,
+                ),  # Grab a few more to filter dupes
             )
 
             for row in cur.fetchall():
