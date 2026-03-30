@@ -191,6 +191,7 @@ def test_fallback_search_escapes_wildcards():
             "INSERT INTO chunks (id, doc_id, chunk_index, content) VALUES (3, 1, 2, 'Content with _ underscore')"
         )
         conn.commit()
+        conn.close()
 
         # Query for % should only match chunk 1
         results = search("%", k=5, db_path=db_path)
