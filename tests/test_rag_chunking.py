@@ -168,3 +168,36 @@ def test_chunk_text_small_returns_single():
     chunks = _chunk_text(text, chunk_size=1000)
     assert len(chunks) == 1
     assert chunks[0] == text
+
+
+def test_fallback_search_escapes_wildcards():
+    import tempfile
+    import os
+    from app.rag.simple_index import search, _connect, _init_schema
+
+    with tempfile.TemporaryDirectory() as td:
+        db_path = os.path.join(td, "index.db")
+        conn = _connect(db_path)
+        _init_schema(conn)
+
+        conn.execute("INSERT INTO docs (id, path, mtime, size) VALUES (1, 'path1', 1.0, 100)")
+        conn.execute(
+            "INSERT INTO chunks (id, doc_id, chunk_index, content) VALUES (1, 1, 0, 'This is a test % content')"
+        )
+        conn.execute(
+            "INSERT INTO chunks (id, doc_id, chunk_index, content) VALUES (2, 1, 1, 'This is another content')"
+        )
+        conn.execute(
+            "INSERT INTO chunks (id, doc_id, chunk_index, content) VALUES (3, 1, 2, 'Content with _ underscore')"
+        )
+        conn.commit()
+
+        # Query for % should only match chunk 1
+        results = search("%", k=5, db_path=db_path)
+        assert len(results) == 1
+        assert "test % content" in results[0]["snippet"]
+
+        # Query for _ should only match chunk 3
+        results = search("_", k=5, db_path=db_path)
+        assert len(results) == 1
+        assert "with" in results[0]["snippet"] and "underscore" in results[0]["snippet"]

@@ -16,3 +16,7 @@
 **Vulnerability:** The application used a hardcoded absolute fallback path (`C:\`) to construct the default database directory when the `USERPROFILE` environment variable was missing on Windows systems (e.g., in `app/history/manager.py` and `app/rag/simple_index.py`).
 **Learning:** Hardcoding root directories like `C:\` as fallbacks for storing sensitive user databases exposes data cross-user, and often leads to permission errors or path traversal vulnerabilities in environments with restricted permissions.
 **Prevention:** Always use safe, dynamic cross-platform resolution methods like `os.path.expanduser('~')` as fallbacks to ensure user-specific data is safely scoped to their personal home directory.
+## 2025-03-27 - Wildcard Injection in SQLite Fallback Queries
+**Vulnerability:** The RAG index fallback search used string interpolation to wrap the user's query with wildcards for a SQL `LIKE` query (`LIKE f"%{query}%"`), allowing users to inject literal `%` and `_` characters to bypass search filters.
+**Learning:** Using parameterized queries (e.g., `LIKE ?` with `("%" + query + "%",)`) prevents SQL injection, but does not prevent wildcard injection if the parameter itself contains unescaped wildcards.
+**Prevention:** When wrapping user input in wildcards for `LIKE` queries, explicitly escape `\`, `%`, and `_` in the input string, and append the `ESCAPE '\'` clause to the SQL statement.
