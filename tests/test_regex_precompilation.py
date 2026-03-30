@@ -22,24 +22,28 @@ class TestRegexPrecompilation:
         assert hasattr(handler, "_compiled_universal_checks")
         assert "security" in handler._compiled_universal_checks
         for check_name, compiled in handler._compiled_universal_checks.items():
-            for pat in compiled.get("missing", []):
-                assert isinstance(pat, re.Pattern), f"{check_name} missing_pattern not compiled"
-            for pat in compiled.get("risk", []):
-                assert isinstance(pat, re.Pattern), f"{check_name} risk_pattern not compiled"
+            if compiled.get("missing"):
+                assert isinstance(
+                    compiled.get("missing"), re.Pattern
+                ), f"{check_name} missing_pattern not compiled"
+            if compiled.get("risk"):
+                assert isinstance(
+                    compiled.get("risk"), re.Pattern
+                ), f"{check_name} risk_pattern not compiled"
 
     def test_business_required_elements_compiled(self, handler):
         assert hasattr(handler, "_compiled_business_elements")
         assert len(handler._compiled_business_elements) > 0
-        for element_name, patterns in handler._compiled_business_elements.items():
-            for pat in patterns:
-                assert isinstance(pat, re.Pattern), f"{element_name} pattern not compiled"
+        for element_name, pattern in handler._compiled_business_elements.items():
+            if pattern:
+                assert isinstance(pattern, re.Pattern), f"{element_name} pattern not compiled"
 
     def test_data_science_checks_compiled(self, handler):
         assert hasattr(handler, "_compiled_ds_checks")
         assert len(handler._compiled_ds_checks) > 0
-        for check_name, patterns in handler._compiled_ds_checks.items():
-            for pat in patterns:
-                assert isinstance(pat, re.Pattern), f"{check_name} pattern not compiled"
+        for check_name, pattern in handler._compiled_ds_checks.items():
+            if pattern:
+                assert isinstance(pattern, re.Pattern), f"{check_name} pattern not compiled"
 
     def test_secret_patterns_compiled(self, handler):
         assert hasattr(handler, "_compiled_secret_patterns")
