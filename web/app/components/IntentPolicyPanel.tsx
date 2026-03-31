@@ -1,10 +1,10 @@
 "use client";
 
-import { normalizeIntentPolicy } from "./intent-policy-utils";
+import type { CompileResponse } from "../../lib/api/types";
+import { humanizeIntentPolicyValue, normalizeIntentPolicy, type IntentDisplayGroup } from "./intent-policy-utils";
 
 type IntentPolicyPanelProps = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: any;
+  result: CompileResponse;
 };
 
 function FieldList({
@@ -37,6 +37,20 @@ function FieldList({
   );
 }
 
+function IntentGroupBadge({ group }: { group: IntentDisplayGroup }) {
+  const styles: Record<IntentDisplayGroup, string> = {
+    content: "border-cyan-400/20 bg-cyan-400/10 text-cyan-100",
+    workflow: "border-violet-400/20 bg-violet-400/10 text-violet-100",
+    risk: "border-amber-400/20 bg-amber-400/10 text-amber-100",
+  };
+
+  return (
+    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] ${styles[group]}`}>
+      {group}
+    </span>
+  );
+}
+
 export default function IntentPolicyPanel({ result }: IntentPolicyPanelProps) {
   const intentPolicy = normalizeIntentPolicy(result);
 
@@ -54,24 +68,33 @@ export default function IntentPolicyPanel({ result }: IntentPolicyPanelProps) {
             </div>
             <div>
               <div className="text-xs text-zinc-500">Persona</div>
-              <div className="text-sm text-zinc-200">{intentPolicy.persona}</div>
+              <div className="text-sm text-zinc-200">{humanizeIntentPolicyValue(intentPolicy.persona)}</div>
             </div>
             <div>
               <div className="mb-2 text-xs text-zinc-500">Detected Intents</div>
-              <div className="flex flex-wrap gap-2">
-                {intentPolicy.intents.length > 0 ? (
-                  intentPolicy.intents.map((intent) => (
-                    <span
-                      key={intent}
-                      className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-100"
+              {intentPolicy.intentDetails.length > 0 ? (
+                <div className="grid gap-3">
+                  {intentPolicy.intentDetails.map((intent) => (
+                    <div
+                      key={intent.key}
+                      className="rounded-2xl border border-white/8 bg-black/20 p-3"
                     >
-                      {intent}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-sm text-zinc-500">No special intent flags.</span>
-                )}
-              </div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-white">{intent.label}</div>
+                        <IntentGroupBadge group={intent.group} />
+                      </div>
+                      <div className="text-xs leading-relaxed text-zinc-400">{intent.description}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4">
+                  <div className="text-sm font-medium text-white">General Request</div>
+                  <div className="mt-1 text-sm text-zinc-500">
+                    No special intent signals were inferred, so the compiler is treating this as a general-purpose request.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -83,20 +106,22 @@ export default function IntentPolicyPanel({ result }: IntentPolicyPanelProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <div className="text-xs text-zinc-500">Risk Level</div>
-              <div className="mt-1 text-lg font-semibold text-white">{intentPolicy.riskLevel}</div>
+              <div className="mt-1 text-lg font-semibold text-white">{humanizeIntentPolicyValue(intentPolicy.riskLevel)}</div>
             </div>
             <div>
               <div className="text-xs text-zinc-500">Execution Mode</div>
-              <div className="mt-1 text-lg font-semibold text-white">{intentPolicy.executionMode}</div>
+              <div className="mt-1 text-lg font-semibold text-white">{humanizeIntentPolicyValue(intentPolicy.executionMode)}</div>
             </div>
             <div>
               <div className="text-xs text-zinc-500">Data Sensitivity</div>
-              <div className="mt-1 text-sm text-zinc-200">{intentPolicy.dataSensitivity}</div>
+              <div className="mt-1 text-sm text-zinc-200">{humanizeIntentPolicyValue(intentPolicy.dataSensitivity)}</div>
             </div>
             <div>
               <div className="text-xs text-zinc-500">Risk Domains</div>
               <div className="mt-1 text-sm text-zinc-200">
-                {intentPolicy.riskDomains.length > 0 ? intentPolicy.riskDomains.join(", ") : "none"}
+                {intentPolicy.riskDomains.length > 0
+                  ? intentPolicy.riskDomains.map(humanizeIntentPolicyValue).join(", ")
+                  : "None"}
               </div>
             </div>
           </div>
@@ -104,18 +129,18 @@ export default function IntentPolicyPanel({ result }: IntentPolicyPanelProps) {
 
         <FieldList
           title="Allowed Tools"
-          items={intentPolicy.allowedTools}
+          items={intentPolicy.allowedTools.map(humanizeIntentPolicyValue)}
           emptyLabel="No tool allowlist needed for this request."
         />
         <FieldList
           title="Forbidden Tools"
-          items={intentPolicy.forbiddenTools}
+          items={intentPolicy.forbiddenTools.map(humanizeIntentPolicyValue)}
           emptyLabel="No explicit forbidden tools inferred."
         />
         <div className="lg:col-span-2">
           <FieldList
             title="Sanitization Rules"
-            items={intentPolicy.sanitizationRules}
+            items={intentPolicy.sanitizationRules.map(humanizeIntentPolicyValue)}
             emptyLabel="No extra sanitization rules inferred."
           />
         </div>

@@ -47,3 +47,28 @@ def test_deduplicator_removes_redundant_constraints():
     assert "No conversational filler" not in v1_texts
     assert "Output strict JSON" in v2_texts
     assert "No conversational filler" not in v2_texts
+
+
+def test_deduplicator_removes_duplicate_intents_preserving_order():
+    handler = DeduplicatorHandler()
+
+    ir_v1 = IR(
+        language="en",
+        persona="assistant",
+        role="test",
+        domain="general",
+        output_format="markdown",
+        length_hint="medium",
+    )
+
+    ir_v2 = IRv2(
+        language="en",
+        persona="assistant",
+        role="test",
+        domain="general",
+        intents=["code", "review", "code", "risk", "review"],
+    )
+
+    handler.handle(ir_v2, ir_v1)
+
+    assert ir_v2.intents == ["code", "review", "risk"]

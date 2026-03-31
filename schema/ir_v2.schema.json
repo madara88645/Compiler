@@ -8,7 +8,31 @@
     "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer"] },
     "role": { "type": "string" },
     "domain": { "type": "string" },
-    "intents": { "type": "array", "items": { "enum": ["teaching","summary","compare","variants","recency","risk","code","ambiguous"] } },
+    "intents": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "teaching",
+          "explanation",
+          "summary",
+          "compare",
+          "creative",
+          "variants",
+          "proposal",
+          "review",
+          "preparation",
+          "troubleshooting",
+          "recency",
+          "risk",
+          "code",
+          "debug",
+          "ambiguous",
+          "capability_mismatch",
+          "decompose",
+          "summarize"
+        ]
+      }
+    },
     "goals": { "type": "array", "items": { "type": "string" } },
     "tasks": { "type": "array", "items": { "type": "string" } },
     "inputs": { "type": "object", "additionalProperties": { "type": "string" } },
@@ -21,7 +45,7 @@
           "id": { "type": "string" },
           "text": { "type": "string" },
           "origin": { "type": "string" },
-          "priority": { "enum": [10,20,30,40,50,60,65,70,75,80,90] },
+          "priority": { "type": "integer" },
           "rationale": { "type": ["string","null"] }
         },
         "additionalProperties": false

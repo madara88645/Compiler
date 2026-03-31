@@ -249,6 +249,67 @@ VARIANT_KEYWORDS = [
     r"choices",
 ]
 
+CREATIVE_INTENT_KEYWORDS = [
+    "creative",
+    "story",
+    "poem",
+    "headline",
+    "tagline",
+    "launch post",
+    "copywriting",
+    "fiction",
+    "narrative",
+    "brainstorm names",
+]
+
+EXPLANATION_INTENT_KEYWORDS = [
+    "explain",
+    "walk me through",
+    "how does",
+    "how do",
+    "clarify",
+    "break down",
+    "help me understand",
+]
+
+PROPOSAL_INTENT_KEYWORDS = [
+    "proposal",
+    "propose",
+    "pitch",
+    "recommend a strategy",
+    "suggest a strategy",
+]
+
+REVIEW_INTENT_KEYWORDS = [
+    "review",
+    "critique",
+    "audit",
+    "evaluate",
+    "assess",
+    "check my",
+]
+
+PREPARATION_INTENT_KEYWORDS = [
+    "prepare me",
+    "prep me",
+    "interview prep",
+    "study plan",
+    "practice questions",
+    "mock interview",
+]
+
+TROUBLESHOOTING_INTENT_KEYWORDS = [
+    "troubleshoot",
+    "troubleshooting",
+    "diagnose",
+    "debug this",
+    "fix this error",
+    "why is this failing",
+    "why my",
+    "traceback",
+    "stack trace",
+]
+
 
 def detect_summary(text: str) -> tuple[bool, int | None]:
     lower = text.lower()
@@ -322,6 +383,35 @@ def extract_variant_count(text: str) -> int:
         # default if keyword present but no number
         return 3
     return 1
+
+
+def _contains_any_keyword(text: str, keywords: list[str]) -> bool:
+    lower = text.lower()
+    return any(keyword in lower for keyword in keywords)
+
+
+def detect_creative_intent(text: str) -> bool:
+    return _contains_any_keyword(text, CREATIVE_INTENT_KEYWORDS)
+
+
+def detect_explanation_intent(text: str) -> bool:
+    return _contains_any_keyword(text, EXPLANATION_INTENT_KEYWORDS)
+
+
+def detect_proposal_intent(text: str) -> bool:
+    return _contains_any_keyword(text, PROPOSAL_INTENT_KEYWORDS)
+
+
+def detect_review_intent(text: str) -> bool:
+    return _contains_any_keyword(text, REVIEW_INTENT_KEYWORDS)
+
+
+def detect_preparation_intent(text: str) -> bool:
+    return _contains_any_keyword(text, PREPARATION_INTENT_KEYWORDS)
+
+
+def detect_troubleshooting_intent(text: str) -> bool:
+    return detect_live_debug(text) or _contains_any_keyword(text, TROUBLESHOOTING_INTENT_KEYWORDS)
 
 
 # --- Extended heuristics (IR & heuristics expansion) ---
