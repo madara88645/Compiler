@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key
+from api.auth import APIKey, verify_api_key_if_required
 from api.shared import logger
 
 router = APIRouter(tags=["generators"])
@@ -42,7 +42,7 @@ class AgentGenResponse(BaseModel):
 @router.post("/skills-generator/generate", response_model=SkillGenResponse)
 async def generate_skill_endpoint(
     req: SkillGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     del api_key
     compiler = _get_compiler()
@@ -61,7 +61,7 @@ async def generate_skill_endpoint(
 @router.post("/agent-generator/generate", response_model=AgentGenResponse)
 async def generate_agent_endpoint(
     req: AgentGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     del api_key
     compiler = _get_compiler()
