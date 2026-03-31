@@ -561,6 +561,7 @@ def extract_entities(text: str) -> list[str]:
 
 _COMPLEXITY_WORD_RE = re.compile(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9\u0307]+")
 
+
 def estimate_complexity(text: str) -> str:
     # Bolt Optimization: compute lower once and use it instead of redundant calls
     # and lower() generators.
@@ -763,6 +764,7 @@ def detect_code_request(text: str) -> bool:
 _TR_LANG_RE = re.compile(r"\bve\b|\bile\b|\bkimdir\b")
 _ES_LANG_RE = re.compile(r"\b(enséñame|por favor|hola|qué|análisis|rápido)\b")
 
+
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish or Spanish indicators, else default English
     lower = text.lower()
@@ -770,7 +772,9 @@ def detect_language(text: str) -> str:
     if any(c in lower for c in tr_chars) or _TR_LANG_RE.search(lower):
         return "tr"
     # Spanish accents / inverted punctuation / common words
-    if any(ch in text for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡")) or _ES_LANG_RE.search(lower):
+    if any(
+        ch in text for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡")
+    ) or _ES_LANG_RE.search(lower):
         return "es"
     return "en"
 
