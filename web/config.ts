@@ -8,6 +8,10 @@ type LocationLike = {
 
 export function buildApiHeaders(headers: HeadersInit = {}): Record<string, string> {
   const mergedHeaders = new Headers(headers);
+  const configuredKey = process.env.NEXT_PUBLIC_API_KEY?.trim();
+  if (configuredKey && !mergedHeaders.has("x-api-key")) {
+    mergedHeaders.set("x-api-key", configuredKey);
+  }
   return Object.fromEntries(mergedHeaders.entries());
 }
 
