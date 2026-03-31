@@ -52,5 +52,5 @@ class DeduplicatorHandler(BaseHandler):
                 if not normalized or normalized in seen_intents:
                     continue
                 seen_intents.add(normalized)
-                deduped_intents.append(intent)
+                deduped_intents.append(normalized)
             ir_v2.intents = deduped_intents

@@ -72,3 +72,28 @@ def test_deduplicator_removes_duplicate_intents_preserving_order():
     handler.handle(ir_v2, ir_v1)
 
     assert ir_v2.intents == ["code", "review", "risk"]
+
+
+def test_deduplicator_normalizes_intents_while_deduping():
+    handler = DeduplicatorHandler()
+
+    ir_v1 = IR(
+        language="en",
+        persona="assistant",
+        role="test",
+        domain="general",
+        output_format="markdown",
+        length_hint="medium",
+    )
+
+    ir_v2 = IRv2(
+        language="en",
+        persona="assistant",
+        role="test",
+        domain="general",
+        intents=[" Code ", "review", "code", " REVIEW "],
+    )
+
+    handler.handle(ir_v2, ir_v1)
+
+    assert ir_v2.intents == ["code", "review"]
