@@ -559,6 +559,8 @@ def extract_entities(text: str) -> list[str]:
     return entities
 
 
+_COMPLEXITY_WORD_RE = re.compile(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9\u0307]+")
+
 def estimate_complexity(text: str) -> str:
     # Bolt Optimization: compute lower once and use it instead of redundant calls
     # and lower() generators.
@@ -566,7 +568,8 @@ def estimate_complexity(text: str) -> str:
     length = len(text.split())
     # Keep uppercase letters in regex pattern so it accurately matches tokens
     # that contain combining character variants when lowered (e.g. \u0307)
-    unique = len(set(re.findall(r"[a-zA-ZğüşöçıİĞÜŞÖÇ0-9\u0307]+", lower)))
+    # Bolt Optimization: Pre-compiled regex for .findall() is faster than re.findall
+    unique = len(set(_COMPLEXITY_WORD_RE.findall(lower)))
     score = 0
     if length > 40:
         score += 1
@@ -756,16 +759,18 @@ def detect_code_request(text: str) -> bool:
     return any(p in lower for p in CODE_REQUEST_KEYWORDS)
 
 
+# Bolt Optimization: Pre-compile regexes for fast evaluation
+_TR_LANG_RE = re.compile(r"\bve\b|\bile\b|\bkimdir\b")
+_ES_LANG_RE = re.compile(r"\b(enséñame|por favor|hola|qué|análisis|rápido)\b")
+
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish or Spanish indicators, else default English
     lower = text.lower()
     tr_chars = "çğıöşü"
-    if any(c in lower for c in tr_chars) or re.search(r"\bve\b|\bile\b|\bkimdir\b", lower):
+    if any(c in lower for c in tr_chars) or _TR_LANG_RE.search(lower):
         return "tr"
     # Spanish accents / inverted punctuation / common words
-    if any(ch in text for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡")) or re.search(
-        r"\b(enséñame|por favor|hola|qué|análisis|rápido)\b", lower
-    ):
+    if any(ch in text for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡")) or _ES_LANG_RE.search(lower):
         return "es"
     return "en"
 
