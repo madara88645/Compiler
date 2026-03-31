@@ -1,4 +1,12 @@
 from .base import BaseHandler
+from app.heuristics import (
+    detect_creative_intent,
+    detect_explanation_intent,
+    detect_preparation_intent,
+    detect_proposal_intent,
+    detect_review_intent,
+    detect_troubleshooting_intent,
+)
 from app.models import IR
 from app.models_v2 import IRv2
 
@@ -6,6 +14,7 @@ from app.models_v2 import IRv2
 class ContentHandler(BaseHandler):
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         md = ir_v1.metadata or {}
+        original_text = md.get("original_text", "")
 
         if md.get("summary") == "true":
             ir_v2.intents.append("summary")
@@ -24,3 +33,22 @@ class ContentHandler(BaseHandler):
 
         if "web" in (ir_v1.tools or []):
             ir_v2.intents.append("recency")
+
+        if original_text:
+            if detect_creative_intent(original_text):
+                ir_v2.intents.append("creative")
+
+            if detect_explanation_intent(original_text):
+                ir_v2.intents.append("explanation")
+
+            if detect_proposal_intent(original_text):
+                ir_v2.intents.append("proposal")
+
+            if detect_review_intent(original_text):
+                ir_v2.intents.append("review")
+
+            if detect_preparation_intent(original_text):
+                ir_v2.intents.append("preparation")
+
+            if detect_troubleshooting_intent(original_text):
+                ir_v2.intents.append("troubleshooting")

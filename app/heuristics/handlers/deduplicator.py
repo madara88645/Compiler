@@ -43,3 +43,14 @@ class DeduplicatorHandler(BaseHandler):
                 for f in found[1:]:
                     if f in ir_v2.constraints:
                         ir_v2.constraints.remove(f)
+
+        if ir_v2.intents:
+            deduped_intents = []
+            seen_intents = set()
+            for intent in ir_v2.intents:
+                normalized = intent.strip().lower()
+                if not normalized or normalized in seen_intents:
+                    continue
+                seen_intents.add(normalized)
+                deduped_intents.append(normalized)
+            ir_v2.intents = deduped_intents
