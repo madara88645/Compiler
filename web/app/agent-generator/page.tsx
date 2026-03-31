@@ -24,9 +24,13 @@ export default function AgentGenerator() {
     setResult(null);
 
     try {
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       const res = await apiFetch("/agent-generator/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { "x-api-key": apiKey } : {}),
+        },
         body: JSON.stringify({
           description,
           multi_agent: multiAgent,
