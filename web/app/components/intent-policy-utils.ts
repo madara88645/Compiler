@@ -14,8 +14,10 @@ type IRLike = {
   intents?: string[];
   metadata?: {
     risk_flags?: string[];
+    [key: string]: unknown;
   };
   policy?: PolicyLike;
+  [key: string]: unknown;
 };
 
 type CompileResultLike = {
