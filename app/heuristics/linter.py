@@ -67,6 +67,9 @@ PII_PATTERNS: List[Tuple[str, re.Pattern]] = [
     ("IBAN", re.compile(r"\bTR\d{24}\b", re.IGNORECASE)),
 ]
 
+# Pre-compiled regex for fast word tokenization
+_WORD_PATTERN = re.compile(r"\w+")
+
 # 4. Conflict Pairs (Mutually exclusive concepts)
 CONFLICT_PAIRS: List[Tuple[Set[str], Set[str]]] = [
     (
@@ -150,7 +153,7 @@ class PromptLinter:
 
         # 1. Pre-processing
         lower_text = text.lower()
-        words = re.findall(r"\w+", lower_text)
+        words = _WORD_PATTERN.findall(lower_text)
         total_words = len(words)
 
         warnings: List[LintWarning] = []
@@ -216,21 +219,31 @@ class PromptLinter:
         masked_text = text
         for label, pattern in PII_PATTERNS:
             # Mask logic: detect, flag, and replace in masked_text
-            matches = list(pattern.finditer(text))
-            if matches:
-                if f"PII_{label}" not in safety_flags:
-                    safety_flags.append(f"PII_{label}")
-                # Simple replace for masking (reverse order to preserve indices? No, string replace is safer for overlapping)
-                # Actually, regex sub is best
-                masked_text = pattern.sub(f"[{label}]", masked_text)
+            # Bolt Optimization: subn avoids finding matches twice
+            masked_text, count = pattern.subn(f"[{label}]", masked_text)
+            if count > 0 and f"PII_{label}" not in safety_flags:
+                safety_flags.append(f"PII_{label}")
 
         # 6. Conflict Detection
         for group_a, group_b in CONFLICT_PAIRS:
-            found_a = any(term in lower_text for term in group_a)
-            found_b = any(term in lower_text for term in group_b)
+            # Bolt Optimization: explicit loops bypass generator overhead
+            found_a = False
+            for term in group_a:
+                if term in lower_text:
+                    found_a = True
+                    break
+            if not found_a:
+                continue
+
+            found_b = False
+            for term in group_b:
+                if term in lower_text:
+                    found_b = True
+                    break
+
             if found_a and found_b:
-                desc_a = list(group_a)[0]
-                desc_b = list(group_b)[0]
+                desc_a = next(iter(group_a))
+                desc_b = next(iter(group_b))
                 conflicts.append(f"{desc_a} vs {desc_b}")
                 warnings.append(
                     LintWarning(
