@@ -111,6 +111,14 @@ export default function OfflinePage() {
                                 placeholder="Enter prompt (offline heuristics active)..."
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                                        e.preventDefault();
+                                        if (!loading && prompt.trim()) {
+                                            void handleGenerate();
+                                        }
+                                    }
+                                }}
                             />
                         </div>
 
@@ -119,13 +127,13 @@ export default function OfflinePage() {
                             <div className="grid grid-cols-1 gap-3">
                                 <button
                                     onClick={() => handleGenerate()}
-                                    disabled={loading}
-                                    className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5"
+                                    disabled={loading || !prompt.trim()}
+                                    className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
                                 >
                                     {loading ? (
                                         <span className="animate-pulse">Processing...</span>
                                     ) : (
-                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">⌘ Enter</kbd></>
                                     )}
                                 </button>
                             </div>
