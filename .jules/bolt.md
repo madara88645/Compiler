@@ -33,3 +33,7 @@
 ## 2024-03-30 - Optimize PII Masking and Set Comprehensions
 **Learning:** In Python hot loops (like `app/heuristics/linter.py`), evaluating `any(p in text for p in group)` with a generator expression is significantly slower than using an explicit `for` loop with early exit `break`. Also, using `pattern.subn()` is faster than doing a `list(pattern.finditer(text))` pass followed by a `pattern.sub()` pass, as it avoids searching the string twice.
 **Action:** When evaluating multiple boolean string matches in performance-critical code, use explicit loops to avoid generator overhead. When both detecting and replacing regex matches, use `.subn()` to perform the operation in a single C-level pass.
+
+## 2026-03-22 - Fast Character Counting in Strings
+**Learning:** In Python, replacing `sum(1 for c in text if c.isdigit())` with `sum(map(str.isdigit, text))` provides a ~3x performance boost. The generator expression executes a bytecode loop in Python, while `map` pushes the iteration entirely into C. Since `str.isdigit` returns booleans (which are integers `1` or `0` in Python), `sum()` seamlessly counts the matches.
+**Action:** When counting occurrences of characters that match a string method (like `.isdigit()`, `.isalpha()`, `.isspace()`), use `sum(map(str.method, text))` for maximum performance in hot paths.
