@@ -182,7 +182,7 @@ def test_jules_reply_endpoint_client_runtime_error():
         )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "Failed to connect"
+    assert response.json()["detail"] == "An internal error occurred."
 
 
 def test_jules_reply_endpoint_client_generic_error():
