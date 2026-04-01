@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { apiFetch } from "@/config";
+import { apiFetch, buildGeneratorApiHeaders } from "@/config";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
 import ExportPanel from "./components/ExportPanel";
@@ -24,13 +24,9 @@ export default function AgentGenerator() {
     setResult(null);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       const res = await apiFetch("/agent-generator/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(apiKey ? { "x-api-key": apiKey } : {}),
-        },
+        headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           description,
           multi_agent: multiAgent,
