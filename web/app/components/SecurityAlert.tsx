@@ -29,7 +29,12 @@ export default function SecurityAlert({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#1a1a1a] w-full max-w-2xl rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 overflow-hidden flex flex-col">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="security-alert-title"
+                className="bg-[#1a1a1a] w-full max-w-2xl rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 overflow-hidden flex flex-col"
+            >
 
                 {/* Header */}
                 <div className="bg-red-500/10 border-b border-red-500/20 p-6 flex flex-col gap-2">
@@ -38,7 +43,7 @@ export default function SecurityAlert({
                             🛡️
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
+                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
                             <p className="text-sm text-red-300/80">Sensitive information detected in your prompt.</p>
                         </div>
                     </div>
@@ -75,21 +80,22 @@ export default function SecurityAlert({
                 <div className="p-6 pt-0 flex gap-3 justify-end">
                     <button
                         onClick={onCancel}
-                        className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                        className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 rounded"
                     >
                         Cancel
                     </button>
 
                     <button
                         onClick={onProceedOriginal}
-                        className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all"
+                        className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     >
                         Proceed Unsafe (Original)
                     </button>
 
                     <button
                         onClick={onProceedRedacted}
-                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95"
+                        autoFocus
+                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
                     >
                         Strip Secrets & Proceed
                     </button>
