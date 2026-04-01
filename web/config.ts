@@ -11,6 +11,17 @@ export function buildApiHeaders(headers: HeadersInit = {}): Record<string, strin
   return Object.fromEntries(mergedHeaders.entries());
 }
 
+export function buildGeneratorApiHeaders(headers: HeadersInit = {}): Record<string, string> {
+  const mergedHeaders = new Headers(buildApiHeaders(headers));
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY?.trim();
+
+  if (apiKey && !mergedHeaders.has("x-api-key")) {
+    mergedHeaders.set("x-api-key", apiKey);
+  }
+
+  return Object.fromEntries(mergedHeaders.entries());
+}
+
 export class ApiError extends Error {
   status: number;
   detail: string;

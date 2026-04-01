@@ -26,6 +26,28 @@ test("buildApiHeaders leaves headers unchanged when NEXT_PUBLIC_API_KEY is empty
   assert.equal(normalizedHeaders.has("x-api-key"), false);
 });
 
+test("buildGeneratorApiHeaders injects x-api-key when NEXT_PUBLIC_API_KEY is set", async () => {
+  process.env.NEXT_PUBLIC_API_KEY = "test-key";
+
+  const { buildGeneratorApiHeaders } = await import("./config.ts");
+  const headers = buildGeneratorApiHeaders({ "Content-Type": "application/json" });
+  const normalizedHeaders = new Headers(headers);
+
+  assert.equal(normalizedHeaders.get("content-type"), "application/json");
+  assert.equal(normalizedHeaders.get("x-api-key"), "test-key");
+});
+
+test("buildGeneratorApiHeaders leaves x-api-key unset when NEXT_PUBLIC_API_KEY is empty", async () => {
+  delete process.env.NEXT_PUBLIC_API_KEY;
+
+  const { buildGeneratorApiHeaders } = await import("./config.ts");
+  const headers = buildGeneratorApiHeaders({ Accept: "application/json" });
+  const normalizedHeaders = new Headers(headers);
+
+  assert.equal(normalizedHeaders.get("accept"), "application/json");
+  assert.equal(normalizedHeaders.has("x-api-key"), false);
+});
+
 test("resolveApiBase prefers same-origin in non-local browser environments when env is unset", async () => {
   delete process.env.NEXT_PUBLIC_API_URL;
 
