@@ -124,7 +124,7 @@ async def rag_ingest(
     try:
         secure_paths = _secure_ingest_paths(req.paths)
     except PathSecurityError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid path specified.") from exc
 
     docs, chunks, secs = await anyio.to_thread.run_sync(
         functools.partial(
