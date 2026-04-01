@@ -78,8 +78,8 @@ def scan_text(text: str) -> SecurityResult:
                 if "." in val or re.search(r"[a-fA-F]", val):  # Hex check just in case
                     continue
                 # Length check for raw digits
-                # Bolt Optimization: use generator sum instead of re.sub
-                digits_count = sum(1 for c in val if c.isdigit())
+                # Bolt Optimization: use sum(map(str.isdigit, val)) instead of generator sum
+                digits_count = sum(map(str.isdigit, val))
                 if digits_count < 13 or digits_count > 19:
                     continue
 

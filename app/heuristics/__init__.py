@@ -609,13 +609,13 @@ def detect_pii(text: str) -> list[str]:
         for m in pat.finditer(text):
             val = m.group(0)
             if kind == "credit_card":
-                # Bolt Optimization: use generator sum instead of re.sub
-                digits_count = sum(1 for c in val if c.isdigit())
+                # Bolt Optimization: use sum(map(str.isdigit, val)) instead of generator sum
+                digits_count = sum(map(str.isdigit, val))
                 if digits_count < 13:
                     continue
             if kind == "phone":
-                # Bolt Optimization: use generator sum instead of re.sub
-                digits_count = sum(1 for c in val if c.isdigit())
+                # Bolt Optimization: use sum(map(str.isdigit, val)) instead of generator sum
+                digits_count = sum(map(str.isdigit, val))
                 if digits_count < 7:
                     continue
             if kind not in flags:
