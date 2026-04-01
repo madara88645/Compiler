@@ -20,3 +20,7 @@
 **Vulnerability:** The RAG index fallback search used string interpolation to wrap the user's query with wildcards for a SQL `LIKE` query (`LIKE f"%{query}%"`), allowing users to inject literal `%` and `_` characters to bypass search filters.
 **Learning:** Using parameterized queries (e.g., `LIKE ?` with `("%" + query + "%",)`) prevents SQL injection, but does not prevent wildcard injection if the parameter itself contains unescaped wildcards.
 **Prevention:** When wrapping user input in wildcards for `LIKE` queries, explicitly escape `\`, `%`, and `_` in the input string, and append the `ESCAPE '\'` clause to the SQL statement.
+## 2025-03-09 - Prevent path disclosure in PathSecurityError handling
+**Vulnerability:** Path disclosure vulnerability
+**Learning:** `PathSecurityError` exception message explicitly included the absolute paths to the allowed directories on the server. Because the API route `rag_ingest` caught this exception and returned `str(exc)` in the 400 error `detail`, this exposed internal server paths to the client.
+**Prevention:** Do not expose raw internal exception strings to the API layer, especially for filesystem or database errors. Always sanitize error messages to be generic.
