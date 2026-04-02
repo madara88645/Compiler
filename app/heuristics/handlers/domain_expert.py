@@ -644,7 +644,9 @@ class DomainHandler(BaseHandler):
             re.compile(
                 r"(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]"
             ),
-            re.compile(r"(?:sk-[a-zA-Z0-9]{48})|(?:ghp_[a-zA-Z0-9]{36})|(?:https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@)"),
+            re.compile(
+                r"(?:sk-[a-zA-Z0-9]{48})|(?:ghp_[a-zA-Z0-9]{36})|(?:https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@)"
+            ),
         ]
 
         # Compile adverb pattern
