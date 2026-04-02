@@ -56,7 +56,7 @@ INJECTION_PATTERN: re.Pattern = re.compile(
     r"(?:act\s+as\s+if\s+you\s+have\s+no\s+restrictions)|"
     r"(?:jailbreak)|"
     r"(?:DAN\s+mode)",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
 # 3. PII Patterns (Augmenting existing heuristics)
