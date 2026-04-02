@@ -218,7 +218,7 @@ async def rag_upload(
             message=f"Indexed {display_name} into the RAG index.",
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid input provided.") from exc
     except Exception as exc:
         logger.exception("rag upload failed")
         raise HTTPException(status_code=500, detail="Failed to upload and index content.") from exc
