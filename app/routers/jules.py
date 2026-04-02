@@ -128,7 +128,7 @@ def list_sources(api_key: APIKey = Depends(verify_api_key)):
     try:
         return JulesClient().list_sources()
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Failed to fetch Jules sources.") from exc
 
@@ -152,7 +152,7 @@ def create_session(req: CreateSessionRequest, api_key: APIKey = Depends(verify_a
     try:
         return JulesClient().create_session(payload)
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Failed to create Jules session.") from exc
 
@@ -163,7 +163,7 @@ def get_session(session_id: str, api_key: APIKey = Depends(verify_api_key)):
     try:
         return JulesClient().get_session(session_id)
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Failed to fetch Jules session.") from exc
 
@@ -178,7 +178,7 @@ def get_session_activities(
     try:
         return JulesClient().list_activities(session_id, page_size=page_size)
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Failed to fetch Jules activities.") from exc
 
@@ -214,6 +214,6 @@ def reply_to_session(
     except HTTPException:
         raise
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Failed to reply to Jules session.") from exc
