@@ -637,13 +637,16 @@ class DomainHandler(BaseHandler):
             )
 
         # Compile secret scanning patterns
+        # Bolt Optimization: Combine patterns without inline flags into a single regex.
+        # This reduces the number of C-level calls and python iterations, improving performance
+        # for scanning long texts.
         self._compiled_secret_patterns: List[re.Pattern] = [
             re.compile(
                 r"(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\s*[:=]\s*['\"][a-zA-Z0-9_\-]{20,}['\"]"
             ),
-            re.compile(r"sk-[a-zA-Z0-9]{48}"),
-            re.compile(r"ghp_[a-zA-Z0-9]{36}"),
-            re.compile(r"https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@"),
+            re.compile(
+                r"(?:sk-[a-zA-Z0-9]{48})|(?:ghp_[a-zA-Z0-9]{36})|(?:https://[a-zA-Z0-9]+:[a-zA-Z0-9]+@)"
+            ),
         ]
 
         # Compile adverb pattern
