@@ -5,6 +5,38 @@ from app.models import IR
 from app.heuristics.logic_analyzer import analyze_prompt_logic
 
 
+_CONFLICT_DEFINITIONS = [
+    {
+        "name": "Verbosity",
+        "patterns": {
+            "concise": r"(?i)\b(concise|brief|short|succinct|compact)\b",
+            "detailed": r"(?i)\b(detail|comprehensive|thorough|extensive|step[- ]by[- ]step|explain)\b",
+        },
+    },
+    {
+        "name": "Output Format",
+        "patterns": {
+            "json": r"(?i)\boutput\s+json\b",
+            "markdown": r"(?i)\boutput\s+markdown\b",
+            "csv": r"(?i)\boutput\s+csv\b",
+            "xml": r"(?i)\boutput\s+xml\b",
+            "yaml": r"(?i)\boutput\s+yaml\b",
+            "html": r"(?i)\boutput\s+html\b",
+        },
+    },
+]
+
+_COMPILED_CONFLICT_DEFINITIONS = [
+    {
+        "name": d["name"],
+        "patterns": {k: re.compile(p) for k, p in d["patterns"].items()}
+    }
+    for d in _CONFLICT_DEFINITIONS
+]
+
+_COMPLEX_PATTERNS_RE = re.compile(r"(?i)\b(math|calculus|algebra|geometry|integral|derivative|equation|solve|algorithm|code|function|class|logic|reasoning|chain[- ]of[- ]thought|calculate|compute|matrix|analysis)\b")
+
+
 class LogicHandler:
     """
     Handler that integrates LogicAnalyzer results into IRv2 metadata.
@@ -83,32 +115,8 @@ class LogicHandler:
         """
         Identify and prune conflicting constraints based on priority.
         """
-        # Define Pattern Groups
-        # Each group contains mutually exclusive regex patterns
-        # If constraints match different patterns within the same group, they conflict.
-        conflict_definitions = [
-            {
-                "name": "Verbosity",
-                "patterns": {
-                    "concise": r"(?i)\b(concise|brief|short|succinct|compact)\b",
-                    "detailed": r"(?i)\b(detail|comprehensive|thorough|extensive|step[- ]by[- ]step|explain)\b",
-                },
-            },
-            {
-                "name": "Output Format",
-                "patterns": {
-                    "json": r"(?i)\boutput\s+json\b",
-                    "markdown": r"(?i)\boutput\s+markdown\b",
-                    "csv": r"(?i)\boutput\s+csv\b",
-                    "xml": r"(?i)\boutput\s+xml\b",
-                    "yaml": r"(?i)\boutput\s+yaml\b",
-                    "html": r"(?i)\boutput\s+html\b",
-                },
-            },
-        ]
-
         # Iterate definitions
-        for definition in conflict_definitions:
+        for definition in _COMPILED_CONFLICT_DEFINITIONS:
             group_name = definition["name"]
             patterns = definition["patterns"]
 
@@ -127,7 +135,7 @@ class LogicHandler:
                 )
 
                 for key, pattern in patterns.items():
-                    if re.search(pattern, text):
+                    if pattern.search(text):
                         matches[key].append((i, constraint))
                         # Assume one pattern match per constraint is sufficient for bucketing
                         break
@@ -199,9 +207,7 @@ class LogicHandler:
         """
         Inject a <thinking> block constraint for complex reasoning tasks.
         """
-        complex_patterns = r"(?i)\b(math|calculus|algebra|geometry|integral|derivative|equation|solve|algorithm|code|function|class|logic|reasoning|chain[- ]of[- ]thought|calculate|compute|matrix|analysis)\b"
-
-        if re.search(complex_patterns, original_text):
+        if _COMPLEX_PATTERNS_RE.search(original_text):
             # Check if thinking constraint already exists to avoid dupes
             # Iterate and check text
             for c in ir2.constraints:
