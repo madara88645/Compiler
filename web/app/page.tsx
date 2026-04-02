@@ -189,10 +189,14 @@ export default function Home() {
             {result ? (
               <>
                 {/* Tabs */}
-                <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
+                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       key={tab}
+                      role="tab"
+                      aria-selected={activeTab === tab}
+                      aria-controls={`tabpanel-${tab}`}
+                      id={`tab-${tab}`}
                       onClick={() => setActiveTab(tab)}
                       className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:z-10 ${activeTab === tab
                         ? "text-white bg-white/5 border-t border-x border-white/5"
@@ -205,7 +209,12 @@ export default function Home() {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20">
+                <div
+                  role="tabpanel"
+                  id={`tabpanel-${activeTab}`}
+                  aria-labelledby={`tab-${activeTab}`}
+                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                >
                   {activeTab === "intent" && (
                     <div className="absolute inset-0 bg-transparent z-20">
                       <IntentPolicyPanel result={result} />
