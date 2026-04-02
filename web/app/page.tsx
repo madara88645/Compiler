@@ -152,6 +152,7 @@ export default function Home() {
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
                     if (!loading && prompt.trim()) {
                       void handleGenerate();
                     }
@@ -169,7 +170,7 @@ export default function Home() {
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
                 ) : (
-                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">⌘ Enter</kbd></>
+                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
                 )}
               </button>
             </div>

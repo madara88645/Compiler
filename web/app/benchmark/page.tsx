@@ -256,7 +256,7 @@ export default function BenchmarkPage() {
               disabled={loading || !prompt.trim()}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             >
-            {loading ? <span className="animate-pulse">FIGHTING...</span> : <>START BATTLE <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">⌘ Enter</kbd></>}
+            {loading ? <span className="animate-pulse">FIGHTING...</span> : <>START BATTLE <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>}
             </button>
 
             {errorMessage && (
