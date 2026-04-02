@@ -11,6 +11,7 @@ _CONTEXT_RE = re.compile(r"context:|background:|situation:|context is")
 _TASK_RE = re.compile(r"task:|goal:|objective:|do this:|please|write a|create a|your task|task is")
 _CONSTRAINT_RE = re.compile(r"constraint|avoid|do not|limit:|rule|don't")
 _ROLE_RE = re.compile(r"act as|your role|role:")
+_VAR_PATTERN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
 
 class StructureHandler(BaseHandler):
@@ -103,11 +104,10 @@ class StructureHandler(BaseHandler):
         ignored = {"JSON", "XML", "CSV", "HTTP", "HTTPS", "API", "URL", "ID", "HTML", "CSS", "SQL"}
 
         # Look for standalone uppercase words, avoiding ones inside existing brackets
-        pattern = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
         rebuilt: List[str] = []
         cursor = 0
-        for match in pattern.finditer(text):
+        for match in _VAR_PATTERN.finditer(text):
             start, end = match.span()
             word = match.group(0)
             rebuilt.append(text[cursor:start])

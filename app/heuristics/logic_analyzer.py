@@ -73,6 +73,10 @@ class LogicAnalysisResult:
 # Compiled regex for fast substring matching in hot loops
 _CRITICAL_ENTITIES_PATTERN = re.compile(r"database|api|schema|config", re.IGNORECASE)
 
+_UNDEFINED_ENTITY_PATTERN = re.compile(
+    r"\b(?:the|this|that)\s+(\w+)\s+(?:is|should|will|must|can)\b", re.IGNORECASE
+)
+
 # Negation patterns - ordered by specificity
 NEGATION_PATTERNS = [
     # Strong negations
@@ -437,10 +441,7 @@ class LogicAnalyzer:
         extras = []
 
         # Detect "the [noun]" patterns without prior definition
-        pattern = re.compile(
-            r"\b(?:the|this|that)\s+(\w+)\s+(?:is|should|will|must|can)\b", re.IGNORECASE
-        )
-        for match in pattern.finditer(text):
+        for match in _UNDEFINED_ENTITY_PATTERN.finditer(text):
             entity = match.group(1)
             key = f"Entity:{entity.lower()}"
             if key not in seen and entity.lower() not in (
