@@ -47,16 +47,17 @@ WEASEL_WORDS: Set[str] = {
 
 # 2. Safety / Prompt Injection Patterns
 # Optimized regex for performance
-INJECTION_PATTERNS: List[re.Pattern] = [
-    re.compile(r"ignore\s+(?:all\s+)?previous\s+instructions?", re.IGNORECASE),
-    re.compile(r"system\s*override", re.IGNORECASE),
-    re.compile(r"forget\s+(?:everything|all)", re.IGNORECASE),
-    re.compile(r"disregard\s+(?:the\s+)?(?:above|previous)", re.IGNORECASE),
-    re.compile(r"new\s+instructions?:", re.IGNORECASE),
-    re.compile(r"act\s+as\s+if\s+you\s+have\s+no\s+restrictions", re.IGNORECASE),
-    re.compile(r"jailbreak", re.IGNORECASE),
-    re.compile(r"DAN\s+mode", re.IGNORECASE),
-]
+INJECTION_PATTERN: re.Pattern = re.compile(
+    r"(?:ignore\s+(?:all\s+)?previous\s+instructions?)|"
+    r"(?:system\s*override)|"
+    r"(?:forget\s+(?:everything|all))|"
+    r"(?:disregard\s+(?:the\s+)?(?:above|previous))|"
+    r"(?:new\s+instructions?:)|"
+    r"(?:act\s+as\s+if\s+you\s+have\s+no\s+restrictions)|"
+    r"(?:jailbreak)|"
+    r"(?:DAN\s+mode)",
+    re.IGNORECASE
+)
 
 # 3. PII Patterns (Augmenting existing heuristics)
 PII_PATTERNS: List[Tuple[str, re.Pattern]] = [
@@ -202,18 +203,16 @@ class PromptLinter:
             )
 
         # 4. Safety Heuristics (Injection)
-        for pattern in INJECTION_PATTERNS:
-            if pattern.search(text):
-                safety_flags.append("PROMPT_INJECTION_RISK")
-                warnings.append(
-                    LintWarning(
-                        code="INJECTION",
-                        message="Potential prompt injection pattern detected.",
-                        suggestion="Review for 'ignore instructions' or override commands.",
-                        severity="warning",
-                    )
+        if INJECTION_PATTERN.search(text):
+            safety_flags.append("PROMPT_INJECTION_RISK")
+            warnings.append(
+                LintWarning(
+                    code="INJECTION",
+                    message="Potential prompt injection pattern detected.",
+                    suggestion="Review for 'ignore instructions' or override commands.",
+                    severity="warning",
                 )
-                break  # Stop after first detection to save time
+            )
 
         # 5. PII Masking
         masked_text = text
