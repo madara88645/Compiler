@@ -7,7 +7,7 @@ anti-patterns, and provides actionable suggestions for improvement.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 from app.models_v2 import IRv2
 
 
@@ -111,6 +111,13 @@ class PromptValidator:
     def __init__(self):
         """Initialize validator."""
         pass
+
+    def _has_any(self, text: str, keywords: Iterable[str]) -> bool:
+        """Fast path check without generator overhead."""
+        for k in keywords:
+            if k in text:
+                return True
+        return False
 
     def validate(self, ir: IRv2, original_text: Optional[str] = None) -> ValidationResult:
         """Validate an IR and return quality score + issues.
@@ -246,7 +253,7 @@ class PromptValidator:
             for goal in ir.goals[:3]:  # Check first 3 goals
                 # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
                 goal_lower = goal.lower()
-                if any(broad in goal_lower for broad in self.OVERLY_BROAD):
+                if self._has_any(goal_lower, self.OVERLY_BROAD):
                     issues.append(
                         ValidationIssue(
                             severity="info",
@@ -278,7 +285,7 @@ class PromptValidator:
             "advanced",
             "distributed",
         ]
-        is_complex = complexity > 0.6 or any(kw in task_text for kw in complex_keywords)
+        is_complex = complexity > 0.6 or self._has_any(task_text, complex_keywords)
 
         if not ir.examples and is_complex:
             issues.append(
@@ -322,21 +329,24 @@ class PromptValidator:
             )
 
         # Check for teaching intent without level
-        if (
-            ir.intents
-            and "teaching" in ir.intents
-            and not any(c.id.startswith("level_") for c in ir.constraints)
-        ):
-            issues.append(
-                ValidationIssue(
-                    severity="warning",
-                    category="completeness",
-                    message="Teaching intent without skill level",
-                    suggestion="Specify target audience level (beginner/intermediate/advanced)",
-                    field="intents",
-                    score_impact=10.0,
+        if ir.intents and "teaching" in ir.intents:
+            has_level = False
+            for c in ir.constraints:
+                if c.id.startswith("level_"):
+                    has_level = True
+                    break
+
+            if not has_level:
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        category="completeness",
+                        message="Teaching intent without skill level",
+                        suggestion="Specify target audience level (beginner/intermediate/advanced)",
+                        field="intents",
+                        score_impact=10.0,
+                    )
                 )
-            )
 
         return issues
 
@@ -352,8 +362,8 @@ class PromptValidator:
         all_text = " ".join(constraint_texts + goal_texts)
 
         for set_a, set_b in self.CONFLICTING_PAIRS:
-            # Bolt Optimization: Short-circuit the second any() call if the first is False.
-            if any(term in all_text for term in set_a) and any(term in all_text for term in set_b):
+            found_a = self._has_any(all_text, set_a)
+            if found_a and self._has_any(all_text, set_b):
                 issues.append(
                     ValidationIssue(
                         severity="warning",
@@ -368,8 +378,8 @@ class PromptValidator:
         # Check tone vs persona consistency
         if ir.tone and ir.persona:
             tone_text = " ".join(ir.tone).lower()
-            if "formal" in tone_text and any(
-                casual in ir.persona.lower() for casual in ["friend", "buddy", "casual"]
+            if "formal" in tone_text and self._has_any(
+                ir.persona.lower(), ["friend", "buddy", "casual"]
             ):
                 issues.append(
                     ValidationIssue(
