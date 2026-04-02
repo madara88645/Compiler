@@ -27,14 +27,13 @@ _CONFLICT_DEFINITIONS = [
 ]
 
 _COMPILED_CONFLICT_DEFINITIONS = [
-    {
-        "name": d["name"],
-        "patterns": {k: re.compile(p) for k, p in d["patterns"].items()}
-    }
+    {"name": d["name"], "patterns": {k: re.compile(p) for k, p in d["patterns"].items()}}
     for d in _CONFLICT_DEFINITIONS
 ]
 
-_COMPLEX_PATTERNS_RE = re.compile(r"(?i)\b(math|calculus|algebra|geometry|integral|derivative|equation|solve|algorithm|code|function|class|logic|reasoning|chain[- ]of[- ]thought|calculate|compute|matrix|analysis)\b")
+_COMPLEX_PATTERNS_RE = re.compile(
+    r"(?i)\b(math|calculus|algebra|geometry|integral|derivative|equation|solve|algorithm|code|function|class|logic|reasoning|chain[- ]of[- ]thought|calculate|compute|matrix|analysis)\b"
+)
 
 
 class LogicHandler:
