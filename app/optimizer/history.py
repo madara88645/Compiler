@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 def _normalize_datetime(value: datetime) -> datetime:
     """Normalize naive and aware datetimes for consistent storage and sorting."""
     if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class HistoryManager:
@@ -35,7 +35,7 @@ class HistoryManager:
         """Save a run to disk."""
         file_path = self.history_dir / f"{run.id}.json"
         if run.created_at is None:
-            run.created_at = datetime.now(UTC).replace(microsecond=0)
+            run.created_at = datetime.now(timezone.utc).replace(microsecond=0)
         else:
             run.created_at = _normalize_datetime(run.created_at).replace(tzinfo=None)
         with open(file_path, "w", encoding="utf-8") as f:
@@ -54,9 +54,9 @@ class HistoryManager:
                 data = json.load(f)
             run = OptimizationRun.model_validate(data)
             if run.created_at is None:
-                run.created_at = datetime.fromtimestamp(file_path.stat().st_mtime, UTC).replace(
-                    tzinfo=None
-                )
+                run.created_at = datetime.fromtimestamp(
+                    file_path.stat().st_mtime, timezone.utc
+                ).replace(tzinfo=None)
             return run
         except Exception as e:
             logger.warning("Error loading optimization run %s: %s", run_id, e)
@@ -75,7 +75,7 @@ class HistoryManager:
 
                 run = OptimizationRun.model_validate(data)
                 created_at = run.created_at or datetime.fromtimestamp(
-                    file_path.stat().st_mtime, UTC
+                    file_path.stat().st_mtime, timezone.utc
                 ).replace(tzinfo=None)
 
                 runs.append(
