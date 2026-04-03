@@ -37,10 +37,14 @@ export function resolveRuntimeConfig(rawConfig = {}) {
     return { ok: false, error: CONFIGURATION_ERROR };
   }
 
+  const apiKey =
+    typeof rawConfig.apiKey === "string" ? rawConfig.apiKey.trim() : "";
+
   return {
     ok: true,
     value: {
       backendUrl,
+      apiKey,
     },
   };
 }
