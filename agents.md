@@ -1,95 +1,396 @@
-# AI Agent Development Guidelines for myCompiler
+# Cloud Agent Starter Skill — Prompt Compiler
 
-Welcome. You are operating as an AI developer within the `myCompiler` project. This document outlines the mandatory architectural and security constraints you must adhere to when making any modifications to the codebase. Strict compliance is non-negotiable.
+This file is read automatically by Cursor Cloud agents at the start of every session.
+It tells agents exactly how to set up, run, and test this codebase.
+Keep it up to date as you discover new workflows, debugging tricks, or environment quirks.
 
-## 1. Architectural Overview
+---
 
-Understanding the system's architecture is critical for implementing safe and coherent changes.
+## 1. Quick-Start Checklist
 
-*   **Frontend/API Layer (`api/main.py`)**: Uses FastAPI to expose endpoints for prompt compilation, RAG operations, and agent generation. Authentication relies on API keys managed via a local SQLite database.
-*   **Core Logic (`app/compiler.py`)**: Implements a Chain of Responsibility pattern. Input text is processed through sequential Handlers (e.g., Safety, Risk, Logic) to produce an Intermediate Representation (IR).
-*   **Intelligence Layer (`app/llm_engine`)**: Interfaces with external LLMs (e.g., Groq, OpenAI). The `HybridCompiler` orchestrates local heuristics alongside LLM capabilities.
-*   **Data/RAG Layer (`app/rag/simple_index.py`)**: Provides lightweight Retrieval-Augmented Generation using SQLite FTS5 and basic embeddings. It handles local file indexing and context retrieval.
+Run these steps once at the start of any Cloud agent session before touching code.
 
-## 2. Security Imperatives
+```bash
+# 1. Install backend (source of truth: pyproject.toml)
+pip install -e .[dev,docs]
 
-The following security hotspots have been identified. You must proactively defend against these vulnerabilities in all your implementations.
+# 2. Install frontend
+cd web && npm ci && cd ..
 
-### 2.1 Arbitrary File Access & Path Traversal (CRITICAL)
+# 3. Verify environment file exists (copy from template if missing)
+[ -f .env ] || cp .env.example .env
+```
 
-The system interacts with local file paths, notably in the `/rag/ingest` endpoint which reads files via `Path.read_text()`.
+You do **not** need to commit `.env`. It is gitignored and only needed for local runs.
 
-*   **Mandatory Path Validation**: Never accept raw, unvalidated file paths from user input.
-*   **Strict Anchoring**: All dynamic paths must be strictly resolved and anchored to a pre-defined, secure base directory (allowlist).
-*   **Traversal Prevention**: Explicitly reject paths containing `..` or attempting to navigate outside the authorized boundaries. Utilize `os.path.abspath` or `pathlib.Path.resolve()` and verify the resulting path starts with the allowed base directory.
+---
 
-### 2.2 Prompt Injection & System Leakage
+## 2. Environment Variables
 
-Every endpoint that routes user input to an LLM (e.g., `/compile`, `/agent-generator/generate`) is a potential attack vector for prompt injection.
+`.env.example` is the canonical list. Copy it and fill in secrets before starting the app.
 
-*   **Beyond Redaction**: While `scan_text` redacts secrets, it does not stop logic-based injection or system prompt extraction.
-*   **Input Sanitization**: Treat all user-provided text as adversarial. Enforce strict type validation, length limits, and structural constraints before passing data to the LLM.
-*   **Context Isolation**: Clearly delimit user input from system instructions when constructing LLM prompts (e.g., using XML tags or distinct message roles) to prevent the LLM from misinterpreting user data as commands.
+| Variable | Required for | Default / Notes |
+|---|---|---|
+| `OPENAI_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for LLM paths |
+| `OPENAI_BASE_URL` | LLM provider URL | `https://api.openai.com` |
+| `GROQ_API_KEY` | Groq-backed LLM paths | Optional; LLM routes fall back to OpenAI |
+| `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
+| `ADMIN_API_KEY` | Master API key (skip DB lookup) | Optional; leave blank for local dev |
+| `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Force API keys everywhere | `false` for local dev, `true` for hardened deploys |
+| `DB_DIR` | Where `users.db` is written | `.` (repo root) |
+| `PROMPTC_UPLOAD_DIR` | RAG file upload directory | `~/.promptc_uploads` |
+| `NEXT_PUBLIC_API_KEY` | Frontend API key for authenticated requests | Optional; injected as `x-api-key` header by `buildGeneratorApiHeaders` |
+| `PROMPTC_RAG_ALLOWED_ROOTS` | Path allowlist for RAG ingest | Empty = restricted to CWD + upload dir |
+| `NEXT_PUBLIC_API_URL` | Frontend → backend URL | `http://127.0.0.1:8080` |
+| `ALLOWED_ORIGINS` | CORS origin list (comma-separated) | Defaults to localhost:3000/3001 |
+| `PORT` | Uvicorn port (Docker/Fly) | `8000` |
 
-### 2.3 Database Security
+### Minimal `.env` for local dev (no LLM calls needed for most tests)
 
-SQLite is utilized for both authentication (`users.db`) and the RAG index.
+```env
+PROMPT_COMPILER_MODE=conservative
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=false
+DB_DIR=.
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
+```
 
-*   **Parameterized Queries**: Always use parameterized queries for database operations to prevent SQL injection. Never concatenate user input directly into SQL strings.
-*   **File Permissions**: Since the database relies on local files, ensure any code modifying or creating these files sets restrictive, least-privilege file permissions (e.g., read/write only for the application user).
+### Auth / API key notes
 
-### 2.4 Dynamic Code Generation & RCE Risks
+- Most routes accept any request locally when `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false`.
+- Routes that **always** require an API key: `/compile/fast`, all `/agent-generator/*`, `/skills-generator/*`, and `/rag/upload`, `/rag/ingest`. Other RAG endpoints (`/rag/query`, `/rag/pack`, `/rag/search`, `/rag/stats`) use `verify_api_key_if_required` and are optional unless `PROMPTC_REQUIRE_API_KEY_FOR_ALL=true`.
+- To make an authenticated request, add header `x-api-key: <key>`.
+- In tests, authentication is **automatically bypassed** by `conftest.py` — no key needed unless the test is marked `@pytest.mark.auth_required`.
 
-The `Agent` and `Skill` generators produce markdown that may contain pseudo-code, scripts, or configurations.
+### Mocking / disabling LLM calls
 
-*   **Execution Isolation**: Assume generated code is untrusted. If this output is ever executed via adapters or piped into an environment, it presents a Remote Code Execution (RCE) risk.
-*   **Sandboxing**: Any mechanism that evaluates or runs generated code MUST occur within a strictly isolated, ephemeral sandbox with no access to the host network or sensitive file systems.
-*   **Output Validation**: Implement heuristic checks on generated code to flag or neutralize obviously malicious patterns before it is presented or processed.
+The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENAI_API_KEY` / `GROQ_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
 
-### 2.5 Secrets Management
+---
 
-The system relies on sensitive configuration values, such as `ADMIN_API_KEY`, passed via environment variables.
+## 3. Starting the Application
 
-*   **Zero Exposure**: Never hardcode secrets in the codebase.
-*   **No Logging**: Strictly prohibit the logging, printing, or returning of environment variables, API keys, or database credentials in API responses, error messages, or application logs.
-*   **Memory Safety**: Ensure secrets are cleared from memory when no longer needed, and never include them in crash dumps or debug outputs.
+Two processes must run together: the FastAPI backend and the Next.js frontend.
 
-## 3. Implementation Rules for Modifying Endpoints
+```bash
+# Terminal 1 — backend (auto-reload)
+python -m uvicorn api.main:app --reload --port 8080
 
-When modifying existing or creating new FastAPI endpoints, you must adhere to the following workflow:
+# Terminal 2 — frontend dev server
+cd web && npm run dev
+```
 
-1.  **Validate Input**: Implement rigorous Pydantic models for all incoming request bodies and parameters.
-2.  **Authenticate & Authorize**: Ensure appropriate dependency injection (e.g., API key verification) is applied to protect the endpoint.
-3.  **Sanitize & Anchor**: If the endpoint interacts with the filesystem or database, apply the path anchoring and parameterization rules defined above.
-4.  **Handle Errors Gracefully**: Catch exceptions and return generic, safe HTTP error responses. Do not leak stack traces or internal system state to the client.
-5.  **Review for Injections**: If the endpoint forwards data to the LLM, verify that context isolation and sanitization mechanisms are in place.
+Open http://localhost:3000 in a browser.
 
-By strictly following these guidelines, you ensure the integrity, security, and robustness of the `myCompiler` architecture.
+Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
-## Cursor Cloud specific instructions
+### Production-style run (single process, no reload)
 
-### Services overview
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
 
-| Service | Command | Port | Notes |
-|---------|---------|------|-------|
-| **FastAPI backend** | `python3 -m uvicorn api.main:app --reload --port 8080` | 8080 | Core API; all other surfaces depend on it |
-| **Next.js frontend** | `cd web && npm run dev` | 3000 | Primary UI |
+### Docker
 
-The backend works in **offline heuristics mode** without LLM API keys. To enable LLM-powered compilation, set `GROQ_API_KEY` or `OPENAI_API_KEY` in `.env`.
+```bash
+docker build -t promptc .
+docker run -p 8000:8000 --env-file .env promptc
+```
 
-### Lint / Test / Build
+No `docker-compose` file exists; start auxiliary services manually if needed.
 
-Standard commands are documented in `README.md`. Quick reference:
+---
 
-- **Python lint**: `ruff check .` (from repo root)
-- **Python tests**: `pytest -q` (734+ tests, all offline-safe, ~23s)
-- **Frontend lint**: `cd web && npx eslint`
-- **Frontend contract tests**: `cd web && npm run test:contracts` (requires backend running)
+## 4. Feature Flags & Behavior Toggles
 
-### Gotchas
+There is no runtime feature-flag system (no LaunchDarkly, no flag DB). All toggles are environment variables or per-request parameters.
 
-- `python` is not on PATH in the Cloud VM; always use `python3`.
-- pip installs scripts to `~/.local/bin`; ensure `PATH` includes it (`export PATH="$HOME/.local/bin:$PATH"`).
-- The `.env` file must exist for the backend to start (copy from `.env.example` if missing).
-- SQLite databases (RAG index, user auth) are created automatically at runtime — no external DB needed.
-- The backend's `--reload` flag watches the entire `/workspace` directory; avoid creating large temp files in the repo root.
+| Toggle | How to set | Effect |
+|---|---|---|
+| Conservative mode | `PROMPT_COMPILER_MODE=conservative` (env), `"mode": "conservative"` in request body, or `X-Prompt-Mode: conservative` header | Compiler stays grounded; no hallucinated context |
+| Default / aggressive mode | `PROMPT_COMPILER_MODE=default` | Compiler fills gaps and expands more aggressively |
+| Global API key enforcement | `PROMPTC_REQUIRE_API_KEY_FOR_ALL=true` | Every route requires `x-api-key` |
+| CORS restriction | Set `ALLOWED_ORIGINS=https://yourdomain.com` | Restricts which origins the backend accepts |
+
+**UI toggle**: the web app has a "Conservative" toggle stored in `localStorage` (key `promptc_conservative_mode`). The browser extension has its own local state. For automated tests, control the mode through the API request body directly.
+
+**To test non-conservative mode in isolation**, set `PROMPT_COMPILER_MODE=default` in `.env` before starting the server, or override it in individual test parametrize calls.
+
+---
+
+## 5. Codebase Areas and Testing Workflows
+
+### 5.1 Backend — Core Compiler (`app/`)
+
+Relevant files: `app/compiler.py`, `app/emitters.py`, `app/models_v2.py`, `app/heuristics/`, `app/llm_engine/`
+
+**Run all compiler-related tests:**
+
+```bash
+pytest tests/ -q --ignore=tests/test_api_hardening.py --ignore=tests/test_auth_fast_path.py
+```
+
+**Run a focused subset (fast, no LLM):**
+
+```bash
+pytest tests/test_offline_mode.py tests/test_offline_advanced.py tests/test_heuristics_regex_safety.py tests/test_conservative_mode.py -v
+```
+
+**Run with coverage report:**
+
+```bash
+pytest --cov=app --cov=cli --cov=api --cov-report=term-missing tests/ -q
+```
+
+**Key test markers:**
+
+```bash
+# Tests that actually exercise real auth (no autouse override)
+pytest -m auth_required -v
+```
+
+**What to check when modifying `app/compiler.py`:**
+
+- Run `tests/test_determinism.py` to ensure the same input always gives the same output class.
+- Run `tests/test_snapshot.py` to catch unintended output regressions.
+- Run `tests/test_safety.py` and `tests/test_adversarial.py` to verify guardrails still hold.
+
+---
+
+### 5.2 Backend — FastAPI Routes (`api/`)
+
+Relevant files: `api/main.py`, `api/auth.py`, `api/routes/`, `api/shared.py`
+
+**CI smoke test (fast gate — run before every push):**
+
+```bash
+pytest -q \
+  tests/test_api_hardening.py \
+  tests/test_auth_fast_path.py \
+  tests/test_rag_upload.py \
+  tests/test_benchmark_api.py
+```
+
+**Test all API routes:**
+
+```bash
+pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py -v
+```
+
+**Live API smoke test (requires running backend):**
+
+```bash
+# Health check
+curl http://127.0.0.1:8080/health
+
+# Root info
+curl http://127.0.0.1:8080/
+
+# Compile (no API key needed with PROMPTC_REQUIRE_API_KEY_FOR_ALL=false)
+curl -s -X POST http://127.0.0.1:8080/compile \
+  -H "Content-Type: application/json" \
+  -d '{"text": "summarize a PDF and write a report", "mode": "conservative"}' | python -m json.tool
+
+# Compile fast (requires API key)
+curl -s -X POST http://127.0.0.1:8080/compile/fast \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: test-key" \
+  -d '{"text": "create a marketing email", "mode": "default"}' | python -m json.tool
+```
+
+**Auth testing — bypass vs. enforce:**
+
+```bash
+# Test without override (real auth check)
+pytest tests/test_auth_fast_path.py -v
+
+# See what happens with PROMPTC_REQUIRE_API_KEY_FOR_ALL=true
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=true pytest tests/test_api_hardening.py -v
+```
+
+**Adding a new route:** follow `api/routes/compile.py` as the template. Always add a Pydantic request model, apply `Depends(verify_api_key)` or `Depends(verify_api_key_if_required)`, and cover it in a new test file.
+
+---
+
+### 5.3 Backend — RAG (`app/rag/`)
+
+Relevant files: `app/rag/simple_index.py`, `api/routes/rag.py`
+
+**RAG-specific tests:**
+
+```bash
+pytest tests/test_rag.py tests/test_rag_upload.py tests/test_rag_pipeline.py tests/test_rag_chunking.py tests/test_rag_hybrid_api.py tests/test_rag_parsers.py -v
+```
+
+**RAG upload smoke (requires running backend and an API key):**
+
+```bash
+# Upload a file (JSON body: filename, content, optional relative_path)
+curl -s -X POST http://127.0.0.1:8080/rag/upload \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: test-key" \
+  -d '{"filename": "README.md", "content": "your file content here"}' | python -m json.tool
+
+# Search (POST with JSON body: query, limit)
+curl -s -X POST http://127.0.0.1:8080/rag/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "compiler", "limit": 3}' | python -m json.tool
+```
+
+**Path security:** RAG ingest (`/rag/ingest`) validates against `PROMPTC_RAG_ALLOWED_ROOTS`. If left empty, access is restricted to the current working directory plus the upload directory (`~/.promptc_uploads`). For security tests, set it to a specific temp dir.
+
+---
+
+### 5.4 Frontend — Next.js (`web/`)
+
+Relevant files: `web/app/`, `web/app/components/`, `web/app/hooks/`
+
+**Contract tests (fast, no browser needed):**
+
+```bash
+cd web && npm run test:contracts
+```
+
+**Lint:**
+
+```bash
+cd web && npm run lint
+```
+
+**Build check (catches TypeScript errors):**
+
+```bash
+cd web && npm run build
+```
+
+**Manual UI testing** requires the backend running on port 8080 and the dev server on port 3000. All pages:
+
+| Page | Path |
+|---|---|
+| Main compiler | http://localhost:3000 |
+| Agent Generator | http://localhost:3000/agent-generator |
+| Skill Generator | http://localhost:3000/skills-generator |
+| Benchmark | http://localhost:3000/benchmark |
+| Token Optimizer | http://localhost:3000/optimizer |
+| Offline / heuristics | http://localhost:3000/offline |
+
+---
+
+### 5.5 CLI (`cli/`)
+
+Relevant files: `cli/main.py`
+
+**Run CLI directly (no install):**
+
+```bash
+python -m cli.main --help
+python -m cli.main compile "summarize this PDF for a non-technical audience"
+python -m cli.main github render --type pr-review-brief --from-file prompt.txt
+```
+
+**After `pip install -e .`, use the `promptc` shorthand:**
+
+```bash
+promptc --help
+promptc compile "build a login flow for a FastAPI app"
+```
+
+**CLI tests:**
+
+```bash
+pytest tests/test_cli_console_refactor.py tests/test_cli_new_features.py tests/test_cli_extras.py -v
+```
+
+---
+
+### 5.6 Integrations
+
+**VS Code extension** (`integrations/vscode-extension/`): no automated tests. Open the folder in VS Code and press F5 to launch the extension development host. Requires a running backend.
+
+**MCP server** (`integrations/mcp-server/`): install its own requirements (`pip install -r integrations/mcp-server/requirements.txt`) and run with:
+
+```bash
+python integrations/mcp-server/server.py
+```
+
+**Browser extension** (`extension/`): load as an unpacked extension in Chrome from `extension/` directory. Test files (`*.test.mjs`) can be run with Node:
+
+```bash
+node --test extension/*.test.mjs
+```
+
+---
+
+## 6. Linting and Code Style
+
+```bash
+# Auto-fix and format Python (ruff)
+ruff check --fix .
+ruff format .
+
+# Run the full pre-commit suite (same as CI)
+pre-commit run --all-files
+
+# Frontend lint
+cd web && npm run lint
+```
+
+Line length limit: **120** characters (see `ruff.toml`).
+Style: Conventional Commits for commit messages (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
+
+---
+
+## 7. CI Gate Summary
+
+CI runs on every PR. It must pass before merge. Reproduce it locally with:
+
+```bash
+# Step 1: Python smoke tests
+pytest -q \
+  tests/test_api_hardening.py \
+  tests/test_auth_fast_path.py \
+  tests/test_rag_upload.py \
+  tests/test_benchmark_api.py
+
+# Step 2: Pre-commit (linting + formatting)
+pre-commit run --all-files
+
+# Step 3: Frontend
+cd web
+npm ci
+npm run test:contracts
+npm run lint
+npm run build
+cd ..
+```
+
+Full matrix tests (Python 3.10–3.12, Linux/Windows/macOS) only run on push to `main`, not on PRs.
+
+---
+
+## 8. Security Rules (Non-Negotiable)
+
+Summarized from `agents.md` — read that file for full detail.
+
+- **Never** accept raw file paths from user input. Always resolve and anchor to an allowed root using `Path.resolve()`.
+- **Never** concatenate user input into SQL strings. Use parameterized queries.
+- **Never** log or return environment variables, API keys, or DB credentials.
+- **Never** hardcode secrets. Use `.env` / environment variables.
+- All new FastAPI endpoints must: validate input with Pydantic, apply appropriate `Depends(verify_api_key*)`, handle exceptions gracefully, and not leak stack traces.
+- Generated code from Agent/Skill generators must be treated as untrusted if ever executed.
+
+---
+
+## 9. Updating This Skill
+
+When you discover a new testing trick, a debugging workaround, a common failure mode, or a runbook step that would help the next agent, **update this file immediately** as part of that same PR.
+
+Guidelines for updates:
+
+- Add new env variables to the table in Section 2 as soon as you discover them.
+- Add new curl examples or pytest invocations to the relevant area section in Section 5.
+- If a CI step changes (new command, new test file added to the smoke gate), update Section 7.
+- If a new integration or codebase area is added (new route group, new CLI subcommand, new `web/app/` page), add a subsection under Section 5.
+- Keep sections concise. Prefer concrete commands over prose explanations.
+- If a known issue or workaround exists (e.g., a test that must be skipped in certain environments), note it inline where it first appears.
+
+Commit format for skill updates: `docs: update AGENTS.md — <one-line description of what changed>`
