@@ -113,7 +113,20 @@
             "type": "string"
           },
           "priority": {
-            "type": "integer"
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              30,
+              40,
+              50,
+              60,
+              65,
+              70,
+              75,
+              80,
+              90
+            ]
           },
           "rationale": {
             "type": [
