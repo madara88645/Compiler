@@ -65,3 +65,31 @@ When modifying existing or creating new FastAPI endpoints, you must adhere to th
 5.  **Review for Injections**: If the endpoint forwards data to the LLM, verify that context isolation and sanitization mechanisms are in place.
 
 By strictly following these guidelines, you ensure the integrity, security, and robustness of the `myCompiler` architecture.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Command | Port | Notes |
+|---------|---------|------|-------|
+| **FastAPI backend** | `python3 -m uvicorn api.main:app --reload --port 8080` | 8080 | Core API; all other surfaces depend on it |
+| **Next.js frontend** | `cd web && npm run dev` | 3000 | Primary UI |
+
+The backend works in **offline heuristics mode** without LLM API keys. To enable LLM-powered compilation, set `GROQ_API_KEY` or `OPENAI_API_KEY` in `.env`.
+
+### Lint / Test / Build
+
+Standard commands are documented in `README.md`. Quick reference:
+
+- **Python lint**: `ruff check .` (from repo root)
+- **Python tests**: `pytest -q` (734+ tests, all offline-safe, ~23s)
+- **Frontend lint**: `cd web && npx eslint`
+- **Frontend contract tests**: `cd web && npm run test:contracts` (requires backend running)
+
+### Gotchas
+
+- `python` is not on PATH in the Cloud VM; always use `python3`.
+- pip installs scripts to `~/.local/bin`; ensure `PATH` includes it (`export PATH="$HOME/.local/bin:$PATH"`).
+- The `.env` file must exist for the backend to start (copy from `.env.example` if missing).
+- SQLite databases (RAG index, user auth) are created automatically at runtime — no external DB needed.
+- The backend's `--reload` flag watches the entire `/workspace` directory; avoid creating large temp files in the repo root.
