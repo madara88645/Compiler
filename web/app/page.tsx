@@ -208,11 +208,14 @@ export default function Home() {
                   ))}
                 </div>
 
-                {/* Content */}
+                {/* Content — one stable tabpanel per tab, hidden when inactive */}
+
+                {/* intent panel */}
                 <div
                   role="tabpanel"
-                  id={`tabpanel-${activeTab}`}
-                  aria-labelledby={`tab-${activeTab}`}
+                  id="tabpanel-intent"
+                  aria-labelledby="tab-intent"
+                  hidden={activeTab !== "intent"}
                   className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
                 >
                   {activeTab === "intent" && (
@@ -220,94 +223,114 @@ export default function Home() {
                       <IntentPolicyPanel result={result} />
                     </div>
                   )}
+                </div>
 
-                  {activeTab !== "intent" && activeTab !== "quality" && activeTab !== "json" && (
-                    <>
-                      {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
-                      <div className="absolute top-4 right-6 z-10 flex gap-2">
-                        {/* Agent 6 Badge */}
-                        {result.ir?.metadata?.context_snippets && result.ir.metadata.context_snippets.length > 0 && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title="Context Strategist Active">
-                            <div className="text-[10px]">🕵️</div>
-                            <span className="text-[10px] text-indigo-200 font-medium">
-                              {result.ir.metadata.context_snippets.length} Sources
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Agent 7 Badge */}
-                        {result.critique && (
-                          <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
-                            ? "bg-red-500/10 border-red-500/30"
-                            : "bg-green-500/10 border-green-500/30"
-                            }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
-                            <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
-                              Critic: {result.critique.score}/100
-                            </span>
-
-                            {/* Hover Popup */}
-                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
-                              </div>
-                              <p className="text-[10px] text-zinc-400 mb-2 leading-relaxed">{result.critique.feedback}</p>
-                              {result.critique.issues.length > 0 && (
-                                <div className="space-y-1">
-                                  {result.critique.issues.map((issue, i) => (
-                                    <div key={i} className="text-[9px] bg-black/20 p-1.5 rounded border border-white/5 text-zinc-400">
-                                      <span className="text-red-400 font-semibold">[{issue.type}]</span> {issue.description}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                {/* text-content panels: system, user, plan, expanded */}
+                {(["system", "user", "plan", "expanded"] as const).map((tab) => (
+                  <div
+                    key={tab}
+                    role="tabpanel"
+                    id={`tabpanel-${tab}`}
+                    aria-labelledby={`tab-${tab}`}
+                    hidden={activeTab !== tab}
+                    className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                  >
+                    {activeTab === tab && (
+                      <>
+                        {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
+                        <div className="absolute top-4 right-6 z-10 flex gap-2">
+                          {/* Agent 6 Badge */}
+                          {result.ir?.metadata?.context_snippets && result.ir.metadata.context_snippets.length > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title="Context Strategist Active">
+                              <div className="text-[10px]">🕵️</div>
+                              <span className="text-[10px] text-indigo-200 font-medium">
+                                {result.ir.metadata.context_snippets.length} Sources
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {/* Reasoning Badge */}
-                        {result.system_prompt_v2 ? (
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
-                            <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md">
-                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                            <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
-                          </div>
-                        )}
-                      </div>
+                          {/* Agent 7 Badge */}
+                          {result.critique && (
+                            <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
+                              ? "bg-red-500/10 border-red-500/30"
+                              : "bg-green-500/10 border-green-500/30"
+                              }`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
+                              <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
+                                Critic: {result.critique.score}/100
+                              </span>
 
-                      <textarea
-                        id="compiled-output"
-                        aria-label="Compiled prompt output"
-                        className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
-                        readOnly
-                        value={getTabContent(result, activeTab)}
-                      />
+                              {/* Hover Popup */}
+                              <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
+                                </div>
+                                <p className="text-[10px] text-zinc-400 mb-2 leading-relaxed">{result.critique.feedback}</p>
+                                {result.critique.issues.length > 0 && (
+                                  <div className="space-y-1">
+                                    {result.critique.issues.map((issue, i) => (
+                                      <div key={i} className="text-[9px] bg-black/20 p-1.5 rounded border border-white/5 text-zinc-400">
+                                        <span className="text-red-400 font-semibold">[{issue.type}]</span> {issue.description}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(getTabContent(result, activeTab));
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        title={copied ? "Copied!" : "Copy to Clipboard"}
-                        aria-label={copied ? "Copied" : "Copy to Clipboard"}
-                      >
-                        {copied ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                        )}
-                      </button>
-                    </>
-                  )}
+                          {/* Reasoning Badge */}
+                          {result.system_prompt_v2 ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
+                              <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md">
+                              <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                              <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
+                            </div>
+                          )}
+                        </div>
 
-                  {/* JSON Structured View */}
+                        <textarea
+                          id="compiled-output"
+                          aria-label="Compiled prompt output"
+                          className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
+                          readOnly
+                          value={getTabContent(result, tab)}
+                        />
+
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(getTabContent(result, tab));
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                          }}
+                          className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          title={copied ? "Copied!" : "Copy to Clipboard"}
+                          aria-label={copied ? "Copied" : "Copy to Clipboard"}
+                        >
+                          {copied ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+
+                {/* json panel */}
+                <div
+                  role="tabpanel"
+                  id="tabpanel-json"
+                  aria-labelledby="tab-json"
+                  hidden={activeTab !== "json"}
+                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                >
                   {activeTab === "json" && (
                     <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
                       <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
@@ -315,8 +338,16 @@ export default function Home() {
                       </pre>
                     </div>
                   )}
+                </div>
 
-                  {/* Quality Coach Overlay/View */}
+                {/* quality panel */}
+                <div
+                  role="tabpanel"
+                  id="tabpanel-quality"
+                  aria-labelledby="tab-quality"
+                  hidden={activeTab !== "quality"}
+                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                >
                   {activeTab === "quality" && (
                     <div className="absolute inset-0 bg-transparent z-20">
                       <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />

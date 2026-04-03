@@ -11,4 +11,8 @@
 **Action:** When building custom modals or alert dialogs, always structure the container with `role="dialog"`, `aria-modal="true"`, and an `aria-labelledby` attribute linked to the title. Pair this with auto-focusing the primary safe/corrective action and clear context-colored `focus-visible` rings on all alternative actions to support efficient keyboard navigation.
 ## 2025-04-02 - Tablist Accessibility
 **Learning:** For dynamic UI components serving as tabs (e.g. in `page.tsx`'s view switcher), standard HTML `<button>` inside a `<div>` is inadequate for screen reader navigation. Users need semantic context that they're dealing with a tab group.
-**Action:** Always apply `role="tablist"` to the container, `role="tab"`, `aria-selected`, `aria-controls`, and `id` to the tab items, and `role="tabpanel"` to the dynamically rendering content container to ensure proper structural announcement.
+**Action:** Always apply `role="tablist"` to the container, `role="tab"`, `aria-selected`, `aria-controls`, and `id` to the tab items, and `role="tabpanel"` to the content containers to ensure proper structural announcement.
+
+## 2025-04-03 - Stable tabpanel IDs for valid aria-controls
+**Learning:** Using a single `<div role="tabpanel">` whose `id` changes dynamically (e.g. `id={tabpanel-${activeTab}}`) means inactive tabs point to non-existent DOM elements via `aria-controls`. This is a WCAG violation and causes broken behaviour in screen readers.
+**Action:** Render one `<div role="tabpanel">` per tab with a fixed `id` (`tabpanel-${tab}`). Hide inactive panels using the HTML `hidden` attribute so they remain in the DOM but are invisible. Only render the panel's inner content when it is active (for performance). This guarantees every `aria-controls` value always resolves to a real element.
