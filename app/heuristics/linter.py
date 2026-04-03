@@ -46,18 +46,27 @@ WEASEL_WORDS: Set[str] = {
 }
 
 # 2. Safety / Prompt Injection Patterns
-# Optimized regex for performance
-INJECTION_PATTERN: re.Pattern = re.compile(
-    r"(?:ignore\s+(?:all\s+)?previous\s+instructions?)|"
-    r"(?:system\s*override)|"
-    r"(?:forget\s+(?:everything|all))|"
-    r"(?:disregard\s+(?:the\s+)?(?:above|previous))|"
-    r"(?:new\s+instructions?:)|"
-    r"(?:act\s+as\s+if\s+you\s+have\s+no\s+restrictions)|"
-    r"(?:jailbreak)|"
+# Expanded with common override and prompt-exfiltration variants while staying narrow
+# enough to avoid flagging generic mentions of "instructions" or "system".
+_INJECTION_PATTERNS: Tuple[str, ...] = (
+    r"(?:ignore\s+(?:all\s+)?(?:previous|prior|earlier)\s+instructions?)",
+    r"(?:ignore\s+the\s+(?:system|developer)\s+prompt)",
+    r"(?:system\s*override)",
+    r"(?:forget\s+(?:everything|all|the\s+above))",
+    r"(?:disregard\s+(?:the\s+)?(?:above|previous))",
+    r"(?:new\s+instructions?\s*[:\-])",
+    r"(?:follow\s+(?:these|the)\s+new\s+instructions?)",
+    r"(?:act\s+as\s+if\s+you\s+have\s+no\s+restrictions)",
+    r"(?:reveal|show|print)\s+(?:the\s+)?(?:hidden\s+)?system\s+prompt",
+    r"(?:enable|enter|switch\s+to)\s+(?:developer|debug|sudo|root)\s+mode",
+    r"(?:base64\s+(?:decode|payload))",
+    r"(?:decode\s+(?:this\s+)?base64(?:\s+payload)?)",
+    r"(?:jailbreak)",
     r"(?:DAN\s+mode)",
-    re.IGNORECASE,
+    r"(?:[öo]nceki\s+talimatlar[ıi]\s+yok\s+say)",
+    r"(?:sistem\s+promptunu\s+(?:g[öo]ster|yazd[ıi]r))",
 )
+INJECTION_PATTERN: re.Pattern = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
 
 # 3. PII Patterns (Augmenting existing heuristics)
 PII_PATTERNS: List[Tuple[str, re.Pattern]] = [
