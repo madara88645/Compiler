@@ -954,7 +954,12 @@ class DomainHandler(BaseHandler):
         """Scan for API keys, tokens, and secrets using pre-compiled regex."""
         all_patterns = self._compiled_secret_patterns + (additional_patterns or [])
 
-        found = any(p.search(text) for p in all_patterns)
+        # Bolt Optimization: explicit loop bypasses generator overhead
+        found = False
+        for p in all_patterns:
+            if p.search(text):
+                found = True
+                break
 
         if found:
             analysis.suggestions.append(
