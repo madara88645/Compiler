@@ -26,7 +26,7 @@ IR_INTENTS = [
     "summarize",
 ]
 IR_STEP_TYPES = ["task", "teach", "research", "compare", "plan"]
-IR_CONSTRAINT_PRIORITIES = [10, 20, 30, 40, 50, 60, 65, 70, 75, 80, 90]
+IR_CONSTRAINT_PRIORITIES = [10, 20, 30, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
 IR_RISK_LEVELS = ["low", "medium", "high"]
 IR_DATA_SENSITIVITY_LEVELS = ["public", "internal", "confidential", "restricted"]
 IR_EXECUTION_MODES = ["advice_only", "human_approval_required", "auto_ok"]
