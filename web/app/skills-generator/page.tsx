@@ -105,6 +105,14 @@ export default function SkillsGenerator() {
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    if (!loading && description.trim()) {
+                      void handleGenerate();
+                    }
+                  }
+                }}
               />
             </div>
 
@@ -156,12 +164,12 @@ export default function SkillsGenerator() {
             <button
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
-              className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20"
+              className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
             >
               {loading ? (
                 <span className="animate-pulse">Forging Skill...</span>
               ) : (
-                <>Generate Skill <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                <>Generate Skill <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
               )}
             </button>
 
