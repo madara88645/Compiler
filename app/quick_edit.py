@@ -130,6 +130,21 @@ class QuickEditor:
                 )
                 return None
 
+            # Validate editor components against a denylist of shells/interpreters
+            # to prevent command injection via execution wrappers
+            denylist = {
+                "bash", "sh", "zsh", "csh", "ksh",
+                "python", "python3", "env", "cmd",
+                "powershell", "pwsh", "cmd.exe", "powershell.exe",
+                "node", "nodejs", "ruby", "perl", "php"
+            }
+            for part in editor_parts:
+                if os.path.basename(part).lower() in denylist:
+                    console.print(
+                        f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
+                    )
+                    return None
+
             editor_parts.append(temp_path)
 
             result = subprocess.run(editor_parts)
