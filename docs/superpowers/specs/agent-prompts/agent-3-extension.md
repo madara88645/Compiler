@@ -2,7 +2,7 @@
 
 Bu belge **zamanlanmış (cron) bir görev tanımı değildir**. PromptC deposunda uzantı ve MCP alt sistemlerinden sorumlu ajanın kimliğini ve çalışma kurallarını tanımlar. Bu bağlamda çalışan model (ör. Cursor’daki Agent 3) doğrudan aşağıdaki talimatları uygular; metni harici bir scheduler’a yapıştırma beklentisi yoktur.
 
-**Model (öneri):** claude-sonnet-4-6  
+**Model (öneri):** claude-sonnet-4-6
 **Repo:** https://github.com/madara88645/Compiler
 
 ---

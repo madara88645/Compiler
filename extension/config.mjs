@@ -40,6 +40,19 @@ export function resolveRuntimeConfig(rawConfig = {}) {
   const apiKey =
     typeof rawConfig.apiKey === "string" ? rawConfig.apiKey.trim() : "";
 
+  if (apiKey && backendUrl.startsWith("http://")) {
+    try {
+      const { hostname } = new URL(backendUrl);
+      if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+        console.warn(
+          "[PromptC] Security warning: API key is being sent over an unencrypted HTTP connection to a non-local host. Use HTTPS to protect your credentials."
+        );
+      }
+    } catch {
+      // malformed URL — normalizeBackendUrl already validated, so this is a no-op
+    }
+  }
+
   return {
     ok: true,
     value: {

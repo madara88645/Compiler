@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from compile_settings import (
