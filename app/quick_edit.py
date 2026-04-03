@@ -133,10 +133,24 @@ class QuickEditor:
             # Validate editor components against a denylist of shells/interpreters
             # to prevent command injection via execution wrappers
             denylist = {
-                "bash", "sh", "zsh", "csh", "ksh",
-                "python", "python3", "env", "cmd",
-                "powershell", "pwsh", "cmd.exe", "powershell.exe",
-                "node", "nodejs", "ruby", "perl", "php"
+                "bash",
+                "sh",
+                "zsh",
+                "csh",
+                "ksh",
+                "python",
+                "python3",
+                "env",
+                "cmd",
+                "powershell",
+                "pwsh",
+                "cmd.exe",
+                "powershell.exe",
+                "node",
+                "nodejs",
+                "ruby",
+                "perl",
+                "php",
             }
             for part in editor_parts:
                 if os.path.basename(part).lower() in denylist:

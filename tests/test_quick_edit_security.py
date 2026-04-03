@@ -43,7 +43,7 @@ def test_editor_denylist_execution_wrappers_blocked():
         "env python -c 'import os; os.system(\"id\")'",
         "python3 -c 'print(\"hello\")'",
         "/bin/sh -c 'echo pwned'",
-        "cmd.exe /c calc.exe"
+        "cmd.exe /c calc.exe",
     ]
 
     for malicious_editor in forbidden_editors:
