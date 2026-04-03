@@ -17,4 +17,15 @@ test("resolveRuntimeConfig normalizes backend URLs without requiring an API key"
 
   assert.equal(result.ok, true);
   assert.equal(result.value?.backendUrl, "https://compiler-production-626b.up.railway.app");
+  assert.equal(result.value?.apiKey, "");
+});
+
+test("resolveRuntimeConfig passes through trimmed API key when set", () => {
+  const result = resolveRuntimeConfig({
+    backendUrl: "https://example.com",
+    apiKey: "  secret  ",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value?.apiKey, "secret");
 });

@@ -19,6 +19,17 @@ It exposes `myCompiler` tools (like `optimize_prompt`) to MCP clients such as Cl
 
 ## Configuration
 
+Environment variables (optional; align with the Chrome extension’s `/compile` request):
+
+| Variable | Purpose |
+|----------|---------|
+| `PROMPTC_BACKEND_URL` | API origin (default `http://localhost:8000`); the tool posts to `{origin}/compile`. |
+| `PROMPTC_API_URL` | Full compile URL if set (overrides backend + `/compile`). |
+| `PROMPTC_API_KEY` | Sent as `x-api-key` when the API requires optional key verification. |
+| `PROMPTC_PROMPT_MODE` | `conservative` (default) or `default`; sent as `X-Prompt-Mode` and in the JSON body `mode`. |
+
+The request body matches the extension: `v2`, `render_v2_prompts`, `diagnostics`, and `mode`.
+
 ### Claude Desktop
 
 Add the following to your `claude_desktop_config.json` (usually in `%APPDATA%\Claude\` on Windows or `~/Library/Application Support/Claude/` on macOS):

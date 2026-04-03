@@ -42,12 +42,17 @@ async function handleOptimization(request, sender) {
   const modeStorage = await chrome.storage.local.get([CONSERVATIVE_KEY]);
   const mode = modeStorage[CONSERVATIVE_KEY] === false ? "default" : "conservative";
 
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Prompt-Mode": mode,
+  };
+  if (runtimeConfig.value.apiKey) {
+    headers["x-api-key"] = runtimeConfig.value.apiKey;
+  }
+
   const response = await fetch(`${runtimeConfig.value.backendUrl}/compile`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Prompt-Mode": mode,
-    },
+    headers,
     body: JSON.stringify({
       text,
       diagnostics: false,
