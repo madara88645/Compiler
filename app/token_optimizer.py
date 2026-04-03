@@ -213,28 +213,26 @@ def _is_fence_close(line: str, fence_marker: str) -> bool:
 def _optimize_markdown_text(text: str, *, level: int) -> str:
     s = (text or "").replace("\r\n", "\n")
 
-    # Trim trailing whitespace on each line.
-    lines = [ln.rstrip() for ln in s.split("\n")]
-
-    # Remove exact duplicate consecutive lines (excluding blanks which are handled below).
-    deduped: List[str] = []
+    # Combined pass: deduplicate, normalize, and handle blank lines
+    # to avoid multiple list allocations and iterations.
+    compacted: List[str] = []
     prev = None
-    for ln in lines:
+    prev_blank = False
+
+    for raw_ln in s.split("\n"):
+        # Trim trailing whitespace on each line.
+        ln = raw_ln.rstrip()
+
+        # Remove exact duplicate consecutive lines (excluding blanks which are handled below).
         if prev is not None and ln == prev and ln.strip():
             continue
-        deduped.append(ln)
         prev = ln
 
-    # Normalize spacing for non-code, non-table lines.
-    normalized: List[str] = []
-    for ln in deduped:
-        normalized.append(_normalize_line(ln, level=level))
+        # Normalize spacing for non-code, non-table lines.
+        norm_ln = _normalize_line(ln, level=level)
 
-    # Blank line handling.
-    compacted: List[str] = []
-    prev_blank = False
-    for ln in normalized:
-        is_blank = not ln.strip()
+        # Blank line handling.
+        is_blank = not norm_ln.strip()
         if is_blank:
             if level >= 2:
                 continue
@@ -243,7 +241,8 @@ def _optimize_markdown_text(text: str, *, level: int) -> str:
             compacted.append("")
             prev_blank = True
             continue
-        compacted.append(ln)
+
+        compacted.append(norm_ln)
         prev_blank = False
 
     out = "\n".join(compacted)
