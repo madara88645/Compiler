@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator
 from pydantic.config import ConfigDict
 
+from .ir_contract import IR_LANGUAGES, IR_LENGTH_HINTS, IR_OUTPUT_FORMATS, IR_PERSONAS
+
 
 # Intermediate Representation (IR) model mirroring the JSON Schema.
 class IR(BaseModel):
@@ -59,26 +61,26 @@ class IR(BaseModel):
 
     @field_validator("language")
     def _lang(cls, v):  # type: ignore
-        if v not in {"tr", "en", "es"}:
+        if v not in set(IR_LANGUAGES):
             raise ValueError("language must be 'tr' or 'en' or 'es'")
         return v
 
     @field_validator("output_format")
     def _fmt(cls, v):  # type: ignore
-        if v not in {"markdown", "json", "yaml", "table", "text"}:
+        if v not in set(IR_OUTPUT_FORMATS):
             raise ValueError("invalid output_format")
         return v
 
     @field_validator("persona")
     def _persona(cls, v):  # type: ignore
-        allowed = {"assistant", "teacher", "researcher", "coach", "mentor", "developer"}
+        allowed = set(IR_PERSONAS)
         if v not in allowed:
             raise ValueError(f"persona must be one of {sorted(allowed)}")
         return v
 
     @field_validator("length_hint")
     def _len(cls, v):  # type: ignore
-        if v not in {"short", "medium", "long"}:
+        if v not in set(IR_LENGTH_HINTS):
             raise ValueError("invalid length_hint")
         return v
 
