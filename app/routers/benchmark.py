@@ -24,6 +24,10 @@ from pydantic import BaseModel, Field, field_validator
 from app.compiler import compile_text_v2
 from app.emitters import emit_expanded_prompt_v2
 
+_NUMBERED_LIST_RE = re.compile(r"^\d+\.", re.MULTILINE)
+_BULLET_LIST_RE = re.compile(r"^[-*] ", re.MULTILINE)
+_HEADER_RE = re.compile(r"^#{1,3} ", re.MULTILINE)
+
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
 MAX_BENCHMARK_TEXT_LENGTH = 4000
@@ -215,11 +219,11 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
         clarity = 5.0
         if "```" in text:
             clarity += 1.0
-        if re.search(r"^\d+\.", text, re.MULTILINE):
+        if _NUMBERED_LIST_RE.search(text):
             clarity += 1.0
-        if re.search(r"^[-*] ", text, re.MULTILINE):
+        if _BULLET_LIST_RE.search(text):
             clarity += 1.0
-        if re.search(r"^#{1,3} ", text, re.MULTILINE):
+        if _HEADER_RE.search(text):
             clarity += 1.0
         if len(text) > 100:
             clarity += 0.5
