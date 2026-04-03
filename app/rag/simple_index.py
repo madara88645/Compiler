@@ -3,6 +3,7 @@ import re
 import sqlite3
 import time
 import logging
+import threading
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Dict
 import math
@@ -55,23 +56,31 @@ CHUNK_OVERLAP = 200
 _CACHE_CAP = 64
 _query_cache: "OrderedDict[str, list]" = OrderedDict()
 
+# Lock protecting all shared mutable module-level globals:
+#   _query_cache, _FAST_EMBED_MODEL, _tiktoken_enc
+# Required because FastAPI sync endpoints run in a threadpool.
+_CACHE_LOCK = threading.Lock()
+
 
 def _cache_get(key: str):
-    if key in _query_cache:
-        _query_cache.move_to_end(key)
-        return _query_cache[key]
+    with _CACHE_LOCK:
+        if key in _query_cache:
+            _query_cache.move_to_end(key)
+            return _query_cache[key]
     return None
 
 
 def _cache_put(key: str, value):
-    _query_cache[key] = value
-    _query_cache.move_to_end(key)
-    if len(_query_cache) > _CACHE_CAP:
-        _query_cache.popitem(last=False)
+    with _CACHE_LOCK:
+        _query_cache[key] = value
+        _query_cache.move_to_end(key)
+        if len(_query_cache) > _CACHE_CAP:
+            _query_cache.popitem(last=False)
 
 
 def _clear_query_cache() -> None:
-    _query_cache.clear()
+    with _CACHE_LOCK:
+        _query_cache.clear()
 
 
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
@@ -438,8 +447,10 @@ def _parse_embedding(vec_json: str) -> List[float]:
 def _get_fast_embed_model():
     global _FAST_EMBED_MODEL
     if _FAST_EMBED_MODEL is None and _HAS_FASTEMBED:
-        # caching model
-        _FAST_EMBED_MODEL = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        with _CACHE_LOCK:
+            if _FAST_EMBED_MODEL is None:
+                # caching model
+                _FAST_EMBED_MODEL = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
     return _FAST_EMBED_MODEL
 
 
@@ -904,9 +915,11 @@ def _count_tokens(text: str, ratio: float = 4.0) -> int:
     global _tiktoken_enc
     try:
         if _tiktoken_enc is None:
-            import tiktoken
+            with _CACHE_LOCK:
+                if _tiktoken_enc is None:
+                    import tiktoken
 
-            _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+                    _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
     except ImportError:
         return int(len(text) / ratio)
