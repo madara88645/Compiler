@@ -60,7 +60,9 @@ def test_history_manager_backfills_created_at_from_existing_file(tmp_path):
 
     legacy_payload = run.model_dump()
     legacy_payload.pop("created_at", None)
-    file_path.write_text(OptimizationRun.model_validate(legacy_payload).model_dump_json(indent=2), encoding="utf-8")
+    file_path.write_text(
+        OptimizationRun.model_validate(legacy_payload).model_dump_json(indent=2), encoding="utf-8"
+    )
 
     loaded = manager.load_run("legacy-run")
     assert loaded is not None

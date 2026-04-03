@@ -54,7 +54,9 @@ class HistoryManager:
                 data = json.load(f)
             run = OptimizationRun.model_validate(data)
             if run.created_at is None:
-                run.created_at = datetime.fromtimestamp(file_path.stat().st_mtime, UTC).replace(tzinfo=None)
+                run.created_at = datetime.fromtimestamp(file_path.stat().st_mtime, UTC).replace(
+                    tzinfo=None
+                )
             return run
         except Exception as e:
             logger.warning("Error loading optimization run %s: %s", run_id, e)
@@ -72,9 +74,9 @@ class HistoryManager:
                     data = json.load(f)
 
                 run = OptimizationRun.model_validate(data)
-                created_at = run.created_at or datetime.fromtimestamp(file_path.stat().st_mtime, UTC).replace(
-                    tzinfo=None
-                )
+                created_at = run.created_at or datetime.fromtimestamp(
+                    file_path.stat().st_mtime, UTC
+                ).replace(tzinfo=None)
 
                 runs.append(
                     {
