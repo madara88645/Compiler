@@ -41,6 +41,9 @@ PATTERNS = {
 # Pre-compile regex patterns for faster scanning
 COMPILED_PATTERNS = {k: re.compile(v) for k, v in PATTERNS.items()}
 
+# Pre-compile hex pattern for credit card filtering
+_HEX_PATTERN = re.compile(r"[a-fA-F]")
+
 # Allow-list for common IP-like false positives
 IP_ALLOWLIST = {"127.0.0.1", "0.0.0.0", "192.168.0.1", "192.168.1.1", "10.0.0.1"}
 
@@ -75,7 +78,7 @@ def scan_text(text: str) -> SecurityResult:
                 continue
             if label == "credit_card":
                 # Basic filter to avoid compilation versions like 3.12.10.15
-                if "." in val or re.search(r"[a-fA-F]", val):  # Hex check just in case
+                if "." in val or _HEX_PATTERN.search(val):  # Hex check just in case
                     continue
                 # Length check for raw digits
                 # Bolt Optimization: map() is ~3x faster than generator sum for counting characters

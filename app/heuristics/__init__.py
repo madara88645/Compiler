@@ -320,7 +320,7 @@ def detect_summary(text: str) -> tuple[bool, int | None]:
             break
     if has_summary:
         # Try to find a number of bullets requested (e.g. "5 madde", "5 bullets")
-        m = re.search(r"(\d{1,2})\s*(madde|bullet|bullets|özet|point|points)", lower)
+        m = _BULLET_RE.search(lower)
         if m:
             try:
                 n = int(m.group(1))
@@ -383,13 +383,8 @@ def extract_comparison_items(text: str) -> list[str]:
 
 def extract_variant_count(text: str) -> int:
     lower = text.lower()
-    has_variant = False
-    for k in VARIANT_KEYWORDS:
-        if k in lower:
-            has_variant = True
-            break
-    if has_variant:
-        m = re.search(r"(\d{1,2})\s*(alternatif|seçenek|variant|variants|options)", lower)
+    if any(k in lower for k in VARIANT_KEYWORDS):
+        m = _VARIANT_RE.search(lower)
         if m:
             try:
                 v = int(m.group(1))
@@ -881,6 +876,14 @@ def detect_code_request(text: str) -> bool:
 _TR_LANG_RE = re.compile(r"\bve\b|\bile\b|\bkimdir\b")
 _ES_LANG_RE = re.compile(r"\b(enséñame|por favor|hola|qué|análisis|rápido)\b")
 
+_BULLET_RE = re.compile(r"(\d{1,2})\s*(madde|bullet|bullets|özet|point|points)")
+_VARIANT_RE = re.compile(r"(\d{1,2})\s*(alternatif|seçenek|variant|variants|options)")
+_SEVER_RE = re.compile(r"\b([\wçğıöşü]+)\s+sever\b")
+_LEVEL_BEGINNER_RE = re.compile(r"\b(beginner|entry|intro|novice)\b|\b(başlangıç|giriş|temel)\b")
+_LEVEL_INTERMEDIATE_RE = re.compile(r"\b(intermediate|mid)\b|\b(orta seviye|orta)\b")
+_LEVEL_ADVANCED_RE = re.compile(r"\b(advanced|expert)\b|\b(ileri|uzman)\b")
+_HALF_HOUR_RE = re.compile(r"\bhalf\s+(an\s+)?hour\b")
+
 
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish or Spanish indicators, else default English
@@ -1068,7 +1071,7 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
 
     # Interest extraction (Turkish + English simple patterns)
     # ex: "futbol sever" -> interest=futbol
-    m = re.search(r"\b([\wçğıöşü]+)\s+sever\b", lower)
+    m = _SEVER_RE.search(lower)
     if m:
         inputs["interest"] = m.group(1)
     else:
@@ -1107,17 +1110,17 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
             break
 
     # Level extraction (beginner/intermediate/advanced)
-    if re.search(r"\b(beginner|entry|intro|novice)\b|\b(başlangıç|giriş|temel)\b", lower):
+    if _LEVEL_BEGINNER_RE.search(lower):
         inputs["level"] = "beginner"
-    elif re.search(r"\b(intermediate|mid)\b|\b(orta seviye|orta)\b", lower):
+    elif _LEVEL_INTERMEDIATE_RE.search(lower):
         inputs["level"] = "intermediate"
-    elif re.search(r"\b(advanced|expert)\b|\b(ileri|uzman)\b", lower):
+    elif _LEVEL_ADVANCED_RE.search(lower):
         inputs["level"] = "advanced"
 
     # Duration extraction (minutes/hours)
     # Examples: "10 dakikada", "15 dk", "30 dakika", "1 saat", "in 10 minutes", "30 mins", "30m"
     # Verbal half-hour forms (Turkish & English)
-    if "yarım saat" in lower or re.search(r"\bhalf\s+(an\s+)?hour\b", lower):
+    if "yarım saat" in lower or _HALF_HOUR_RE.search(lower):
         inputs["duration"] = "30m"
     else:
         dur_patterns = [
