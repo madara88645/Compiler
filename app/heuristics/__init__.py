@@ -313,7 +313,12 @@ TROUBLESHOOTING_INTENT_KEYWORDS = [
 
 def detect_summary(text: str) -> tuple[bool, int | None]:
     lower = text.lower()
-    if any(k in lower for k in SUMMARY_KEYWORDS):
+    has_summary = False
+    for k in SUMMARY_KEYWORDS:
+        if k in lower:
+            has_summary = True
+            break
+    if has_summary:
         # Try to find a number of bullets requested (e.g. "5 madde", "5 bullets")
         m = re.search(r"(\d{1,2})\s*(madde|bullet|bullets|özet|point|points)", lower)
         if m:
@@ -334,7 +339,13 @@ def extract_comparison_items(text: str) -> list[str]:
         raw = [p.strip() for p in lower.split(" vs ") if p.strip()]
         items = raw
     # Turkish pattern: "x ile y karşılaştır" or "x ve y karşılaştır"
-    if not items and any(k in lower for k in COMPARISON_KEYWORDS):
+    has_comparison = False
+    if not items:
+        for k in COMPARISON_KEYWORDS:
+            if k in lower:
+                has_comparison = True
+                break
+    if has_comparison:
         marker_index = min(
             (
                 pos
@@ -372,7 +383,12 @@ def extract_comparison_items(text: str) -> list[str]:
 
 def extract_variant_count(text: str) -> int:
     lower = text.lower()
-    if any(k in lower for k in VARIANT_KEYWORDS):
+    has_variant = False
+    for k in VARIANT_KEYWORDS:
+        if k in lower:
+            has_variant = True
+            break
+    if has_variant:
         m = re.search(r"(\d{1,2})\s*(alternatif|seçenek|variant|variants|options)", lower)
         if m:
             try:
@@ -387,7 +403,10 @@ def extract_variant_count(text: str) -> int:
 
 def _contains_any_keyword(text: str, keywords: list[str]) -> bool:
     lower = text.lower()
-    return any(keyword in lower for keyword in keywords)
+    for keyword in keywords:
+        if keyword in lower:
+            return True
+    return False
 
 
 def detect_creative_intent(text: str) -> bool:
@@ -554,7 +573,10 @@ def detect_coding_context(text: str) -> bool:
     lower = text.lower()
     if detect_code_request(text):
         return True
-    return any(p in lower for p in PERSONA_KEYWORDS["developer"])
+    for p in PERSONA_KEYWORDS["developer"]:
+        if p in lower:
+            return True
+    return False
 
 
 # Live debug detection (English + Turkish cues)
@@ -632,8 +654,10 @@ def detect_risk_flags(text: str) -> list[str]:
     lower = text.lower()
     flags: list[str] = []
     for cat, pats in RISK_KEYWORDS.items():
-        if any(p in lower for p in pats):
-            flags.append(cat)
+        for p in pats:
+            if p in lower:
+                flags.append(cat)
+                break
     return flags
 
 
@@ -666,9 +690,9 @@ def estimate_complexity(text: str) -> str:
         score += 1
     if unique > 30:
         score += 1
-    if any(k in lower for k in [" vs ", "compare", "karşılaştır"]):
+    if " vs " in lower or "compare" in lower or "karşılaştır" in lower:
         score += 1
-    if any(k in lower for k in ["teach", "öğret", "explain"]):
+    if "teach" in lower or "öğret" in lower or "explain" in lower:
         score += 1
     return "high" if score >= 3 else "medium" if score == 2 else "low"
 
@@ -847,7 +871,10 @@ load_external_config()
 
 def detect_code_request(text: str) -> bool:
     lower = text.lower()
-    return any(p in lower for p in CODE_REQUEST_KEYWORDS)
+    for p in CODE_REQUEST_KEYWORDS:
+        if p in lower:
+            return True
+    return False
 
 
 # Bolt Optimization: Pre-compile regexes for fast evaluation
@@ -859,13 +886,24 @@ def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish or Spanish indicators, else default English
     lower = text.lower()
     tr_chars = "çğıöşü"
-    if any(c in lower for c in tr_chars) or _TR_LANG_RE.search(lower):
+
+    has_tr = False
+    for c in tr_chars:
+        if c in lower:
+            has_tr = True
+            break
+    if has_tr or _TR_LANG_RE.search(lower):
         return "tr"
+
     # Spanish accents / inverted punctuation / common words
-    if any(
-        ch in text for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡")
-    ) or _ES_LANG_RE.search(lower):
+    has_es = False
+    for ch in ("ñ", "á", "é", "í", "ó", "ú", "ü", "¿", "¡"):
+        if ch in text:
+            has_es = True
+            break
+    if has_es or _ES_LANG_RE.search(lower):
         return "es"
+
     return "en"
 
 
@@ -904,7 +942,10 @@ def detect_domain_candidates(evidence: List[str], top_k: int = 3) -> List[str]:
 
 def detect_recency(text: str) -> bool:
     lower = text.lower()
-    return any(p in lower for p in RECENCY_KEYWORDS)
+    for p in RECENCY_KEYWORDS:
+        if p in lower:
+            return True
+    return False
 
 
 def extract_format(text: str) -> str:
@@ -946,7 +987,10 @@ def detect_conflicts(constraints: List[str]) -> List[str]:
 
 def detect_teaching_intent(text: str) -> bool:
     lower = text.lower()
-    return any(p in lower for p in TEACHING_KEYWORDS)
+    for p in TEACHING_KEYWORDS:
+        if p in lower:
+            return True
+    return False
 
 
 def _normalize_currency(val: str) -> str:
@@ -1037,7 +1081,11 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
 
     # Budget extraction (after duration to avoid capturing "10 dakikada" as money)
     budget_keywords = ["bütçe", "budget", "en fazla", "üst limit", "max", "limit", "under", "below"]
-    has_budget_kw = any(k in lower for k in budget_keywords)
+    has_budget_kw = False
+    for k in budget_keywords:
+        if k in lower:
+            has_budget_kw = True
+            break
     if has_budget_kw:
         keyword_positions = [lower.find(keyword) for keyword in budget_keywords if keyword in lower]
         budget_search_text = lower[min(keyword_positions) :] if keyword_positions else lower
