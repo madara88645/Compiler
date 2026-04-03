@@ -141,7 +141,7 @@ async def rag_ingest(
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)
-async def rag_query(
+def rag_query(
     req: RagQueryRequest,
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
@@ -161,7 +161,7 @@ async def rag_query(
 
 
 @router.post("/rag/pack")
-async def rag_pack(
+def rag_pack(
     req: RagPackRequest,
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
