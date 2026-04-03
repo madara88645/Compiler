@@ -225,9 +225,13 @@ async def rag_upload(
 
 
 @router.get("/rag/stats")
-async def rag_stats_endpoint(
+def rag_stats_endpoint(
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
+    """
+    Bolt: Avoid blocking event loop for SQLite query by removing async
+    FastAPI handles sync endpoints in a threadpool automatically.
+    """
     del api_key
     return rag_stats()
 
