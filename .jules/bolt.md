@@ -37,3 +37,10 @@
 ## 2026-03-22 - Fast Character Counting in Strings
 **Learning:** In Python, replacing `sum(1 for c in text if c.isdigit())` with `sum(map(str.isdigit, text))` provides a ~3x performance boost. The generator expression executes a bytecode loop in Python, while `map` pushes the iteration entirely into C. Since `str.isdigit` returns booleans (which are integers `1` or `0` in Python), `sum()` seamlessly counts the matches.
 **Action:** When counting occurrences of characters that match a string method (like `.isdigit()`, `.isalpha()`, `.isspace()`), use `sum(map(str.method, text))` for maximum performance in hot paths.
+## 2025-03-09 - Pre-compiling Regex Patterns for Performance
+**Learning:** In Python, iterating over uncompiled string patterns using `re.finditer(pattern, text)` repeatedly compiles the regex patterns on every call, leading to significant overhead in hot loops like security scanners.
+**Action:** Always pre-compile regular expressions at the module level (e.g., `COMPILED_PATTERNS = {k: re.compile(v) for k, v in PATTERNS.items()}`) and use `.finditer` directly on the compiled objects to improve performance.
+
+## 2025-03-09 - Pre-compiling Regex Patterns inside Repeated Methods
+**Learning:** Defining dictionary maps or strings with regex patterns inside frequently called functions (like `_resolve_conflicts` or `_inject_reasoning`) causes Python to re-allocate structures and `re.search` to re-compile (or rely on internal limited LRU caches) each time.
+**Action:** Move static regex definitions and lists of patterns to the module level, pre-compile them with `re.compile()`, and use the pre-compiled `.search()` or `.match()` methods inside the hot functions for a guaranteed speedup.
