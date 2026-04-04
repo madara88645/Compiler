@@ -177,7 +177,10 @@ class PromptValidator:
         # Check for vague terms in original text
         if original_text:
             text_lower = original_text.lower()
-            found_vague = [term for term in self.VAGUE_TERMS if term in text_lower.split()]
+
+            # Bolt Optimization: Pre-compute word set to avoid O(N) allocations in comprehension loop
+            words = set(text_lower.split())
+            found_vague = [term for term in self.VAGUE_TERMS if term in words]
             if found_vague:
                 issues.append(
                     ValidationIssue(
