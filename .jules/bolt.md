@@ -44,3 +44,7 @@
 ## 2025-03-09 - Pre-compiling Regex Patterns inside Repeated Methods
 **Learning:** Defining dictionary maps or strings with regex patterns inside frequently called functions (like `_resolve_conflicts` or `_inject_reasoning`) causes Python to re-allocate structures and `re.search` to re-compile (or rely on internal limited LRU caches) each time.
 **Action:** Move static regex definitions and lists of patterns to the module level, pre-compile them with `re.compile()`, and use the pre-compiled `.search()` or `.match()` methods inside the hot functions for a guaranteed speedup.
+
+## 2026-03-24 - Optimizing String Tokens Membership Check
+**Learning:** In Python, when checking for membership of multiple items in a tokenized string within a loop or comprehension (e.g., `[t for t in terms if t in text.split()]`), evaluating `.split()` inside the loop forces Python to allocate new lists and do O(N) membership checks repeatedly.
+**Action:** Extract `.split()` outside the loop and convert it to a `set` (e.g., `words = set(text.split())`). This ensures the string is split only once and provides O(1) membership lookups for the inner evaluation, significantly improving performance especially for large texts.
