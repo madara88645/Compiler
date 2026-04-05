@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiFetch, buildGeneratorApiHeaders } from "@/config";
 import ContextManager from "../components/ContextManager";
@@ -16,8 +16,12 @@ export default function AgentGenerator() {
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
 
+  const isGeneratingRef = useRef(false);
+
   const handleGenerate = async () => {
     if (!description.trim()) return;
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -51,6 +55,7 @@ export default function AgentGenerator() {
       setError(e instanceof Error ? e.message : "Failed to generate agent");
     } finally {
       setLoading(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -108,6 +113,15 @@ export default function AgentGenerator() {
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.repeat) return;
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    if (!loading && description.trim()) {
+                      void handleGenerate();
+                    }
+                  }
+                }}
               />
             </div>
 
@@ -176,12 +190,12 @@ export default function AgentGenerator() {
             <button
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
-              className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20'}`}
+              className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
             >
               {loading ? (
                 <span className="animate-pulse">Architecting...</span>
               ) : (
-                <>Generate {multiAgent ? 'Swarm' : 'Agent'} <span className="group-hover:translate-x-0.5 transition-transform">→</span></>
+                <>Generate {multiAgent ? 'Swarm' : 'Agent'} <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
               )}
             </button>
 
