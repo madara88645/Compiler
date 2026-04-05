@@ -108,9 +108,14 @@ class QuickEditor:
 
             # Open editor
             # Safely parse the editor string into arguments to handle cases like "nano -w"
-            # and prevent command injection if the EDITOR env var is maliciously crafted
+            # and prevent command injection if the EDITOR env var is maliciously crafted.
+            # Normalize Windows-style backslash path separators before shlex parsing so
+            # that paths like C:\Windows\System32\cmd.exe are not mangled by posix shlex
+            # (which would otherwise strip backslashes as escape characters, reducing the
+            # path to "C:WindowsSystem32cmd.exe" and defeating the denylist check).
+            editor_for_split = editor.replace("\\", "/") if os.name != "nt" else editor
             try:
-                editor_parts = shlex.split(editor, posix=os.name != "nt")
+                editor_parts = shlex.split(editor_for_split, posix=os.name != "nt")
             except ValueError as exc:
                 console.print(
                     f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]"
@@ -131,29 +136,61 @@ class QuickEditor:
                 return None
 
             # Validate editor components against a denylist of shells/interpreters
-            # to prevent command injection via execution wrappers
-            denylist = {
+            # to prevent command injection via execution wrappers.
+            # Exact names for common shells and wrappers that don't have version suffixes.
+            _denylist_exact = {
                 "bash",
                 "sh",
                 "zsh",
                 "csh",
                 "ksh",
-                "python",
-                "python3",
+                "dash",
+                "fish",
+                "tcsh",
+                "ash",
                 "env",
                 "cmd",
-                "powershell",
-                "pwsh",
                 "cmd.exe",
+                "powershell",
                 "powershell.exe",
+                "pwsh",
+            }
+            # Prefixes for interpreter families that may have version suffixes,
+            # e.g. python3.12, pypy3, ruby3.2, perl5, php8, nodejs, lua5.4, tclsh8.
+            # The suffix must be empty or consist only of digits and dots to avoid
+            # false positives on unrelated editor names (e.g. "perlfect", "rubyx").
+            _denylist_prefixes = (
+                "python",
+                "pypy",
                 "node",
                 "nodejs",
                 "ruby",
                 "perl",
                 "php",
-            }
+                "lua",
+                "tclsh",
+                "wish",
+            )
+
+            def _is_forbidden(exe: str) -> bool:
+                # Normalize Windows-style backslash separators before taking the
+                # basename so that paths like C:\Windows\System32\cmd.exe are
+                # reduced to "cmd.exe" even when running on Unix.
+                name = os.path.basename(exe.replace("\\", "/")).lower()
+                if name in _denylist_exact:
+                    return True
+                for prefix in _denylist_prefixes:
+                    if name.startswith(prefix):
+                        # Only block when the suffix is empty or a version number
+                        # (digits and dots), to avoid false positives on editor names
+                        # that merely share a prefix with an interpreter family.
+                        suffix = name[len(prefix) :]
+                        if not suffix or all(c.isdigit() or c == "." for c in suffix):
+                            return True
+                return False
+
             for part in editor_parts:
-                if os.path.basename(part).lower() in denylist:
+                if _is_forbidden(part):
                     console.print(
                         f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
                     )
