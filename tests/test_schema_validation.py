@@ -59,3 +59,28 @@ def test_checked_in_schemas_match_shared_ir_contract_enums():
     assert policy["risk_level"]["enum"] == IR_RISK_LEVELS
     assert policy["data_sensitivity"]["enum"] == IR_DATA_SENSITIVITY_LEVELS
     assert policy["execution_mode"]["enum"] == IR_EXECUTION_MODES
+
+
+def test_shared_ir_intents_cover_high_value_v2_heuristic_outputs():
+    expected_v2_intents = {
+        "summary",
+        "compare",
+        "variants",
+        "recency",
+        "risk",
+        "code",
+        "ambiguous",
+        "creative",
+        "explanation",
+        "proposal",
+        "review",
+        "preparation",
+        "troubleshooting",
+        "debug",
+        "capability_mismatch",
+        "decompose",
+        "summarize",
+        "teaching",
+    }
+
+    assert expected_v2_intents.issubset(set(IR_INTENTS))
