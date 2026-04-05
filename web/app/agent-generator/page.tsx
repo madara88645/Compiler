@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiFetch, buildGeneratorApiHeaders } from "@/config";
 import ContextManager from "../components/ContextManager";
@@ -16,8 +16,12 @@ export default function AgentGenerator() {
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
 
+  const isGeneratingRef = useRef(false);
+
   const handleGenerate = async () => {
     if (!description.trim()) return;
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -51,6 +55,7 @@ export default function AgentGenerator() {
       setError(e instanceof Error ? e.message : "Failed to generate agent");
     } finally {
       setLoading(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -109,6 +114,7 @@ export default function AgentGenerator() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={(e) => {
+                  if (e.repeat) return;
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                     e.preventDefault();
                     if (!loading && description.trim()) {

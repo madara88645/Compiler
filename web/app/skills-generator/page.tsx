@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { apiFetch, buildGeneratorApiHeaders } from "@/config";
 import InfoButton from "../components/InfoButton";
@@ -15,8 +15,12 @@ export default function SkillsGenerator() {
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; skill: string }[]>([]);
 
+  const isGeneratingRef = useRef(false);
+
   const handleGenerate = async () => {
     if (!description.trim()) return;
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -49,6 +53,7 @@ export default function SkillsGenerator() {
       setError(e instanceof Error ? e.message : "Failed to generate skill");
     } finally {
       setLoading(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -106,6 +111,7 @@ export default function SkillsGenerator() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={(e) => {
+                  if (e.repeat) return;
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                     e.preventDefault();
                     if (!loading && description.trim()) {
