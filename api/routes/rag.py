@@ -237,9 +237,13 @@ def rag_stats_endpoint(
 
 
 @router.post("/rag/search", response_model=List[RagSearchResult])
-async def rag_search_endpoint(
+def rag_search_endpoint(
     req: RagSearchRequest,
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
+    """
+    Bolt: Avoid blocking event loop for SQLite query by removing async.
+    FastAPI handles sync endpoints in a threadpool automatically.
+    """
     del api_key
     return [_canonical_search_result(item) for item in rag_search(req.query, k=req.limit)]

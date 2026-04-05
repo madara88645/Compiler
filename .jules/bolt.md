@@ -48,3 +48,6 @@
 ## 2026-03-24 - Optimizing String Tokens Membership Check
 **Learning:** In Python, when checking for membership of multiple items in a tokenized string within a loop or comprehension (e.g., `[t for t in terms if t in text.split()]`), evaluating `.split()` inside the loop forces Python to allocate new lists and do O(N) membership checks repeatedly.
 **Action:** Extract `.split()` outside the loop and convert it to a `set` (e.g., `words = set(text.split())`). This ensures the string is split only once and provides O(1) membership lookups for the inner evaluation, significantly improving performance especially for large texts.
+## 2026-04-05 - Prevent Event Loop Blocking in FastAPI
+**Learning:** In FastAPI, declaring an endpoint as `async def` while running a blocking synchronous operation (like SQLite I/O) directly within it blocks the main event loop, severely degrading concurrent performance.
+**Action:** Declare endpoints performing blocking I/O as `def` instead of `async def`. FastAPI will automatically offload these synchronous endpoints to a separate threadpool, allowing the main event loop to remain non-blocking.
