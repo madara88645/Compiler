@@ -163,7 +163,7 @@ class QuickEditor:
 
                 for prefix in denylist_prefixes:
                     if base_without_ext.startswith(prefix):
-                        remainder = base_without_ext[len(prefix):]
+                        remainder = base_without_ext[len(prefix) :]
                         if not remainder or remainder.lstrip(".0123456789") == "":
                             console.print(
                                 f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
