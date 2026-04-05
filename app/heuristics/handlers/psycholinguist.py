@@ -265,10 +265,6 @@ def detect_formality(text: str) -> FormalityLevel:
     return FormalityLevel.UNKNOWN
 
 
-_SENTENCE_SPLIT_REGEX = re.compile(r"[.!?]+")
-_WORD_REGEX = re.compile(r"\b\w{4,}\b")
-
-
 def calculate_cognitive_load(text: str) -> CognitiveLoadResult:
     """
     Calculate cognitive load based on idea density.
@@ -277,15 +273,13 @@ def calculate_cognitive_load(text: str) -> CognitiveLoadResult:
     A proposition is roughly estimated by counting verbs, nouns, and adjectives.
     """
     # Split into sentences
-    # Bolt Optimization: pre-compile regexes used repeatedly inside methods
-    sentences = _SENTENCE_SPLIT_REGEX.split(text)
+    sentences = re.split(r"[.!?]+", text)
     sentences = [s.strip() for s in sentences if s.strip()]
     num_sentences = max(len(sentences), 1)
 
     # Rough proposition count: count words that look like content words
     # This is a simplistic heuristic; a real impl would use POS tagging.
-    # Bolt Optimization: pre-compile regexes used repeatedly inside methods
-    words = _WORD_REGEX.findall(text)  # Words with 4+ chars as proxy
+    words = re.findall(r"\b\w{4,}\b", text)  # Words with 4+ chars as proxy
     num_propositions = len(words)
 
     idea_density = num_propositions / num_sentences

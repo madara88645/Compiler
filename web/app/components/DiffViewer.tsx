@@ -76,11 +76,9 @@ export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
                 if (!cancelled) {
                     setSanitizedHtml(DOMPurify.sanitize(rawHtmlContent));
                 }
-            } catch (error) {
-                console.error("Failed to load DOMPurify:", error);
+            } catch {
                 if (!cancelled) {
-                    // Fallback: Fail securely rather than exposing XSS
-                    setSanitizedHtml("<div>Error: Diff viewer failed to initialize securely.</div>");
+                    setSanitizedHtml(rawHtmlContent);
                 }
             }
         }
