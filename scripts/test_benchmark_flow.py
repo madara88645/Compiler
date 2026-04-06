@@ -50,6 +50,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 BASE_URL = os.environ.get("BENCHMARK_API_URL", "http://127.0.0.1:8080")
 TIMEOUT = 30  # seconds – generous for LLM-backed endpoints
+IN_PYTEST = "PYTEST_CURRENT_TEST" in os.environ
 
 # ---------------------------------------------------------------------------
 # Prompts used across test scenarios
@@ -129,7 +130,7 @@ class OnlineResults:
     skipped = 0
 
 
-def _check(condition: bool, pass_msg: str, fail_msg: str) -> None:
+def _check(condition: bool, pass_msg: str, fail_msg: str) -> bool:
     if condition:
         _pass(pass_msg)
         OnlineResults.passed += 1
@@ -137,6 +138,23 @@ def _check(condition: bool, pass_msg: str, fail_msg: str) -> None:
         _fail(fail_msg)
         OnlineResults.failed += 1
     return condition
+
+
+def _skip_online_test(msg: str) -> None:
+    """Use pytest skip during test runs, plain counters during standalone runs."""
+    if IN_PYTEST:
+        import pytest
+
+        pytest.skip(msg)
+    _skip(msg)
+    OnlineResults.skipped += 1
+
+
+def _assert_or_stop(ok: bool) -> bool:
+    """Raise under pytest, return control under the standalone runner."""
+    if IN_PYTEST:
+        assert ok
+    return ok
 
 
 # ---- 1a. Compile endpoint -------------------------------------------------
@@ -156,17 +174,16 @@ def test_compile_raw_and_improved() -> None:
         },
     )
     if resp is None:
-        _skip("Server not reachable — skipping online compile test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping online compile test")
+        return
 
     ok = _check(
         resp.status_code == 200,
         f"Status 200 (got {resp.status_code})",
         f"Expected 200 but got {resp.status_code}",
     )
-    if not ok:
-        return False
+    if not _assert_or_stop(ok):
+        return
 
     data: dict = resp.json()
 
@@ -228,17 +245,16 @@ def test_validate_judge_verdict() -> None:
 
     resp = _post("/validate", {"text": SAMPLE_PROMPTS["clear_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping online validate test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping online validate test")
+        return
 
     ok = _check(
         resp.status_code == 200,
         f"Status 200 (got {resp.status_code})",
         f"Expected 200 but got {resp.status_code}",
     )
-    if not ok:
-        return False
+    if not _assert_or_stop(ok):
+        return
 
     data: dict = resp.json()
 
@@ -296,17 +312,16 @@ def test_fix_generates_improved_output() -> None:
 
     resp = _post("/fix", {"text": SAMPLE_PROMPTS["vague_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping online fix test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping online fix test")
+        return
 
     ok = _check(
         resp.status_code == 200,
         f"Status 200 (got {resp.status_code})",
         f"Expected 200 but got {resp.status_code}",
     )
-    if not ok:
-        return False
+    if not _assert_or_stop(ok):
+        return
 
     data: dict = resp.json()
 
@@ -340,9 +355,8 @@ def test_compile_empty_input_no_crash() -> None:
 
     resp = _post("/compile", {"text": SAMPLE_PROMPTS["empty_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping online empty-input test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping online empty-input test")
+        return
 
     _check(
         resp.status_code != 500,
@@ -359,9 +373,8 @@ def test_validate_empty_input_no_crash() -> None:
 
     resp = _post("/validate", {"text": SAMPLE_PROMPTS["empty_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping empty validate test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping empty validate test")
+        return
 
     _check(
         resp.status_code != 500,
@@ -378,9 +391,8 @@ def test_fix_empty_input_no_crash() -> None:
 
     resp = _post("/fix", {"text": SAMPLE_PROMPTS["empty_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping empty fix test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping empty fix test")
+        return
 
     _check(
         resp.status_code != 500,
@@ -397,9 +409,8 @@ def test_compile_whitespace_input_no_crash() -> None:
 
     resp = _post("/compile", {"text": SAMPLE_PROMPTS["whitespace_prompt"]})
     if resp is None:
-        _skip("Server not reachable — skipping whitespace test")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping whitespace test")
+        return
 
     _check(
         resp.status_code != 500,
@@ -422,7 +433,7 @@ class OfflineResults:
     failed = 0
 
 
-def _check_offline(condition: bool, pass_msg: str, fail_msg: str) -> None:
+def _check_offline(condition: bool, pass_msg: str, fail_msg: str) -> bool:
     if condition:
         _pass(pass_msg)
         OfflineResults.passed += 1
@@ -615,9 +626,8 @@ def test_full_benchmark_flow() -> None:
     _info(f"Step 1 — Compile: '{prompt[:50]}...'")
     resp_compile = _post("/compile", {"text": prompt, "v2": True, "render_v2_prompts": True})
     if resp_compile is None:
-        _skip("Server not reachable — skipping full flow")
-        OnlineResults.skipped += 1
-        return False
+        _skip_online_test("Server not reachable — skipping full flow")
+        return
 
     _check(
         resp_compile.status_code == 200,
@@ -766,4 +776,8 @@ def run_all() -> int:
 # ============================================================================
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(run_all())
