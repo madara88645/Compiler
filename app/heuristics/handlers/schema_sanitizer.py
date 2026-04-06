@@ -16,16 +16,12 @@ _STRING_FIELDS = [
 ]
 
 # Bolt Optimization: Pre-compile an alternated regex to quickly check if *any* target field exists
-_FAST_CHECK_PATTERN = re.compile(
-    r'"(?:' + "|".join(_STRING_FIELDS) + r')"', re.IGNORECASE
-)
+_FAST_CHECK_PATTERN = re.compile(r'"(?:' + "|".join(_STRING_FIELDS) + r')"', re.IGNORECASE)
 
 # Bolt Optimization: Pre-compile the substitution regexes at the module level
 _FIELD_REGEXES = [
-    re.compile(
-        r'("' + field + r'"\s*:\s*\{\s*"type"\s*:\s*")(?:integer|number)(")',
-        re.IGNORECASE
-    ) for field in _STRING_FIELDS
+    re.compile(r'("' + field + r'"\s*:\s*\{\s*"type"\s*:\s*")(?:integer|number)(")', re.IGNORECASE)
+    for field in _STRING_FIELDS
 ]
 
 
