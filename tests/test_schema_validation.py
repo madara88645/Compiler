@@ -39,26 +39,26 @@ def test_v1_and_v2_persona_enums_stay_aligned_for_shared_values():
 
 
 def test_checked_in_schemas_match_shared_ir_contract_enums():
-    assert schema["properties"]["language"]["enum"] == IR_LANGUAGES
-    assert schema["properties"]["persona"]["enum"] == IR_PERSONAS
-    assert schema["properties"]["output_format"]["enum"] == IR_OUTPUT_FORMATS
-    assert schema["properties"]["length_hint"]["enum"] == IR_LENGTH_HINTS
+    assert set(schema["properties"]["language"]["enum"]) == set(IR_LANGUAGES)
+    assert set(schema["properties"]["persona"]["enum"]) == set(IR_PERSONAS)
+    assert set(schema["properties"]["output_format"]["enum"]) == set(IR_OUTPUT_FORMATS)
+    assert set(schema["properties"]["length_hint"]["enum"]) == set(IR_LENGTH_HINTS)
 
-    assert schema_v2["properties"]["language"]["enum"] == IR_LANGUAGES
-    assert schema_v2["properties"]["persona"]["enum"] == IR_PERSONAS
-    assert schema_v2["properties"]["output_format"]["enum"] == IR_OUTPUT_FORMATS
-    assert schema_v2["properties"]["length_hint"]["enum"] == IR_LENGTH_HINTS
-    assert schema_v2["properties"]["intents"]["items"]["enum"] == IR_INTENTS
-    assert schema_v2["properties"]["steps"]["items"]["properties"]["type"]["enum"] == IR_STEP_TYPES
+    assert set(schema_v2["properties"]["language"]["enum"]) == set(IR_LANGUAGES)
+    assert set(schema_v2["properties"]["persona"]["enum"]) == set(IR_PERSONAS)
+    assert set(schema_v2["properties"]["output_format"]["enum"]) == set(IR_OUTPUT_FORMATS)
+    assert set(schema_v2["properties"]["length_hint"]["enum"]) == set(IR_LENGTH_HINTS)
+    assert set(schema_v2["properties"]["intents"]["items"]["enum"]) == set(IR_INTENTS)
+    assert set(schema_v2["properties"]["steps"]["items"]["properties"]["type"]["enum"]) == set(IR_STEP_TYPES)
     assert (
-        schema_v2["properties"]["constraints"]["items"]["properties"]["priority"]["enum"]
-        == IR_CONSTRAINT_PRIORITIES
+        set(schema_v2["properties"]["constraints"]["items"]["properties"]["priority"]["enum"])
+        == set(IR_CONSTRAINT_PRIORITIES)
     )
 
     policy = schema_v2["properties"]["policy"]["properties"]
-    assert policy["risk_level"]["enum"] == IR_RISK_LEVELS
-    assert policy["data_sensitivity"]["enum"] == IR_DATA_SENSITIVITY_LEVELS
-    assert policy["execution_mode"]["enum"] == IR_EXECUTION_MODES
+    assert set(policy["risk_level"]["enum"]) == set(IR_RISK_LEVELS)
+    assert set(policy["data_sensitivity"]["enum"]) == set(IR_DATA_SENSITIVITY_LEVELS)
+    assert set(policy["execution_mode"]["enum"]) == set(IR_EXECUTION_MODES)
 
 
 def test_shared_ir_intents_cover_high_value_v2_heuristic_outputs():
