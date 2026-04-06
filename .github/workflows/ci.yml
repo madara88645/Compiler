@@ -59,6 +59,10 @@ jobs:
         working-directory: web
         run: npm run test:contracts
 
+      - name: Frontend unit tests
+        working-directory: web
+        run: npm run test
+
       - name: Frontend lint
         working-directory: web
         run: npm run lint
@@ -102,7 +106,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -q --cov=app --cov=cli --cov=api --cov-report=term-missing --cov-report=xml
+          pytest -q --cov=app --cov=cli --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=60
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v7

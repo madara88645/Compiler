@@ -6,6 +6,7 @@ import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
+import OutputSkeleton from "./components/OutputSkeleton";
 import { useCompiler } from "./hooks/useCompiler";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
@@ -43,9 +44,11 @@ export default function Home() {
     loading,
     result,
     status,
+    lastError,
     securityFindings,
     redactedText,
     runCompile,
+    retry,
     resolveSecurityDecision,
     cancelSecurityReview,
   } = useCompiler();
@@ -132,8 +135,18 @@ export default function Home() {
               AI MODE
             </div>
 
-            <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
-              {status}
+            <div className="flex items-center gap-2">
+              <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
+                {status}
+              </div>
+              {!!lastError && !loading && (
+                <button
+                  onClick={() => void retry()}
+                  className="text-xs font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                >
+                  Retry
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -189,7 +202,7 @@ export default function Home() {
             {result ? (
               <>
                 {/* Tabs */}
-                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
+                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       key={tab}
@@ -355,6 +368,8 @@ export default function Home() {
                   )}
                 </div>
               </>
+            ) : loading ? (
+              <OutputSkeleton />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
                 <div className="relative group">

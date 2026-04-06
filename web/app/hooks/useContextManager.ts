@@ -11,7 +11,7 @@ import {
 } from "../../lib/api/promptc";
 import type { RagSearchResult, RagStats } from "../../lib/api/types";
 
-type UploadProgress = {
+export type UploadProgress = {
   completed: number;
   currentFile: string | null;
   total: number;

@@ -11,7 +11,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { apiFetch } from "@/config";
+import { apiJson } from "@/config";
+import { showError } from "../lib/showError";
 import DiffViewer from "../components/DiffViewer";
 import InfoButton from "../components/InfoButton";
 import {
@@ -100,31 +101,15 @@ export default function BenchmarkPage() {
         return;
       }
 
-      const response = await apiFetch("/benchmark/run", {
+      const data = await apiJson<BenchmarkPayload>("/benchmark/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: prompt.trim(), model: selectedModel }),
       });
-
-      if (!response.ok) {
-        let detail = "Benchmark failed. Try another model.";
-
-        try {
-          const payload = (await response.json()) as { detail?: string };
-          if (typeof payload.detail === "string" && payload.detail.trim()) {
-            detail = payload.detail;
-          }
-        } catch {
-          // Keep the generic message when the payload is not JSON.
-        }
-
-        throw new Error(detail);
-      }
-
-      const data = (await response.json()) as BenchmarkPayload;
       setBenchmarkResult(data);
       setStatus(`Benchmark complete (${data.processing_ms}ms)`);
     } catch (error) {
+      showError(error);
       setStatus("Benchmark failed");
       setErrorMessage(buildBenchmarkErrorMessage(error));
     } finally {
