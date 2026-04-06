@@ -77,6 +77,11 @@ def verify_api_key(
             status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
         )
 
+    if len(api_key) > 256:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="API key too long"
+        )
+
     # --- Master Key Check (for Stateless Deployments like Railway) ---
     import os
 
