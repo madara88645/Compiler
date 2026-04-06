@@ -81,7 +81,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 <button
                     onClick={() => setPromptOpen(!promptOpen)}
                     aria-expanded={promptOpen}
-                    className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group"
+                    className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
                 >
                     <div className="flex items-center gap-2">
                         <svg
@@ -123,7 +123,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             onClick={() => navigator.clipboard.writeText(data.raw_output)}
-                            className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
+                            className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title="Copy raw output"
                             aria-label="Copy raw output"
                         >
@@ -144,7 +144,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             onClick={() => navigator.clipboard.writeText(data.compiled_output)}
-                            className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
+                            className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title="Copy compiled output"
                             aria-label="Copy compiled output"
                         >
