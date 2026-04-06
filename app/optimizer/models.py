@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from uuid import uuid4
@@ -53,6 +54,7 @@ class OptimizationRun(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     config: OptimizationConfig
+    created_at: Optional[datetime] = None
     generations: List[List[Candidate]] = Field(default_factory=list)
     best_candidate: Optional[Candidate] = None
     total_cost: float = 0.0  # Accumulated cost across all sessions

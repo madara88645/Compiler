@@ -1,9 +1,19 @@
 import json
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
 
 from .models import OptimizationRun
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_datetime(value: datetime) -> datetime:
+    """Normalize naive and aware datetimes for consistent storage and sorting."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class HistoryManager:
@@ -24,9 +34,10 @@ class HistoryManager:
     def save_run(self, run: OptimizationRun) -> Path:
         """Save a run to disk."""
         file_path = self.history_dir / f"{run.id}.json"
-
-        # Add timestamp if we want? Or rely on filesystem
-        # For now, just dump the model
+        if run.created_at is None:
+            run.created_at = datetime.now(timezone.utc).replace(microsecond=0)
+        else:
+            run.created_at = _normalize_datetime(run.created_at).replace(tzinfo=None)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(run.model_dump_json(indent=2))
 
@@ -41,9 +52,14 @@ class HistoryManager:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return OptimizationRun.model_validate(data)
+            run = OptimizationRun.model_validate(data)
+            if run.created_at is None:
+                run.created_at = datetime.fromtimestamp(
+                    file_path.stat().st_mtime, timezone.utc
+                ).replace(tzinfo=None)
+            return run
         except Exception as e:
-            print(f"Error loading run {run_id}: {e}")
+            logger.warning("Error loading optimization run %s: %s", run_id, e)
             return None
 
     def list_runs(self) -> List[dict]:
@@ -54,26 +70,19 @@ class HistoryManager:
         runs = []
         for file_path in self.history_dir.glob("*.json"):
             try:
-                # We could optimize this by having an index.json,
-                # but for <1000 runs, reading files is fine if we're lazy loading
-                # or just reading basic stats. For speed, let's just use file stats for date
-                # and maybe peek at content if needed.
-                # Actually, let's load them for now, assuming they aren't massive.
-                # Optimization: In future, use index or separate meta file.
-
                 with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 run = OptimizationRun.model_validate(data)
-
-                # Timestamp from file mtime
-                mtime = file_path.stat().st_mtime
-                timestamp = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                created_at = run.created_at or datetime.fromtimestamp(
+                    file_path.stat().st_mtime, timezone.utc
+                ).replace(tzinfo=None)
 
                 runs.append(
                     {
                         "id": run.id,
-                        "date": timestamp,
+                        "date": created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        "created_at": created_at,
                         "generations": len(run.generations),
                         "best_score": run.best_candidate.score if run.best_candidate else 0.0,
                         "model": run.config.model,
@@ -83,6 +92,7 @@ class HistoryManager:
             except Exception:
                 continue
 
-        # Sort by date desc
-        runs.sort(key=lambda x: x["date"], reverse=True)
+        runs.sort(key=lambda x: x["created_at"], reverse=True)
+        for run in runs:
+            run.pop("created_at", None)
         return runs

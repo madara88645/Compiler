@@ -1,6 +1,7 @@
 import typer
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 import yaml
 from rich.console import Console
 from rich.panel import Panel
@@ -20,6 +21,13 @@ history_app = typer.Typer(help="Manage optimization history")
 app.add_typer(history_app, name="history")
 
 console = Console()
+
+
+def _format_run_date(created_at: Optional[datetime]) -> str:
+    """Format stored run timestamps consistently for CLI output."""
+    if created_at is None:
+        return "Unknown"
+    return created_at.strftime("%Y-%m-%d %H:%M:%S")
 
 
 @app.command("run")
@@ -298,6 +306,7 @@ def optimize_resume(
         console.print(best.prompt_text)
 
 
+@history_app.command("list")
 def history_list(limit: int = typer.Option(10, "--limit", "-l", help="Number of runs to show")):
     """List past optimization runs."""
     from app.optimizer.history import HistoryManager
@@ -355,9 +364,7 @@ def history_show(run_id: str):
         raise typer.Exit(1)
 
     console.print(f"\n[bold cyan]Run Details: {run.id}[/bold cyan]")
-    console.print(
-        f"Date: [green]{run.id}[/green] (TODO: Fix date in model)"
-    )  # Model doesn't have date yet, relying on ID/file
+    console.print(f"Date: [green]{_format_run_date(run.created_at)}[/green]")
     console.print(f"Target Score: {run.config.target_score}")
     console.print(f"Generations: {len(run.generations)}")
 
