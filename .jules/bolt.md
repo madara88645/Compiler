@@ -51,3 +51,6 @@
 ## 2026-04-05 - Prevent Event Loop Blocking in FastAPI
 **Learning:** In FastAPI, declaring an endpoint as `async def` while running a blocking synchronous operation (like SQLite I/O) directly within it blocks the main event loop, severely degrading concurrent performance.
 **Action:** Declare endpoints performing blocking I/O as `def` instead of `async def`. FastAPI will automatically offload these synchronous endpoints to a separate threadpool, allowing the main event loop to remain non-blocking.
+## 2024-05-18 - Schema Sanitizer Fast-Path Avoids Expensive Regex Loops
+**Learning:** Pre-compiling regex substitutions at the module level and using a combined alternated regex (`re.search(r"A|B|C")`) to pre-filter text inside a hot loop is extremely effective when matches are rare. In `SchemaSanitizerHandler`, checking for 7 specific string fields using this pattern skips the expensive and repeated execution of 7 `re.sub` replacements on the vast majority of constraints where those fields do not exist.
+**Action:** When applying multiple regex replacements (`re.sub` or `re.subn`) inside a loop over text, always evaluate if the target patterns can be combined into a fast-path alternated check to skip the replacement logic entirely when not needed. Pre-compile all regexes at the module level to avoid overhead.
