@@ -98,11 +98,12 @@ def test_checked_in_schemas_match_shared_ir_contract_enums():
     assert set(schema_v2["properties"]["output_format"]["enum"]) == set(IR_OUTPUT_FORMATS)
     assert set(schema_v2["properties"]["length_hint"]["enum"]) == set(IR_LENGTH_HINTS)
     assert set(schema_v2["properties"]["intents"]["items"]["enum"]) == set(IR_INTENTS)
-    assert set(schema_v2["properties"]["steps"]["items"]["properties"]["type"]["enum"]) == set(IR_STEP_TYPES)
-    assert (
-        set(schema_v2["properties"]["constraints"]["items"]["properties"]["priority"]["enum"])
-        == set(IR_CONSTRAINT_PRIORITIES)
+    assert set(schema_v2["properties"]["steps"]["items"]["properties"]["type"]["enum"]) == set(
+        IR_STEP_TYPES
     )
+    assert set(
+        schema_v2["properties"]["constraints"]["items"]["properties"]["priority"]["enum"]
+    ) == set(IR_CONSTRAINT_PRIORITIES)
 
     policy = schema_v2["properties"]["policy"]["properties"]
     assert set(policy["risk_level"]["enum"]) == set(IR_RISK_LEVELS)
