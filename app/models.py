@@ -62,7 +62,7 @@ class IR(BaseModel):
     @field_validator("language")
     def _lang(cls, v):  # type: ignore
         if v not in set(IR_LANGUAGES):
-            raise ValueError("language must be 'tr' or 'en' or 'es'")
+            raise ValueError(f"language must be one of {list(IR_LANGUAGES)}")
         return v
 
     @field_validator("output_format")
