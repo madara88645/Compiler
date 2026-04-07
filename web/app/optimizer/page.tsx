@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/config";
+import { apiJson } from "@/config";
+import { showError } from "../lib/showError";
 
 import InfoButton from "../components/InfoButton";
 
@@ -18,7 +19,11 @@ export default function OptimizerPage() {
         if (!input.trim()) return;
         setLoading(true);
         try {
-            const res = await apiFetch("/optimize", {
+            const data = await apiJson<{
+                text: string;
+                before_tokens: number;
+                after_tokens: number;
+            }>("/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -27,7 +32,6 @@ export default function OptimizerPage() {
                     max_chars: maxChars ? parseInt(maxChars) : undefined,
                 }),
             });
-            const data = await res.json();
             setOutput(data.text);
             setStats({
                 before_tokens: data.before_tokens,
@@ -35,8 +39,7 @@ export default function OptimizerPage() {
                 saved_percent: ((data.before_tokens - data.after_tokens) / data.before_tokens * 100).toFixed(1)
             });
         } catch (e) {
-            console.error(e);
-            setOutput("Error optimization failed.");
+            showError(e);
         } finally {
             setLoading(false);
         }

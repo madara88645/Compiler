@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { apiFetch, buildGeneratorApiHeaders } from "@/config";
+import { apiJson, buildGeneratorApiHeaders } from "@/config";
+import { showError } from "../lib/showError";
 import InfoButton from "../components/InfoButton";
 import ContextManager from "../components/ContextManager";
 import SkillExportPanel from "./components/ExportPanel";
@@ -27,7 +28,7 @@ export default function SkillsGenerator() {
     setResult(null);
 
     try {
-      const res = await apiFetch("/skills-generator/generate", {
+      const data = await apiJson<{ skill_definition: string }>("/skills-generator/generate", {
         method: "POST",
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -36,11 +37,6 @@ export default function SkillsGenerator() {
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API Error: ${res.status}`);
-      }
-
-      const data = await res.json();
       setResult(data.skill_definition);
       setHistory((prev) => [
         {
@@ -50,6 +46,7 @@ export default function SkillsGenerator() {
         ...prev,
       ].slice(0, 5));
     } catch (e: unknown) {
+      showError(e);
       setError(e instanceof Error ? e.message : "Failed to generate skill");
     } finally {
       setLoading(false);

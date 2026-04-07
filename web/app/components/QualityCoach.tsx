@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/config";
+import { apiJson } from "@/config";
+import { showError } from "../lib/showError";
 
 type ValidationResponse = {
     score: number;
@@ -27,15 +28,14 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
         if (!prompt.trim()) return;
         setAnalyzing(true);
         try {
-            const res = await apiFetch("/validate", {
+            const data = await apiJson<ValidationResponse>("/validate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: prompt }),
             });
-            const data = await res.json();
             setReport(data);
         } catch (e) {
-            console.error(e);
+            showError(e);
         } finally {
             setAnalyzing(false);
         }

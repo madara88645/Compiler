@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { apiFetch, buildGeneratorApiHeaders } from "@/config";
+import { apiJson, buildGeneratorApiHeaders } from "@/config";
+import { showError } from "../lib/showError";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
 import ExportPanel from "./components/ExportPanel";
@@ -28,7 +29,7 @@ export default function AgentGenerator() {
     setResult(null);
 
     try {
-      const res = await apiFetch("/agent-generator/generate", {
+      const data = await apiJson<{ system_prompt: string }>("/agent-generator/generate", {
         method: "POST",
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -38,11 +39,6 @@ export default function AgentGenerator() {
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API Error: ${res.status}`);
-      }
-
-      const data = await res.json();
       setResult(data.system_prompt);
       setHistory((prev) => [
         {
@@ -52,6 +48,7 @@ export default function AgentGenerator() {
         ...prev,
       ].slice(0, 5));
     } catch (e: unknown) {
+      showError(e);
       setError(e instanceof Error ? e.message : "Failed to generate agent");
     } finally {
       setLoading(false);
