@@ -1,18 +1,3 @@
-## 2024-05-18 - Added Keyboard Accessibility to Critic Agent Badge
-**Learning:** Hidden elements like tooltips using `opacity-0` and `group-hover:opacity-100` must be accessible via keyboard. If the parent container is a `div` and not naturally focusable, it needs `tabIndex={0}`. Furthermore, you can use `group-focus-visible/groupname:opacity-100` on the child element to trigger visibility when the parent container receives keyboard focus, paired with standard `focus-visible:ring-2` on the parent for clear visual feedback.
-**Action:** When adding hover-based visibility classes (`opacity-0 group-hover:opacity-100`), ensure there's a corresponding `group-focus-visible:opacity-100` state. If the trigger isn't an interactive element like a button, explicitly add `tabIndex={0}` so it can receive focus.
-
-## 2025-03-30 - Added Keyboard Shortcuts and Focus States to Core Actions
-**Learning:** For primary core actions (like generating results), power users appreciate dedicated keyboard shortcuts (e.g., `Cmd/Ctrl + Enter`). To ensure discoverability and good UX, a visual `<kbd>` hint should be provided. In conjunction, ensure all interactive dynamic UI components (like result tabs) have robust `focus-visible` classes so that when navigating using the keyboard, the currently focused state is unambiguously clear.
-**Action:** When creating text inputs that drive a main action, implement an `onKeyDown` listener for `Cmd/Ctrl+Enter` and display a `<kbd>` hint near the primary button. Always couple this with `focus-visible:ring-2` (and `focus-visible:outline-none`) on adjacent interactive elements to support a cohesive keyboard-centric workflow.
-
-## 2025-03-30 - Added ARIA Roles and Focus States to Security Alert Modal
-**Learning:** For custom security alerts/modals that demand immediate user attention and block workflows, simply overlaying a centered `div` visually is insufficient. Screen readers require explicit ARIA roles (`role="dialog"`, `aria-modal="true"`) to properly trap focus and convey the critical nature of the prompt. Additionally, ensuring the primary corrective action is auto-focused (`autoFocus`) combined with explicit keyboard focus rings (`focus-visible:ring-2`) allows users to quickly understand their options and act without a mouse.
-**Action:** When building custom modals or alert dialogs, always structure the container with `role="dialog"`, `aria-modal="true"`, and an `aria-labelledby` attribute linked to the title. Pair this with auto-focusing the primary safe/corrective action and clear context-colored `focus-visible` rings on all alternative actions to support efficient keyboard navigation.
-## 2025-04-02 - Tablist Accessibility
-**Learning:** For dynamic UI components serving as tabs (e.g. in `page.tsx`'s view switcher), standard HTML `<button>` inside a `<div>` is inadequate for screen reader navigation. Users need semantic context that they're dealing with a tab group.
-**Action:** Always apply `role="tablist"` to the container, `role="tab"`, `aria-selected`, `aria-controls`, and `id` to the tab items, and `role="tabpanel"` to the content containers to ensure proper structural announcement.
-
-## 2025-04-03 - Stable tabpanel IDs for valid aria-controls
-**Learning:** Using a single `<div role="tabpanel">` whose `id` changes dynamically (e.g. `id={tabpanel-${activeTab}}`) means inactive tabs point to non-existent DOM elements via `aria-controls`. This is a WCAG violation and causes broken behaviour in screen readers.
-**Action:** Render one `<div role="tabpanel">` per tab with a fixed `id` (`tabpanel-${tab}`). Hide inactive panels using the HTML `hidden` attribute so they remain in the DOM but are invisible. Only render the panel's inner content when it is active (for performance). This guarantees every `aria-controls` value always resolves to a real element.
+## 2025-04-06 - Utility Button Focus States
+**Learning:** Icon-only or utility buttons (like "Copy" or accordion toggles) often miss `focus-visible` states because they don't look like primary actions, making them inaccessible to keyboard users navigating via Tab.
+**Action:** When adding utility buttons, always explicitly define `focus-visible:outline-none` and `focus-visible:ring-2` (or `ring-1`) with the appropriate brand color.
