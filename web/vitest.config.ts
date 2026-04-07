@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     globals: true,
+    passWithNoTests: true,
     exclude: ["**/*.test.mts", "node_modules/**"],
   },
   resolve: {
