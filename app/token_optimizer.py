@@ -8,6 +8,8 @@ from app.text_utils import estimate_tokens
 
 
 _FENCE_OPEN_RE = re.compile(r"^\s*(```+|~~~+)")
+_FENCE_BOUNDARY_RE = re.compile(r"([^\n`~])(```+|~~~+)([^\n]*\n)")
+_MULTI_SPACE_RE = re.compile(r"[ \t]{2,}")
 
 
 @dataclass(frozen=True)
@@ -147,7 +149,7 @@ def _normalize_fence_boundaries(text: str) -> str:
     s = (text or "").replace("\r\n", "\n")
     # Insert a newline before a fence line when it is preceded by a non-newline.
     # Example: "Intro```python\n" -> "Intro\n```python\n"
-    s = re.sub(r"([^\n`~])(```+|~~~+)([^\n]*\n)", r"\1\n\2\3", s)
+    s = _FENCE_BOUNDARY_RE.sub(r"\1\n\2\3", s)
     return s
 
 
@@ -272,11 +274,11 @@ def _normalize_line(line: str, *, level: int) -> str:
     if m:
         prefix = ln[: m.end()]
         rest = ln[m.end() :]
-        rest = re.sub(r"[ \t]{2,}", " ", rest).strip()
+        rest = _MULTI_SPACE_RE.sub(" ", rest).strip()
         return prefix + rest
 
     # Collapse internal runs of spaces/tabs.
-    ln = re.sub(r"[ \t]{2,}", " ", ln).strip() if level >= 1 else ln
+    ln = _MULTI_SPACE_RE.sub(" ", ln).strip() if level >= 1 else ln
     return ln
 
 
