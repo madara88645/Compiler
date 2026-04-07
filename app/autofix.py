@@ -49,6 +49,17 @@ VAGUE_REPLACEMENTS: Dict[str, List[str]] = {
     "might": ["could", "may"],
 }
 
+# Bolt Optimization: Pre-compile regex patterns at the module level to avoid compiling
+# them repeatedly inside the loop. Create a fast-path alternated regex to skip
+# the loop entirely if no vague terms are present.
+_COMPILED_VAGUE_PATTERNS = {
+    vague: re.compile(r"\b" + re.escape(vague) + r"\b", re.IGNORECASE)
+    for vague in VAGUE_REPLACEMENTS
+}
+_VAGUE_FAST_PATH = re.compile(
+    r"\b(?:" + "|".join(re.escape(v) for v in VAGUE_REPLACEMENTS) + r")\b", re.IGNORECASE
+)
+
 # Generic persona improvements
 PERSONA_SUGGESTIONS: Dict[str, str] = {
     "general": "expert consultant",
@@ -97,12 +108,17 @@ def _replace_vague_terms(text: str) -> Tuple[str, List[str]]:
     Returns:
         (fixed_text, list_of_changes)
     """
+    # Bolt Optimization: Fast-path check using combined alternated regex.
+    # Skips expensive individual regex matching loop when no vague terms exist.
+    if not _VAGUE_FAST_PATH.search(text):
+        return text, []
+
     fixed = text
     changes = []
 
     for vague, replacements in VAGUE_REPLACEMENTS.items():
-        # Case-insensitive search
-        pattern = re.compile(r"\b" + re.escape(vague) + r"\b", re.IGNORECASE)
+        # Bolt Optimization: Use module-level pre-compiled regex pattern.
+        pattern = _COMPILED_VAGUE_PATTERNS[vague]
         matches = pattern.findall(fixed)
 
         if matches:
