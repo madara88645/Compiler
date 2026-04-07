@@ -77,6 +77,15 @@ PII_PATTERNS: List[Tuple[str, re.Pattern]] = [
     ("IBAN", re.compile(r"\bTR\d{24}\b", re.IGNORECASE)),
 ]
 
+# Bolt Optimization: Hardcoded combined pattern for fast-path search.
+# Excludes IBAN as it requires the IGNORECASE flag which alters global pattern semantics.
+_COMBINED_PII_FAST_PATH: re.Pattern = re.compile(
+    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b|"
+    r"\b(?:\+?\d{1,3}[-. ]?)?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}\b|"
+    r"\b(?:\d{1,3}\.){3}\d{1,3}\b|"
+    r"\b(?:\d[ -]?){13,16}\b"
+)
+
 # Pre-compiled regex for fast word tokenization
 _WORD_PATTERN = re.compile(r"\w+")
 
@@ -225,7 +234,11 @@ class PromptLinter:
 
         # 5. PII Masking
         masked_text = text
+        has_common_pii = bool(_COMBINED_PII_FAST_PATH.search(text))
         for label, pattern in PII_PATTERNS:
+            if label != "IBAN" and not has_common_pii:
+                continue
+
             # Mask logic: detect, flag, and replace in masked_text
             # Bolt Optimization: subn avoids finding matches twice
             masked_text, count = pattern.subn(f"[{label}]", masked_text)
