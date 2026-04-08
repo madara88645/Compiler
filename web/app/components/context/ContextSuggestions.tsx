@@ -15,6 +15,7 @@ export default function ContextSuggestions({ suggestions, onInsertContext }: Con
                 {suggestions.map((suggestion) => (
                     <button
                         key={suggestion.path}
+                        type="button"
                         onClick={() => onInsertContext(`[File: ${suggestion.name}]\n(Reason: ${suggestion.reason})`)}
                         className="group flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-full transition-all text-left"
                         title={`Add ${suggestion.path} to context`}

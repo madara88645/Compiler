@@ -69,11 +69,11 @@ export default function FileUploadZone({ ingesting, uploadProgress, onUploadFile
                 <>
                     <div className={`text-2xl ${isDragging ? "scale-110" : ""} transition-transform`}>Files</div>
                     <div className="flex gap-2">
-                        <button onClick={() => fileInputRef.current?.click()} className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors">
                             Upload Files
                         </button>
                         <span className="text-xs text-zinc-500">|</span>
-                        <button onClick={() => directoryInputRef.current?.click()} className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors">
+                        <button type="button" onClick={() => directoryInputRef.current?.click()} className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors">
                             Upload Folder
                         </button>
                     </div>
