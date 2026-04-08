@@ -121,6 +121,9 @@ def verify_api_key(
 def verify_api_key_if_required(
     api_key: str = Security(api_key_header),
 ) -> APIKey | None:
+    if api_key and len(api_key) > 256:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid API Key.")
+
     if os.environ.get("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "").strip().lower() in {
         "1",
         "true",
