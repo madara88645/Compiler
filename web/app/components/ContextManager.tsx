@@ -99,6 +99,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         onChange={(e) => setFilePath(e.target.value)}
                     />
                     <button
+                        type="button"
                         onClick={() => void ingestPath(filePath)}
                         disabled={ingesting || !filePath}
                         className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"

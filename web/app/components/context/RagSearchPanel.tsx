@@ -31,8 +31,9 @@ export default function RagSearchPanel({
                     onKeyDown={(e) => e.key === "Enter" && onRunSearch()}
                 />
                 <button
+                    type="button"
                     onClick={onRunSearch}
-                    disabled={searching || !query}
+                    disabled={searching || !query.trim()}
                     className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium"
                 >
                     Search
@@ -56,6 +57,7 @@ export default function RagSearchPanel({
                             {result.snippet}
                         </div>
                         <button
+                            type="button"
                             onClick={() => onInsertContext(formatSearchResultForPrompt(result))}
                             className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                         >
