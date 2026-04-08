@@ -339,9 +339,10 @@ class LogicAnalyzer:
         dependencies = []
         seen = set()
 
-        # Also check combined multi-sentence text for spanning dependencies
-        full_text = " ".join(sentences)
-        all_texts = sentences + [full_text]
+        # Check combined pairs of sentences for spanning dependencies instead of all concatenated
+        all_texts = list(sentences)
+        for i in range(len(sentences) - 1):
+            all_texts.append(sentences[i] + " " + sentences[i + 1])
 
         for text in all_texts:
             for pattern, dep_type in self._dependency_re:
