@@ -6,22 +6,30 @@ from app.models_v2 import IRv2
 class DeduplicatorHandler(BaseHandler):
     """Removes redundant constraints to save tokens and improve prompt quality."""
 
-    def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
-        # Define pairs/groups of redundant constraints
-        redundant_groups = [
-            [
-                "Output strict JSON. Do not output conversational text.",
-                "No conversational filler. Return ONLY the requested format.",
-            ],
-            ["Make it very short", "Be brief"],
-        ]
+    # Bolt Optimization: Pre-calculate lowercase versions of redundant groups to prevent
+    # redundant allocations and repeated `.lower()` calls inside nested loops.
+    REDUNDANT_GROUPS_LOWER = [
+        [
+            "output strict json. do not output conversational text.",
+            "no conversational filler. return only the requested format.",
+        ],
+        ["make it very short", "be brief"],
+    ]
 
+    def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         # Deduplicate ir_v1 constraints
-        for group in redundant_groups:
+        # Use a dynamic cache to prevent redundant string allocations while
+        # safely respecting the in-place modifications of the constraints list.
+        c1_lower_cache = {}
+        for group in self.REDUNDANT_GROUPS_LOWER:
             found = []
             for c in ir_v1.constraints:
+                if c not in c1_lower_cache:
+                    c1_lower_cache[c] = c.lower()
+                c_lower = c1_lower_cache[c]
+
                 for item in group:
-                    if item.lower() in c.lower() or c.lower() in item.lower():
+                    if item in c_lower or c_lower in item:
                         found.append(c)
 
             # Keep the first one, remove the rest
@@ -31,11 +39,17 @@ class DeduplicatorHandler(BaseHandler):
                         ir_v1.constraints.remove(f)
 
         # Deduplicate ir_v2 constraints
-        for group in redundant_groups:
+        c2_lower_cache = {}
+        for group in self.REDUNDANT_GROUPS_LOWER:
             found = []
             for c in ir_v2.constraints:
+                c_id = id(c)
+                if c_id not in c2_lower_cache:
+                    c2_lower_cache[c_id] = c.text.lower()
+                c_lower = c2_lower_cache[c_id]
+
                 for item in group:
-                    if item.lower() in c.text.lower() or c.text.lower() in item.lower():
+                    if item in c_lower or c_lower in item:
                         found.append(c)
 
             # Keep the first one, remove the rest
