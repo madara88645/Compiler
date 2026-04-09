@@ -58,3 +58,7 @@
 ## 2024-05-24 - Avoiding regex backtracking on fully concatenated text
 **Learning:** In the `LogicAnalyzer` when searching for dependency rules, concatenating all sentences into a single `full_text` string and evaluating complex regular expressions with `re.DOTALL` against it created an exponential backtracking bottleneck on large prompts, adding tens of seconds to processing.
 **Action:** Restrict regular expression evaluations to individual sentences wherever possible and avoid fully concatenating blocks of text to apply complex bounded regexes.
+
+## 2024-05-30 - [Optimize re.match with strip in fence parsing]
+**Learning:** Using `re.match` within tight parsing loops (like `_is_fence_close` which is called per line within token optimizer fence handling) can be disproportionately slow.
+**Action:** When matching a homogeneous string prefix combined with full string equality (like checking if a line is exclusively composed of a specific character length `N` or more), use `str.startswith(prefix) and not str.strip(char)` instead. It avoids regex compilation and execution overhead and was measured to be ~7x faster.
