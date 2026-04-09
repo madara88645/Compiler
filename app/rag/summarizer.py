@@ -34,14 +34,18 @@ RULES:
 
 TARGET: Approximately {max_tokens} tokens or less."""
 
+_tiktoken_enc = None
+
 
 def count_tokens_approx(text: str, ratio: float = 4.0) -> int:
     """Approximate token count (chars / ratio)."""
+    global _tiktoken_enc
     try:
-        import tiktoken
+        if _tiktoken_enc is None:
+            import tiktoken
 
-        enc = tiktoken.get_encoding("cl100k_base")
-        return len(enc.encode(text))
+            _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+        return len(_tiktoken_enc.encode(text))
     except ImportError:
         return int(len(text) / ratio)
 
