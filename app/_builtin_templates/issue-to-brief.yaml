@@ -1,0 +1,75 @@
+id: issue-to-brief
+name: Issue to Implementation Brief
+description: Transform a GitHub issue or feature request into a structured implementation brief with scope, approach, and acceptance criteria
+category: developer-workflow
+version: 1.0.0
+author: promptc
+tags:
+  - github
+  - issue
+  - planning
+  - implementation
+  - workflow
+
+template_text: |
+  Convert the following issue into a structured implementation brief.
+
+  Issue title: {{title}}
+  Issue body: {{body}}
+
+  {{#repo_context}}Repository context:
+  {{repo_context}}
+  {{/repo_context}}
+
+  {{#constraints}}Constraints:
+  {{constraints}}
+  {{/constraints}}
+
+  Produce:
+  1. One-sentence summary of the change
+  2. Scope — what files/modules are affected
+  3. Approach — high-level implementation steps
+  4. Acceptance criteria — verifiable conditions for "done"
+  5. Risks and open questions
+  {{#priority}}
+
+  Priority: {{priority}}
+  {{/priority}}
+
+variables:
+  - name: title
+    description: Issue title
+    required: true
+
+  - name: body
+    description: Full issue description or body text
+    required: true
+
+  - name: repo_context
+    description: Brief description of the repo or relevant module
+    default: ""
+    required: false
+
+  - name: constraints
+    description: Time, tech, or scope constraints
+    default: ""
+    required: false
+
+  - name: priority
+    description: Priority level (critical/high/medium/low)
+    default: ""
+    required: false
+
+example_values:
+  title: "Add rate limiting to /compile endpoint"
+  body: |
+    The /compile endpoint is publicly accessible and has no rate limiting.
+    Under load testing we saw 500 errors when a single client sent 200+ requests/min.
+    We need per-IP rate limiting with configurable thresholds.
+  repo_context: |
+    FastAPI backend in app/, deployed on Fly.io.
+    No existing rate limiting middleware.
+  constraints: |
+    - Must not add Redis dependency (use in-memory for now)
+    - Should return 429 with Retry-After header
+  priority: high

@@ -7,36 +7,21 @@
   <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
-**Prompt Compiler** transforms messy natural language ideas into structured, optimized system instructions and user prompts.
+**Prompt Compiler** turns vague requests into structured prompts, execution plans, and policy-checked workflows — so you can go from idea to safe, usable AI output in seconds.
 
-The project is still growing into a more production-ready developer workflow tool, but the product name, deploy surface, and core experience remain **Prompt Compiler / PromptC**. The newer policy-aware IR, GitHub artifacts, and VS Code flow are additions to that platform, not a rename.
-
-Try the deployed app at [prcompiler.com](https://prcompiler.com).
+Try it now at [prcompiler.com](https://prcompiler.com) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
 
 ---
 
-## What Prompt Compiler Does
+## What It Does
 
-Prompt Compiler helps you go from a vague request to usable output fast:
+Type any request — a feature idea, a bug report, a research question — and Prompt Compiler produces:
 
-- **System Prompt** for behavior, role, and constraints
-- **User Prompt** for the cleaned task definition
-- **Execution Plan** for step-by-step decomposition
-- **Expanded Prompt** ready to paste into an LLM chat
-- **Policy & IR layer** for safer workflows when the task touches risky domains, tools, or sensitive data
-
-This means the project is still a broad prompt platform, while quietly becoming stronger for developer workflows behind the scenes.
-
----
-
-## Latest PR Updates
-
-This stabilization pass focused on making the project safer, more consistent, and easier to maintain.
-
-- Replaced mock-style RAG behavior with real upload, indexing, search, and pack flows backed by the local SQLite knowledge base.
-- Standardized backend and frontend contracts for compile and RAG operations, and moved frontend request handling into shared hooks/services.
-- Hardened security around file paths, prompt boundaries, regex-heavy heuristics, and protected routes that now require API keys.
-- Split API responsibilities into clearer route modules and pinned `pillow` above the current Snyk vulnerability floor for safer dependency resolution.
+- **System Prompt** — persona, role, constraints, output format
+- **User Prompt** — structured task definition
+- **Execution Plan** — step-by-step decomposition
+- **Expanded Prompt** — ready to paste into any LLM
+- **Policy Layer** — risk level, allowed tools, execution mode, data sensitivity
 
 ---
 

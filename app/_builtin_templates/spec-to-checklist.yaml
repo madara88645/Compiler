@@ -1,0 +1,75 @@
+id: spec-to-checklist
+name: Spec to Implementation Checklist
+description: Convert a feature specification into an ordered implementation checklist with dependencies, test criteria, and estimated complexity
+category: developer-workflow
+version: 1.0.0
+author: promptc
+tags:
+  - specification
+  - checklist
+  - planning
+  - implementation
+  - workflow
+
+template_text: |
+  Convert the following specification into an implementation checklist.
+
+  Feature: {{feature}}
+  Specification:
+  {{spec}}
+
+  {{#tech_stack}}Tech stack: {{tech_stack}}{{/tech_stack}}
+
+  {{#existing_code}}Relevant existing code:
+  {{existing_code}}
+  {{/existing_code}}
+
+  Produce:
+  1. Ordered checklist of implementation tasks
+  2. For each task:
+     - What to build or change
+     - Dependencies (which tasks must be done first)
+     - Acceptance test (how to verify this task is done)
+     - Complexity estimate (S / M / L)
+  3. Integration test plan — end-to-end verification after all tasks
+  4. Risks — what could go wrong or block progress
+
+variables:
+  - name: feature
+    description: Feature name or title
+    required: true
+
+  - name: spec
+    description: Full specification or requirements text
+    required: true
+
+  - name: tech_stack
+    description: Relevant technology stack
+    default: ""
+    required: false
+
+  - name: existing_code
+    description: References to existing code that will be modified
+    default: ""
+    required: false
+
+example_values:
+  feature: "RAG-powered context injection for compile requests"
+  spec: |
+    Users can upload documents (PDF, TXT, MD) that get chunked, embedded,
+    and stored in a local SQLite vector store. When a compile request arrives,
+    the system searches the store for relevant chunks and injects them as
+    additional context before the LLM call.
+
+    Requirements:
+    - Max 5 documents, 10MB each
+    - Chunk size 512 tokens with 64-token overlap
+    - Top-3 chunks injected by cosine similarity
+    - Upload progress shown in UI
+    - Context source attribution in output
+  tech_stack: |
+    Python 3.11, FastAPI, SQLite + sqlite-vec, Next.js 14 frontend
+  existing_code: |
+    - app/compiler.py — main compile pipeline
+    - app/rag/ — empty directory, scaffolded but not implemented
+    - web/app/components/ContextManager.tsx — UI shell exists

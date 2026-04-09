@@ -99,7 +99,7 @@ export default function Home() {
             </div>
             <InfoButton
               title="Prompt Compiler"
-              description="Turns messy natural language into structured prompts, plans, and an inspectable policy layer when the task needs safer workflow guidance."
+              description="Turns vague requests into structured prompts, execution plans, and policy-checked workflows — idea to safe, usable AI output in seconds."
             />
           </div>
 
