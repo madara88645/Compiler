@@ -8,13 +8,13 @@ readme = "README.md"
 license = { text = "Apache-2.0" }
 dependencies = [
 	"fastapi==0.135.3",
-	"uvicorn==0.42.0",
+	"uvicorn==0.44.0",
 	"pydantic==2.12.5",
 	"typer==0.24.1",
-	"click==8.3.1",
+	"click==8.3.2",
 	"jsonschema==4.26.0",
 	"rich==14.3.3",
-	"textual==8.2.1",
+	"textual==8.2.3",
 	"pyyaml>=6.0",
 	"ttkbootstrap>=1.10.1",
 	"pillow>=10.3.0",
@@ -46,10 +46,10 @@ promptc = "cli.main:app"
 
 [project.optional-dependencies]
 dev = [
-	"pytest==9.0.2",
+	"pytest==9.0.3",
 	"pytest-cov>=5.0.0",
 	"build>=1.2.0",
-	"ruff==0.15.8",
+	"ruff==0.15.10",
 	"pre-commit==4.5.1",
 	"httpx<0.29",
 ]

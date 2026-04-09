@@ -1,13 +1,13 @@
 # Runtime dependency snapshot for deploy targets.
 # Update `pyproject.toml` first, then refresh this file to keep packaging in sync.
 fastapi==0.135.3
-uvicorn==0.42.0
+uvicorn==0.44.0
 pydantic==2.12.5
 typer==0.24.1
-click==8.3.1
+click==8.3.2
 jsonschema==4.26.0
 rich==14.3.3
-textual==8.2.1
+textual==8.2.3
 pyyaml>=6.0
 ttkbootstrap>=1.10.1
 pillow>=10.3.0
