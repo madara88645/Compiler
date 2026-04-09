@@ -9,7 +9,7 @@
 
 **Prompt Compiler** turns vague requests into structured prompts, execution plans, and policy-checked workflows — so you can go from idea to safe, usable AI output in seconds.
 
-Try it now at [pcompiler.com](http://pcompiler.com) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
+Try it now at [prcompiler.com](https://prcompiler.com) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
 
 ---
 
