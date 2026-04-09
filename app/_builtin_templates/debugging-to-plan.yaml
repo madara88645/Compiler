@@ -1,0 +1,75 @@
+id: debugging-to-plan
+name: Debugging to Constrained Plan
+description: Transform a bug report into a focused, step-constrained debugging plan with tool limits and escalation criteria
+category: developer-workflow
+version: 1.0.0
+author: promptc
+tags:
+  - debugging
+  - planning
+  - constrained
+  - workflow
+
+template_text: |
+  Create a constrained debugging plan for the following issue.
+
+  Bug summary: {{summary}}
+
+  {{#error_output}}Error output:
+  ```
+  {{error_output}}
+  ```
+  {{/error_output}}
+
+  {{#environment}}Environment: {{environment}}{{/environment}}
+
+  {{#already_tried}}Already tried:
+  {{already_tried}}
+  {{/already_tried}}
+
+  Produce:
+  1. Hypothesis — most likely root cause (one sentence)
+  2. Diagnostic steps — ordered list, max {{max_steps}} steps
+  3. For each step: what to run, what to look for, and when to stop
+  4. Tool constraints — only use these tools/commands
+  5. Escalation criteria — when to stop debugging and ask for help
+  6. Fix verification — how to confirm the fix actually works
+
+variables:
+  - name: summary
+    description: One-line bug description
+    required: true
+
+  - name: error_output
+    description: Error message, stack trace, or log output
+    default: ""
+    required: false
+
+  - name: environment
+    description: Runtime environment details
+    default: ""
+    required: false
+
+  - name: already_tried
+    description: What has already been attempted
+    default: ""
+    required: false
+
+  - name: max_steps
+    description: Maximum number of diagnostic steps
+    default: "5"
+    required: false
+
+example_values:
+  summary: "pytest hangs indefinitely on test_compile_concurrent after upgrading to Python 3.12"
+  error_output: |
+    PASSED test_compile_basic
+    PASSED test_compile_conservative
+    test_compile_concurrent — no output for 120s, killed by CI timeout
+  environment: |
+    Python 3.12.3, pytest 8.1, FastAPI 0.115, Ubuntu 22.04 CI runner
+  already_tried: |
+    - Ran locally on Python 3.11 — passes in 4s
+    - Added -v flag — no extra output before hang
+    - Checked for asyncio deprecation warnings — none
+  max_steps: "5"

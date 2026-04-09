@@ -1,0 +1,64 @@
+id: research-to-safe-agent
+name: Research to Safe Agent Brief
+description: Convert a research query into a policy-aware agent brief with guardrails, tool constraints, and data sensitivity classification
+category: developer-workflow
+version: 1.0.0
+author: promptc
+tags:
+  - research
+  - agent
+  - safety
+  - policy
+  - workflow
+
+template_text: |
+  Convert the following research request into a safe agent execution brief.
+
+  Research goal: {{goal}}
+
+  {{#domain}}Domain: {{domain}}{{/domain}}
+
+  {{#data_sources}}Available data sources:
+  {{data_sources}}
+  {{/data_sources}}
+
+  {{#audience}}Target audience: {{audience}}{{/audience}}
+
+  Produce:
+  1. Refined research objective (one sentence)
+  2. Allowed tools and data sources the agent may use
+  3. Forbidden actions — what the agent must NOT do
+  4. Data sensitivity classification (public / internal / confidential / restricted)
+  5. Risk level (low / medium / high) with justification
+  6. Execution mode recommendation (advice_only / human_approval_required / auto_ok)
+  7. Output format and length guidance
+  8. Sanitization rules — what must be redacted or anonymized
+
+variables:
+  - name: goal
+    description: The research question or objective
+    required: true
+
+  - name: domain
+    description: Domain area (e.g., finance, healthcare, legal, general)
+    default: ""
+    required: false
+
+  - name: data_sources
+    description: Available data sources or APIs
+    default: ""
+    required: false
+
+  - name: audience
+    description: Who will consume the output
+    default: ""
+    required: false
+
+example_values:
+  goal: "Summarize recent SEC filings for NVDA and compare revenue trends over the last 4 quarters"
+  domain: finance
+  data_sources: |
+    - SEC EDGAR public filings
+    - Company investor relations pages
+    - Public earnings call transcripts
+  audience: Internal investment research team

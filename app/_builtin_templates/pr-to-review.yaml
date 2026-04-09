@@ -1,0 +1,66 @@
+id: pr-to-review
+name: PR to Review Brief
+description: Generate a structured code review brief from a pull request description and diff summary
+category: developer-workflow
+version: 1.0.0
+author: promptc
+tags:
+  - github
+  - pull-request
+  - code-review
+  - workflow
+
+template_text: |
+  Generate a focused review brief for the following pull request.
+
+  PR title: {{title}}
+  PR description: {{description}}
+
+  {{#diff_summary}}Diff summary:
+  {{diff_summary}}
+  {{/diff_summary}}
+
+  {{#related_issues}}Related issues:
+  {{related_issues}}
+  {{/related_issues}}
+
+  Produce:
+  1. What this PR does (one paragraph)
+  2. Key changes to review carefully — list files and why they matter
+  3. Potential issues — bugs, regressions, security, performance
+  4. Test coverage assessment — what is tested, what is missing
+  5. Merge readiness verdict (ready / needs changes / needs discussion)
+
+variables:
+  - name: title
+    description: PR title
+    required: true
+
+  - name: description
+    description: PR body or description text
+    required: true
+
+  - name: diff_summary
+    description: Summary of changed files and line counts
+    default: ""
+    required: false
+
+  - name: related_issues
+    description: Linked issues or context
+    default: ""
+    required: false
+
+example_values:
+  title: "feat: add policy-aware IR to compile pipeline"
+  description: |
+    Adds a PolicyHandler to the handler chain that infers risk_level,
+    allowed_tools, and execution_mode from prompt content. Updates IRv2
+    schema with nested policy block. Includes 12 new tests.
+  diff_summary: |
+    app/heuristics/handlers/policy_handler.py  +180
+    app/models_v2.py                           +25
+    app/_schemas/ir_v2.schema.json             +18
+    tests/test_policy_handler.py               +220
+  related_issues: |
+    - #42 Policy-aware compilation
+    - #38 IRv2 schema expansion
