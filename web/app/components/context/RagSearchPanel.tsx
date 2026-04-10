@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { formatSearchResultForPrompt, formatSearchScore } from "../../../lib/api/promptc";
 import type { RagSearchResult } from "../../../lib/api/types";
 
@@ -21,20 +22,32 @@ export default function RagSearchPanel({
     return (
         <div className="flex flex-col gap-2">
             <div className="flex gap-2">
-                <input
-                    type="text"
-                    aria-label="Search context..."
-                    className="flex-1 bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
-                    placeholder="Search context..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && onRunSearch()}
-                />
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        aria-label="Search context..."
+                        className="w-full bg-black/30 p-2.5 pr-8 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
+                        placeholder="Search context..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && onRunSearch()}
+                    />
+                    {query && (
+                        <button
+                            type="button"
+                            onClick={() => { setQuery(""); }}
+                            aria-label="Clear search"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
                 <button
                     type="button"
                     onClick={onRunSearch}
                     disabled={searching || !query.trim()}
-                    className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium"
+                    className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
                 >
                     Search
                 </button>
@@ -58,7 +71,10 @@ export default function RagSearchPanel({
                         </div>
                         <button
                             type="button"
-                            onClick={() => onInsertContext(formatSearchResultForPrompt(result))}
+                            onClick={() => {
+                                onInsertContext(formatSearchResultForPrompt(result));
+                                toast.success("Snippet inserted into prompt");
+                            }}
                             className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                         >
                             <span>+</span> Insert into Prompt
