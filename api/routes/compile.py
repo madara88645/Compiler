@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 import uuid
+import anyio
+import functools
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -289,10 +291,13 @@ async def optimize_endpoint(
     compiler = _get_compiler()
 
     try:
-        result = compiler.worker.optimize_prompt(
-            req.text,
-            max_chars=req.max_chars,
-            max_tokens=req.max_tokens,
+        result = await anyio.to_thread.run_sync(
+            functools.partial(
+                compiler.worker.optimize_prompt,
+                req.text,
+                max_chars=req.max_chars,
+                max_tokens=req.max_tokens,
+            )
         )
         before_len = len(req.text)
         after_len = len(result)
