@@ -59,9 +59,10 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                 </h2>
                 <div className="flex gap-2">
                     <button
+                        type="button"
                         onClick={handleAnalyze}
                         disabled={analyzing}
-                        className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all"
+                        className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-black"
                     >
                         {analyzing ? <span className="animate-pulse">Analyzing...</span> : "Run Analysis"}
                     </button>
