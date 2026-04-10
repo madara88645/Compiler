@@ -841,12 +841,19 @@ class DomainHandler(BaseHandler):
         for check_name, check_rules in rules["universal_checks"].items():
             compiled = self._compiled_universal_checks.get(check_name, {})
 
-            # Check if any pattern matches
+            # Missing-based checks suggest absent concepts; risk-based checks suggest
+            # only when security-related terms are actually present.
             missing_pat = compiled.get("missing")
-            has_mention = bool(missing_pat.search(text_lower)) if missing_pat else False
+            risk_pat = compiled.get("risk")
 
-            # If not mentioned, suggest it
-            if not has_mention:
+            if missing_pat is not None:
+                should_suggest = not bool(missing_pat.search(text_lower))
+            elif risk_pat is not None:
+                should_suggest = bool(risk_pat.search(text_lower))
+            else:
+                should_suggest = False
+
+            if should_suggest:
                 analysis.suggestions.append(check_rules["suggestion"])
 
             # Special case: Security Scanning (Expanded)
