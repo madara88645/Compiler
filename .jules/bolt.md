@@ -37,7 +37,6 @@
 ## 2026-03-22 - Fast Character Counting in Strings
 **Learning:** In Python, replacing `sum(1 for c in text if c.isdigit())` with `sum(map(str.isdigit, text))` provides a ~3x performance boost. The generator expression executes a bytecode loop in Python, while `map` pushes the iteration entirely into C. Since `str.isdigit` returns booleans (which are integers `1` or `0` in Python), `sum()` seamlessly counts the matches.
 **Action:** When counting occurrences of characters that match a string method (like `.isdigit()`, `.isalpha()`, `.isspace()`), use `sum(map(str.method, text))` for maximum performance in hot paths.
-
 ## 2025-03-09 - Pre-compiling Regex Patterns for Performance
 **Learning:** In Python, iterating over uncompiled string patterns using `re.finditer(pattern, text)` repeatedly compiles the regex patterns on every call, leading to significant overhead in hot loops like security scanners.
 **Action:** Always pre-compile regular expressions at the module level (e.g., `COMPILED_PATTERNS = {k: re.compile(v) for k, v in PATTERNS.items()}`) and use `.finditer` directly on the compiled objects to improve performance.
@@ -49,11 +48,9 @@
 ## 2026-03-24 - Optimizing String Tokens Membership Check
 **Learning:** In Python, when checking for membership of multiple items in a tokenized string within a loop or comprehension (e.g., `[t for t in terms if t in text.split()]`), evaluating `.split()` inside the loop forces Python to allocate new lists and do O(N) membership checks repeatedly.
 **Action:** Extract `.split()` outside the loop and convert it to a `set` (e.g., `words = set(text.split())`). This ensures the string is split only once and provides O(1) membership lookups for the inner evaluation, significantly improving performance especially for large texts.
-
 ## 2026-04-05 - Prevent Event Loop Blocking in FastAPI
 **Learning:** In FastAPI, declaring an endpoint as `async def` while running a blocking synchronous operation (like SQLite I/O) directly within it blocks the main event loop, severely degrading concurrent performance.
 **Action:** Declare endpoints performing blocking I/O as `def` instead of `async def`. FastAPI will automatically offload these synchronous endpoints to a separate threadpool, allowing the main event loop to remain non-blocking.
-
 ## 2024-05-18 - Schema Sanitizer Fast-Path Avoids Expensive Regex Loops
 **Learning:** Pre-compiling regex substitutions at the module level and using a combined alternated regex (`re.search(r"A|B|C")`) to pre-filter text inside a hot loop is extremely effective when matches are rare. In `SchemaSanitizerHandler`, checking for 7 specific string fields using this pattern skips the expensive and repeated execution of 7 `re.sub` replacements on the vast majority of constraints where those fields do not exist.
 **Action:** When applying multiple regex replacements (`re.sub` or `re.subn`) inside a loop over text, always evaluate if the target patterns can be combined into a fast-path alternated check to skip the replacement logic entirely when not needed. Pre-compile all regexes at the module level to avoid overhead.
@@ -61,6 +58,7 @@
 ## 2024-05-24 - Avoiding regex backtracking on fully concatenated text
 **Learning:** In the `LogicAnalyzer` when searching for dependency rules, concatenating all sentences into a single `full_text` string and evaluating complex regular expressions with `re.DOTALL` against it created an exponential backtracking bottleneck on large prompts, adding tens of seconds to processing.
 **Action:** Restrict regular expression evaluations to individual sentences wherever possible and avoid fully concatenating blocks of text to apply complex bounded regexes.
+
 
 ## 2024-05-30 - [Optimize re.match with strip in fence parsing]
 **Learning:** Using `re.match` within tight parsing loops (like `_is_fence_close` which is called per line within token optimizer fence handling) can be disproportionately slow.
