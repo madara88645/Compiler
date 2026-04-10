@@ -352,9 +352,7 @@ class PromptValidator:
         all_text = " ".join(constraint_texts + goal_texts)
 
         for set_a, set_b in self.CONFLICTING_PAIRS:
-            found_a = any(term in all_text for term in set_a)
-            found_b = any(term in all_text for term in set_b)
-            if found_a and found_b:
+            if any(term in all_text for term in set_a) and any(term in all_text for term in set_b):
                 issues.append(
                     ValidationIssue(
                         severity="warning",
