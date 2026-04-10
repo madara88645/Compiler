@@ -188,8 +188,14 @@ class PromptLinter:
             )
 
         # 3. Density Check
-        informative_words = {w for w in words if w not in STOPWORDS and len(w) > 2}
-        density_score = len(informative_words) / total_words if total_words > 0 else 0.0
+        informative_words_count = 0
+        seen_words = set()
+        for w in words:
+            if w not in seen_words and len(w) > 2 and w not in STOPWORDS:
+                seen_words.add(w)
+                informative_words_count += 1
+
+        density_score = informative_words_count / total_words if total_words > 0 else 0.0
 
         if density_score < 0.3 and total_words > 10:
             warnings.append(
@@ -219,27 +225,35 @@ class PromptLinter:
         masked_text = text
         for label, pattern in PII_PATTERNS:
             # Mask logic: detect, flag, and replace in masked_text
-            # Bolt Optimization: subn avoids finding matches twice
-            masked_text, count = pattern.subn(f"[{label}]", masked_text)
-            if count > 0 and f"PII_{label}" not in safety_flags:
-                safety_flags.append(f"PII_{label}")
+            # Bolt Optimization: search before subn is faster when matches are rare
+            if pattern.search(masked_text):
+                masked_text, count = pattern.subn(f"[{label}]", masked_text)
+                if count > 0 and f"PII_{label}" not in safety_flags:
+                    safety_flags.append(f"PII_{label}")
 
         # 6. Conflict Detection
+        words_set = set(words)
         for group_a, group_b in CONFLICT_PAIRS:
-            # Bolt Optimization: explicit loops bypass generator overhead
-            found_a = False
-            for term in group_a:
-                if term in lower_text:
-                    found_a = True
-                    break
+            # Bolt Optimization: Set operations (isdisjoint) are much faster than string searching
+            if not group_a.isdisjoint(words_set):
+                found_a = True
+            else:
+                found_a = False
+                for term in group_a:
+                    if " " in term and term in lower_text:
+                        found_a = True
+                        break
             if not found_a:
                 continue
 
-            found_b = False
-            for term in group_b:
-                if term in lower_text:
-                    found_b = True
-                    break
+            if not group_b.isdisjoint(words_set):
+                found_b = True
+            else:
+                found_b = False
+                for term in group_b:
+                    if " " in term and term in lower_text:
+                        found_b = True
+                        break
 
             if found_a and found_b:
                 desc_a = next(iter(group_a))
