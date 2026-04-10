@@ -656,6 +656,15 @@ class DomainHandler(BaseHandler):
         for lang, rules in DOMAIN_RULES["coding"]["languages"].items():
             self._lowered_indicators[lang] = [ind.lower() for ind in rules.get("indicators", [])]
 
+        # Compile implied persona patterns
+        self._compiled_implied_personas: Dict[re.Pattern, str] = {}
+        for keyword, persona_name in IMPLIED_PERSONAS.items():
+            escaped = re.escape(keyword.strip())
+            pattern = r"\b" + escaped + r"\b"
+            if keyword.endswith(" "):
+                pattern = r"\b" + escaped + r"\s"
+            self._compiled_implied_personas[re.compile(pattern)] = persona_name
+
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
         Apply domain-specific heuristics to enhance IR.
@@ -771,15 +780,11 @@ class DomainHandler(BaseHandler):
         max_score = 0.0
 
         # Simple keyword matching
-        for keyword, persona_name in IMPLIED_PERSONAS.items():
-            # word boundary check for short keywords
-            escaped = re.escape(keyword.strip())
-            pattern = r"\b" + escaped + r"\b"
-            if keyword.endswith(" "):  # if keyword ended with space, strict check
-                pattern = r"\b" + escaped + r"\s"
-
+        # Bolt Optimization: Iterate over pre-compiled regex patterns to avoid
+        # recompiling patterns repeatedly in a hot loop.
+        for pattern_obj, persona_name in self._compiled_implied_personas.items():
             # Count occurrences
-            matches = re.findall(pattern, text_lower)
+            matches = pattern_obj.findall(text_lower)
             if matches:
                 # Base score 0.6, +0.1 for each extra occurrence, max 0.9
                 score = min(0.9, 0.6 + (len(matches) - 1) * 0.1)
