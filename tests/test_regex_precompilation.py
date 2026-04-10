@@ -86,3 +86,19 @@ class TestPrecompiledPatternsWork:
         text = "quickly and carefully process the data"
         matches = handler._compiled_adverb_pattern.findall(text)
         assert len(matches) >= 2
+
+    def test_coding_security_suggestion_only_when_risk_terms_present(self, handler):
+        generic = handler._analyze_coding(
+            "Write a Python function to sort a list and include tests.",
+            "write a python function to sort a list and include tests.",
+        )
+        risky = handler._analyze_coding(
+            "Write Python code that handles an auth token securely using environment variables.",
+            "write python code that handles an auth token securely using environment variables.",
+        )
+
+        generic_security = [s for s in generic.suggestions if s.category == "security"]
+        risky_security = [s for s in risky.suggestions if s.category == "security"]
+
+        assert generic_security == []
+        assert len(risky_security) == 1
