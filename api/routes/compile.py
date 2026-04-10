@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import time
+import functools
 import uuid
 from typing import List, Optional
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
@@ -214,7 +216,9 @@ async def compile_fast(
         if cache_key in compiler.cache:
             res = compiler.cache[cache_key]
         else:
-            res = compiler.worker.process(req.text, mode=mode)
+            res = await anyio.to_thread.run_sync(
+                functools.partial(compiler.worker.process, req.text, mode=mode)
+            )
             compiler.cache[cache_key] = res
 
         forced_expanded = None
