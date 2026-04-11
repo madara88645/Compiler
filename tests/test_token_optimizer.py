@@ -130,7 +130,6 @@ def test_optimize_level_3_list_marker():
 
 
 def test_optimize_level_2_blank_lines():
-
     out = _optimize_once("hello\n\n\nworld", level=2)
     assert out == "hello\nworld"
 
@@ -156,7 +155,6 @@ def test_looks_like_table_row():
 
 
 def test_optimize_level_2_consecutive_blank_lines():
-
     # Testing level 2 removing all blank lines
     out = _optimize_markdown_text("hello\n\n\nworld", level=2)
     assert out == "hello\nworld"
@@ -167,14 +165,12 @@ def test_optimize_level_2_consecutive_blank_lines():
 
 
 def test_flush_empty_buffer():
-
     # Implicitly tested if the buffer is empty when flushed
     # E.g., multiple text flushes or empty text
     _split_fenced_code("```python\ncode\n```")
 
 
 def test_optimize_list_indentation_removal_level_3():
-
     # line 262: if level >= 3, remove indentation before list markers
     out = _normalize_line("   - item", level=3)
     assert out == "- item"  # Space normalization after list marker reduces internal space
@@ -184,13 +180,11 @@ def test_optimize_list_indentation_removal_level_3():
 
 
 def test_optimize_exact_duplicate_lines():
-
     out = _optimize_markdown_text("duplicate\nduplicate", level=1)
     assert out == "duplicate"
 
 
 def test_list_normalization():
-
     # 262: level >= 3 remove indentation before list marker
     out = _normalize_line("   -   item", level=3)
     # The prefix "   " is removed, leaving "-   item"
@@ -198,7 +192,6 @@ def test_list_normalization():
 
 
 def test_list_normalization_level_3_missed():
-
     # This hits line 262 and 264 properly when running the full test suite
     # But let's be explicit
     out = _normalize_line("   - item", level=3)
