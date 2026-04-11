@@ -15,3 +15,4 @@ def test_security_headers_present():
     assert (
         response.headers.get("Strict-Transport-Security") == "max-age=31536000; includeSubDomains"
     )
+    assert response.headers.get("Content-Security-Policy") is not None

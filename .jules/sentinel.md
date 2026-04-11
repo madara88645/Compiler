@@ -24,3 +24,7 @@
 **Vulnerability:** Path disclosure vulnerability
 **Learning:** `PathSecurityError` exception message explicitly included the absolute paths to the allowed directories on the server. Because the API route `rag_ingest` caught this exception and returned `str(exc)` in the 400 error `detail`, this exposed internal server paths to the client.
 **Prevention:** Do not expose raw internal exception strings to the API layer, especially for filesystem or database errors. Always sanitize error messages to be generic.
+## 2025-05-31 - Add Content-Security-Policy header to FastAPI without breaking Swagger UI
+**Vulnerability:** The application's `api/main.py` lacked a `Content-Security-Policy` header, leaving it more vulnerable to XSS and other content injection attacks.
+**Learning:** Adding a generic strict CSP (like `default-src 'none'`) or missing required sources breaks the built-in FastAPI Swagger UI and ReDoc pages, as they dynamically load assets (scripts, styles, images) from `cdn.jsdelivr.net` and `fastapi.tiangolo.com`. This is a surprising architectural constraint where tightening security headers must explicitly accommodate the documentation framework's external dependencies.
+**Prevention:** When adding CSP headers to FastAPI, ensure `script-src` and `style-src` whitelist `'unsafe-inline'` and `https://cdn.jsdelivr.net`, and that `img-src` allows `data:` URIs and `https://fastapi.tiangolo.com`, to prevent breaking the `/docs` endpoints while still enforcing a policy.
