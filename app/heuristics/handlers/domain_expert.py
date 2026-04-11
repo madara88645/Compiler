@@ -659,7 +659,8 @@ class DomainHandler(BaseHandler):
         # Compile implied persona patterns
         self._compiled_implied_personas: Dict[re.Pattern, str] = {}
         for keyword, persona_name in IMPLIED_PERSONAS.items():
-            escaped = re.escape(keyword.strip())
+            normalized_keyword = keyword.lower()
+            escaped = re.escape(normalized_keyword.strip())
             pattern = r"\b" + escaped + r"\b"
             if keyword.endswith(" "):
                 pattern = r"\b" + escaped + r"\s"

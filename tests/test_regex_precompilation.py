@@ -62,6 +62,12 @@ class TestRegexPrecompilation:
             for ind in indicators:
                 assert ind == ind.lower(), f"Indicator '{ind}' for {lang} not lowercased"
 
+    def test_implied_personas_compiled(self, handler):
+        assert hasattr(handler, "_compiled_implied_personas")
+        assert len(handler._compiled_implied_personas) > 0
+        for pat in handler._compiled_implied_personas:
+            assert isinstance(pat, re.Pattern)
+
 
 class TestPrecompiledPatternsWork:
     """Verify pre-compiled patterns produce correct results."""
@@ -86,6 +92,21 @@ class TestPrecompiledPatternsWork:
         text = "quickly and carefully process the data"
         matches = handler._compiled_adverb_pattern.findall(text)
         assert len(matches) >= 2
+
+    @pytest.mark.parametrize(
+        ("text", "expected_persona"),
+        [
+            ('System.out.println("hello");', "Java Developer"),
+            ('Console.WriteLine("hello");', "C# Developer"),
+        ],
+    )
+    def test_implied_persona_detection_handles_mixed_case_snippets(
+        self, handler, text, expected_persona
+    ):
+        persona, confidence = handler.detect_implied_persona(text)
+
+        assert persona == expected_persona
+        assert confidence == 0.6
 
     def test_coding_security_suggestion_only_when_risk_terms_present(self, handler):
         generic = handler._analyze_coding(
