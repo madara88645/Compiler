@@ -1,7 +1,6 @@
 import pytest
 from app.adapters.skill_ir import (
     SkillExportIR,
-    SkillParam,
     _clean_section,
     _extract_sections,
     _extract_title,
