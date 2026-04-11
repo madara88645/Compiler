@@ -1,11 +1,8 @@
 import pytest
-import os
 import sqlite3
-import json
-from datetime import datetime
 from pathlib import Path
 
-from app.history.manager import HistoryManager, get_history_manager
+from app.history.manager import HistoryManager
 from app.history.models import HistoryEntry
 
 
@@ -22,7 +19,7 @@ def manager(temp_db_path):
 
 
 def test_init_db(temp_db_path):
-    manager = HistoryManager(db_path=temp_db_path)
+    HistoryManager(db_path=temp_db_path)
 
     # Check if directory was created
     assert Path(temp_db_path).parent.exists()
