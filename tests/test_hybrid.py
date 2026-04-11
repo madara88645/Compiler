@@ -1,9 +1,8 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from app.llm_engine.hybrid import HybridCompiler
 from app.llm_engine.client import WorkerResponse
 from app.models_v2 import IRv2
-from app.llm_engine.schemas import DiagnosticItem
 
 
 @pytest.fixture
