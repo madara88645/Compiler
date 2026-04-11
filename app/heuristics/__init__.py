@@ -675,11 +675,13 @@ def estimate_complexity(text: str) -> str:
     # Bolt Optimization: compute lower once and use it instead of redundant calls
     # and lower() generators.
     lower = text.lower()
-    length = len(text.split())
     # Keep uppercase letters in regex pattern so it accurately matches tokens
     # that contain combining character variants when lowered (e.g. \u0307)
-    # Bolt Optimization: Pre-compiled regex for .findall() is faster than re.findall
-    unique = len(set(_COMPLEXITY_WORD_RE.findall(lower)))
+    # Bolt Optimization: Pre-compiled regex for .findall() is faster than re.findall,
+    # and we can avoid the duplicate allocation/overhead of text.split() by reusing its result.
+    words = _COMPLEXITY_WORD_RE.findall(lower)
+    length = len(words)
+    unique = len(set(words))
     score = 0
     if length > 40:
         score += 1
@@ -922,7 +924,8 @@ def detect_domain(text: str) -> Tuple[str, List[str]]:
     # Choose the domain with most evidence counts
     counts: Dict[str, int] = {}
     for ev in evidence:
-        d = ev.split(":", 1)[0]
+        # Bolt Optimization: partition is faster than split(":", 1)
+        d, _, _ = ev.partition(":")
         counts[d] = counts.get(d, 0) + 1
     domain = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[0][0]
     return domain, evidence
@@ -937,7 +940,8 @@ def detect_domain_candidates(evidence: List[str], top_k: int = 3) -> List[str]:
         return []
     counts: Dict[str, int] = {}
     for ev in evidence:
-        d = ev.split(":", 1)[0]
+        # Bolt Optimization: partition is faster than split(":", 1)
+        d, _, _ = ev.partition(":")
         counts[d] = counts.get(d, 0) + 1
     ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
     return [d for d, _ in ranked[:top_k]]

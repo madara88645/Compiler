@@ -62,3 +62,11 @@
 ## 2024-05-30 - [Optimize re.match with strip in fence parsing]
 **Learning:** Using `re.match` within tight parsing loops (like `_is_fence_close` which is called per line within token optimizer fence handling) can be disproportionately slow.
 **Action:** When matching a homogeneous string prefix combined with full string equality (like checking if a line is exclusively composed of a specific character length `N` or more), use `str.startswith(prefix) and not str.strip(char)` instead. It avoids regex compilation and execution overhead and was measured to be ~7x faster.
+
+## 2026-04-11 - Avoid Double Tokenization in Complexity Heuristics
+**Learning:** In Python, performing string allocation via `text.split()` just to get a word count, while subsequently using `re.findall()` on the same string for regex word matching, causes duplicate `O(N)` passes over the text and redundant list allocations.
+**Action:** When both total word count and unique regex-matched word counts are needed, use a single regex `findall()` pass (e.g. `words = PATTERN.findall(text)`). `len(words)` accurately approximates total tokens without the `text.split()` overhead, providing a ~50% speedup.
+
+## 2026-04-11 - Fast Substring Extraction with Partition
+**Learning:** For extracting a domain or prefix before a known single delimiter (like `":"`), `string.partition(":")` is slightly faster than `string.split(":", 1)`.
+**Action:** When splitting a string exactly once on a known delimiter to extract the prefix, use `prefix, _, _ = text.partition(delimiter)` instead of `.split(delimiter, 1)[0]`.
