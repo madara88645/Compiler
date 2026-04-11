@@ -95,3 +95,93 @@ def test_optimize_is_idempotent():
     twice, _ = optimize_text(once)
 
     assert twice == once
+
+
+def test_derived_max_chars_exception():
+    class BadRatio:
+        def __float__(self):
+            raise ValueError("bad ratio")
+
+    out, stats = optimize_text("hello", max_tokens=10, token_ratio=BadRatio())
+    assert stats.met_max_tokens is True
+
+
+def test_meets_budget_false_cases():
+    from app.token_optimizer import _meets_budget
+
+    assert _meets_budget("hello", max_chars=2, max_tokens=None) is False
+    assert _meets_budget("hello world", max_chars=None, max_tokens=1) is False
+
+
+def test_optimize_budget_escalation():
+    text = "hello\n\nworld"
+    out, stats = optimize_text(text, max_chars=11)
+    assert "\n\n" not in out
+
+    text = "    - item1\n    - item2"
+    out, stats = optimize_text(text, max_chars=5)
+    assert "- item" in out
+
+
+def test_is_fence_close_edge_cases():
+    from app.token_optimizer import _is_fence_close
+
+    assert _is_fence_close("```", "") is False
+    assert _is_fence_close("   \n", "```") is False
+    assert _is_fence_close("---", "```") is False
+    assert _is_fence_close("``", "```") is False
+
+
+def test_optimize_markdown_text_duplicate_lines():
+    from app.token_optimizer import _optimize_markdown_text
+
+    text = "hello\nhello\nworld"
+    out = _optimize_markdown_text(text, level=1)
+    assert out == "hello\nworld"
+
+
+def test_normalize_line_indented_or_table():
+    from app.token_optimizer import _normalize_line
+
+    assert _normalize_line("    indented", level=1) == "    indented"
+    assert _normalize_line("\tindented", level=1) == "\tindented"
+    assert _normalize_line("| col1 | col2 |", level=1) == "| col1 | col2 |"
+
+
+def test_looks_like_table_row():
+    from app.token_optimizer import _looks_like_table_row
+
+    assert _looks_like_table_row("| col1 | col2 |") is True
+    assert _looks_like_table_row("col1 | col2") is False
+
+
+def test_meets_budget_true_cases():
+    from app.token_optimizer import _meets_budget
+
+    assert _meets_budget("hello", max_chars=10, max_tokens=10) is True
+
+
+def test_normalize_line_list_markers():
+    from app.token_optimizer import _normalize_line
+
+    # level 3 should strip indentation before list marker
+    assert _normalize_line("  - item", level=3) == "- item"
+    # Should collapse multiple spaces after list marker
+    assert _normalize_line("-   item", level=1) == "-   item"
+    # If the list marker doesnt match, collapse internal runs
+    assert _normalize_line("word   word", level=1) == "word word"
+
+
+def test_split_fenced_code_empty_buffer_flush():
+    from app.token_optimizer import _split_fenced_code
+
+    # If text starts with fence immediately, initial flush('text') has an empty buffer.
+    # It shouldn't add an empty text block.
+    parts = _split_fenced_code("```python\ncode\n```")
+    assert parts[0][0] == "code"
+
+
+def test_is_fence_close_returns_false_if_bad_marker():
+    from app.token_optimizer import _is_fence_close
+
+    assert _is_fence_close("```", "xxx") is False
