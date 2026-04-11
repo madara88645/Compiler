@@ -1,5 +1,15 @@
 from app.text_utils import estimate_tokens
-from app.token_optimizer import _normalize_fence_boundaries, optimize_text
+from app.token_optimizer import (
+    _normalize_fence_boundaries,
+    optimize_text,
+    _optimize_once,
+    _meets_budget,
+    _is_fence_close,
+    _looks_like_table_row,
+    _optimize_markdown_text,
+    _split_fenced_code,
+    _normalize_line,
+)
 
 
 def test_normalize_fence_boundaries():
@@ -95,3 +105,101 @@ def test_optimize_is_idempotent():
     twice, _ = optimize_text(once)
 
     assert twice == once
+
+
+def test_optimize_bad_token_ratio():
+    # Covers exception in max_tokens * token_ratio
+    out, stats = optimize_text("hello", max_tokens=10, token_ratio=None)
+    assert stats.met_max_tokens is True
+
+
+def test_optimize_max_level_break():
+    # Make a budget we never hit, with text that can be optimized a bit
+    # Triggers level >= 3 break when candidates exhausted
+    out, stats = optimize_text("  hello  \n\n  world  ", max_chars=1)
+    assert out == "hello\nworld"
+
+
+def test_optimize_level_3_list_marker():
+    # Triggers level >= 3 in optimize_text to cover loop and list marker edge cases
+
+    out = _optimize_once("  -   item 1", level=3)
+    assert out == "-   item 1"
+
+    out, stats = optimize_text("  -   item 1\n\n  *   item 2\n\n   1.  item 3", max_chars=1)
+
+
+def test_optimize_level_2_blank_lines():
+
+    out = _optimize_once("hello\n\n\nworld", level=2)
+    assert out == "hello\nworld"
+
+
+def test_meets_budget():
+    assert _meets_budget("hello", max_chars=1, max_tokens=None) is False
+    assert _meets_budget("hello", max_chars=10, max_tokens=None) is True
+    assert _meets_budget("hello", max_chars=None, max_tokens=1) is False
+    assert _meets_budget("hello", max_chars=None, max_tokens=10) is True
+
+
+def test_is_fence_close():
+    assert _is_fence_close("```", "") is False
+    assert _is_fence_close("   \n", "```") is False
+    assert _is_fence_close("```", "xxx") is False
+    assert _is_fence_close("```", "```") is True
+    assert _is_fence_close("~~~", "~~~") is True
+
+
+def test_looks_like_table_row():
+    assert _looks_like_table_row("| a | b |") is True
+    assert _looks_like_table_row("no pipes") is False
+
+
+def test_optimize_level_2_consecutive_blank_lines():
+
+    # Testing level 2 removing all blank lines
+    out = _optimize_markdown_text("hello\n\n\nworld", level=2)
+    assert out == "hello\nworld"
+
+    # Testing level 1 collapsing consecutive blank lines
+    out = _optimize_markdown_text("hello\n\n\nworld", level=1)
+    assert out == "hello\n\nworld"
+
+
+def test_flush_empty_buffer():
+
+    # Implicitly tested if the buffer is empty when flushed
+    # E.g., multiple text flushes or empty text
+    _split_fenced_code("```python\ncode\n```")
+
+
+def test_optimize_list_indentation_removal_level_3():
+
+    # line 262: if level >= 3, remove indentation before list markers
+    out = _normalize_line("   - item", level=3)
+    assert out == "- item"  # Space normalization after list marker reduces internal space
+
+    out = _normalize_line("-   item   two", level=1)
+    assert out == "-   item two"
+
+
+def test_optimize_exact_duplicate_lines():
+
+    out = _optimize_markdown_text("duplicate\nduplicate", level=1)
+    assert out == "duplicate"
+
+
+def test_list_normalization():
+
+    # 262: level >= 3 remove indentation before list marker
+    out = _normalize_line("   -   item", level=3)
+    # The prefix "   " is removed, leaving "-   item"
+    assert out == "-   item"
+
+
+def test_list_normalization_level_3_missed():
+
+    # This hits line 262 and 264 properly when running the full test suite
+    # But let's be explicit
+    out = _normalize_line("   - item", level=3)
+    assert out == "- item"
