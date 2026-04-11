@@ -1,6 +1,6 @@
 import pytest
-from unittest.mock import MagicMock
-from app.llm_engine.rag import ContextStrategist, Snippet
+from unittest.mock import MagicMock, patch
+from app.llm_engine.rag import ContextStrategist, Snippet, MockVectorDB, SQLiteVectorDB
 
 
 # Mock WorkerClient
@@ -77,3 +77,64 @@ def test_process_end_to_end(strategist):
     assert "app/main.py" in result["retrieved_files"]
     assert "snippets" in result
     assert len(result["snippets"]) == 2
+
+
+def test_mock_vector_db():
+    db = MockVectorDB()
+    assert db.search("anything") == []
+
+
+@patch("app.llm_engine.rag.search_hybrid")
+def test_sqlite_vector_db_success(mock_search_hybrid):
+    db = SQLiteVectorDB(db_path="dummy.db")
+    mock_search_hybrid.return_value = [
+        {
+            "path": "test.py",
+            "snippet": "content",
+            "hybrid_score": 0.9,
+            "chunk_index": 1,
+            "chunk_id": "c1",
+        }
+    ]
+
+    results = db.search("query")
+    assert len(results) == 1
+    assert results[0]["file_path"] == "test.py"
+    assert results[0]["content"] == "content"
+    assert results[0]["score"] == 0.9
+    assert results[0]["metadata"]["chunk_index"] == 1
+    assert results[0]["metadata"]["chunk_id"] == "c1"
+
+    mock_search_hybrid.assert_called_once_with(
+        "query", k=5, db_path="dummy.db", embed_dim=64, alpha=0.35
+    )
+
+
+@patch("app.llm_engine.rag.search")
+@patch("app.llm_engine.rag.search_hybrid")
+def test_sqlite_vector_db_fallback(mock_search_hybrid, mock_search):
+    db = SQLiteVectorDB(db_path="dummy.db")
+    mock_search_hybrid.side_effect = Exception("Hybrid search failed")
+    mock_search.return_value = [
+        {
+            "path": "test2.py",
+            "snippet": "content2",
+            "score": 0.2,
+            "chunk_index": 2,
+            "chunk_id": "c2",
+        }
+    ]
+
+    results = db.search("query")
+    assert len(results) == 1
+    assert results[0]["file_path"] == "test2.py"
+    assert results[0]["content"] == "content2"
+    # Fallback score calculation: 1.0 - score
+    assert results[0]["score"] == 0.8
+    assert results[0]["metadata"]["chunk_index"] == 2
+    assert results[0]["metadata"]["chunk_id"] == "c2"
+
+    mock_search_hybrid.assert_called_once_with(
+        "query", k=5, db_path="dummy.db", embed_dim=64, alpha=0.35
+    )
+    mock_search.assert_called_once_with("query", k=5, db_path="dummy.db")
