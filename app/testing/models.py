@@ -55,6 +55,8 @@ class TestSuite(BaseModel):
 class TestResult(BaseModel):
     """Result of a single test case execution."""
 
+    __test__ = False
+
     test_case_id: str
     passed: bool
     output: str
