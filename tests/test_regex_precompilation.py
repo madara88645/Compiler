@@ -108,6 +108,22 @@ class TestPrecompiledPatternsWork:
         assert persona == expected_persona
         assert confidence == 0.6
 
+    @pytest.mark.parametrize(
+        ("text", "expected_persona"),
+        [
+            ("import pandas as pd", "Data Scientist"),
+            ("import numpy as np", "Data Scientist"),
+            ("const docker = true", "DevOps Engineer"),
+        ],
+    )
+    def test_implied_persona_detection_prefers_more_specific_equal_score_match(
+        self, handler, text, expected_persona
+    ):
+        persona, confidence = handler.detect_implied_persona(text)
+
+        assert persona == expected_persona
+        assert confidence == 0.6
+
     def test_coding_security_suggestion_only_when_risk_terms_present(self, handler):
         generic = handler._analyze_coding(
             "Write a Python function to sort a list and include tests.",

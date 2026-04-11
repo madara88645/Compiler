@@ -658,13 +658,19 @@ class DomainHandler(BaseHandler):
 
         # Compile implied persona patterns
         self._compiled_implied_personas: Dict[re.Pattern, str] = {}
+        self._implied_persona_specificity: Dict[re.Pattern, int] = {}
         for keyword, persona_name in IMPLIED_PERSONAS.items():
             normalized_keyword = keyword.lower()
             escaped = re.escape(normalized_keyword.strip())
             pattern = r"\b" + escaped + r"\b"
             if keyword.endswith(" "):
                 pattern = r"\b" + escaped + r"\s"
-            self._compiled_implied_personas[re.compile(pattern)] = persona_name
+            compiled_pattern = re.compile(pattern)
+            self._compiled_implied_personas[compiled_pattern] = persona_name
+            specificity = len(normalized_keyword.strip())
+            if keyword.endswith(" "):
+                specificity -= 1
+            self._implied_persona_specificity[compiled_pattern] = specificity
 
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
@@ -779,21 +785,38 @@ class DomainHandler(BaseHandler):
 
         best_persona = None
         max_score = 0.0
+        max_specificity = 0
+        best_match_start = -1
 
         # Simple keyword matching
         # Bolt Optimization: Iterate over pre-compiled regex patterns to avoid
         # recompiling patterns repeatedly in a hot loop.
         for pattern_obj, persona_name in self._compiled_implied_personas.items():
             # Count occurrences
-            matches = pattern_obj.findall(text_lower)
-            if matches:
+            match_count = 0
+            first_match_start = -1
+            for match in pattern_obj.finditer(text_lower):
+                if first_match_start < 0:
+                    first_match_start = match.start()
+                match_count += 1
+            if match_count:
                 # Base score 0.6, +0.1 for each extra occurrence, max 0.9
-                score = min(0.9, 0.6 + (len(matches) - 1) * 0.1)
+                score = min(0.9, 0.6 + (match_count - 1) * 0.1)
 
-                # Longer keywords might be more specific?
-                # For now just take the highest score
-                if score > max_score:
+                # Prefer more specific keywords when matches have the same score.
+                specificity = self._implied_persona_specificity.get(pattern_obj, 0)
+                if (
+                    score > max_score
+                    or (score == max_score and specificity > max_specificity)
+                    or (
+                        score == max_score
+                        and specificity == max_specificity
+                        and first_match_start > best_match_start
+                    )
+                ):
                     max_score = score
+                    max_specificity = specificity
+                    best_match_start = first_match_start
                     best_persona = persona_name
 
         return best_persona, max_score
