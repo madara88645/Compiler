@@ -9,6 +9,7 @@ from typing import Iterable, List, Optional, Tuple, Dict
 import math
 import operator
 import json
+import orjson
 import functools
 from collections import OrderedDict
 
@@ -441,7 +442,7 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
 @functools.lru_cache(maxsize=65536)
 def _parse_embedding(vec_json: str) -> List[float]:
     """Parse JSON embedding vector with bounded caching."""
-    return json.loads(vec_json)
+    return orjson.loads(vec_json)
 
 
 def _get_fast_embed_model():
