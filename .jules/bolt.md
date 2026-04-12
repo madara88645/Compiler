@@ -66,3 +66,6 @@
 ## 2026-05-19 - Fast JSON Parsing for Embeddings
 **Learning:** Using `json.loads` to repeatedly parse vector embeddings stored as JSON strings in the database creates a major CPU bottleneck due to the sheer number of floats being deserialized during a similarity search loop.
 **Action:** Always prefer `orjson.loads` over the standard `json.loads` module when deserializing large arrays of floats or when executing JSON parsing on a hot path. `orjson` executes entirely in C and parses float arrays ~10x to 15x faster than standard `json`.
+## 2025-04-12 - Ensure runtime imports for fast library drop-ins
+**Learning:** When dropping in faster external libraries like `orjson` to replace standard library equivalents (like `json`), it is easy to forget the import statement if the standard library is already imported elsewhere in the module. This leads to `NameError` at runtime.
+**Action:** Always manually `grep` for the exact `import <new_library>` statement in the modified file to ensure it exists before submitting.
