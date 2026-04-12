@@ -14,7 +14,13 @@ import textwrap
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 from .base import BaseHandler
-from app.models import IR
+from app.models import (
+    DEFAULT_ROLE_DEV_EN,
+    DEFAULT_ROLE_DEV_TR,
+    DEFAULT_ROLE_EN,
+    DEFAULT_ROLE_TR,
+    IR,
+)
 from app.models_v2 import IRv2, ConstraintV2, DiagnosticItem
 
 
@@ -42,6 +48,17 @@ class DomainAnalysis:
     suggestions: List[DomainSuggestion] = field(default_factory=list)
     diagnostics: List[DiagnosticItem] = field(default_factory=list)
     detected_patterns: Dict[str, List[str]] = field(default_factory=dict)
+
+
+_GENERIC_PERSONAS = {"", "assistant", "general", "developer"}
+_GENERIC_ROLES = {
+    "",
+    "AI Assistant",
+    DEFAULT_ROLE_EN,
+    DEFAULT_ROLE_TR,
+    DEFAULT_ROLE_DEV_EN,
+    DEFAULT_ROLE_DEV_TR,
+}
 
 
 # ==============================================================================
@@ -702,7 +719,9 @@ class DomainHandler(BaseHandler):
         # Add diagnostics
         ir_v2.diagnostics.extend(analysis.diagnostics)
 
-        if (not ir_v2.persona or ir_v2.persona in ["assistant", "general"]) and not ir_v2.role:
+        persona_is_generic = not ir_v2.persona or ir_v2.persona in _GENERIC_PERSONAS
+        role_is_generic = not ir_v2.role or ir_v2.role in _GENERIC_ROLES
+        if persona_is_generic and role_is_generic:
             implied_persona, confidence = self.detect_implied_persona(original_text)
             if implied_persona:
                 ir_v2.persona = "expert"

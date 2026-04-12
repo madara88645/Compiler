@@ -1,4 +1,4 @@
-from app.compiler import compile_text
+from app.compiler import compile_text, compile_text_v2
 from app.heuristics.handlers.domain_expert import DomainHandler
 from app.models_v2 import IRv2
 from app.models import IR
@@ -137,3 +137,11 @@ def test_implied_persona_sql():
 
     handler.handle(ir_v2, ir_v1)
     assert "Database Administrator" in ir_v2.role
+
+
+def test_compile_text_v2_applies_implied_persona_over_default_role():
+    ir = compile_text_v2('Console.WriteLine("hello");', offline_only=True)
+
+    assert ir.persona == "expert"
+    assert ir.role == "Expert C# Developer"
+    assert ir.metadata["implied_persona"]["persona"] == "C# Developer"
