@@ -521,6 +521,7 @@ RISK_KEYWORDS = {
     "infrastructure": [
         r"deploy",
         r"production",
+        r"server",
         r"database migration",
         r"rollback",
         r"downtime",

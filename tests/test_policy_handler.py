@@ -64,7 +64,8 @@ def test_policy_escalates_overlapping_risk_domains():
     assert ir2.policy.risk_level == "high"
     assert ir2.policy.execution_mode == "human_approval_required"
     # Both financial and legal should be detected
-    assert "financial" in ir2.policy.risk_domains or "legal" in ir2.policy.risk_domains
+    assert "financial" in ir2.policy.risk_domains
+    assert "legal" in ir2.policy.risk_domains
 
 
 def test_policy_detects_privacy_domain():
