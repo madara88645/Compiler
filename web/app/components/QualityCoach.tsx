@@ -60,8 +60,9 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                 <div className="flex gap-2">
                     <button
                         onClick={handleAnalyze}
-                        disabled={analyzing}
-                        className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all"
+                        disabled={analyzing || !prompt.trim()}
+                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                         {analyzing ? <span className="animate-pulse">Analyzing...</span> : "Run Analysis"}
                     </button>
@@ -73,7 +74,19 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl mb-2">
                         🛡️
                     </div>
-                    <p className="max-w-[200px] text-center text-sm">Run analysis to detect potential improvements and safety issues.</p>
+                    <p className="max-w-[200px] text-center text-sm mb-2">Run analysis to detect potential improvements and safety issues.</p>
+                    <button
+                        onClick={handleAnalyze}
+                        disabled={analyzing || !prompt.trim()}
+                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        className="px-6 py-2 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl hover:bg-blue-600/30 text-sm font-medium transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex items-center gap-2"
+                    >
+                        {analyzing ? (
+                            <><span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span> Analyzing...</>
+                        ) : (
+                            "Start Analysis"
+                        )}
+                    </button>
                 </div>
             )}
 
