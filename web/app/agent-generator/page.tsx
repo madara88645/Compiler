@@ -188,6 +188,7 @@ export default function AgentGenerator() {
             )}
 
             <button
+              type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
               className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
@@ -216,7 +217,7 @@ export default function AgentGenerator() {
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                  <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
+                  <button type="button" className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
                     System Prompt
                   </button>
                 </div>
@@ -228,6 +229,7 @@ export default function AgentGenerator() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={copyToClipboard}
                     className="absolute bottom-6 right-6 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
                     title={copied ? "Copied!" : "Copy to Clipboard"}

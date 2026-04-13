@@ -124,6 +124,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     <div className="mt-6 border-t border-white/5 pt-4">
       {/* Toggle header */}
       <button
+        type="button"
         onClick={handleToggle}
         aria-expanded={isOpen}
         className="w-full flex items-center justify-between px-2 py-1 group"
@@ -158,6 +159,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
           <div className="flex gap-1 p-3 border-b border-white/5">
             {FRAMEWORKS.map((fw) => (
               <button
+                type="button"
                 key={fw.id}
                 onClick={() => handleFrameworkClick(fw.id)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
@@ -173,6 +175,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
           <div className="flex gap-1 px-3 pt-3">
             {(["python", "yaml"] as OutputTab[]).map((tab) => (
               <button
+                type="button"
                 key={tab}
                 onClick={() => setOutputTab(tab)}
                 className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
@@ -202,6 +205,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
                   <code>{codeContent}</code>
                 </pre>
                 <button
+                  type="button"
                   onClick={handleCopy}
                   className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
                   aria-label="Copy code"
