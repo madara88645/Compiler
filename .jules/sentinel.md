@@ -28,3 +28,8 @@
 **Vulnerability:** The application's `api/main.py` lacked a `Content-Security-Policy` header, leaving it more vulnerable to XSS and other content injection attacks.
 **Learning:** Adding a generic strict CSP (like `default-src 'none'`) or missing required sources breaks the built-in FastAPI Swagger UI and ReDoc pages, as they dynamically load assets (scripts, styles, images) from `cdn.jsdelivr.net` and `fastapi.tiangolo.com`. This is a surprising architectural constraint where tightening security headers must explicitly accommodate the documentation framework's external dependencies.
 **Prevention:** When adding CSP headers to FastAPI, ensure `script-src` and `style-src` whitelist `'unsafe-inline'` and `https://cdn.jsdelivr.net`, and that `img-src` allows `data:` URIs and `https://fastapi.tiangolo.com`, to prevent breaking the `/docs` endpoints while still enforcing a policy.
+## 2025-06-05 - Restrict Overly Permissive CORS Headers
+
+**Vulnerability:** The FastAPI application used `allow_headers=["*"]` in its `CORSMiddleware` configuration. This is an overly permissive setting that could potentially allow malicious cross-origin requests to send unexpected or forged headers to the backend, increasing the attack surface.
+**Learning:** While allowing all origins (`*`) is a known risk, allowing all headers (`*`) is also a security concern. It violates the principle of least privilege.
+**Prevention:** When configuring CORS, always explicitly list the headers required by the application (e.g., `["Content-Type", "Authorization", "x-api-key", "Accept", "Origin", "X-Requested-With"]`) instead of using wildcards.
