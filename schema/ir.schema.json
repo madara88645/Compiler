@@ -4,7 +4,7 @@
                "output_format","length_hint","steps","examples","banned","tools","metadata"],
   "properties": {
   "language": { "enum": ["tr","en","es"] },
-    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor"] },
+    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer"] },
     "role": { "type": "string" },
     "domain": { "type": "string" },
     "goals": { "type": "array", "items": { "type": "string" } },
