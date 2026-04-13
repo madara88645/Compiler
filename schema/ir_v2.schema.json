@@ -1,13 +1,54 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["version","language","persona","role","domain","goals","tasks","constraints","style","tone","output_format","length_hint","steps","examples","banned","tools","policy","metadata","intents"],
+  "required": [
+    "version",
+    "language",
+    "persona",
+    "role",
+    "domain",
+    "goals",
+    "tasks",
+    "constraints",
+    "style",
+    "tone",
+    "output_format",
+    "length_hint",
+    "steps",
+    "examples",
+    "banned",
+    "tools",
+    "policy",
+    "metadata",
+    "intents"
+  ],
   "properties": {
-    "version": { "const": "2.0" },
-  "language": { "enum": ["tr","en","es"] },
-    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer"] },
-    "role": { "type": "string" },
-    "domain": { "type": "string" },
+    "version": {
+      "const": "2.0"
+    },
+    "language": {
+      "enum": [
+        "tr",
+        "en",
+        "es"
+      ]
+    },
+    "persona": {
+      "enum": [
+        "assistant",
+        "teacher",
+        "researcher",
+        "coach",
+        "mentor",
+        "developer"
+      ]
+    },
+    "role": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
     "intents": {
       "type": "array",
       "items": {
@@ -33,59 +74,218 @@
         ]
       }
     },
-    "goals": { "type": "array", "items": { "type": "string" } },
-    "tasks": { "type": "array", "items": { "type": "string" } },
-    "inputs": { "type": "object", "additionalProperties": { "type": "string" } },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "constraints": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id","text","origin","priority"],
+        "required": [
+          "id",
+          "text",
+          "origin",
+          "priority"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "text": { "type": "string" },
-          "origin": { "type": "string" },
-          "priority": { "type": "integer" },
-          "rationale": { "type": ["string","null"] }
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              30,
+              40,
+              45,
+              50,
+              55,
+              60,
+              65,
+              70,
+              75,
+              80,
+              85,
+              90,
+              95,
+              100
+            ]
+          },
+          "rationale": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         },
         "additionalProperties": false
       }
     },
-    "style": { "type": "array", "items": { "type": "string" } },
-    "tone": { "type": "array", "items": { "type": "string" } },
-    "output_format": { "enum": ["markdown","json","yaml","table","text"] },
-    "length_hint": { "enum": ["short","medium","long"] },
+    "style": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tone": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "output_format": {
+      "enum": [
+        "markdown",
+        "json",
+        "yaml",
+        "table",
+        "text"
+      ]
+    },
+    "length_hint": {
+      "enum": [
+        "short",
+        "medium",
+        "long"
+      ]
+    },
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["type","text"],
+        "required": [
+          "type",
+          "text"
+        ],
         "properties": {
-          "type": { "enum": ["task","teach","research","compare","plan"] },
-          "text": { "type": "string" }
+          "type": {
+            "enum": [
+              "task",
+              "teach",
+              "research",
+              "compare",
+              "plan"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       }
     },
-    "examples": { "type": "array", "items": { "type": "string" } },
-    "banned": { "type": "array", "items": { "type": "string" } },
-    "tools": { "type": "array", "items": { "type": "string" } },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "banned": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "policy": {
       "type": "object",
-      "required": ["risk_level","risk_domains","allowed_tools","forbidden_tools","sanitization_rules","data_sensitivity","execution_mode"],
+      "required": [
+        "risk_level",
+        "risk_domains",
+        "allowed_tools",
+        "forbidden_tools",
+        "sanitization_rules",
+        "data_sensitivity",
+        "execution_mode"
+      ],
       "properties": {
-        "risk_level": { "enum": ["low","medium","high"] },
-        "risk_domains": { "type": "array", "items": { "type": "string" } },
-        "allowed_tools": { "type": "array", "items": { "type": "string" } },
-        "forbidden_tools": { "type": "array", "items": { "type": "string" } },
-        "sanitization_rules": { "type": "array", "items": { "type": "string" } },
-        "data_sensitivity": { "enum": ["public","internal","confidential","restricted"] },
-        "execution_mode": { "enum": ["advice_only","human_approval_required","auto_ok"] }
+        "risk_level": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "risk_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sanitization_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "data_sensitivity": {
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ]
+        },
+        "execution_mode": {
+          "enum": [
+            "advice_only",
+            "human_approval_required",
+            "auto_ok"
+          ]
+        }
       },
       "additionalProperties": false
     },
-    "diagnostics": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
-    "metadata": { "type": "object", "additionalProperties": true }
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
   },
   "additionalProperties": false
 }

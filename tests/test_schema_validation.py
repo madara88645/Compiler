@@ -19,6 +19,7 @@ from app.resources import get_ir_schema_text
 
 schema = json.loads(get_ir_schema_text(v2=False))
 schema_v2 = json.loads(get_ir_schema_text(v2=True))
+repo_root = Path(__file__).resolve().parents[1]
 
 
 def _literal_int(node: ast.AST) -> int | None:
@@ -85,6 +86,16 @@ def test_v1_and_v2_persona_enums_stay_aligned_for_shared_values():
     v2_personas = set(schema_v2["properties"]["persona"]["enum"])
 
     assert v1_personas == v2_personas
+
+
+def test_root_schema_copies_match_packaged_schemas_semantically():
+    root_schema = json.loads((repo_root / "schema" / "ir.schema.json").read_text(encoding="utf-8"))
+    root_schema_v2 = json.loads(
+        (repo_root / "schema" / "ir_v2.schema.json").read_text(encoding="utf-8")
+    )
+
+    assert root_schema == schema
+    assert root_schema_v2 == schema_v2
 
 
 def test_checked_in_schemas_match_shared_ir_contract_enums():
