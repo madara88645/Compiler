@@ -66,3 +66,7 @@
 ## 2026-05-19 - Fast JSON Parsing for Embeddings
 **Learning:** Using `json.loads` to repeatedly parse vector embeddings stored as JSON strings in the database creates a major CPU bottleneck due to the sheer number of floats being deserialized during a similarity search loop.
 **Action:** Always prefer `orjson.loads` over the standard `json.loads` module when deserializing large arrays of floats or when executing JSON parsing on a hot path. `orjson` executes entirely in C and parses float arrays ~10x to 15x faster than standard `json`.
+
+## 2026-05-19 - Pre-compile Regex and Use Fast Paths to Skip Sub loops
+**Learning:** Using `re.sub()` multiple times inside a function, combined with dynamically compiling constant regexes per method call, incurs high overhead. Additionally, evaluating complex regexes (like `re.DOTALL` for multiline text) when the target match is missing adds unnecessary latency.
+**Action:** When executing several `re.sub` replacements on strings in repeated executions, define `re.compile()` rules at the module level. Furthermore, always check for the presence of the matched text with a fast O(1) membership check like `if "Example Code" in prompt:` before executing the series of compiled `.sub()` methods to bypass regex engine overhead entirely when replacements are unneeded.

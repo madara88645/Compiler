@@ -10,6 +10,11 @@ import re
 from typing import List, Optional
 from dataclasses import dataclass, field
 
+# Pre-compiled regexes for sentence splitting
+_SENTENCE_SPLIT_RE_1 = re.compile(r"([.!?])\s+")
+_SENTENCE_SPLIT_RE_2 = re.compile(r"\n\s*[-*•]\s*")
+_SENTENCE_SPLIT_RE_3 = re.compile(r"\n\s*\d+[.):]\s*")
+
 
 # ==============================================================================
 # DATA STRUCTURES
@@ -230,10 +235,10 @@ class LogicAnalyzer:
     def _split_sentences(self, text: str) -> List[str]:
         """Split text into sentences for analysis."""
         # Handle common sentence boundaries
-        text = re.sub(r"([.!?])\s+", r"\1\n", text)
+        text = _SENTENCE_SPLIT_RE_1.sub(r"\1\n", text)
         # Handle bullet points and numbered lists
-        text = re.sub(r"\n\s*[-*•]\s*", "\n", text)
-        text = re.sub(r"\n\s*\d+[.):]\s*", "\n", text)
+        text = _SENTENCE_SPLIT_RE_2.sub("\n", text)
+        text = _SENTENCE_SPLIT_RE_3.sub("\n", text)
 
         sentences = [s.strip() for s in text.split("\n") if s.strip()]
         return sentences
@@ -287,15 +292,9 @@ class LogicAnalyzer:
 
     def _strip_negation(self, sentence: str, negation_word: str) -> str:
         """Remove negation word from sentence."""
-        # Create pattern that matches the negation word with surrounding context
-        patterns = [
-            rf"\b{re.escape(negation_word)}\s+",
-            rf"\s+{re.escape(negation_word)}\b",
-            rf"\b{re.escape(negation_word)}\b",
-        ]
-        result = sentence
-        for p in patterns:
-            result = re.sub(p, " ", result, flags=re.IGNORECASE)
+        # Bolt Optimization: Single pre-compiled regex avoids loop and multiple substitutions
+        p = re.compile(rf"\b{re.escape(negation_word)}\b", flags=re.IGNORECASE)
+        result = p.sub(" ", sentence)
         return " ".join(result.split())  # Normalize whitespace
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:
