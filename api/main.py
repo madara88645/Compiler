@@ -58,6 +58,7 @@ app.add_middleware(
         "Accept",
         "Origin",
         "X-Requested-With",
+        "X-Prompt-Mode",
     ],
 )
 
