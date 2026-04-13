@@ -12,7 +12,7 @@ def test_ir_v2_schema_teaching():
     assert any(c.origin.startswith("teaching") for c in ir2.constraints)
     # priorities assigned
     assert any(c.priority >= 55 for c in ir2.constraints)
-    assert ir2.policy.execution_mode == "advice_only"
+    assert ir2.policy.execution_mode == "auto_ok"
 
 
 def test_ir_v2_schema_general():
@@ -23,4 +23,4 @@ def test_ir_v2_schema_general():
     assert ir2.metadata.get("heuristic2_version") is not None
     assert ir2.policy.risk_level == "low"
     assert ir2.policy.data_sensitivity == "public"
-    assert ir2.policy.execution_mode == "advice_only"
+    assert ir2.policy.execution_mode == "auto_ok"
