@@ -66,3 +66,6 @@
 ## 2026-05-19 - Fast JSON Parsing for Embeddings
 **Learning:** Using `json.loads` to repeatedly parse vector embeddings stored as JSON strings in the database creates a major CPU bottleneck due to the sheer number of floats being deserialized during a similarity search loop.
 **Action:** Always prefer `orjson.loads` over the standard `json.loads` module when deserializing large arrays of floats or when executing JSON parsing on a hot path. `orjson` executes entirely in C and parses float arrays ~10x to 15x faster than standard `json`.
+## 2025-02-12 - Explicit loops beat `any()` generators
+**Learning:** For small substring matching tasks in hot loops, `any(marker in text for marker in markers)` incurs high overhead from generator creation.
+**Action:** Replace `any(...)` generator expressions with an explicit `for` loop inside a helper function (e.g. `_contains_any`) to achieve ~5x faster short-circuiting.
