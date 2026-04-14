@@ -59,6 +59,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                 </h2>
                 <div className="flex gap-2">
                     <button
+                        type="button"
                         onClick={handleAnalyze}
                         disabled={analyzing || !prompt.trim()}
                         title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}

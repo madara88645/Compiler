@@ -76,6 +76,7 @@ export default function OptimizerPage() {
                     </div>
 
                     <button
+                        type="button"
                         onClick={handleOptimize}
                         disabled={loading || !input.trim()}
                         className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"

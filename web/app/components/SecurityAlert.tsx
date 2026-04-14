@@ -79,6 +79,7 @@ export default function SecurityAlert({
                 {/* Actions */}
                 <div className="p-6 pt-0 flex gap-3 justify-end">
                     <button
+                        type="button"
                         onClick={onCancel}
                         className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 rounded"
                     >
@@ -86,6 +87,7 @@ export default function SecurityAlert({
                     </button>
 
                     <button
+                        type="button"
                         onClick={onProceedOriginal}
                         className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     >
@@ -93,6 +95,7 @@ export default function SecurityAlert({
                     </button>
 
                     <button
+                        type="button"
                         onClick={onProceedRedacted}
                         autoFocus
                         className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
