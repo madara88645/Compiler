@@ -69,3 +69,7 @@
 ## 2025-04-12 - Ensure runtime imports for fast library drop-ins
 **Learning:** When dropping in faster external libraries like `orjson` to replace standard library equivalents (like `json`), it is easy to forget the import statement if the standard library is already imported elsewhere in the module. This leads to `NameError` at runtime.
 **Action:** Always manually `grep` for the exact `import <new_library>` statement in the modified file to ensure it exists before submitting.
+
+## 2026-05-19 - Replacing any(...) generator expressions
+**Learning:** In Python performance-critical paths, replacing `any(...)` generator expressions with an explicit `for` loop inside a helper function (e.g., `_contains_any`) significantly improves short-circuiting speed by avoiding generator initialization overhead, while maintaining readability.
+**Action:** When evaluating multiple boolean string matches in performance-critical code where the expression is evaluated many times, use explicit loops inside helper functions to avoid generator overhead.
