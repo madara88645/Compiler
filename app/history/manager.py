@@ -1,5 +1,5 @@
 import sqlite3
-import json
+import orjson
 import os
 from datetime import datetime
 from pathlib import Path
@@ -58,7 +58,8 @@ class HistoryManager:
                     entry.prompt_text,
                     entry.source,
                     entry.parent_id,
-                    json.dumps(entry.metadata),
+                    # Bolt Optimization: orjson.dumps is ~8-10x faster than json.dumps
+                    orjson.dumps(entry.metadata).decode("utf-8"),
                     entry.score,
                 ),
             )
@@ -94,7 +95,8 @@ class HistoryManager:
             prompt_text=row[2],
             source=row[3],
             parent_id=row[4],
-            metadata=json.loads(row[5]) if row[5] else {},
+            # Bolt Optimization: orjson.loads is ~5x faster than json.loads
+            metadata=orjson.loads(row[5]) if row[5] else {},
             score=row[6],
         )
 

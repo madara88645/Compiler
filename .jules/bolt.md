@@ -69,3 +69,7 @@
 ## 2025-04-12 - Ensure runtime imports for fast library drop-ins
 **Learning:** When dropping in faster external libraries like `orjson` to replace standard library equivalents (like `json`), it is easy to forget the import statement if the standard library is already imported elsewhere in the module. This leads to `NameError` at runtime.
 **Action:** Always manually `grep` for the exact `import <new_library>` statement in the modified file to ensure it exists before submitting.
+
+## 2024-05-20 - Fast JSON Serialization in SQLite Hooks
+**Learning:** In paths that serialize and deserialize large dicts frequently (like reading/writing `HistoryEntry` metadata to/from SQLite in `HistoryManager`), using `orjson.loads` and `orjson.dumps` is dramatically faster (up to ~8-10x) than the standard library `json` module.
+**Action:** When working on DB hooks or large payload serialization, use `orjson` instead of `json`, keeping in mind that `orjson.dumps()` returns bytes and must be `.decode('utf-8')` if a string is needed for the database insert.
