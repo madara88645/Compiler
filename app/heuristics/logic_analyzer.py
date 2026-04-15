@@ -112,6 +112,13 @@ DEPENDENCY_PATTERNS = [
     (r"(.+?)\s+so\s+(.+)", "result"),
 ]
 
+# Bolt Optimization: Fast path to avoid executing expensive regexes
+# when dependency keywords are not even present.
+_DEPENDENCY_FAST_PATH_RE = re.compile(
+    r"\b(?:because|since|as|due\s+to|so\s+that|in\s+order\s+to|to\s+ensure|for\s+the\s+purpose\s+of|if|when|whenever|which\s+will|that\s+will|so)\b",
+    re.IGNORECASE,
+)
+
 # Missing information reference patterns
 MISSING_REFERENCE_PATTERNS = [
     # Database/data references
@@ -345,6 +352,9 @@ class LogicAnalyzer:
             all_texts.append(sentences[i] + " " + sentences[i + 1])
 
         for text in all_texts:
+            if not _DEPENDENCY_FAST_PATH_RE.search(text):
+                continue
+
             for pattern, dep_type in self._dependency_re:
                 matches = pattern.finditer(text)
                 for match in matches:

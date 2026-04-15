@@ -78,6 +78,10 @@
 **Learning:** When dropping in faster external libraries like `orjson` to replace standard library equivalents (like `json`), it is easy to forget the import statement if the standard library is already imported elsewhere in the module. This leads to `NameError` at runtime.
 **Action:** Always manually `grep` for the exact `import <new_library>` statement in the modified file to ensure it exists before submitting.
 
+## 2026-05-24 - Avoiding regex backtracking on fully concatenated text
+**Learning:** In the `LogicAnalyzer` when searching for dependency rules, evaluating complex regular expressions containing greedy components like `(.+?)` against text created an exponential backtracking bottleneck on large prompts, adding tens of seconds to processing.
+**Action:** Restrict regular expression evaluations to individual sentences wherever possible, and implement a fast-path alternated regex check (using simple `\b(?:word1|word2)\b` boundaries) to skip the expensive regex execution entirely on strings where dependency keywords are not present.
+
 ## 2026-05-19 - Replacing any(...) generator expressions
 **Learning:** In Python performance-critical paths, replacing `any(...)` generator expressions with an explicit `for` loop inside a helper function (e.g., `_contains_any`) significantly improves short-circuiting speed by avoiding generator initialization overhead, while maintaining readability.
 **Action:** When evaluating multiple boolean string matches in performance-critical code where the expression is evaluated many times, use explicit loops inside helper functions to avoid generator overhead.
