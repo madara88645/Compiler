@@ -5,7 +5,7 @@
   "properties": {
     "version": { "const": "2.0" },
   "language": { "enum": ["tr","en","es"] },
-    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer"] },
+    "persona": { "enum": ["assistant","teacher","researcher","coach","mentor","developer","expert"] },
     "role": { "type": "string" },
     "domain": { "type": "string" },
     "intents": {

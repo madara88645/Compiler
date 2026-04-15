@@ -3,7 +3,15 @@ from __future__ import annotations
 from typing import Final
 
 IR_LANGUAGES: Final = ("tr", "en", "es")
-IR_PERSONAS: Final = ("assistant", "teacher", "researcher", "coach", "mentor", "developer")
+IR_PERSONAS: Final = (
+    "assistant",
+    "teacher",
+    "researcher",
+    "coach",
+    "mentor",
+    "developer",
+    "expert",
+)
 IR_OUTPUT_FORMATS: Final = ("markdown", "json", "yaml", "table", "text")
 IR_LENGTH_HINTS: Final = ("short", "medium", "long")
 

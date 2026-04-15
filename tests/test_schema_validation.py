@@ -2,7 +2,7 @@ import ast
 import json
 from pathlib import Path
 from jsonschema import validate
-from app.compiler import compile_text
+from app.compiler import compile_text, compile_text_v2
 from app.ir_contract import (
     IR_CONSTRAINT_PRIORITIES,
     IR_DATA_SENSITIVITY_LEVELS,
@@ -78,6 +78,13 @@ def test_v1_schema_accepts_developer_persona_for_code_requests():
 
     assert ir.persona == "developer"
     validate(instance=ir.model_dump(), schema=schema)
+
+
+def test_v2_schema_accepts_implied_expert_persona_for_code_snippets():
+    ir = compile_text_v2('Console.WriteLine("hello");', offline_only=True)
+
+    assert ir.persona == "expert"
+    validate(instance=ir.model_dump(), schema=schema_v2)
 
 
 def test_v1_and_v2_persona_enums_stay_aligned_for_shared_values():
