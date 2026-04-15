@@ -82,6 +82,10 @@
 **Learning:** In the `LogicAnalyzer` when searching for dependency rules, evaluating complex regular expressions containing greedy components like `(.+?)` against text created an exponential backtracking bottleneck on large prompts, adding tens of seconds to processing.
 **Action:** Restrict regular expression evaluations to individual sentences wherever possible, and implement a fast-path alternated regex check (using simple `\b(?:word1|word2)\b` boundaries) to skip the expensive regex execution entirely on strings where dependency keywords are not present.
 
+## 2026-05-19 - Replacing any(...) generator expressions
+**Learning:** In Python performance-critical paths, replacing `any(...)` generator expressions with an explicit `for` loop inside a helper function (e.g., `_contains_any`) significantly improves short-circuiting speed by avoiding generator initialization overhead, while maintaining readability.
+**Action:** When evaluating multiple boolean string matches in performance-critical code where the expression is evaluated many times, use explicit loops inside helper functions to avoid generator overhead.
+
 ## 2024-05-20 - Fast JSON Serialization in SQLite Hooks
 **Learning:** In paths that serialize and deserialize large dicts frequently (like reading/writing `HistoryEntry` metadata to/from SQLite in `HistoryManager`), using `orjson.loads` and `orjson.dumps` is dramatically faster (up to ~8-10x) than the standard library `json` module.
 **Action:** When working on DB hooks or large payload serialization, use `orjson` instead of `json`, keeping in mind that `orjson.dumps()` returns bytes and must be `.decode('utf-8')` if a string is needed for the database insert.
