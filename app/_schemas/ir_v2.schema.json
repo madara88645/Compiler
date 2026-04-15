@@ -40,7 +40,8 @@
         "researcher",
         "coach",
         "mentor",
-        "developer"
+        "developer",
+        "expert"
       ]
     },
     "role": {
