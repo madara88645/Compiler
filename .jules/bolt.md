@@ -69,3 +69,7 @@
 ## 2025-04-12 - Ensure runtime imports for fast library drop-ins
 **Learning:** When dropping in faster external libraries like `orjson` to replace standard library equivalents (like `json`), it is easy to forget the import statement if the standard library is already imported elsewhere in the module. This leads to `NameError` at runtime.
 **Action:** Always manually `grep` for the exact `import <new_library>` statement in the modified file to ensure it exists before submitting.
+
+## 2026-05-24 - Avoiding regex backtracking on fully concatenated text
+**Learning:** In the `LogicAnalyzer` when searching for dependency rules, evaluating complex regular expressions containing greedy components like `(.+?)` against text created an exponential backtracking bottleneck on large prompts, adding tens of seconds to processing.
+**Action:** Restrict regular expression evaluations to individual sentences wherever possible, and implement a fast-path alternated regex check (using simple `\b(?:word1|word2)\b` boundaries) to skip the expensive regex execution entirely on strings where dependency keywords are not present.
