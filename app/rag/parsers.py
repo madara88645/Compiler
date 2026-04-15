@@ -260,8 +260,8 @@ def parse_docx(path: Path) -> ParseResult:
 
 
 # Pre-compiled regex patterns for HTML parsing
-_SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script>", flags=re.DOTALL | re.IGNORECASE)
-_STYLE_RE = re.compile(r"<style[^>]*>.*?</style>", flags=re.DOTALL | re.IGNORECASE)
+_SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script\s*>", flags=re.DOTALL | re.IGNORECASE)
+_STYLE_RE = re.compile(r"<style[^>]*>.*?</style\s*>", flags=re.DOTALL | re.IGNORECASE)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
