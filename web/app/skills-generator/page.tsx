@@ -168,6 +168,7 @@ export default function SkillsGenerator() {
             )}
 
             <button
+              type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
               className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
@@ -196,7 +197,7 @@ export default function SkillsGenerator() {
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                  <button className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
+                  <button type="button" className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
                     Skill Definition
                   </button>
                 </div>
@@ -208,6 +209,7 @@ export default function SkillsGenerator() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={copyToClipboard}
                     className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
                     title={copied ? "Copied!" : "Copy to Clipboard"}

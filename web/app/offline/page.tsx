@@ -126,6 +126,7 @@ export default function OfflinePage() {
                             {/* No Toggles - Just Generate */}
                             <div className="grid grid-cols-1 gap-3">
                                 <button
+                                    type="button"
                                     onClick={() => handleGenerate()}
                                     disabled={loading || !prompt.trim()}
                                     className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
@@ -149,6 +150,7 @@ export default function OfflinePage() {
                                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
+                                            type="button"
                                             key={tab}
                                             onClick={() => setActiveTab(tab)}
                                             className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${activeTab === tab
@@ -185,6 +187,7 @@ export default function OfflinePage() {
                                                 }
                                             />
                                             <button
+                                                type="button"
                                                 onClick={() => navigator.clipboard.writeText(
                                                     activeTab === "system" ? result.system_prompt :
                                                         activeTab === "user" ? result.user_prompt :
