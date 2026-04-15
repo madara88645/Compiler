@@ -145,3 +145,54 @@ def test_compile_text_v2_applies_implied_persona_over_default_role():
     assert ir.persona == "expert"
     assert ir.role == "Expert C# Developer"
     assert ir.metadata["implied_persona"]["persona"] == "C# Developer"
+
+
+def test_implied_persona_falls_back_to_existing_generic_role_without_match():
+    text = "Summarize the product roadmap into three concise bullets."
+
+    handler = DomainHandler()
+    ir_v2 = IRv2(
+        language="en",
+        persona="assistant",
+        role="",
+        domain="general",
+        intents=[],
+        goals=[],
+        tasks=[],
+        inputs={},
+        constraints=[],
+        style=[],
+        tone=[],
+        output_format="text",
+        length_hint="medium",
+        steps=[],
+        examples=[],
+        banned=[],
+        tools=[],
+        metadata={"original_text": text},
+    )
+    ir_v1 = IR(
+        metadata={"original_text": text},
+        language="en",
+        persona="assistant",
+        role="",
+        domain="general",
+        goals=[],
+        tasks=[],
+        inputs={},
+        constraints=[],
+        style=[],
+        tone=[],
+        output_format="text",
+        length_hint="medium",
+        steps=[],
+        examples=[],
+        banned=[],
+        tools=[],
+    )
+
+    handler.handle(ir_v2, ir_v1)
+
+    assert ir_v2.persona == "assistant"
+    assert ir_v2.role == ""
+    assert "implied_persona" not in ir_v2.metadata
