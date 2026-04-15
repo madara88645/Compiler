@@ -23,6 +23,12 @@ PromptC surfaces that through:
 - allowed / forbidden tools
 - sanitization rules
 
+## Persona Inference Fallback
+
+PromptC can adopt an implied `expert` persona when the request clearly looks like a code or domain-specific snippet, such as Python, SQL, or C#.
+
+If no implied persona signal is present, PromptC keeps the existing generic persona and role instead of inventing expertise. Users can still override this by writing an explicit role, for example `Act as a security reviewer`.
+
 ## Why This Matters for Developers
 
 Developers still want strong prompts, but they also want safer defaults, repeatable artifacts, IDE-friendly workflows, GitHub-friendly outputs, and regression checks for behavior.

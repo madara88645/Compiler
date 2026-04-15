@@ -808,6 +808,8 @@ class DomainHandler(BaseHandler):
         best_match_start = -1
 
         # Simple keyword matching
+        # Bolt Optimization: Iterate over pre-compiled regex patterns to avoid
+        # recompiling patterns repeatedly in a hot loop.
         for pattern_obj, persona_name in self._compiled_implied_personas.items():
             # Count occurrences
             match_count = 0
@@ -820,6 +822,7 @@ class DomainHandler(BaseHandler):
                 # Base score 0.6, +0.1 for each extra occurrence, max 0.9
                 score = min(0.9, 0.6 + (match_count - 1) * 0.1)
 
+                # Prefer more specific keywords when matches have the same score.
                 specificity = self._implied_persona_specificity.get(pattern_obj, 0)
                 if (
                     score > max_score
