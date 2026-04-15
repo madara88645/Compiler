@@ -110,6 +110,22 @@ def test_rag_ingest_rejects_path_outside_allowed_root(test_key, monkeypatch):
         assert "invalid path specified" in response.json()["detail"].lower()
 
 
+def test_cors_preflight_allows_prompt_mode_header():
+    client = TestClient(app)
+
+    response = client.options(
+        "/compile",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "X-Prompt-Mode",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "x-prompt-mode" in response.headers["access-control-allow-headers"].lower()
+
+
 def test_worker_client_wraps_user_input_and_context_with_tags():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")

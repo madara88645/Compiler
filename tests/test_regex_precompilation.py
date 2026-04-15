@@ -1,4 +1,5 @@
 """Tests for regex pre-compilation in DomainHandler."""
+
 import re
 import pytest
 from app.heuristics.handlers.domain_expert import DomainHandler
@@ -23,13 +24,11 @@ class TestRegexPrecompilation:
         assert "security" in handler._compiled_universal_checks
         for check_name, compiled in handler._compiled_universal_checks.items():
             if compiled.get("missing"):
-                assert isinstance(
-                    compiled.get("missing"), re.Pattern
-                ), f"{check_name} missing_pattern not compiled"
+                missing_pattern = compiled.get("missing")
+                assert isinstance(missing_pattern, re.Pattern)
             if compiled.get("risk"):
-                assert isinstance(
-                    compiled.get("risk"), re.Pattern
-                ), f"{check_name} risk_pattern not compiled"
+                risk_pattern = compiled.get("risk")
+                assert isinstance(risk_pattern, re.Pattern)
 
     def test_business_required_elements_compiled(self, handler):
         assert hasattr(handler, "_compiled_business_elements")

@@ -673,7 +673,7 @@ class DomainHandler(BaseHandler):
         for lang, rules in DOMAIN_RULES["coding"]["languages"].items():
             self._lowered_indicators[lang] = [ind.lower() for ind in rules.get("indicators", [])]
 
-        # Compile implied persona patterns
+        # Compile implied persona patterns against lowercased input text.
         self._compiled_implied_personas: Dict[re.Pattern, str] = {}
         self._implied_persona_specificity: Dict[re.Pattern, int] = {}
         for keyword, persona_name in IMPLIED_PERSONAS.items():

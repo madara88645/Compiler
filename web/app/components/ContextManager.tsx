@@ -86,7 +86,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             )}
 
             <details className="group">
-                <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-400 transition-colors">
+                <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded">
                     Advanced: Index by path
                 </summary>
                 <div className="flex flex-col gap-2 mt-2 pl-2 border-l border-white/5">

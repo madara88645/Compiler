@@ -51,7 +51,15 @@ app.add_middleware(
     allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "x-api-key",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "X-Prompt-Mode",
+    ],
 )
 
 
@@ -62,6 +70,9 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers[
+        "Content-Security-Policy"
+    ] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com"
     return response
 
 

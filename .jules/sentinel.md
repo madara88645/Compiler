@@ -24,3 +24,16 @@
 **Vulnerability:** Path disclosure vulnerability
 **Learning:** `PathSecurityError` exception message explicitly included the absolute paths to the allowed directories on the server. Because the API route `rag_ingest` caught this exception and returned `str(exc)` in the 400 error `detail`, this exposed internal server paths to the client.
 **Prevention:** Do not expose raw internal exception strings to the API layer, especially for filesystem or database errors. Always sanitize error messages to be generic.
+## 2025-05-31 - Add Content-Security-Policy header to FastAPI without breaking Swagger UI
+**Vulnerability:** The application's `api/main.py` lacked a `Content-Security-Policy` header, leaving it more vulnerable to XSS and other content injection attacks.
+**Learning:** Adding a generic strict CSP (like `default-src 'none'`) or missing required sources breaks the built-in FastAPI Swagger UI and ReDoc pages, as they dynamically load assets (scripts, styles, images) from `cdn.jsdelivr.net` and `fastapi.tiangolo.com`. This is a surprising architectural constraint where tightening security headers must explicitly accommodate the documentation framework's external dependencies.
+**Prevention:** When adding CSP headers to FastAPI, ensure `script-src` and `style-src` whitelist `'unsafe-inline'` and `https://cdn.jsdelivr.net`, and that `img-src` allows `data:` URIs and `https://fastapi.tiangolo.com`, to prevent breaking the `/docs` endpoints while still enforcing a policy.
+## 2025-06-05 - Restrict Overly Permissive CORS Headers
+
+**Vulnerability:** The FastAPI application used `allow_headers=["*"]` in its `CORSMiddleware` configuration. This is an overly permissive setting that could potentially allow malicious cross-origin requests to send unexpected or forged headers to the backend, increasing the attack surface.
+**Learning:** While allowing all origins (`*`) is a known risk, allowing all headers (`*`) is also a security concern. It violates the principle of least privilege.
+**Prevention:** When configuring CORS, always explicitly list the headers required by the application (e.g., `["Content-Type", "Authorization", "x-api-key", "Accept", "Origin", "X-Requested-With"]`) instead of using wildcards.
+## 2024-05-24 - Missing Authentication on Cost-Incurring Endpoint
+**Vulnerability:** The `/benchmark/run` API endpoint in `app/routers/benchmark.py`, which makes multiple LLM API calls, was completely unauthenticated.
+**Learning:** Endpoints added later in the lifecycle (like benchmark routers) can sometimes be missed when applying global or required authentication patterns used in core routers (like `rag` or `compile`), leading to unauthorized resource exhaustion.
+**Prevention:** Always verify that newly added routers or endpoints that trigger cost-incurring actions (like LLM calls) explicitly include standard authentication dependencies (e.g., `Depends(verify_api_key)` or `Depends(verify_api_key_if_required)`) in their signature, matching the pattern used in the rest of the application.

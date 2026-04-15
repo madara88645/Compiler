@@ -141,6 +141,7 @@ export default function Home() {
               </div>
               {!!lastError && !loading && (
                 <button
+                  type="button"
                   onClick={() => void retry()}
                   className="text-xs font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
@@ -176,6 +177,7 @@ export default function Home() {
 
             <div className="flex flex-col gap-4">
               <button
+                type="button"
                 onClick={() => handleGenerate()}
                 disabled={loading || !prompt.trim()}
                 className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
@@ -205,6 +207,7 @@ export default function Home() {
                 <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
+                      type="button"
                       key={tab}
                       role="tab"
                       aria-selected={activeTab === tab}
@@ -316,6 +319,7 @@ export default function Home() {
                         />
 
                         <button
+                          type="button"
                           onClick={() => {
                             navigator.clipboard.writeText(getTabContent(result, tab));
                             setCopied(true);

@@ -1,6 +1,6 @@
 import pytest
 
-from app.github_artifacts import render_github_artifact
+from app.github_artifacts import render_github_artifact, render_artifact_chain
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ def test_issue_brief_low_risk_documentation_request():
 
     assert "# Issue Brief" in artifact
     assert "Risk Level: low" in artifact
-    assert "advice_only" in artifact
+    assert "auto_ok" in artifact
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ def test_pr_review_brief_from_feature_pr():
 
 @pytest.mark.parametrize(
     "kind",
-    ["issue-brief", "implementation-checklist", "pr-review-brief"],
+    ["issue-brief", "implementation-checklist", "pr-review-brief", "workflow-brief"],
 )
 def test_all_artifact_types_produce_valid_markdown(kind):
     """Every artifact type should start with an H1 and end with a newline."""
@@ -172,3 +172,62 @@ def test_artifact_policy_fields_always_present(kind):
     assert "Risk Level:" in artifact
     assert "Execution Mode:" in artifact
     assert "Data Sensitivity:" in artifact
+
+
+# ---------------------------------------------------------------------------
+# New: workflow-brief, artifact chain, enforcement checklist
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_brief_contains_all_sections():
+    """Composite workflow-brief should contain Goals, Checklist, and Review Focus."""
+    artifact = render_github_artifact(
+        "workflow-brief",
+        (
+            "Build a file upload feature: accept PDF and TXT files up to 10MB, "
+            "chunk them into 512-token segments, embed with a local model, "
+            "store in SQLite vector store, and show upload progress in the UI."
+        ),
+    )
+
+    assert "# Workflow Brief" in artifact
+    assert "## Intent" in artifact
+    assert "## Policy" in artifact
+    assert "## Goals" in artifact
+    assert "## Checklist" in artifact
+    assert "## Review Focus" in artifact
+    assert artifact.startswith("# ")
+    assert artifact.endswith("\n")
+
+
+def test_artifact_chain_renders_three_linked_sections():
+    """Artifact chain should produce 3 artifacts separated by --- with cross-references."""
+    chain = render_artifact_chain("Write unit tests for the auth module.")
+
+    assert "# Issue Brief" in chain
+    assert "# Implementation Checklist" in chain
+    assert "# PR Review Brief" in chain
+    assert "---" in chain
+    assert "See also:" in chain
+
+
+def test_enforcement_checklist_for_high_risk():
+    """Financial prompt should produce enforcement checklist with GATE."""
+    artifact = render_github_artifact(
+        "issue-brief",
+        "Analyze my stock portfolio allocation and suggest an investment strategy.",
+    )
+
+    assert "## Enforcement Checklist" in artifact
+    assert "**GATE:** Human review required before merge/deploy" in artifact
+    assert "- [ ]" in artifact
+
+
+def test_enforcement_checklist_absent_for_low_risk():
+    """Benign prompt should not have an enforcement checklist."""
+    artifact = render_github_artifact(
+        "issue-brief",
+        "Explain the difference between TCP and UDP protocols.",
+    )
+
+    assert "## Enforcement Checklist" not in artifact

@@ -21,6 +21,6 @@ def test_compile_endpoint_applies_implied_persona_in_local_v2_pipeline():
     response = client.post("/compile", json={"text": 'Console.WriteLine("hello");', "v2": False})
 
     assert response.status_code == 200
-    implied_persona = response.json()["ir_v2"]["metadata"]["implied_persona"]
-    assert implied_persona["persona"] == "C# Developer"
-    assert response.json()["ir_v2"]["role"] == "Expert C# Developer"
+    payload = response.json()
+    assert payload["ir_v2"]["metadata"]["implied_persona"]["persona"] == "C# Developer"
+    assert payload["ir_v2"]["role"] == "Expert C# Developer"

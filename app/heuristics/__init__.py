@@ -506,6 +506,33 @@ RISK_KEYWORDS = {
         r"hack",
         r"exploit",
     ],
+    "privacy": [
+        r"privacy",
+        r"gdpr",
+        r"ccpa",
+        r"data protection",
+        r"consent",
+        r"personal data",
+        r"kişisel veri",
+        r"gizlilik",
+        r"aydınlatma metni",
+        r"kvkk",
+    ],
+    "infrastructure": [
+        r"deploy",
+        r"production",
+        r"server",
+        r"database migration",
+        r"rollback",
+        r"downtime",
+        r"kubernetes",
+        r"terraform",
+        r"docker",
+        r"ci/cd",
+        r"pipeline",
+        r"sunucu",
+        r"yayınlama",
+    ],
 }
 
 AMBIGUOUS_TERMS = {
@@ -616,6 +643,12 @@ PII_PATTERNS = {
     "credit_card": re.compile(r"\b(?:\d[ -]?){13,16}\b"),
     # Turkish IBAN (TR + 24 digits) simplified
     "iban": re.compile(r"\bTR\d{24}\b", re.IGNORECASE),
+    # US Social Security Number (XXX-XX-XXXX)
+    "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    # Passport number (1-2 letters + 6-9 digits, covers US/UK/TR/EU)
+    "passport": re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
+    # Turkish TC Kimlik No (11 digits, starts with non-zero)
+    "tc_kimlik": re.compile(r"\b[1-9]\d{10}\b"),
 }
 
 
