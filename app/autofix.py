@@ -102,6 +102,14 @@ EXAMPLE_TEMPLATES: Dict[str, List[str]] = {
 }
 
 
+def _contains_any(text: str, markers: list[str]) -> bool:
+    """Fast path check without generator overhead."""
+    for marker in markers:
+        if marker in text:
+            return True
+    return False
+
+
 def _replace_vague_terms(text: str) -> Tuple[str, List[str]]:
     """Replace vague terms with specific alternatives.
 
@@ -140,7 +148,7 @@ def _add_persona_prefix(text: str, domain: str) -> Tuple[str, str]:
     persona_markers = ["as a", "as an", "you are", "act as", "role:"]
     # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
     text_lower = text.lower()[:50]
-    if any(marker in text_lower for marker in persona_markers):
+    if _contains_any(text_lower, persona_markers):
         return text, ""
 
     # Get suggested persona
@@ -161,7 +169,7 @@ def _add_example_section(text: str, domain: str) -> Tuple[str, str]:
     example_markers = ["example:", "for example", "e.g.", "such as"]
     # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
     text_lower = text.lower()
-    if any(marker in text_lower for marker in example_markers):
+    if _contains_any(text_lower, example_markers):
         return text, ""
 
     # Get domain-specific example
@@ -183,7 +191,7 @@ def _add_output_format(text: str) -> Tuple[str, str]:
     format_markers = ["format:", "output:", "response format", "structure:"]
     # Bolt Optimization: Pre-computing lowercase text avoids redundant O(N) allocations in loop
     text_lower = text.lower()
-    if any(marker in text_lower for marker in format_markers):
+    if _contains_any(text_lower, format_markers):
         return text, ""
 
     # Add format specification
@@ -259,8 +267,8 @@ def auto_fix_prompt(text: str, max_fixes: int = 5, min_score_target: float = 75.
             fixed_text_lower = fixed_text.lower()
 
             # Fix vague terms - check actual text, not just IR
-            if "vague" in issue.message.lower() or any(
-                term in fixed_text_lower for term in ["something", "stuff", "maybe", "probably"]
+            if "vague" in issue.message.lower() or _contains_any(
+                fixed_text_lower, ["something", "stuff", "maybe", "probably"]
             ):
                 new_text, changes = _replace_vague_terms(fixed_text)
                 if changes:
