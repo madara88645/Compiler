@@ -250,6 +250,12 @@ Relevant files: `web/app/`, `web/app/components/`, `web/app/hooks/`
 cd web && npm run test:contracts
 ```
 
+**Unit tests (Vitest component coverage):**
+
+```bash
+cd web && npm run test
+```
+
 **Lint:**
 
 ```bash
@@ -358,6 +364,7 @@ pre-commit run --all-files
 cd web
 npm ci
 npm run test:contracts
+npm run test
 npm run lint
 npm run build
 cd ..
