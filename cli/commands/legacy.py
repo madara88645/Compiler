@@ -11,5 +11,3 @@ import typer
 # This is safer than moving everything at once.
 
 app = typer.Typer(help="Legacy/Extras")
-
-
