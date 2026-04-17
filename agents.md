@@ -250,6 +250,12 @@ Relevant files: `web/app/`, `web/app/components/`, `web/app/hooks/`
 cd web && npm run test:contracts
 ```
 
+**Frontend unit tests (Vitest):**
+
+```bash
+cd web && npm run test
+```
+
 **Lint:**
 
 ```bash
@@ -318,6 +324,14 @@ python integrations/mcp-server/server.py
 node --test extension/*.test.mjs
 ```
 
+### 5.7 Repo Hygiene (`scripts/`)
+
+Use branch/worktree cleanup audit script before large PR triage or manual cleanup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/branch_audit.ps1 -IncludeDeleteCommands
+```
+
 ---
 
 ## 6. Linting and Code Style
@@ -345,19 +359,23 @@ CI runs on every PR. It must pass before merge. Reproduce it locally with:
 
 ```bash
 # Step 1: Python smoke tests
+pip check
+
+# Step 2: Python smoke tests
 pytest -q \
   tests/test_api_hardening.py \
   tests/test_auth_fast_path.py \
   tests/test_rag_upload.py \
   tests/test_benchmark_api.py
 
-# Step 2: Pre-commit (linting + formatting)
+# Step 3: Pre-commit (linting + formatting)
 pre-commit run --all-files
 
-# Step 3: Frontend
+# Step 4: Frontend
 cd web
 npm ci
 npm run test:contracts
+npm run test
 npm run lint
 npm run build
 cd ..
