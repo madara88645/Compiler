@@ -93,3 +93,6 @@
 ## 2024-05-30 - Regex Precompilation in RAG Parsers
 **Learning:** In text parsing hot paths, such as the `parse_html` function in `app/rag/parsers.py` used during document ingestion, creating regex pattern objects on the fly with inline regex literals introduces significant, recurring overhead. Pre-compiling the regex objects using `re.compile()` at the module level avoids redundant compilation on every function call, resulting in a ~10x speedup for pattern substitution.
 **Action:** Always extract static regular expression patterns to module-level constants using `re.compile()` if they are used within frequently executed functions or hot paths like parsers, tokenizers, or loops.
+## 2026-04-16 - Pre-compiling Regex Patterns inside Repeated Methods
+**Learning:** In Python, iterating over uncompiled string patterns using `re.sub(pattern, text)` repeatedly compiles the regex patterns on every call, leading to significant overhead in hot paths like prompt rewriting.
+**Action:** Move static regex definitions to the module level, pre-compile them with `re.compile()`, and use the pre-compiled `.sub()` methods inside the functions for a guaranteed speedup.

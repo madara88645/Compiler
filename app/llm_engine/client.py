@@ -18,6 +18,36 @@ from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 from app.heuristics.security import scan_text
 
+# Pre-compiled regex patterns for prompt rewriting
+_SINGLE_AGENT_EXAMPLE_CODE_RE = re.compile(
+    r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)", flags=re.DOTALL
+)
+_SINGLE_AGENT_OPTIONAL_EXAMPLE_RE = re.compile(
+    r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)", flags=re.DOTALL
+)
+_SINGLE_AGENT_IN_EXAMPLE_RE = re.compile(r"^- In Example Code:.*\n", flags=re.MULTILINE)
+_SINGLE_AGENT_KEEP_EXAMPLES_RE = re.compile(r"^- Keep code examples.*\n", flags=re.MULTILINE)
+_SINGLE_AGENT_ONLY_INCLUDE_RE = re.compile(
+    r"^- Only include an `## Example Code .*?$\n?", flags=re.MULTILINE
+)
+
+_MULTI_AGENT_SWARM_CODE_RE = re.compile(
+    r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)", flags=re.DOTALL
+)
+_MULTI_AGENT_OPTIONAL_SWARM_RE = re.compile(
+    r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*", flags=re.DOTALL
+)
+_MULTI_AGENT_ONLY_INCLUDE_RE = re.compile(
+    r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE
+)
+
+_SKILL_OPTIONAL_IMPL_RE = re.compile(
+    r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)", flags=re.DOTALL
+)
+_SKILL_ONLY_INCLUDE_RE = re.compile(
+    r"^- Only include an implementation example section.*\n", flags=re.MULTILINE
+)
+
 # Default settings - Groq (much faster than LLM Service)
 DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
 DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1")
@@ -144,26 +174,11 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(r"^- In Example Code:.*\n", "", prompt, flags=re.MULTILINE)
-        prompt = re.sub(r"^- Keep code examples.*\n", "", prompt, flags=re.MULTILINE)
-        prompt = re.sub(
-            r"^- Only include an `## Example Code .*?$\n?",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        prompt = _SINGLE_AGENT_EXAMPLE_CODE_RE.sub("", prompt)
+        prompt = _SINGLE_AGENT_OPTIONAL_EXAMPLE_RE.sub("", prompt)
+        prompt = _SINGLE_AGENT_IN_EXAMPLE_RE.sub("", prompt)
+        prompt = _SINGLE_AGENT_KEEP_EXAMPLES_RE.sub("", prompt)
+        prompt = _SINGLE_AGENT_ONLY_INCLUDE_RE.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
@@ -180,24 +195,9 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"^- Only include a final `## Swarm Example Code .*?$\n?",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        prompt = _MULTI_AGENT_SWARM_CODE_RE.sub("", prompt)
+        prompt = _MULTI_AGENT_OPTIONAL_SWARM_RE.sub("", prompt)
+        prompt = _MULTI_AGENT_ONLY_INCLUDE_RE.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
@@ -214,18 +214,8 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"^- Only include an implementation example section.*\n",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        prompt = _SKILL_OPTIONAL_IMPL_RE.sub("", prompt)
+        prompt = _SKILL_ONLY_INCLUDE_RE.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
