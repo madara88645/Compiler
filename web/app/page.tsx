@@ -8,6 +8,7 @@ import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
 import { useCompiler } from "./hooks/useCompiler";
+import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
 type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";
@@ -26,6 +27,36 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   }
 
   return result.expanded_prompt_v2 || result.expanded_prompt;
+}
+
+function CompilerErrorState({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex-1 flex items-center justify-center p-10 text-center" role="alert">
+      <div className="max-w-md rounded-lg border border-red-500/20 bg-red-500/10 p-6 shadow-xl shadow-red-950/10">
+        <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-red-400/30 bg-red-400/10 text-lg font-semibold text-red-200">
+          !
+        </div>
+        <h3 className="text-base font-semibold text-white">Compile failed</h3>
+        <p className="mt-2 text-sm leading-relaxed text-red-100/80">{describeRequestError(error)}</p>
+        <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+          Your prompt is still in the editor. Retry after checking the backend or API URL.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-5 rounded-lg border border-red-400/30 bg-red-500/20 px-4 py-2 text-sm font-medium text-red-50 transition-colors hover:bg-red-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        >
+          Retry compile
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -201,7 +232,9 @@ export default function Home() {
           <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
 
             {/* ── Compiler Output View ── */}
-            {result ? (
+            {!!lastError && !loading ? (
+              <CompilerErrorState error={lastError} onRetry={() => void retry()} />
+            ) : result ? (
               <>
                 {/* Tabs */}
                 <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
