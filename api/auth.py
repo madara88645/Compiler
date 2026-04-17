@@ -103,6 +103,22 @@ def verify_api_key(
 
     # --- Rate Limiting ---
     now = time.time()
+
+    # Periodically clean up stale rate limit entries to prevent memory leaks
+    if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
+        verify_api_key._cleanup_counter = 0
+        stale_keys = []
+        for k, v in RATE_LIMIT_STORE.items():
+            valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
+            if not valid_ts:
+                stale_keys.append(k)
+            else:
+                RATE_LIMIT_STORE[k] = valid_ts
+        for k in stale_keys:
+            RATE_LIMIT_STORE.pop(k, None)
+    else:
+        verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
+
     history = RATE_LIMIT_STORE.get(api_key, [])
     # Filter out timestamps older than window
     history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
