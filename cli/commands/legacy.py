@@ -13,6 +13,3 @@ import typer
 app = typer.Typer(help="Legacy/Extras")
 
 
-@app.command()
-def placeholder():
-    pass
