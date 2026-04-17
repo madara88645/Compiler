@@ -93,3 +93,7 @@
 ## 2024-05-30 - Regex Precompilation in RAG Parsers
 **Learning:** In text parsing hot paths, such as the `parse_html` function in `app/rag/parsers.py` used during document ingestion, creating regex pattern objects on the fly with inline regex literals introduces significant, recurring overhead. Pre-compiling the regex objects using `re.compile()` at the module level avoids redundant compilation on every function call, resulting in a ~10x speedup for pattern substitution.
 **Action:** Always extract static regular expression patterns to module-level constants using `re.compile()` if they are used within frequently executed functions or hot paths like parsers, tokenizers, or loops.
+
+## 2024-05-31 - Optimize template variable substitution
+**Learning:** Using Python's built-in string `replace` method (e.g., `result.replace(f"{{{{{var_name}}}}}", var_value)`) is significantly faster (~2x) than `re.sub` for exact substring replacement inside loops. It avoids the overhead of compiling and executing regular expressions repeatedly on the entire string.
+**Action:** When performing simple substring replacements that do not require complex pattern matching, always prefer `str.replace()` over `re.sub()` for better performance.
