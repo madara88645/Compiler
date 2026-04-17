@@ -81,7 +81,6 @@ def verify_api_key(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid API Key.")
 
     # --- Master Key Check (for Stateless Deployments like Railway) ---
-    import os
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:
