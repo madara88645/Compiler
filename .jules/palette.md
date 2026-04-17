@@ -13,3 +13,6 @@
 ## 2025-04-10 - Explicit Button Types
 **Learning:** Buttons without explicit `type` attributes default to `type="submit"` in standard HTML parsing. This can inadvertently trigger unexpected page reloads or form submissions across the application when a simple interactive button is clicked.
 **Action:** Always add `type="button"` to any `<button>` component in the frontend unless it is explicitly intended to submit a form.
+## 2024-04-15 - Add native tooltips to icon-only buttons
+**Learning:** Icon-only buttons (like copy or clear buttons) with only an `aria-label` are accessible to screen readers but lack immediate visual context for sighted mouse users. Adding a `title` attribute matching the `aria-label` provides a native browser tooltip, improving general UX without cluttering the UI. Dynamically updating the title (e.g., to "Copied!") adds delightful feedback.
+**Action:** Always ensure icon-only buttons have a `title` attribute in addition to `aria-label` for dual accessibility and usability.
