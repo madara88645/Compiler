@@ -77,6 +77,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                     </div>
                     <p className="max-w-[200px] text-center text-sm mb-2">Run analysis to detect potential improvements and safety issues.</p>
                     <button
+                        type="button"
                         onClick={handleAnalyze}
                         disabled={analyzing || !prompt.trim()}
                         title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}

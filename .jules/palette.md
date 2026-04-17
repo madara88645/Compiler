@@ -13,3 +13,7 @@
 ## 2025-04-10 - Explicit Button Types
 **Learning:** Buttons without explicit `type` attributes default to `type="submit"` in standard HTML parsing. This can inadvertently trigger unexpected page reloads or form submissions across the application when a simple interactive button is clicked.
 **Action:** Always add `type="button"` to any `<button>` component in the frontend unless it is explicitly intended to submit a form.
+
+## 2025-01-20 - Ensure type="button" on generic interactive buttons
+**Learning:** Found a component (`QualityCoach.tsx`) where an empty state interactive button lacked `type="button"`. Next.js/React applications can have unexpected form submission side-effects if nested near standard forms, and interactive icon or empty-state action buttons often miss this declarative prop.
+**Action:** When creating standalone actionable buttons that trigger UI changes or analytics but are not meant to submit `<form>` elements, always explicitly declare `type="button"` to ensure robust cross-browser and assistive tech behavior.
