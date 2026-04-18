@@ -306,7 +306,9 @@ class StructureHandler(BaseHandler):
         """Heuristic type mapping based on field name."""
         s = field_name.lower()
         # Bolt Optimization: Replace any() generator expressions with fast-path loops to avoid overhead
-        if _contains_any_keyword(s, ["age", "count", "number", "quantity", "year", "limit", "id", "score"]):
+        if _contains_any_keyword(
+            s, ["age", "count", "number", "quantity", "year", "limit", "id", "score"]
+        ):
             return "integer"
         if _contains_any_keyword(s, ["is_", "has_", "active", "enabled", "check", "flag"]):
             return "boolean"
