@@ -726,81 +726,7 @@ def search(query: str, k: int = 5, db_path: Optional[str] = None) -> List[dict]:
     conn = _connect(db_path)
     try:
         _init_schema(conn)
-        # Use simple LIKE for robustness if FTS fails or behaves oddly
-        # 1. Try FTS Search
-        try:
-            cur = conn.execute(
-                """
-                SELECT c.id, c.doc_id, d.path, c.chunk_index,
-                       snippet(fts, 0, '[', ']', '…', 10) as snippet,
-                       bm25(fts) as score
-                FROM fts JOIN chunks c ON fts.rowid = c.id
-                JOIN docs d ON d.id = c.doc_id
-                WHERE fts MATCH ?
-                ORDER BY score LIMIT ?
-                """,
-                (_build_fts_query(query), k),
-            )
-            results = []
-            for row in cur.fetchall():
-                results.append(
-                    {
-                        "chunk_id": row[0],
-                        "doc_id": row[1],
-                        "path": row[2],
-                        "chunk_index": row[3],
-                        "snippet": row[4],
-                        "score": row[5],
-                    }
-                )
-        except Exception as e:
-            logger.debug("FTS search failed or returned error: %s", e)
-            results = []
-
-        # 2. Fallback to LIKE if not enough results
-        if len(results) < k:
-            seen_ids = {r["chunk_id"] for r in results}
-            limit_needed = k - len(results)
-
-            # Escape LIKE wildcards to prevent LIKE injection
-            escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-            cur = conn.execute(
-                """
-                SELECT c.id, c.doc_id, d.path, c.chunk_index,
-                       c.content,
-                       0.5 as score
-                FROM chunks c
-                JOIN docs d ON d.id = c.doc_id
-                WHERE lower(c.content) LIKE lower(?) ESCAPE '\\'
-                LIMIT ?
-                """,
-                (f"%{escaped_query}%", limit_needed * 2),  # Grab a few more to filter dupes
-            )
-
-            for row in cur.fetchall():
-                if row[0] not in seen_ids:
-                    # Create a simple snippet
-                    content = row[4]
-                    idx = content.lower().find(query.lower())
-                    start = max(0, idx - 20)
-                    end = min(len(content), idx + len(query) + 20)
-                    snippet = f"…{content[start:end]}…"
-
-                    results.append(
-                        {
-                            "chunk_id": row[0],
-                            "doc_id": row[1],
-                            "path": row[2],
-                            "chunk_index": row[3],
-                            "snippet": snippet,
-                            "score": row[5],
-                        }
-                    )
-                    seen_ids.add(row[0])
-                    if len(results) >= k:
-                        break
-
+        results = _search_with_conn(conn, query=query, k=k)
         _cache_put(cache_key, results)
         return results
     finally:
@@ -821,45 +747,7 @@ def search_embed(
     conn = _connect(db_path)
     try:
         _init_schema(conn)
-
-        if _HAS_FASTEMBED and embed_dim >= 128:
-            q_vec = _fast_embed(query)
-        else:
-            q_vec = _simple_embed(query, dim=embed_dim)
-
-        # fetch embeddings joined with chunk + doc metadata
-        cur = conn.execute(
-            """
-            SELECT e.chunk_id, c.doc_id, d.path, c.chunk_index, c.content, e.vec, e.dim
-            FROM embeddings e
-            JOIN chunks c ON c.id = e.chunk_id
-            JOIN docs d ON d.id = c.doc_id
-            WHERE e.dim = ?
-            """,
-            (embed_dim,),
-        )
-        results = []
-        for row in cur.fetchall():
-            chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
-            emb = _parse_embedding(vec_json)
-            # cosine since vectors L2 normalized => dot product
-            # Bolt Optimization: map() with operator.mul is ~25% faster than list comprehension + zip for vector dot products in Python
-            sim = sum(map(operator.mul, q_vec, emb))
-            # score as (1 - sim) so lower is better similar to bm25 semantics
-            score = 1.0 - sim
-            snippet = content[:200].replace("\n", " ")
-            results.append(
-                {
-                    "chunk_id": chunk_id,
-                    "doc_id": doc_id,
-                    "path": path,
-                    "chunk_index": chunk_index,
-                    "snippet": snippet,
-                    "score": score,
-                    "similarity": sim,
-                }
-            )
-        results.sort(key=lambda r: r["score"])  # lower distance first
+        results = _search_embed_with_conn(conn, query=query, k=k, embed_dim=embed_dim)
         _cache_put(cache_key, results)
         return results[:k]
     finally:
@@ -887,8 +775,13 @@ def search_hybrid(
     cached = _cache_get(cache_key)
     if cached is not None:
         return cached[:k]
-    fts_results = search(query, k=max(k, 20), db_path=db_path)
-    emb_results = search_embed(query, k=max(k, 50), db_path=db_path, embed_dim=embed_dim)
+    conn = _connect(db_path)
+    try:
+        _init_schema(conn)
+        fts_results = _search_with_conn(conn, query=query, k=max(k, 20))
+        emb_results = _search_embed_with_conn(conn, query=query, k=max(k, 50), embed_dim=embed_dim)
+    finally:
+        conn.close()
     # Build rank maps
     fts_rank: Dict[int, int] = {r["chunk_id"]: i for i, r in enumerate(fts_results)}
     fused: Dict[int, dict] = {}
@@ -912,6 +805,131 @@ def search_hybrid(
     return ranked[:k]
 
 
+def _search_with_conn(conn: sqlite3.Connection, *, query: str, k: int) -> List[dict]:
+    # Use simple LIKE for robustness if FTS fails or behaves oddly
+    # 1. Try FTS Search
+    try:
+        cur = conn.execute(
+            """
+            SELECT c.id, c.doc_id, d.path, c.chunk_index,
+                   snippet(fts, 0, '[', ']', '…', 10) as snippet,
+                   bm25(fts) as score
+            FROM fts JOIN chunks c ON fts.rowid = c.id
+            JOIN docs d ON d.id = c.doc_id
+            WHERE fts MATCH ?
+            ORDER BY score LIMIT ?
+            """,
+            (_build_fts_query(query), k),
+        )
+        results = []
+        for row in cur.fetchall():
+            results.append(
+                {
+                    "chunk_id": row[0],
+                    "doc_id": row[1],
+                    "path": row[2],
+                    "chunk_index": row[3],
+                    "snippet": row[4],
+                    "score": row[5],
+                }
+            )
+    except Exception as e:
+        logger.debug("FTS search failed or returned error: %s", e)
+        results = []
+
+    # 2. Fallback to LIKE if not enough results
+    if len(results) < k:
+        seen_ids = {r["chunk_id"] for r in results}
+        limit_needed = k - len(results)
+
+        # Escape LIKE wildcards to prevent LIKE injection
+        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        q_lower = query.lower()
+        q_len = len(query)
+
+        cur = conn.execute(
+            """
+            SELECT c.id, c.doc_id, d.path, c.chunk_index,
+                   c.content,
+                   0.5 as score
+            FROM chunks c
+            JOIN docs d ON d.id = c.doc_id
+            WHERE lower(c.content) LIKE lower(?) ESCAPE '\\'
+            LIMIT ?
+            """,
+            (f"%{escaped_query}%", limit_needed * 2),  # Grab a few more to filter dupes
+        )
+
+        for row in cur.fetchall():
+            if row[0] not in seen_ids:
+                # Create a simple snippet
+                content = row[4]
+                idx = content.lower().find(q_lower)
+                start = max(0, idx - 20)
+                end = min(len(content), idx + q_len + 20)
+                snippet = f"…{content[start:end]}…"
+
+                results.append(
+                    {
+                        "chunk_id": row[0],
+                        "doc_id": row[1],
+                        "path": row[2],
+                        "chunk_index": row[3],
+                        "snippet": snippet,
+                        "score": row[5],
+                    }
+                )
+                seen_ids.add(row[0])
+                if len(results) >= k:
+                    break
+
+    return results
+
+
+def _search_embed_with_conn(
+    conn: sqlite3.Connection, *, query: str, k: int, embed_dim: int
+) -> List[dict]:
+    if _HAS_FASTEMBED and embed_dim >= 128:
+        q_vec = _fast_embed(query)
+    else:
+        q_vec = _simple_embed(query, dim=embed_dim)
+
+    # fetch embeddings joined with chunk + doc metadata
+    cur = conn.execute(
+        """
+        SELECT e.chunk_id, c.doc_id, d.path, c.chunk_index, c.content, e.vec, e.dim
+        FROM embeddings e
+        JOIN chunks c ON c.id = e.chunk_id
+        JOIN docs d ON d.id = c.doc_id
+        WHERE e.dim = ?
+        """,
+        (embed_dim,),
+    )
+    results = []
+    for row in cur.fetchall():
+        chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
+        emb = _parse_embedding(vec_json)
+        # cosine since vectors L2 normalized => dot product
+        # Bolt Optimization: map() with operator.mul is ~25% faster than list comprehension + zip for vector dot products in Python
+        sim = sum(map(operator.mul, q_vec, emb))
+        # score as (1 - sim) so lower is better similar to bm25 semantics
+        score = 1.0 - sim
+        snippet = content[:200].replace("\n", " ")
+        results.append(
+            {
+                "chunk_id": chunk_id,
+                "doc_id": doc_id,
+                "path": path,
+                "chunk_index": chunk_index,
+                "snippet": snippet,
+                "score": score,
+                "similarity": sim,
+            }
+        )
+    results.sort(key=lambda r: r["score"])  # lower distance first
+    return results[:k]
+
+
 # Optional tiktoken support for accurate token counting
 _tiktoken_enc = None
 
@@ -927,7 +945,7 @@ def _count_tokens(text: str, ratio: float = 4.0) -> int:
 
                     _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
-    except ImportError:
+    except Exception:
         return int(len(text) / ratio)
 
 
@@ -977,7 +995,12 @@ def pack(
         block = header + chunk_text + "\n\n"
 
         block_len = len(block)
-        block_tokens = _count_tokens(block, token_chars)
+        if max_tokens is not None:
+            block_tokens = _count_tokens(block, token_chars)
+        else:
+            # Fast path: avoid expensive tokenizer initialization when there is
+            # no token budget enforcement. Keep approximate accounting only.
+            block_tokens = int(block_len / token_chars)
 
         if max_tokens is not None and (total_tokens + block_tokens) > max_tokens:
             break
