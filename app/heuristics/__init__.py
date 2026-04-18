@@ -652,6 +652,38 @@ PII_PATTERNS = {
 }
 
 
+_PII_CONTEXT_FALSE_POSITIVE_HINTS = (
+    "example",
+    "sample",
+    "dummy",
+    "placeholder",
+    "format",
+    "mask",
+    "regex",
+    "test data",
+    "fake",
+)
+
+
+def _is_tc_kimlik_valid(value: str) -> bool:
+    """Validate Turkish TC Kimlik number checksum to reduce false positives."""
+    if not re.fullmatch(r"[1-9]\d{10}", value):
+        return False
+    digits = [int(ch) for ch in value]
+    odd_sum = sum(digits[0:9:2])
+    even_sum = sum(digits[1:8:2])
+    check_10 = ((odd_sum * 7) - even_sum) % 10
+    check_11 = sum(digits[:10]) % 10
+    return digits[9] == check_10 and digits[10] == check_11
+
+
+def _has_fp_hint_around_match(text: str, start: int, end: int, window: int = 24) -> bool:
+    lo = max(0, start - window)
+    hi = min(len(text), end + window)
+    ctx = text[lo:hi].lower()
+    return any(hint in ctx for hint in _PII_CONTEXT_FALSE_POSITIVE_HINTS)
+
+
 def detect_pii(text: str) -> list[str]:
     flags: list[str] = []
     # To reduce false positives for credit cards: ensure at least 13 digits contiguous when stripped
@@ -668,6 +700,10 @@ def detect_pii(text: str) -> list[str]:
                 digits_count = sum(map(str.isdigit, val))
                 if digits_count < 7:
                     continue
+            if kind in {"ssn", "passport"} and _has_fp_hint_around_match(text, m.start(), m.end()):
+                continue
+            if kind == "tc_kimlik" and not _is_tc_kimlik_valid(val):
+                continue
             if kind not in flags:
                 flags.append(kind)
             # Do not collect more than 5 kinds to keep metadata small

@@ -61,6 +61,18 @@ class PolicyHandler(BaseHandler):
     }
 
     _HIGH_RISK_DOMAINS = {"financial", "health", "legal"}
+    _EDUCATIONAL_KEYWORDS = (
+        "explain",
+        "teach",
+        "tutorial",
+        "for beginners",
+        "what is",
+        "overview",
+        "intro",
+        "introduction",
+        "learn",
+        "education",
+    )
 
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         md = ir_v1.metadata or {}
@@ -79,9 +91,20 @@ class PolicyHandler(BaseHandler):
         has_path = self._has_explicit_path(original_text)
         file_or_system_request = has_path or any(keyword in text for keyword in self._FILE_KEYWORDS)
         debug_request = bool(md.get("code_request")) or bool(persona_flags.get("live_debug"))
+        educational_request = self._is_educational_request(text)
+        benign_educational_risk = (
+            educational_request
+            and not has_high_risk_domain
+            and risk_score == 1
+            and not debug_request
+            and not file_or_system_request
+        )
 
         # Cumulative risk scoring: 2+ overlapping domains always escalate
-        if risk_score >= 2 or has_high_risk_domain:
+        if benign_educational_risk:
+            policy.risk_level = "low"
+            policy.execution_mode = "auto_ok"
+        elif risk_score >= 2 or has_high_risk_domain:
             policy.risk_level = "high"
             policy.execution_mode = "human_approval_required"
         elif risk_score == 1 or debug_request or file_or_system_request:
@@ -135,6 +158,10 @@ class PolicyHandler(BaseHandler):
             policy.data_sensitivity = "internal"
 
         ir_v2.metadata["policy_summary"] = policy.model_dump()
+
+    @classmethod
+    def _is_educational_request(cls, lower_text: str) -> bool:
+        return any(keyword in lower_text for keyword in cls._EDUCATIONAL_KEYWORDS)
 
     @classmethod
     def _has_explicit_path(cls, text: str) -> bool:
