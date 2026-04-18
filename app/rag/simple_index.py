@@ -7,7 +7,6 @@ import threading
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Dict
 import math
-import operator
 import orjson
 import functools
 from collections import OrderedDict
@@ -843,8 +842,8 @@ def search_embed(
             chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
             emb = _parse_embedding(vec_json)
             # cosine since vectors L2 normalized => dot product
-            # Bolt Optimization: map() with operator.mul is ~25% faster than list comprehension + zip for vector dot products in Python
-            sim = sum(map(operator.mul, q_vec, emb))
+            # Bolt Optimization: In Python 3.12+, math.sumprod is implemented in C and is significantly faster than map + operator.mul
+            sim = math.sumprod(q_vec, emb)
             # score as (1 - sim) so lower is better similar to bm25 semantics
             score = 1.0 - sim
             snippet = content[:200].replace("\n", " ")

@@ -97,3 +97,6 @@
 ## 2024-05-30 - Replace re.sub with str.replace for literal strings
 **Learning:** In Python, using `re.sub(pattern, var_value, result)` to replace literal substrings (like `{{var_name}}`) is unnecessarily slow due to regex engine overhead and compilation, even if `re.escape` is used. Furthermore, if `var_value` happens to contain regex backreferences (like `\1`), `re.sub` can throw errors or behave unexpectedly.
 **Action:** When replacing known literal strings or templates in a tight loop, always prefer the built-in `str.replace(target, value)`. It is nearly 2x faster for these operations. Use Python f-string escaping (e.g., `f"{{{{{var_name}}}}}"`) to easily generate strings containing literal `{` and `}` characters.
+## 2025-04-18 - Fast Vector Dot Products using math.sumprod
+**Learning:** In Python 3.12+, `math.sumprod(vec_a, vec_b)` is implemented in C and is significantly faster (~3x speedup) than using `sum(map(operator.mul, vec_a, vec_b))` for vector dot products. This is an excellent optimization for local, in-memory vector similarity searches without adding external dependencies like numpy.
+**Action:** Replace `sum(map(operator.mul, ...))` or list comprehensions with `math.sumprod(...)` when computing vector similarities natively in Python 3.12+.
