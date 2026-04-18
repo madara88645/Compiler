@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple
 
 
 from .base import BaseHandler
+from app.heuristics import _contains_any_keyword
 from app.models import IR
 from app.models_v2 import IRv2, ConstraintV2
 
@@ -304,15 +305,14 @@ class StructureHandler(BaseHandler):
     def _map_type(self, field_name: str) -> str:
         """Heuristic type mapping based on field name."""
         s = field_name.lower()
-        if any(
-            x in s for x in ["age", "count", "number", "quantity", "year", "limit", "id", "score"]
-        ):
+        # Bolt Optimization: Replace any() generator expressions with fast-path loops to avoid overhead
+        if _contains_any_keyword(s, ["age", "count", "number", "quantity", "year", "limit", "id", "score"]):
             return "integer"
-        if any(x in s for x in ["is_", "has_", "active", "enabled", "check", "flag"]):
+        if _contains_any_keyword(s, ["is_", "has_", "active", "enabled", "check", "flag"]):
             return "boolean"
-        if any(x in s for x in ["list", "array", "tags", "categories", "items", "friends"]):
+        if _contains_any_keyword(s, ["list", "array", "tags", "categories", "items", "friends"]):
             return "array"
-        if any(x in s for x in ["email", "date", "time", "url", "link", "phone"]):
+        if _contains_any_keyword(s, ["email", "date", "time", "url", "link", "phone"]):
             return "string"
         return "string"
 
