@@ -47,6 +47,7 @@ export default function RagSearchPanel({
                     type="button"
                     onClick={onRunSearch}
                     disabled={searching || !query.trim()}
+                    title={!query.trim() ? "Enter a query first to search" : "Search"}
                     className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
                 >
                     Search

@@ -79,6 +79,7 @@ export default function OptimizerPage() {
                         type="button"
                         onClick={handleOptimize}
                         disabled={loading || !input.trim()}
+                        title={!input.trim() ? "Enter a prompt first to compress" : "Compress Prompt"}
                         className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
                     >
                         {loading ? "Compressing..." : <>⚡ Compress <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>}
