@@ -14,6 +14,7 @@ import textwrap
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 from .base import BaseHandler
+from app.heuristics import _contains_any_keyword
 from app.models import (
     DEFAULT_ROLE_DEV_EN,
     DEFAULT_ROLE_DEV_TR,
@@ -1070,7 +1071,8 @@ class DomainHandler(BaseHandler):
             analysis.detected_patterns["structure"] = [detected_structure]
         else:
             # Suggest structure if plot elements detected
-            if any(word in text_lower for word in ["plot", "story", "chapter", "character"]):
+            # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+            if _contains_any_keyword(text_lower, ["plot", "story", "chapter", "character"]):
                 analysis.suggestions.append(
                     DomainSuggestion(
                         "📖 Consider using Hero's Journey or Three-Act Structure",
@@ -1115,7 +1117,8 @@ class DomainHandler(BaseHandler):
         """Detect if a story structure is being used or requested."""
         for structure_name, rules in structures.items():
             indicators = rules.get("indicators", [])
-            if any(ind in text_lower for ind in indicators):
+            # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+            if _contains_any_keyword(text_lower, indicators):
                 return structure_name
         return None
 
@@ -1170,14 +1173,16 @@ class DomainHandler(BaseHandler):
         # Detect skill level
         for level, level_rules in rules["levels"].items():
             indicators = level_rules.get("indicators", [])
-            if any(ind in text_lower for ind in indicators):
+            # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+            if _contains_any_keyword(text_lower, indicators):
                 analysis.sub_domain = level
                 analysis.suggestions.extend(level_rules.get("suggestions", []))
                 break
 
         # Check for Feynman technique
         feynman = rules["pedagogical_patterns"]["feynman"]
-        if any(ind in text_lower for ind in feynman["indicators"]):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+        if _contains_any_keyword(text_lower, feynman["indicators"]):
             analysis.suggestions.append(feynman["suggestion"])
             analysis.detected_patterns["pedagogy"] = ["feynman"]
 
