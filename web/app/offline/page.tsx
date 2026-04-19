@@ -129,6 +129,7 @@ export default function OfflinePage() {
                                     type="button"
                                     onClick={() => handleGenerate()}
                                     disabled={loading || !prompt.trim()}
+                                    title={!prompt.trim() ? "Enter a prompt first to generate" : "Generate Prompt"}
                                     className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
                                 >
                                     {loading ? (

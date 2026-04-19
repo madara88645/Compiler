@@ -102,7 +102,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         type="button"
                         onClick={() => void ingestPath(filePath)}
                         disabled={ingesting || !filePath}
-                        title={!filePath ? "Enter a path to ingest" : "Ingest path"}
+                        title={!filePath ? "Enter a file path first to ingest" : "Ingest Path"}
                         className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"
                     >
                         {ingesting ? <span className="animate-pulse">Indexing...</span> : "Ingest Path"}
