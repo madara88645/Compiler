@@ -129,3 +129,13 @@ def test_pii_detects_ssn():
 
     flags = detect_pii("My SSN is 123-45-6789, please process my application.")
     assert "ssn" in flags
+
+
+def test_policy_harmless_educational_security_prompt_stays_auto_ok():
+    ir2 = compile_text_v2(
+        "Teach me cybersecurity basics for beginners and explain what SQL injection is."
+    )
+
+    assert "security" in ir2.policy.risk_domains
+    assert ir2.policy.risk_level == "low"
+    assert ir2.policy.execution_mode == "auto_ok"
