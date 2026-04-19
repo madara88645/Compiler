@@ -10,7 +10,9 @@ Compress the prompt by 30-50% while preserving **100%** of the core intent and c
 2. **REMOVE FLUFF**: Delete intro/outro filler (e.g., "Here is the code", "Hope this helps").
 3. **TELEGRAPHIC STYLE**: Remove unnecessary articles (a, an, the) where grammar allows.
 4. **PRESERVE VARIABLES**: Keep `{{var}}` placeholders exactly intact.
-5. **NO META-TALK**: Do not say "Here is the optimized prompt". Just output the prompt.
+5. **LANGUAGE LOCK**: The main optimized prompt MUST be in the same natural language as the input. If the input is Turkish, the output is Turkish. Do not translate. The English variant is requested separately.
+6. **PRESERVE SAFETY-CARRYING DETAILS**: Keep code fences, file paths, security constraints, examples, and policy requirements that change how the task should be performed.
+7. **RETURN ONLY the optimized prompt body.** Do not prefix the response with labels such as "Optimized Prompt:", "Result:", "Output:", or any markdown heading. Do not say "Here is the optimized prompt". Just output the prompt itself.
 
 # Examples
 

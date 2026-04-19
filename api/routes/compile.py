@@ -24,6 +24,8 @@ from app.emitters import (
     emit_user_prompt_v2,
 )
 from app.llm_engine.schemas import QualityReport
+from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
+from app.optimizer.postprocess import strip_wrapper_labels
 
 router = APIRouter(tags=["compile"])
 
@@ -91,6 +93,8 @@ class OptimizeRequest(BaseModel):
     max_chars: Optional[int] = Field(default=None, ge=1, le=_MAX_PROMPT_CHARS)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=8_000)
     token_ratio: float = Field(default=4.0, gt=0, le=20.0)
+    provider: str = Field(default="groq", max_length=40)
+    model: Optional[str] = Field(default=None, max_length=120)
 
 
 class OptimizeResponse(BaseModel):
@@ -99,11 +103,24 @@ class OptimizeResponse(BaseModel):
     after_chars: int
     before_tokens: int
     after_tokens: int
+    saved_percent: float
     passes: int
     met_max_chars: bool
     met_max_tokens: bool
     met_budget: bool
     changed: bool
+    provider: str
+    model: str
+    source_language: str
+    tokenizer_method: str
+    estimated_input_cost_usd: float
+    estimated_output_cost_usd: float
+    estimated_savings_usd: float
+    english_variant: str
+    english_variant_tokens: int
+    english_variant_cost_usd: float
+    warnings: list[str]
+    optimizer_call_usage: dict | None = None
 
 
 @router.post("/compile", response_model=CompileResponse)
@@ -293,7 +310,15 @@ async def optimize_endpoint(
     compiler = _get_compiler()
 
     try:
-        result = await anyio.to_thread.run_sync(
+        worker_model = getattr(compiler.worker, "model", None)
+        model = (
+            req.model
+            or (worker_model if isinstance(worker_model, str) else None)
+            or DEFAULT_GROQ_MODEL
+        )
+        provider = (req.provider or "groq").strip().lower()
+        setattr(compiler.worker, "last_usage", None)
+        raw_result = await anyio.to_thread.run_sync(
             functools.partial(
                 compiler.worker.optimize_prompt,
                 req.text,
@@ -301,19 +326,96 @@ async def optimize_endpoint(
                 max_tokens=req.max_tokens,
             )
         )
+        result = strip_wrapper_labels(raw_result)
+        optimizer_call_usage = getattr(compiler.worker, "last_usage", None)
+        source_cost = estimate_prompt_cost(req.text, provider=provider, model=model)
+        optimized_cost = estimate_prompt_cost(result, provider=provider, model=model)
+
+        warnings = list(dict.fromkeys(source_cost.warnings + optimized_cost.warnings))
+
+        result_language = detect_language(result)
+        if (
+            source_cost.source_language not in ("unknown", "")
+            and result_language not in ("unknown", "")
+            and result_language != source_cost.source_language
+        ):
+            warnings.append(
+                f"Optimized output language differs from input "
+                f"({source_cost.source_language} → {result_language}); review before using."
+            )
+
+        if optimized_cost.tokens > source_cost.tokens > 0:
+            warnings.append(
+                "Optimized output uses more tokens than the input; "
+                "consider keeping the original."
+            )
+
+        english_variant = ""
+        english_variant_tokens = 0
+        english_variant_cost_usd = 0.0
+
+        if source_cost.source_language != "en":
+            warnings.append("Translation can change nuance; review before using.")
+            try:
+                english_variant = await anyio.to_thread.run_sync(
+                    functools.partial(
+                        compiler.worker.optimize_prompt_english_variant,
+                        req.text,
+                        max_chars=req.max_chars,
+                        max_tokens=req.max_tokens,
+                    )
+                )
+            except Exception as exc:
+                logger.debug("English optimizer variant skipped: %s", exc)
+                english_variant = ""
+                warnings.append(
+                    "English compact suggestion unavailable; the secondary optimizer call failed."
+                )
+
+            english_variant = strip_wrapper_labels(english_variant)
+
+            if english_variant:
+                english_cost = estimate_prompt_cost(english_variant, provider=provider, model=model)
+                english_variant_tokens = english_cost.tokens
+                english_variant_cost_usd = english_cost.estimated_cost_usd
+                warnings = list(dict.fromkeys(warnings + english_cost.warnings))
+
         before_len = len(req.text)
         after_len = len(result)
+        saved_percent = (
+            round(((source_cost.tokens - optimized_cost.tokens) / source_cost.tokens) * 100, 1)
+            if source_cost.tokens
+            else 0.0
+        )
+        estimated_savings = round(
+            source_cost.estimated_cost_usd - optimized_cost.estimated_cost_usd, 10
+        )
+
         return OptimizeResponse(
             text=result,
             before_chars=before_len,
             after_chars=after_len,
-            before_tokens=int(before_len / req.token_ratio),
-            after_tokens=int(after_len / req.token_ratio),
+            before_tokens=source_cost.tokens,
+            after_tokens=optimized_cost.tokens,
+            saved_percent=saved_percent,
             passes=1,
-            met_max_chars=True,
-            met_max_tokens=True,
-            met_budget=True,
+            met_max_chars=req.max_chars is None or after_len <= req.max_chars,
+            met_max_tokens=req.max_tokens is None or optimized_cost.tokens <= req.max_tokens,
+            met_budget=(req.max_chars is None or after_len <= req.max_chars)
+            and (req.max_tokens is None or optimized_cost.tokens <= req.max_tokens),
             changed=(result != req.text),
+            provider=provider,
+            model=model,
+            source_language=source_cost.source_language,
+            tokenizer_method=source_cost.tokenizer_method,
+            estimated_input_cost_usd=source_cost.estimated_cost_usd,
+            estimated_output_cost_usd=optimized_cost.estimated_cost_usd,
+            estimated_savings_usd=estimated_savings,
+            english_variant=english_variant,
+            english_variant_tokens=english_variant_tokens,
+            english_variant_cost_usd=english_variant_cost_usd,
+            warnings=warnings,
+            optimizer_call_usage=optimizer_call_usage,
         )
     except Exception as exc:
         logger.exception("optimize endpoint failed")

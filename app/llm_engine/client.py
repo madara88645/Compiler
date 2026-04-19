@@ -110,6 +110,12 @@ class WorkerClient:
 
         try:
             completion = self.client.chat.completions.create(**kwargs)
+            usage = getattr(completion, "usage", None)
+            if usage is not None:
+                try:
+                    self.last_usage = usage.model_dump()
+                except Exception:
+                    self.last_usage = dict(usage) if isinstance(usage, dict) else None
             content = completion.choices[0].message.content
             if not content:
                 raise ValueError("Empty response from LLM Service")
@@ -341,7 +347,7 @@ class WorkerClient:
     def optimize_prompt(self, user_text: str, max_tokens: int = None, max_chars: int = None) -> str:
         """Optimize prompt for token usage directly via Worker LLM."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY or GROQ_API_KEY.")
 
         if not self.optimizer_prompt:
             # Fallback if file missing
@@ -401,6 +407,53 @@ class WorkerClient:
                 raise RuntimeError(f"Auto-fix error: {e}") from e
 
         return LLMFixResponse.model_validate_json(content)
+
+    def optimize_prompt_english_variant(
+        self, user_text: str, max_tokens: int = None, max_chars: int = None
+    ) -> str:
+        """Create an optional compact English variant without replacing the main optimized prompt."""
+        if self.api_key == "missing_key":
+            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY or GROQ_API_KEY.")
+
+        sys_prompt = (
+            self.optimizer_prompt
+            or "You are a specialized Prompt Optimizer. Return ONLY the optimized prompt text."
+        )
+        sys_prompt += (
+            "\n\nCreate a compact English variant of the prompt. Preserve exact intent, safety "
+            "constraints, code fences, file paths, and placeholders such as {{var}}. Do not add "
+            "requirements. Return ONLY the English prompt text."
+        )
+
+        constraints = []
+        if max_tokens:
+            constraints.append(f"TARGET: Strict maximum of {max_tokens} tokens.")
+        if max_chars:
+            constraints.append(f"TARGET: Strict maximum of {max_chars} characters.")
+        if constraints:
+            sys_prompt += "\n\n" + "\n".join(constraints)
+
+        messages = [
+            {"role": "system", "content": sys_prompt},
+            {
+                "role": "user",
+                "content": self._tagged_block("prompt_to_translate_and_optimize", user_text),
+            },
+        ]
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            api_max_tokens = max_tokens if max_tokens else 2048
+            future = executor.submit(self._call_api, messages, api_max_tokens, json_mode=False)
+            try:
+                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
+                return content.strip()
+            except FuturesTimeoutError:
+                future.cancel()
+                raise RuntimeError(
+                    f"English variant optimization timed out after {COACH_TIMEOUT_SECONDS}s."
+                )
+            except Exception as e:
+                raise RuntimeError(f"English variant optimization error: {e}") from e
 
     def expand_query_intent(self, user_text: str) -> Dict[str, Any]:
         """Expand user query into semantic search terms."""
