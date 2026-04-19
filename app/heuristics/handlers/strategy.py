@@ -9,6 +9,7 @@ Injects sophisticated prompting strategies based on task analysis:
 
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+from app.heuristics import _contains_any_keyword
 
 
 @dataclass
@@ -181,7 +182,8 @@ class StrategyHandler:
             "walk through",
         ]
         text_lower = text.lower()
-        if any(indicator in text_lower for indicator in cot_indicators):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+        if _contains_any_keyword(text_lower, cot_indicators):
             return None  # Already has CoT
 
         # Select appropriate CoT style based on complexity level

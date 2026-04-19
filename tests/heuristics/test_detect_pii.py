@@ -46,6 +46,18 @@ def test_detect_pii_multiple():
     assert "credit_card" not in result
 
 
+def test_detect_pii_turkish_tc_kimlik_checksum_validation():
+    assert "tc_kimlik" in detect_pii("TC Kimlik No: 10000000146")
+    assert "tc_kimlik" not in detect_pii("TC Kimlik No: 12345678901")
+
+
+def test_detect_pii_ignores_educational_examples_for_ssn_and_passport():
+    text = "Use SSN format 123-45-6789 and passport sample AB1234567 in docs."
+    flags = detect_pii(text)
+    assert "ssn" not in flags
+    assert "passport" not in flags
+
+
 def test_detect_pii_max_flags():
     # Mock PII_PATTERNS locally to simulate more than 5 patterns to test the max limit
     mock_patterns = {

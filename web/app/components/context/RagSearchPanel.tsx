@@ -37,6 +37,7 @@ export default function RagSearchPanel({
                             type="button"
                             onClick={() => { setQuery(""); }}
                             aria-label="Clear search"
+                            title="Clear search"
                             className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
                         >
                             ×
