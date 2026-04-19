@@ -1,0 +1,43 @@
+# Build & dependency artifacts — noise for agent context
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+coverage.xml
+htmlcov/
+
+# Test & reporter output
+test-results/
+playwright-report/
+blob-report/
+.playwright-cli/
+.playwright-report/
+.pytest_cache/
+.pytest-temp/
+
+# Caches
+.turbo/
+.cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+*.py[cod]
+
+# Python envs
+.venv/
+venv/
+env/
+ENV/
+
+# Agent worktrees & local state
+.claude/worktrees/
+.Jules/
+.gemini/
+
+# Logs & large artifacts
+*.log
+*.pdf
+*.zip
+*.tar.gz
