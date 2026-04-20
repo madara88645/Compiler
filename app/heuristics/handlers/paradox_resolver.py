@@ -16,8 +16,12 @@ class ParadoxResolverHandler(BaseHandler):
         detail_kw = ["detail", "comprehensive", "everything"]
 
         # Bolt Optimization: Replace any() generator expressions with fast-path loops to avoid overhead
-        has_brief = _contains_any_keyword(text_lower, brief_kw) or _contains_any_keyword(constraints_lower, brief_kw)
-        has_detail = _contains_any_keyword(text_lower, detail_kw) or _contains_any_keyword(constraints_lower, detail_kw)
+        has_brief = _contains_any_keyword(text_lower, brief_kw) or _contains_any_keyword(
+            constraints_lower, brief_kw
+        )
+        has_detail = _contains_any_keyword(text_lower, detail_kw) or _contains_any_keyword(
+            constraints_lower, detail_kw
+        )
 
         if has_brief and has_detail:
             resolution = "CONFLICT DETECTED: You have been asked to be both brief and detailed. Prioritize detail but use concise bullet points to remain brief."
