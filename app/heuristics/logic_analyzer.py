@@ -200,6 +200,7 @@ class LogicAnalyzer:
             maximize_recall: If True, prefer false positives over missed detections.
         """
         self.maximize_recall = maximize_recall
+        self._strip_negation_cache = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -294,15 +295,14 @@ class LogicAnalyzer:
 
     def _strip_negation(self, sentence: str, negation_word: str) -> str:
         """Remove negation word from sentence."""
-        # Create pattern that matches the negation word with surrounding context
-        patterns = [
-            rf"\b{re.escape(negation_word)}\s+",
-            rf"\s+{re.escape(negation_word)}\b",
-            rf"\b{re.escape(negation_word)}\b",
-        ]
-        result = sentence
-        for p in patterns:
-            result = re.sub(p, " ", result, flags=re.IGNORECASE)
+        # Bolt Optimization: Cache single compiled regex pattern to avoid repeated
+        # pattern generation and re.sub overhead on hot loop
+        if negation_word not in self._strip_negation_cache:
+            self._strip_negation_cache[negation_word] = re.compile(
+                rf"\b{re.escape(negation_word)}\b", re.IGNORECASE
+            )
+
+        result = self._strip_negation_cache[negation_word].sub(" ", sentence)
         return " ".join(result.split())  # Normalize whitespace
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:

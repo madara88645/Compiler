@@ -101,3 +101,7 @@
 ## 2026-05-25 - Python 3.12 math.sumprod for Vector Dot Products
 **Learning:** In Python 3.12+, `math.sumprod` is implemented in C and provides superior performance for calculating dot products of vectors compared to `sum(map(operator.mul, a, b))`. Microbenchmarks show `math.sumprod` is over 3x faster than `sum(map(...))`.
 **Action:** When performing local dot product similarity calculations or sum-of-products in Python 3.12+, always use `math.sumprod` instead of `sum(map(operator.mul))` or list comprehensions to significantly improve CPU utilization and performance during vector operations.
+
+## 2026-05-26 - Pre-compiling Regex Patterns for LogicAnalyzer
+**Learning:** Evaluating multiple string regexes dynamically inside a hot loop (like `_strip_negation` in `LogicAnalyzer`) with `re.sub` introduces significant overhead due to repeated compilation and function calls.
+**Action:** Replace dynamically created loop string regex evaluations with a pre-compiled regex cache mapped to individual keywords (like negation words), and prefer simpler string processing steps (like `split()`/`join()`) over multiple `re.sub` evaluations whenever applicable.
