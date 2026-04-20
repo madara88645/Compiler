@@ -1,13 +1,13 @@
 """Live integration tests for the /optimize endpoint against the real Groq API.
 
 These tests are double-gated:
-- The `live` pytest marker keeps them out of default `pytest` runs (CI does not
-  hit Groq accidentally).
+- The `live` pytest marker is skipped by default unless `--run-live` or
+  `PROMPTC_RUN_LIVE_TESTS=1` is set, so CI does not hit Groq accidentally.
 - The `GROQ_API_KEY` skipif keeps local runs from emitting confusing auth errors.
 
 Run them explicitly with:
 
-    GROQ_API_KEY=... python -m pytest tests/optimizer/test_optimize_live.py -m live -v
+    GROQ_API_KEY=... python -m pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
 
 Assertions verify *invariants* (language preserved, no wrapper text, costs > 0)
 rather than exact strings, since real LLM output is non-deterministic.
@@ -69,8 +69,7 @@ def test_live_turkish_diacritic_free_input_is_detected_as_turkish(client: TestCl
     """Diacritic-free Turkish should still be detected as TR via keyword scoring."""
 
     text = (
-        "Bu fonksiyon icin guvenlik kisitlari yaz. "
-        "Junior gelistirici icin uygulama plani olustur."
+        "Bu fonksiyon icin guvenlik kisitlari yaz. Junior gelistirici icin uygulama plani olustur."
     )
     data = _post_optimize(client, text)
 

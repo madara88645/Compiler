@@ -3,6 +3,28 @@ from api.main import app
 from api.auth import verify_api_key, APIKey
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-live",
+        action="store_true",
+        default=False,
+        help="Run tests marked live that call real upstream services.",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    import os
+
+    run_live = config.getoption("--run-live") or os.environ.get("PROMPTC_RUN_LIVE_TESTS") == "1"
+    if run_live:
+        return
+
+    skip_live = pytest.mark.skip(reason="need --run-live or PROMPTC_RUN_LIVE_TESTS=1 to run")
+    for item in items:
+        if item.get_closest_marker("live"):
+            item.add_marker(skip_live)
+
+
 @pytest.fixture(autouse=True)
 def override_auth_dependencies(request):
     if request.module.__name__ == "tests.test_auth_fast_path" or request.node.get_closest_marker(
