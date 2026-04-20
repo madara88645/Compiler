@@ -13,3 +13,6 @@
 ## 2025-04-10 - Explicit Button Types
 **Learning:** Buttons without explicit `type` attributes default to `type="submit"` in standard HTML parsing. This can inadvertently trigger unexpected page reloads or form submissions across the application when a simple interactive button is clicked.
 **Action:** Always add `type="button"` to any `<button>` component in the frontend unless it is explicitly intended to submit a form.
+## 2024-04-20 - Adding Keyboard Focus States to Buttons
+**Learning:** Several utility buttons in the Context Manager components lacked `focus-visible` styles, making keyboard navigation difficult to track. Using Tailwind's `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500` is an effective, reusable pattern for resolving this across the application without breaking custom hover styles.
+**Action:** Next time I build or refactor interactive elements (especially text-based links acting as buttons or small UI toggles), I should proactively add the standard focus rings so keyboard users aren't left guessing where they are.
