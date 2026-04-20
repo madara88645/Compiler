@@ -1,6 +1,7 @@
 from app.heuristics.handlers.base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2, ConstraintV2
+from app.heuristics import _contains_any_keyword
 
 
 class FormatEnforcerHandler(BaseHandler):
@@ -11,7 +12,8 @@ class FormatEnforcerHandler(BaseHandler):
         text_lower = text.lower()
         format_keywords = ["json", "csv", "xml", "table", "extract", "schema"]
 
-        if any(kw in text_lower for kw in format_keywords):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+        if _contains_any_keyword(text_lower, format_keywords):
             constraint_text = "No conversational filler. Return ONLY the requested format."
 
             # Update v1
