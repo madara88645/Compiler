@@ -4,6 +4,7 @@ import type {
   CompileResponse,
   CompileIr,
   CompileMetadata,
+  CompilePolicy,
   ContextSnippet,
   ContextSuggestion,
   Critique,
@@ -36,6 +37,28 @@ function readNumber(value: unknown, fallback = 0): number {
 
 function readOptionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizePolicy(value: unknown): CompilePolicy {
+  const record = asObject(value);
+
+  return {
+    risk_level: readString(record?.risk_level, "low"),
+    risk_domains: readStringList(record?.risk_domains),
+    allowed_tools: readStringList(record?.allowed_tools),
+    forbidden_tools: readStringList(record?.forbidden_tools),
+    sanitization_rules: readStringList(record?.sanitization_rules),
+    data_sensitivity: readString(record?.data_sensitivity, "public"),
+    execution_mode: readString(record?.execution_mode, "advice_only"),
+  };
 }
 
 function normalizeSecurityFinding(value: unknown): SecurityFinding {
@@ -111,7 +134,58 @@ function normalizeIr(value: unknown): CompileIr {
   return {
     ...record,
     metadata: normalizeMetadata(record.metadata),
+    policy: normalizePolicy(record.policy),
   };
+}
+
+function hasNonEmptyString(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasNonEmptyArray(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasNonEmptyObject(value: unknown): boolean {
+  const record = asObject(value);
+  return record ? Object.keys(record).length > 0 : false;
+}
+
+function hasUsableIr(value: unknown): boolean {
+  const record = asObject(value);
+  if (!record) {
+    return false;
+  }
+
+  return (
+    hasNonEmptyString(record.language) ||
+    hasNonEmptyString(record.persona) ||
+    hasNonEmptyString(record.role) ||
+    hasNonEmptyString(record.domain) ||
+    hasNonEmptyArray(record.intents) ||
+    hasNonEmptyArray(record.goals) ||
+    hasNonEmptyArray(record.tasks) ||
+    hasNonEmptyArray(record.constraints) ||
+    hasNonEmptyArray(record.steps) ||
+    hasNonEmptyArray(record.tools) ||
+    hasNonEmptyObject(record.metadata) ||
+    hasNonEmptyObject(record.policy)
+  );
+}
+
+function hasUsableCompileOutput(record: JsonObject): boolean {
+  return (
+    hasNonEmptyString(record.system_prompt) ||
+    hasNonEmptyString(record.user_prompt) ||
+    hasNonEmptyString(record.plan) ||
+    hasNonEmptyString(record.expanded_prompt) ||
+    hasNonEmptyString(record.system_prompt_v2) ||
+    hasNonEmptyString(record.user_prompt_v2) ||
+    hasNonEmptyString(record.plan_v2) ||
+    hasNonEmptyString(record.expanded_prompt_v2) ||
+    hasUsableIr(record.ir) ||
+    hasUsableIr(record.ir_v2)
+  );
 }
 
 function normalizeCritiqueIssues(value: unknown): CritiqueIssue[] {
@@ -149,6 +223,13 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     throw new Error("Invalid compile response.");
   }
 
+  if (!hasUsableCompileOutput(record)) {
+    throw new Error("Invalid compile response: missing compiler output.");
+  }
+
+  const ir = normalizeIr(record.ir);
+  const irV2 = asObject(record.ir_v2) ? normalizeIr(record.ir_v2) : ir;
+
   return {
     system_prompt: readString(record.system_prompt),
     user_prompt: readString(record.user_prompt),
@@ -158,8 +239,8 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     user_prompt_v2: readString(record.user_prompt_v2) || undefined,
     plan_v2: readString(record.plan_v2) || undefined,
     expanded_prompt_v2: readString(record.expanded_prompt_v2) || undefined,
-    ir: normalizeIr(record.ir),
-    ir_v2: record.ir_v2 ? normalizeIr(record.ir_v2) : undefined,
+    ir,
+    ir_v2: irV2,
     processing_ms: readNumber(record.processing_ms),
     critique: normalizeCritique(record.critique),
   };
