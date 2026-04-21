@@ -161,18 +161,27 @@ export default function OptimizerPage() {
     };
 
     return (
-        <div className="mx-auto flex h-full max-w-7xl flex-col gap-5 p-4 md:p-6">
-            <header className="flex flex-col gap-4 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+            {/* Ambient Background Orbs */}
+            <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-teal-600/10 blur-[120px] pointer-events-none" />
+
+            {/* Floating Main Container */}
+            <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
+            <header className="border-b border-white/5 bg-black/20 p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-md">
                 <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20">
+                        ✨
+                    </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Token Optimizer</h1>
-                        <p className="text-sm text-zinc-500">
-                            Estimate Groq prompt cost, compress safely, and compare language efficiency.
-                        </p>
+                        <h1 className="font-semibold text-lg tracking-tight text-white">Token Optimizer</h1>
+                        <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                            Compress safely • Compare cost
+                        </div>
                     </div>
                     <InfoButton
                         title="Prompt Optimizer"
-                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible."
+                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates Groq cost and compares language efficiency."
                     />
                 </div>
 
@@ -205,7 +214,7 @@ export default function OptimizerPage() {
                             <>
                                 Analyze cost
                                 <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-60 md:inline-block">
-                                    Ctrl/Enter
+                                    Ctrl/⌘ Enter
                                 </kbd>
                             </>
                         )}
@@ -213,7 +222,8 @@ export default function OptimizerPage() {
                 </div>
             </header>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 flex flex-col gap-5">
+            <div className="grid min-h-[50vh] grid-cols-1 gap-5 lg:grid-cols-2">
                 <section className="flex min-h-80 flex-col gap-2">
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Original Prompt
@@ -232,7 +242,7 @@ export default function OptimizerPage() {
                                 }
                             }}
                             placeholder="Paste a verbose prompt here..."
-                            className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-700"
+                            className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
                         />
                     </div>
                 </section>
@@ -262,8 +272,8 @@ export default function OptimizerPage() {
                                 className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"
                             />
                         ) : (
-                            <div className="flex h-full min-h-72 items-center justify-center text-sm italic text-zinc-700">
-                                Ready to analyze cost.
+                            <div className="flex h-full min-h-72 items-center justify-center text-sm italic text-zinc-400">
+                                Optimized prompt will appear here.
                             </div>
                         )}
                     </div>
@@ -354,6 +364,8 @@ export default function OptimizerPage() {
                     )}
                 </section>
             )}
-        </div>
+            </div>
+            </div>
+        </main>
     );
 }

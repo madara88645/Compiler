@@ -122,7 +122,7 @@ export default function Home() {
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">P</div>
+              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20">💠</div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
                 <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
@@ -191,7 +191,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <textarea
                 aria-label="Describe what you want compiled"
-                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-500 transition-all shadow-inner"
                 placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -238,7 +238,7 @@ export default function Home() {
             ) : result ? (
               <>
                 {/* Tabs */}
-                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
+                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       type="button"
@@ -409,17 +409,20 @@ export default function Home() {
             ) : loading ? (
               <OutputSkeleton />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
+              <div className="flex-1 flex flex-col items-center justify-center gap-6 p-10 text-center">
                 <div className="relative group">
                   <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
-                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
+                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
                     <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">💠</span>
                   </div>
                 </div>
-                <div className="max-w-xs space-y-2">
-                  <h3 className="text-zinc-200 font-medium tracking-wide">Ready to Compile</h3>
-                  <p className="text-sm text-zinc-500">Enter a prompt, task, or workflow request to generate structured output and inspect policy when needed.</p>
-                  <p className="text-[10px] text-zinc-700 mt-4 font-mono">v0.1.1</p>
+                <div className="max-w-sm space-y-2">
+                  <h3 className="text-zinc-100 font-semibold tracking-tight text-base">Start with any rough idea</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    Paste a task, question, or workflow on the left, then press <kbd className="text-[11px] font-mono border border-white/20 rounded px-1 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd>.
+                    You&apos;ll get a clean system &amp; user prompt, an execution plan, and safety checks — ready to drop into any LLM.
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>
             )}
