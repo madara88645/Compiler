@@ -1,9 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
+import sqlite3
+from pathlib import Path
 from api.main import app
 from api.auth import APIKey, SessionLocal
 from app.compiler import compile_text_v2
+from app.rag import simple_index
 
 client = TestClient(app)
 
@@ -221,3 +224,27 @@ def test_optimize_no_key():
 def test_rag_stats_no_key():
     resp = client.get("/rag/stats")
     assert resp.status_code == 200
+
+
+def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path, monkeypatch):
+    primary_db = tmp_path / "blocked" / "rag.db"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    monkeypatch.delenv("PROMPTC_RAG_DB_PATH", raising=False)
+    monkeypatch.setattr(simple_index, "DEFAULT_DB_PATH", str(primary_db))
+    monkeypatch.chdir(workspace)
+
+    real_connect = sqlite3.connect
+
+    def flaky_connect(path, *args, **kwargs):
+        if str(Path(path)) == str(primary_db):
+            raise sqlite3.OperationalError("unable to open database file")
+        return real_connect(path, *args, **kwargs)
+
+    with patch("app.rag.simple_index.sqlite3.connect", side_effect=flaky_connect):
+        resp = client.get("/rag/stats")
+
+    assert resp.status_code == 200
+    assert resp.json()["docs"] == 0
+    assert (workspace / ".promptc" / primary_db.name).exists()
