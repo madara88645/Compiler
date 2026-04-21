@@ -24,6 +24,7 @@ from app.emitters import (
     emit_user_prompt_v2,
 )
 from app.llm_engine.schemas import QualityReport
+from app.models_v2 import DiagnosticItem, IRv2
 from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
 from app.optimizer.postprocess import strip_wrapper_labels
 
@@ -121,6 +122,105 @@ class OptimizeResponse(BaseModel):
     english_variant_cost_usd: float
     warnings: list[str]
     optimizer_call_usage: dict | None = None
+
+
+def _safe_worker_text(worker_res, field_name: str) -> str:
+    value = getattr(worker_res, field_name, "")
+    if not isinstance(value, str):
+        return ""
+    return value if field_name == "plan" or not is_meta_leaked(value) else ""
+
+
+def _warning_for_fast_fallback(reason: str) -> DiagnosticItem:
+    return DiagnosticItem(
+        severity="warning",
+        message=f"Running in offline/heuristic mode. Fast compiler worker issue: {reason}",
+        suggestion="Retry after checking the worker API key, network, or model response shape.",
+        category="system",
+    )
+
+
+def _coerce_fast_ir(text: str, worker_res, fallback_reason: str | None = None) -> tuple[IRv2, bool]:
+    candidate = getattr(worker_res, "ir", None) if worker_res is not None else None
+
+    if isinstance(candidate, IRv2):
+        ir2 = candidate
+        used_fallback = False
+    else:
+        raw_ir = None
+        if isinstance(candidate, dict):
+            raw_ir = candidate
+        elif hasattr(candidate, "model_dump"):
+            try:
+                raw_ir = candidate.model_dump()
+            except Exception as exc:
+                fallback_reason = fallback_reason or f"IR serialization failed: {exc}"
+
+        if isinstance(raw_ir, dict) and raw_ir:
+            try:
+                ir2 = IRv2.model_validate(raw_ir)
+                used_fallback = False
+            except Exception as exc:
+                fallback_reason = fallback_reason or f"IR validation failed: {exc}"
+                ir2 = compile_text_v2(text, offline_only=True)
+                used_fallback = True
+        else:
+            fallback_reason = fallback_reason or "worker result was empty or missing ir"
+            ir2 = compile_text_v2(text, offline_only=True)
+            used_fallback = True
+
+    if used_fallback:
+        ir2.diagnostics.append(_warning_for_fast_fallback(fallback_reason or "unknown error"))
+
+    return ir2, used_fallback
+
+
+def _fast_compile_payload(
+    req: CompileRequest,
+    worker_res,
+    mode: str,
+    start: float,
+    fallback_reason: str | None = None,
+) -> tuple[dict, bool]:
+    ir2, used_fallback = _coerce_fast_ir(req.text, worker_res, fallback_reason)
+
+    system_prompt = _safe_worker_text(worker_res, "system_prompt") or emit_system_prompt_v2(ir2)
+    user_prompt = _safe_worker_text(worker_res, "user_prompt") or emit_user_prompt_v2(ir2)
+    plan = _safe_worker_text(worker_res, "plan") or emit_plan_v2(ir2)
+    optimized_content = _safe_worker_text(worker_res, "optimized_content")
+
+    forced_expanded = None
+    if mode != "default":
+        forced_expanded = forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
+
+    expanded_prompt = (
+        forced_expanded
+        or optimized_content
+        or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+    )
+    ir_dump = ir2.model_dump()
+
+    return (
+        {
+            "ir": ir_dump,
+            "ir_v2": ir_dump,
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "plan": plan,
+            "expanded_prompt": expanded_prompt,
+            "system_prompt_v2": system_prompt,
+            "user_prompt_v2": user_prompt,
+            "plan_v2": plan,
+            "expanded_prompt_v2": expanded_prompt,
+            "processing_ms": int((time.time() - start) * 1000),
+            "request_id": "fast_" + uuid.uuid4().hex[:12],
+            "heuristic_version": "v2-fast",
+            "heuristic2_version": "v2-fast",
+            "trace": [],
+            "critique": None,
+        },
+        used_fallback,
+    )
 
 
 @router.post("/compile", response_model=CompileResponse)
@@ -230,36 +330,30 @@ async def compile_fast(
     try:
         mode = resolve_mode(req.mode, request)
         cache_key = (req.text, mode)
+        cache_hit = cache_key in compiler.cache
+        fallback_reason = None
         if cache_key in compiler.cache:
             res = compiler.cache[cache_key]
         else:
-            res = await anyio.to_thread.run_sync(
-                functools.partial(compiler.worker.process, req.text, mode=mode)
-            )
+            try:
+                res = await anyio.to_thread.run_sync(
+                    functools.partial(compiler.worker.process, req.text, mode=mode)
+                )
+            except Exception as exc:
+                fallback_reason = f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    "compile_fast worker failed; falling back to local heuristics",
+                    exc_info=True,
+                    extra={"mode": mode, "text_length": len(req.text)},
+                )
+                res = None
+
+        payload, used_fallback = _fast_compile_payload(req, res, mode, start, fallback_reason)
+        if not cache_hit and not used_fallback:
             compiler.cache[cache_key] = res
-
-        forced_expanded = None
-        if mode != "default":
-            forced_expanded = forced_minimal_expanded_prompt(req.text, res.ir)
-
-        return {
-            "ir": res.ir.model_dump(),
-            "ir_v2": res.ir.model_dump(),
-            "system_prompt": res.system_prompt,
-            "user_prompt": res.user_prompt,
-            "plan": res.plan,
-            "expanded_prompt": forced_expanded or res.optimized_content,
-            "system_prompt_v2": res.system_prompt,
-            "user_prompt_v2": res.user_prompt,
-            "plan_v2": res.plan,
-            "expanded_prompt_v2": forced_expanded or res.optimized_content,
-            "processing_ms": int((time.time() - start) * 1000),
-            "request_id": "fast_" + str(int(time.time())),
-            "heuristic_version": "v2-fast",
-            "heuristic2_version": "v2-fast",
-            "trace": [],
-            "critique": None,
-        }
+        elif cache_hit and used_fallback:
+            compiler.cache.pop(cache_key, None)
+        return payload
     except Exception as exc:
         logger.exception("compile_fast failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc

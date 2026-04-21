@@ -87,8 +87,71 @@ def test_compile_fast_internal_error(test_key):
         mock_compiler.worker.process.side_effect = Exception("Test Internal Error")
 
         resp = client.post("/compile/fast", json={"text": "hello"}, headers={"x-api-key": test_key})
-        assert resp.status_code == 500
-        assert resp.json() == {"detail": "An internal error occurred."}
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ir_v2"]["policy"]["risk_level"] == "low"
+        assert data["expanded_prompt_v2"]
+        assert any(
+            item["category"] == "system" and item["severity"] == "warning"
+            for item in data["ir_v2"]["diagnostics"]
+        )
+
+
+def test_compile_fast_none_worker_result_falls_back(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.cache = {}
+        mock_compiler.worker.process.return_value = None
+
+        resp = client.post("/compile/fast", json={"text": "hello"}, headers={"x-api-key": test_key})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ir_v2"]["policy"]["risk_level"] == "low"
+        assert data["system_prompt_v2"]
+        assert data["user_prompt_v2"]
+        assert data["plan_v2"]
+        assert data["expanded_prompt_v2"]
+
+
+def test_compile_fast_empty_ir_dump_gets_policy_defaults(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir.model_dump.return_value = {}
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        resp = client.post("/compile/fast", json={"text": "hello"}, headers={"x-api-key": test_key})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ir_v2"]["policy"]["risk_level"] == "low"
+        assert data["ir"]["policy"]["execution_mode"]
+
+
+def test_compile_fast_blank_prompt_parts_are_generated(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir = compile_text_v2("Summarize this incident report.", offline_only=True)
+        mock_res.system_prompt = ""
+        mock_res.user_prompt = ""
+        mock_res.plan = ""
+        mock_res.optimized_content = ""
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast",
+            json={"text": "Summarize this incident report.", "mode": "default"},
+            headers={"x-api-key": test_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["system_prompt_v2"]
+        assert data["user_prompt_v2"]
+        assert data["plan_v2"]
+        assert data["expanded_prompt_v2"]
 
 
 def test_rate_limit(test_key):
