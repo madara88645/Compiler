@@ -3,6 +3,20 @@ from app.models import IR
 from app.models_v2 import IRv2, ConstraintV2
 
 
+def _contains_any(text_lower: str, kws: list[str]) -> bool:
+    for k in kws:
+        if k in text_lower:
+            return True
+    return False
+
+
+def _has_constraint(constraints: list[ConstraintV2], text: str) -> bool:
+    for c in constraints:
+        if c.text == text:
+            return True
+    return False
+
+
 class FormatEnforcerHandler(BaseHandler):
     """Injects strict constraints when data formats are requested."""
 
@@ -11,7 +25,8 @@ class FormatEnforcerHandler(BaseHandler):
         text_lower = text.lower()
         format_keywords = ["json", "csv", "xml", "table", "extract", "schema"]
 
-        if any(kw in text_lower for kw in format_keywords):
+        # Bolt Optimization: Replace any() generator expressions with fast-path loops to avoid overhead
+        if _contains_any(text_lower, format_keywords):
             constraint_text = "No conversational filler. Return ONLY the requested format."
 
             # Update v1
@@ -19,5 +34,5 @@ class FormatEnforcerHandler(BaseHandler):
                 ir_v1.constraints.append(constraint_text)
 
             # Update v2
-            if not any(c.text == constraint_text for c in ir_v2.constraints):
+            if not _has_constraint(ir_v2.constraints, constraint_text):
                 ir_v2.constraints.append(ConstraintV2(type="formatting", text=constraint_text))
