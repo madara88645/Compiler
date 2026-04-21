@@ -95,18 +95,39 @@ def _resolve_db_path(db_path: Optional[str] = None) -> str:
     return DEFAULT_DB_PATH
 
 
+def _connection_candidates(db_path: Optional[str] = None) -> list[str]:
+    primary = Path(_resolve_db_path(db_path)).expanduser().resolve()
+    candidates = [str(primary)]
+
+    fallback = (Path.cwd() / ".promptc" / primary.name).resolve()
+    if str(fallback) not in candidates:
+        candidates.append(str(fallback))
+
+    return candidates
+
+
 def _connect(db_path: Optional[str] = None) -> sqlite3.Connection:
-    path = _resolve_db_path(db_path)
-    Path(path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-    # Increase timeout to 60s (from default 5.0) to handle multiple uvicorn workers
-    conn = sqlite3.connect(path, timeout=60.0)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-    try:
-        os.chmod(path, 0o600)
-    except OSError:
-        pass
-    return conn
+    last_error: sqlite3.OperationalError | None = None
+
+    for path in _connection_candidates(db_path):
+        try:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            # Increase timeout to 60s (from default 5.0) to handle multiple uvicorn workers
+            conn = sqlite3.connect(path, timeout=60.0)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+            return conn
+        except sqlite3.OperationalError as exc:
+            last_error = exc
+            logger.warning("RAG DB path unavailable, trying fallback", extra={"db_path": path})
+
+    if last_error is not None:
+        raise last_error
+    raise sqlite3.OperationalError("unable to open database file")
 
 
 def _upsert_doc(conn: sqlite3.Connection, path_value: str, *, mtime: float, size: int) -> int:

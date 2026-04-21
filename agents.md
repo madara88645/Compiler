@@ -39,7 +39,7 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Force API keys everywhere | `false` for local dev, `true` for hardened deploys |
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
 | `PROMPTC_UPLOAD_DIR` | RAG file upload directory | `~/.promptc_uploads` |
-| `PROMPTC_RAG_DB_PATH` | RAG SQLite index path | Empty = `~/.promptc_index_v3.db` |
+| `PROMPTC_RAG_DB_PATH` | RAG SQLite index path | Empty = `~/.promptc_index_v3.db`; if that path is not writable, runtime falls back to `./.promptc/<db-name>` |
 | `NEXT_PUBLIC_API_KEY` | Frontend API key for authenticated requests | Optional; injected as `x-api-key` header by `buildGeneratorApiHeaders` |
 | `PROMPTC_RAG_ALLOWED_ROOTS` | Path allowlist for RAG ingest | Empty = restricted to CWD + upload dir |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend URL | `http://127.0.0.1:8080` |
