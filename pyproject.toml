@@ -74,6 +74,7 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 markers = [
 	"auth_required: run the test without the global auth dependency override",
+	"live: hits a real upstream service (Groq, etc.); requires credentials and is opt-in",
 ]
 
 [tool.coverage.run]

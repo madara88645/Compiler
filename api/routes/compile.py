@@ -24,6 +24,9 @@ from app.emitters import (
     emit_user_prompt_v2,
 )
 from app.llm_engine.schemas import QualityReport
+from app.models_v2 import DiagnosticItem, IRv2
+from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
+from app.optimizer.postprocess import strip_wrapper_labels
 
 router = APIRouter(tags=["compile"])
 
@@ -91,6 +94,8 @@ class OptimizeRequest(BaseModel):
     max_chars: Optional[int] = Field(default=None, ge=1, le=_MAX_PROMPT_CHARS)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=8_000)
     token_ratio: float = Field(default=4.0, gt=0, le=20.0)
+    provider: str = Field(default="groq", max_length=40)
+    model: Optional[str] = Field(default=None, max_length=120)
 
 
 class OptimizeResponse(BaseModel):
@@ -99,11 +104,123 @@ class OptimizeResponse(BaseModel):
     after_chars: int
     before_tokens: int
     after_tokens: int
+    saved_percent: float
     passes: int
     met_max_chars: bool
     met_max_tokens: bool
     met_budget: bool
     changed: bool
+    provider: str
+    model: str
+    source_language: str
+    tokenizer_method: str
+    estimated_input_cost_usd: float
+    estimated_output_cost_usd: float
+    estimated_savings_usd: float
+    english_variant: str
+    english_variant_tokens: int
+    english_variant_cost_usd: float
+    warnings: list[str]
+    optimizer_call_usage: dict | None = None
+
+
+def _safe_worker_text(worker_res, field_name: str) -> str:
+    value = getattr(worker_res, field_name, "")
+    if not isinstance(value, str):
+        return ""
+    return value if field_name == "plan" or not is_meta_leaked(value) else ""
+
+
+def _warning_for_fast_fallback(reason: str) -> DiagnosticItem:
+    return DiagnosticItem(
+        severity="warning",
+        message=f"Running in offline/heuristic mode. Fast compiler worker issue: {reason}",
+        suggestion="Retry after checking the worker API key, network, or model response shape.",
+        category="system",
+    )
+
+
+def _coerce_fast_ir(text: str, worker_res, fallback_reason: str | None = None) -> tuple[IRv2, bool]:
+    candidate = getattr(worker_res, "ir", None) if worker_res is not None else None
+
+    if isinstance(candidate, IRv2):
+        ir2 = candidate
+        used_fallback = False
+    else:
+        raw_ir = None
+        if isinstance(candidate, dict):
+            raw_ir = candidate
+        elif hasattr(candidate, "model_dump"):
+            try:
+                raw_ir = candidate.model_dump()
+            except Exception as exc:
+                fallback_reason = fallback_reason or f"IR serialization failed: {exc}"
+
+        if isinstance(raw_ir, dict) and raw_ir:
+            try:
+                ir2 = IRv2.model_validate(raw_ir)
+                used_fallback = False
+            except Exception as exc:
+                fallback_reason = fallback_reason or f"IR validation failed: {exc}"
+                ir2 = compile_text_v2(text, offline_only=True)
+                used_fallback = True
+        else:
+            fallback_reason = fallback_reason or "worker result was empty or missing ir"
+            ir2 = compile_text_v2(text, offline_only=True)
+            used_fallback = True
+
+    if used_fallback:
+        ir2.diagnostics.append(_warning_for_fast_fallback(fallback_reason or "unknown error"))
+
+    return ir2, used_fallback
+
+
+def _fast_compile_payload(
+    req: CompileRequest,
+    worker_res,
+    mode: str,
+    start: float,
+    fallback_reason: str | None = None,
+) -> tuple[dict, bool]:
+    ir2, used_fallback = _coerce_fast_ir(req.text, worker_res, fallback_reason)
+
+    system_prompt = _safe_worker_text(worker_res, "system_prompt") or emit_system_prompt_v2(ir2)
+    user_prompt = _safe_worker_text(worker_res, "user_prompt") or emit_user_prompt_v2(ir2)
+    plan = _safe_worker_text(worker_res, "plan") or emit_plan_v2(ir2)
+    optimized_content = _safe_worker_text(worker_res, "optimized_content")
+
+    forced_expanded = None
+    if mode != "default":
+        forced_expanded = forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
+
+    expanded_prompt = (
+        forced_expanded
+        or optimized_content
+        or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+    )
+    ir_dump = ir2.model_dump()
+
+    return (
+        {
+            "ir": ir_dump,
+            "ir_v2": ir_dump,
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "plan": plan,
+            "expanded_prompt": expanded_prompt,
+            "system_prompt_v2": system_prompt,
+            "user_prompt_v2": user_prompt,
+            "plan_v2": plan,
+            "expanded_prompt_v2": expanded_prompt,
+            "processing_ms": int((time.time() - start) * 1000),
+            "request_id": "fast_" + uuid.uuid4().hex[:12],
+            "heuristic_version": "v2-fast",
+            "heuristic2_version": "v2-fast",
+            "trace": [],
+            "critique": None,
+        },
+        used_fallback,
+    )
 
 
 @router.post("/compile", response_model=CompileResponse)
@@ -213,36 +330,30 @@ async def compile_fast(
     try:
         mode = resolve_mode(req.mode, request)
         cache_key = (req.text, mode)
+        cache_hit = cache_key in compiler.cache
+        fallback_reason = None
         if cache_key in compiler.cache:
             res = compiler.cache[cache_key]
         else:
-            res = await anyio.to_thread.run_sync(
-                functools.partial(compiler.worker.process, req.text, mode=mode)
-            )
+            try:
+                res = await anyio.to_thread.run_sync(
+                    functools.partial(compiler.worker.process, req.text, mode=mode)
+                )
+            except Exception as exc:
+                fallback_reason = f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    "compile_fast worker failed; falling back to local heuristics",
+                    exc_info=True,
+                    extra={"mode": mode, "text_length": len(req.text)},
+                )
+                res = None
+
+        payload, used_fallback = _fast_compile_payload(req, res, mode, start, fallback_reason)
+        if not cache_hit and not used_fallback:
             compiler.cache[cache_key] = res
-
-        forced_expanded = None
-        if mode != "default":
-            forced_expanded = forced_minimal_expanded_prompt(req.text, res.ir)
-
-        return {
-            "ir": res.ir.model_dump(),
-            "ir_v2": res.ir.model_dump(),
-            "system_prompt": res.system_prompt,
-            "user_prompt": res.user_prompt,
-            "plan": res.plan,
-            "expanded_prompt": forced_expanded or res.optimized_content,
-            "system_prompt_v2": res.system_prompt,
-            "user_prompt_v2": res.user_prompt,
-            "plan_v2": res.plan,
-            "expanded_prompt_v2": forced_expanded or res.optimized_content,
-            "processing_ms": int((time.time() - start) * 1000),
-            "request_id": "fast_" + str(int(time.time())),
-            "heuristic_version": "v2-fast",
-            "heuristic2_version": "v2-fast",
-            "trace": [],
-            "critique": None,
-        }
+        elif cache_hit and used_fallback:
+            compiler.cache.pop(cache_key, None)
+        return payload
     except Exception as exc:
         logger.exception("compile_fast failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
@@ -293,7 +404,14 @@ async def optimize_endpoint(
     compiler = _get_compiler()
 
     try:
-        result = await anyio.to_thread.run_sync(
+        worker_model = getattr(compiler.worker, "model", None)
+        model = (
+            req.model
+            or (worker_model if isinstance(worker_model, str) else None)
+            or DEFAULT_GROQ_MODEL
+        )
+        provider = (req.provider or "groq").strip().lower()
+        raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
             functools.partial(
                 compiler.worker.optimize_prompt,
                 req.text,
@@ -301,19 +419,95 @@ async def optimize_endpoint(
                 max_tokens=req.max_tokens,
             )
         )
+        result = strip_wrapper_labels(raw_result)
+        source_cost = estimate_prompt_cost(req.text, provider=provider, model=model)
+        optimized_cost = estimate_prompt_cost(result, provider=provider, model=model)
+
+        warnings = list(dict.fromkeys(source_cost.warnings + optimized_cost.warnings))
+
+        result_language = detect_language(result)
+        if (
+            source_cost.source_language not in ("unknown", "")
+            and result_language not in ("unknown", "")
+            and result_language != source_cost.source_language
+        ):
+            warnings.append(
+                f"Optimized output language differs from input "
+                f"({source_cost.source_language} → {result_language}); review before using."
+            )
+
+        if optimized_cost.tokens > source_cost.tokens > 0:
+            warnings.append(
+                "Optimized output uses more tokens than the input; "
+                "consider keeping the original."
+            )
+
+        english_variant = ""
+        english_variant_tokens = 0
+        english_variant_cost_usd = 0.0
+
+        if source_cost.source_language != "en":
+            warnings.append("Translation can change nuance; review before using.")
+            try:
+                english_variant, _ = await anyio.to_thread.run_sync(
+                    functools.partial(
+                        compiler.worker.optimize_prompt_english_variant,
+                        req.text,
+                        max_chars=req.max_chars,
+                        max_tokens=req.max_tokens,
+                    )
+                )
+            except Exception as exc:
+                logger.debug("English optimizer variant skipped: %s", exc)
+                english_variant = ""
+                warnings.append(
+                    "English compact suggestion unavailable; the secondary optimizer call failed."
+                )
+
+            english_variant = strip_wrapper_labels(english_variant)
+
+            if english_variant:
+                english_cost = estimate_prompt_cost(english_variant, provider=provider, model=model)
+                english_variant_tokens = english_cost.tokens
+                english_variant_cost_usd = english_cost.estimated_cost_usd
+                warnings = list(dict.fromkeys(warnings + english_cost.warnings))
+
         before_len = len(req.text)
         after_len = len(result)
+        saved_percent = (
+            round(((source_cost.tokens - optimized_cost.tokens) / source_cost.tokens) * 100, 1)
+            if source_cost.tokens
+            else 0.0
+        )
+        estimated_savings = round(
+            source_cost.estimated_cost_usd - optimized_cost.estimated_cost_usd, 10
+        )
+
         return OptimizeResponse(
             text=result,
             before_chars=before_len,
             after_chars=after_len,
-            before_tokens=int(before_len / req.token_ratio),
-            after_tokens=int(after_len / req.token_ratio),
+            before_tokens=source_cost.tokens,
+            after_tokens=optimized_cost.tokens,
+            saved_percent=saved_percent,
             passes=1,
-            met_max_chars=True,
-            met_max_tokens=True,
-            met_budget=True,
+            met_max_chars=req.max_chars is None or after_len <= req.max_chars,
+            met_max_tokens=req.max_tokens is None or optimized_cost.tokens <= req.max_tokens,
+            met_budget=(req.max_chars is None or after_len <= req.max_chars)
+            and (req.max_tokens is None or optimized_cost.tokens <= req.max_tokens),
             changed=(result != req.text),
+            provider=provider,
+            model=model,
+            source_language=source_cost.source_language,
+            tokenizer_method=source_cost.tokenizer_method,
+            estimated_input_cost_usd=source_cost.estimated_cost_usd,
+            estimated_output_cost_usd=optimized_cost.estimated_cost_usd,
+            estimated_savings_usd=estimated_savings,
+            english_variant=english_variant,
+            english_variant_tokens=english_variant_tokens,
+            english_variant_cost_usd=english_variant_cost_usd,
+            warnings=warnings,
+            optimizer_call_usage=optimizer_call_usage,
         )
     except Exception as exc:
         logger.exception("optimize endpoint failed")

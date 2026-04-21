@@ -32,8 +32,19 @@ export type CompileMetadata = JsonObject & {
   retrieval_note?: string;
 };
 
+export type CompilePolicy = {
+  risk_level: string;
+  risk_domains: string[];
+  allowed_tools: string[];
+  forbidden_tools: string[];
+  sanitization_rules: string[];
+  data_sensitivity: string;
+  execution_mode: string;
+};
+
 export type CompileIr = JsonObject & {
   metadata?: CompileMetadata;
+  policy?: CompilePolicy;
 };
 
 export type CritiqueIssue = {

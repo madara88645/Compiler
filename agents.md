@@ -177,6 +177,12 @@ pytest -q \
 pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py -v
 ```
 
+**Live optimizer tests (opt-in only; requires upstream credentials):**
+
+```bash
+GROQ_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
+```
+
 **Live API smoke test (requires running backend):**
 
 ```bash
