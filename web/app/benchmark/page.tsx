@@ -214,14 +214,14 @@ export default function BenchmarkPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="z-20 flex w-[350px] shrink-0 flex-col gap-5 border-r border-white/5 bg-black/20 p-5">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+          <div className="z-20 flex w-full md:w-[350px] md:shrink-0 flex-col gap-5 border-b md:border-b-0 md:border-r border-white/5 bg-black/20 p-5">
             <div className="group relative flex-1">
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
               <textarea
                 id="benchmark-prompt"
                 aria-label="Benchmark prompt input"
-                className="h-full w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                className="h-full min-h-[180px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                 placeholder={"Enter a prompt to start the battle...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -305,18 +305,18 @@ export default function BenchmarkPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center opacity-60 animate-fade-in">
-                <div className={`text-6xl drop-shadow-2xl ${errorMessage ? "text-red-300" : "text-zinc-500"}`}>
+              <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center animate-fade-in">
+                <div className={`text-6xl drop-shadow-2xl ${errorMessage ? "text-red-300" : "text-zinc-400"}`}>
                   {errorMessage ? "!" : "B"}
                 </div>
-                <div className="max-w-xs space-y-2">
-                  <h3 className="font-medium tracking-wide text-zinc-300">
-                    {errorMessage ? "Benchmark unavailable" : "Battle Arena Empty"}
+                <div className="max-w-sm space-y-2">
+                  <h3 className="font-medium tracking-wide text-zinc-200">
+                    {errorMessage ? "Benchmark unavailable" : "No benchmark yet"}
                   </h3>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-400">
                     {errorMessage
                       ? errorMessage
-                      : "Enter a prompt and select a model to see the visual comparison."}
+                      : "Paste a prompt on the left, pick a model, then hit Start Battle to compare raw vs compiled output."}
                   </p>
                 </div>
               </div>

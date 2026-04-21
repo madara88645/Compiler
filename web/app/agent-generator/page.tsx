@@ -217,10 +217,11 @@ export default function AgentGenerator() {
           <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
-                <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                  <button type="button" className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
-                    System Prompt
-                  </button>
+                <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
+                  <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">System Prompt</h2>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                    {multiAgent ? "Multi-Agent Swarm" : "Single Agent"}
+                  </span>
                 </div>
 
                 <div className="relative flex-1 min-h-0 overflow-hidden">
