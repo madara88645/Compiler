@@ -356,13 +356,23 @@ def _chunk_text_semantic(
 
     n_docs = len(sentences)
 
+    # Bolt Optimization: Pre-calculate IDF to avoid calling math.log inside the loop
+    idf_cache = {}
+    for tok, df in doc_freq.items():
+        idf_cache[tok] = math.log((n_docs + 1) / (df + 1)) + 1
+
+    # Fallback IDF for unknown tokens (simulates doc_freq.get(tok, 0))
+    default_idf = math.log((n_docs + 1) / 1) + 1
+
     def compute_tfidf(sentence: str) -> Dict[str, float]:
         tokens = tokenize(sentence)
         tf = Counter(tokens)
         tfidf = {}
-        for tok, count in tf.items():
-            idf = math.log((n_docs + 1) / (doc_freq.get(tok, 0) + 1)) + 1
-            tfidf[tok] = (count / len(tokens)) * idf if tokens else 0
+        tokens_len = len(tokens)
+        if tokens_len > 0:
+            for tok, count in tf.items():
+                idf = idf_cache.get(tok, default_idf)
+                tfidf[tok] = (count / tokens_len) * idf
         return tfidf
 
     def cosine_similarity(v1: Dict[str, float], v2: Dict[str, float]) -> float:

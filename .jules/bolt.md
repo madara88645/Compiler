@@ -112,3 +112,6 @@
 **Learning:** Replacing an inline `any(keyword in text for keyword in keywords)` generator expression with a standard loop inside a fast-path helper function (like `_contains_any_keyword(text, keywords)`) yields a 3-4x performance improvement by avoiding the initialization overhead of generator objects in hot paths.
 
 **Action:** Continue replacing `any()` expressions used for substring searches with module-level `_contains_any` helper functions in performance-sensitive text analysis modules like the heuristics handlers. Always verify that the helper function is properly imported and exported in the `__init__.py` or utility file.
+## 2024-05-30 - Hoisting expensive loop math
+**Learning:** In the `simple_index.py` TF-IDF implementation, executing `math.log` to calculate IDF inside the inner `for` loop for every sentence evaluation causes significant overhead because the same tokens are evaluated repeatedly.
+**Action:** When a loop computes mathematical properties derived from a static corpus (like document frequency), pre-compute the properties into a cache dictionary *outside* the loop (e.g., `idf_cache`). Always remember to include a fallback/default value calculation (e.g., `idf_cache.get(tok, default_idf)`) inside the loop to avoid `KeyError` regressions for unseen elements.
