@@ -411,8 +411,7 @@ async def optimize_endpoint(
             or DEFAULT_GROQ_MODEL
         )
         provider = (req.provider or "groq").strip().lower()
-        setattr(compiler.worker, "last_usage", None)
-        raw_result = await anyio.to_thread.run_sync(
+        raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
             functools.partial(
                 compiler.worker.optimize_prompt,
                 req.text,
@@ -421,7 +420,6 @@ async def optimize_endpoint(
             )
         )
         result = strip_wrapper_labels(raw_result)
-        optimizer_call_usage = getattr(compiler.worker, "last_usage", None)
         source_cost = estimate_prompt_cost(req.text, provider=provider, model=model)
         optimized_cost = estimate_prompt_cost(result, provider=provider, model=model)
 
@@ -451,7 +449,7 @@ async def optimize_endpoint(
         if source_cost.source_language != "en":
             warnings.append("Translation can change nuance; review before using.")
             try:
-                english_variant = await anyio.to_thread.run_sync(
+                english_variant, _ = await anyio.to_thread.run_sync(
                     functools.partial(
                         compiler.worker.optimize_prompt_english_variant,
                         req.text,

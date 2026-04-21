@@ -7,7 +7,7 @@ import re
 # inside fenced code blocks.
 _WRAPPER_LINE_RE = re.compile(
     r"""^\s*
-        (?:[#>*\-\s]*)               # leading markdown decoration (#, >, *, -)
+        (?:[#>*\-\s]{0,20})          # leading markdown decoration (bounded to avoid backtracking)
         (?:\*\*)?                    # optional bold opener
         (?:optimized\s+prompt|optimized|result|output|here\s+is\s+the\s+optimized\s+prompt)
         (?:\*\*)?                    # optional bold closer
@@ -39,8 +39,8 @@ def strip_wrapper_labels(text: str) -> str:
         return text
 
     rest = lines[idx + 1 :]
-    while rest and not rest[0].strip():
-        rest.pop(0)
+    start = next((i for i, line in enumerate(rest) if line.strip()), len(rest))
+    rest = rest[start:]
 
     trailing_newline = "\n" if text.endswith("\n") else ""
     return "\n".join(rest) + trailing_newline

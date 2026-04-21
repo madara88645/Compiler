@@ -211,7 +211,7 @@ def test_validate_no_key():
 
 def test_optimize_no_key():
     with patch("api.main.get_compiler") as mock_get_compiler:
-        mock_get_compiler.return_value.worker.optimize_prompt.return_value = "short prompt"
+        mock_get_compiler.return_value.worker.optimize_prompt.return_value = ("short prompt", None)
 
         resp = client.post("/optimize", json={"text": "a much longer prompt"})
 
