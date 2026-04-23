@@ -1,0 +1,55 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - "vscode-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-vscode-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    defaults:
+      run:
+        working-directory: integrations/vscode-extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Package extension
+        run: npx --yes @vscode/vsce@latest package --no-dependencies
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: promptc-vscode-vsix
+          path: integrations/vscode-extension/*.vsix
+          if-no-files-found: error
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce@latest publish --no-dependencies --pat "$VSCE_PAT"
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx@latest publish --pat "$OVSX_PAT" *.vsix

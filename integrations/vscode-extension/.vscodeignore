@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+tests/**
+node_modules/**
+.gitignore
+.eslintrc.*
+**/*.map
+**/*.ts
+**/tsconfig.json
+**/.DS_Store
+*.vsix
+package-lock.json
