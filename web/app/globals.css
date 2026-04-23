@@ -119,3 +119,67 @@ body {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* ─── Per-page accent color tokens ──────────────────────── */
+:root {
+  --accent-compiler:         #3b82f6;
+  --accent-optimizer:        #10b981;
+  --accent-offline:          #71717a;
+  --accent-benchmark:        #f59e0b;
+  --accent-agent-generator:  #22c55e;
+  --accent-skills-generator: #eab308;
+}
+
+/* ─── Diff Viewer Utilities ──────────────────────────────── */
+.diff-added {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-radius: 3px;
+  padding: 1px 4px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.diff-removed {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-radius: 3px;
+  padding: 1px 4px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.4);
+  opacity: 0.7;
+}
+
+.diff-equal {
+  color: #a1a1aa;
+}
+
+/* ─── Custom Scrollbar Utility ───────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.6);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.8);
+}
+
+/* ─── slideInDown Animation ──────────────────────────────── */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-in-down {
+  animation: slideInDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

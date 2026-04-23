@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ShieldAlert } from "lucide-react";
 import type { SecurityFinding } from "../../lib/api/types";
 
 type SecurityAlertProps = {
@@ -39,8 +40,8 @@ export default function SecurityAlert({
                 {/* Header */}
                 <div className="bg-red-500/10 border-b border-red-500/20 p-6 flex flex-col gap-2">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-xl shadow-lg shadow-red-500/20">
-                            🛡️
+                        <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shadow-lg shadow-red-500/20">
+                            <ShieldAlert size={22} className="text-red-300" aria-hidden="true" />
                         </div>
                         <div>
                             <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
@@ -98,7 +99,7 @@ export default function SecurityAlert({
                         type="button"
                         onClick={onProceedRedacted}
                         autoFocus
-                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+                        className="px-6 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
                     >
                         Strip Secrets & Proceed
                     </button>

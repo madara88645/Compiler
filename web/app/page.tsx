@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Code2 } from "lucide-react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -122,10 +123,10 @@ export default function Home() {
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20">💠</div>
+              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"><Code2 size={18} aria-hidden="true" /></div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
+                <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
               </div>
             </div>
             <InfoButton
@@ -155,7 +156,7 @@ export default function Home() {
               />
               <span className="flex flex-col items-start leading-none">
                 <span>Conservative</span>
-                <span className="mt-1 text-[10px] font-normal opacity-75">
+                <span className="mt-1 text-xs font-normal opacity-75">
                   {conservativeMode ? "No hallucinations" : "Aggressive optimize"}
                 </span>
               </span>
@@ -413,7 +414,7 @@ export default function Home() {
                 <div className="relative group">
                   <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
-                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">💠</span>
+                    <Code2 size={40} strokeWidth={1.5} aria-hidden="true" className="text-blue-400/60" />
                   </div>
                 </div>
                 <div className="max-w-sm space-y-2">

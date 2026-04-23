@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { Bot } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
 import ContextManager from "../components/ContextManager";
@@ -78,12 +79,12 @@ export default function AgentGenerator() {
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-green-500/20">
-                🧠
+              <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
+                <Bot size={18} aria-hidden="true" />
               </div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Agent Generator</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">
                   AI Architect
                 </div>
               </div>
@@ -138,7 +139,7 @@ export default function AgentGenerator() {
               </button>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
-                <span className="text-[10px] text-zinc-500">Decompose into 2-4 specialized agents</span>
+                <span className="text-xs text-zinc-500">Decompose into 2-4 specialized agents</span>
               </div>
             </div>
 
@@ -155,7 +156,7 @@ export default function AgentGenerator() {
               </button>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Example Code?</span>
-                <span className="text-[10px] text-zinc-500">
+                <span className="text-xs text-zinc-500">
                   Yes = include example code, No = keep it code-free to avoid confusion
                 </span>
               </div>
@@ -192,7 +193,7 @@ export default function AgentGenerator() {
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
               title={!description.trim() ? "Enter a description first to generate" : "Generate Agent"}
-              className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
+              className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
             >
               {loading ? (
                 <span className="animate-pulse">Architecting...</span>
@@ -251,7 +252,7 @@ export default function AgentGenerator() {
                 <div className="relative group">
                   <div className="absolute inset-0 bg-green-500/30 blur-[40px] rounded-full group-hover:bg-green-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
-                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">🧠</span>
+                    <Bot size={40} strokeWidth={1.5} aria-hidden="true" className="text-green-400/60" />
                   </div>
                 </div>
                 <div className="max-w-xs space-y-2">
