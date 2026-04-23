@@ -983,7 +983,7 @@ def _search_embed_with_conn(
         JOIN docs d ON d.id = c.doc_id
         WHERE c.id IN ({placeholders})
         """,
-        chunk_ids
+        chunk_ids,
     )
 
     metadata = {}
@@ -993,7 +993,7 @@ def _search_embed_with_conn(
             "doc_id": doc_id,
             "path": path,
             "chunk_index": chunk_index,
-            "content": content
+            "content": content,
         }
 
     results = []
@@ -1004,15 +1004,17 @@ def _search_embed_with_conn(
             continue
         content = m["content"]
         snippet = content[:200].replace("\n", " ")
-        results.append({
-            "chunk_id": chunk_id,
-            "doc_id": m["doc_id"],
-            "path": m["path"],
-            "chunk_index": m["chunk_index"],
-            "snippet": snippet,
-            "score": score,
-            "similarity": sim
-        })
+        results.append(
+            {
+                "chunk_id": chunk_id,
+                "doc_id": m["doc_id"],
+                "path": m["path"],
+                "chunk_index": m["chunk_index"],
+                "snippet": snippet,
+                "score": score,
+                "similarity": sim,
+            }
+        )
     return results
 
 
