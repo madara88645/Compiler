@@ -174,9 +174,7 @@ def test_policy_educational_two_risk_domains_escalates_to_high():
 def test_policy_financial_and_privacy_sanitization_rules_are_deduplicated():
     # Both "financial" and "privacy" domain rules emit "mask_sensitive_values".
     # PolicyHandler._unique() must ensure it appears exactly once.
-    ir2 = compile_text_v2(
-        "Analyze personal investment records for GDPR consent compliance."
-    )
+    ir2 = compile_text_v2("Analyze personal investment records for GDPR consent compliance.")
 
     assert "financial" in ir2.policy.risk_domains
     assert "privacy" in ir2.policy.risk_domains
