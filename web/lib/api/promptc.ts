@@ -242,6 +242,10 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     ir,
     ir_v2: irV2,
     processing_ms: readNumber(record.processing_ms),
+    request_id: readString(record.request_id) || undefined,
+    heuristic_version: readString(record.heuristic_version) || undefined,
+    heuristic2_version: readString(record.heuristic2_version) || undefined,
+    trace: Array.isArray(record.trace) ? readStringList(record.trace) : undefined,
     critique: normalizeCritique(record.critique),
   };
 }
