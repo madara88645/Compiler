@@ -56,17 +56,27 @@ class ScenariosGenerator:
 
         roles = [agent.get("role", "Unknown Role").lower() for agent in agents]
 
+        # Bolt Optimization: Replace any() generator expressions with fast-path loops
+        has_coordinator = False
+        for r in roles:
+            if "coordinator" in r or "router" in r or "planner" in r:
+                has_coordinator = True
+                break
+
         # Heuristic test: Handoff check
-        if (
-            not any("coordinator" in r or "router" in r or "planner" in r for r in roles)
-            and len(roles) > 2
-        ):
+        if not has_coordinator and len(roles) > 2:
             failure_modes.append(
                 "Potential handoff failure: Missing central coordinator or planner for a large swarm."
             )
 
+        has_validator = False
+        for r in roles:
+            if "validator" in r or "reviewer" in r or "critic" in r:
+                has_validator = True
+                break
+
         # Heuristic test: Conflict resolution
-        if not any("validator" in r or "reviewer" in r or "critic" in r for r in roles):
+        if not has_validator:
             failure_modes.append(
                 "Missing conflict resolution: No validator role identified to catch errors."
             )

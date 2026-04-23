@@ -1153,7 +1153,8 @@ class DomainHandler(BaseHandler):
         # Detect frameworks mentioned
         detected_frameworks = []
         for framework, keywords in rules["frameworks"].items():
-            if any(kw in text_lower for kw in keywords):
+            # Bolt Optimization: Replace any() generator expression with fast-path helper
+            if _contains_any_keyword(text_lower, keywords):
                 detected_frameworks.append(framework)
 
         if detected_frameworks:

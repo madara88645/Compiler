@@ -178,15 +178,18 @@ class PolicyHandler(BaseHandler):
             return True
 
         text_without_urls = cls._URL_PATTERN.sub(" ", text)
-        return any(
-            pattern.search(text_without_urls)
-            for pattern in (
-                cls._WINDOWS_PATH_PATTERN,
-                cls._POSIX_PATH_PATTERN,
-                cls._RELATIVE_FILE_PATTERN,
-                cls._UNC_PATH_PATTERN,
-            )
+
+        # Bolt Optimization: Replace any() generator expression with fast-path loop
+        patterns = (
+            cls._WINDOWS_PATH_PATTERN,
+            cls._POSIX_PATH_PATTERN,
+            cls._RELATIVE_FILE_PATTERN,
+            cls._UNC_PATH_PATTERN,
         )
+        for pattern in patterns:
+            if pattern.search(text_without_urls):
+                return True
+        return False
 
     @staticmethod
     def _unique(items: list[str]) -> list[str]:
