@@ -1,6 +1,7 @@
 import pytest
 
 from app.github_artifacts import render_github_artifact, render_artifact_chain
+from app.models_v2 import IRv2, PolicyV2
 
 
 # ---------------------------------------------------------------------------
@@ -231,3 +232,52 @@ def test_enforcement_checklist_absent_for_low_risk():
     )
 
     assert "## Enforcement Checklist" not in artifact
+
+
+# ---------------------------------------------------------------------------
+# New: _render_enforcement_checklist() edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_enforcement_checklist_high_risk_no_sanitization_rules_shows_only_gate():
+    # risk_level="high" with sanitization_rules=[] still enters the checklist branch
+    # (condition: not sanitization_rules AND risk_level != "high" — the second part
+    # is False, so the early-return guard does not fire). Only the GATE line is added.
+    ir2 = IRv2(goals=["Deploy"], policy=PolicyV2(risk_level="high", sanitization_rules=[]))
+    artifact = render_github_artifact("issue-brief", "Deploy the service.", ir2=ir2)
+
+    assert "## Enforcement Checklist" in artifact
+    assert "**GATE:** Human review required before merge/deploy" in artifact
+    checklist_lines = [
+        line for line in artifact.splitlines()
+        if line.startswith("- [ ]")
+    ]
+    assert len(checklist_lines) == 1, (
+        f"Expected exactly 1 checklist item (GATE only), got: {checklist_lines}"
+    )
+
+
+def test_enforcement_checklist_unknown_rule_uses_fallback_label():
+    # Rules absent from _RULE_ACTIONS render as "Enforce {rule} policy" via .get() fallback.
+    ir2 = IRv2(
+        goals=["Comply"],
+        policy=PolicyV2(
+            risk_level="medium",
+            sanitization_rules=["custom_compliance_check"],
+        ),
+    )
+    artifact = render_github_artifact("issue-brief", "Ensure compliance.", ir2=ir2)
+
+    assert "## Enforcement Checklist" in artifact
+    assert "- [ ] Enforce custom_compliance_check policy" in artifact
+
+
+def test_issue_brief_empty_goals_falls_back_to_raw_text():
+    # When goals=[], tasks=[], steps=[], the issue-brief Goals section
+    # falls back to [text] via `ir2.goals or [text]`.
+    ir2 = IRv2(goals=[], tasks=[], steps=[])
+    raw_text = "No goals or tasks available."
+    artifact = render_github_artifact("issue-brief", raw_text, ir2=ir2)
+
+    assert "## Goals" in artifact
+    assert raw_text in artifact
