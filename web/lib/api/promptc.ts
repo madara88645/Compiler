@@ -1,4 +1,4 @@
-import { apiJson } from "../../config.ts";
+import { ApiError, apiJson } from "../../config.ts";
 import type {
   CompileRequest,
   CompileResponse,
@@ -76,9 +76,12 @@ function normalizeSecurityMetadata(value: unknown): SecurityMetadata | undefined
     return undefined;
   }
 
+  const findings = Array.isArray(record.findings) ? record.findings.map(normalizeSecurityFinding) : [];
+  const explicitSafety = typeof record.is_safe === "boolean" ? record.is_safe : undefined;
+
   return {
-    is_safe: Boolean(record.is_safe),
-    findings: Array.isArray(record.findings) ? record.findings.map(normalizeSecurityFinding) : [],
+    is_safe: explicitSafety ?? findings.length === 0,
+    findings,
     redacted_text: readString(record.redacted_text),
   };
 }
@@ -317,13 +320,51 @@ export function formatSearchScore(result: RagSearchResult): string {
   return Number.isFinite(result.score) ? result.score.toFixed(3) : "0.000";
 }
 
-export async function compilePrompt(request: CompileRequest, signal?: AbortSignal): Promise<CompileResponse> {
-  const response = await apiJson<unknown>("/compile", {
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isTransientCompileError(error: unknown): boolean {
+  if (isAbortError(error)) {
+    return false;
+  }
+
+  if (error instanceof ApiError) {
+    return [408, 429, 502, 503, 504].includes(error.status);
+  }
+
+  if (error instanceof TypeError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("failed to fetch") || message.includes("networkerror") || message.includes("load failed");
+  }
+
+  return false;
+}
+
+async function postCompile(request: CompileRequest, signal?: AbortSignal): Promise<unknown> {
+  return apiJson<unknown>("/compile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
     signal,
   });
+}
+
+export async function compilePrompt(request: CompileRequest, signal?: AbortSignal): Promise<CompileResponse> {
+  let response: unknown;
+  try {
+    response = await postCompile(request, signal);
+  } catch (error) {
+    if (!isTransientCompileError(error) || signal?.aborted) {
+      throw error;
+    }
+    response = await postCompile(request, signal);
+  }
+
   return normalizeCompileResponse(response);
 }
 
