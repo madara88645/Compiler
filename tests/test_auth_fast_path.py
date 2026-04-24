@@ -91,32 +91,29 @@ def test_compile_fast_internal_error(test_key):
         assert resp.json() == {"detail": "An internal error occurred."}
 
 
-def test_rate_limit(test_key):
-    # Depending on how the rate limiter is implemented (in-memory global),
-    # we might need to reset it or just spam enough requests.
+def test_rate_limit(test_key, monkeypatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     from api.auth import RATE_LIMIT_STORE
-
     RATE_LIMIT_STORE.clear()
 
     # Send 10 requests (allowed)
     for _ in range(10):
         with patch("api.main.hybrid_compiler") as mock:
             mock.cache = {}
-            mock.worker.process.return_value = MagicMock(
-                ir=MagicMock(model_dump=lambda: {}),
-                system_prompt="",
-                user_prompt="",
-                plan="",
-                optimized_content="",
-            )
-            client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+            mock.worker.process.side_effect = Exception("Test Internal Error")
+            # We mock the Request object to have a different IP address so it hits the rate limiter
+            with patch("fastapi.Request.client") as mock_client:
+                mock_client.host = "1.2.3.4"
+                resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+                assert resp.status_code == 500
 
-    # 11th request should fail
+    # 11th request should fail with 429
     with patch("api.main.hybrid_compiler") as mock:
         mock.cache = {}
-        resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
-        assert resp.status_code == 429
-
+        with patch("fastapi.Request.client") as mock_client:
+            mock_client.host = "1.2.3.4"
+            resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+            assert resp.status_code == 429
 
 def test_compile_no_key():
     resp = client.post("/compile", json={"text": "hello", "v2": False})
@@ -127,7 +124,7 @@ def test_compile_invalid_key():
     resp = client.post(
         "/compile", json={"text": "hello", "v2": False}, headers={"x-api-key": "invalid"}
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_validate_no_key():
