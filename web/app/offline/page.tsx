@@ -206,7 +206,7 @@ export default function OfflinePage() {
                                             <button
                                                 type="button"
                                                 onClick={() => navigator.clipboard.writeText(getOfflineTabContent(result, activeTab))}
-                                                className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20"
+                                                className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
                                                 title="Copy"
                                                 aria-label="Copy to Clipboard"
                                             >

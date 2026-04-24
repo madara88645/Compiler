@@ -233,7 +233,7 @@ export default function AgentGenerator() {
                   <button
                     type="button"
                     onClick={copyToClipboard}
-                    className="absolute bottom-6 right-6 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
+                    className="absolute bottom-6 right-6 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                     title={copied ? "Copied!" : "Copy to Clipboard"}
                     aria-label={copied ? "Copied" : "Copy Markdown"}
                   >
