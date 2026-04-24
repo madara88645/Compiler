@@ -59,4 +59,44 @@ describe("compilePrompt", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
     expect(response.expanded_prompt).toBe("expanded");
   });
+
+  it("does not retry non-transient compile API failures", async () => {
+    const error = new ApiError(400, "Bad request", null);
+    apiJsonMock.mockRejectedValueOnce(error);
+
+    await expect(
+      compilePrompt({
+        text: "Summarize an incident report.",
+        diagnostics: true,
+        v2: true,
+        render_v2_prompts: true,
+        mode: "conservative",
+      }),
+    ).rejects.toBe(error);
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry aborted compile requests", async () => {
+    const controller = new AbortController();
+    const abortedError = new DOMException("The operation was aborted.", "AbortError");
+    controller.abort();
+
+    apiJsonMock.mockRejectedValueOnce(abortedError);
+
+    await expect(
+      compilePrompt(
+        {
+          text: "Summarize an incident report.",
+          diagnostics: true,
+          v2: true,
+          render_v2_prompts: true,
+          mode: "conservative",
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+  });
 });
