@@ -172,7 +172,14 @@ python -m cli.main github render --type pr-review-brief --from-file prompt.txt
 
 ### VS Code Extension MVP
 
-The new VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension):
+The VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension). Once the Marketplace publisher is claimed and the first `vscode-v*` tag is pushed, it installs from:
+
+- **VS Code Marketplace** — [`madara88645.promptc-vscode`](https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode)
+- **Open VSX** (VSCodium / Cursor) — [`madara88645/promptc-vscode`](https://open-vsx.org/extension/madara88645/promptc-vscode)
+
+Until then, install from source (see [the extension README](integrations/vscode-extension/README.md#local-development)) or the `.vsix` artifact on the `Publish VS Code Extension` workflow run.
+
+Features:
 
 - `PromptC: Compile Selection`
 - `PromptC: Open Panel`
