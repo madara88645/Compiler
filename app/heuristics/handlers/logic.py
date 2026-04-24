@@ -110,7 +110,8 @@ class LogicHandler:
         # Bolt Optimization: Pre-calculate constraints attributes to avoid repeated expensive getattr
         # calls inside nested loops.
         c_texts = [
-            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "") for c in ir2.constraints
+            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
+            for c in ir2.constraints
         ]
         c_prios = [
             getattr(c, "priority", 40) if not isinstance(c, dict) else c.get("priority", 40)
@@ -121,7 +122,8 @@ class LogicHandler:
 
         # Re-fetch texts as they might have changed after conflict resolution
         c_texts = [
-            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "") for c in ir2.constraints
+            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
+            for c in ir2.constraints
         ]
         self._inject_reasoning(ir2, original_text, c_texts)
 
