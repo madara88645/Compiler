@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from api.auth import APIKey, verify_api_key_if_required
+from api.shared import logger
 from app.compiler import compile_text_v2
 from app.emitters import emit_expanded_prompt_v2
 
@@ -285,20 +286,23 @@ async def benchmark_run(
     try:
         raw_output = _generate_llm_output(req.text, req.model)
     except Exception as e:
-        raise HTTPException(status_code=502, detail="Benchmark model request failed") from e
+        logger.exception("Benchmark raw model request failed")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed")
 
     # --- Step B: Compile the prompt ---------------------------------------
     try:
         ir_v2 = compile_text_v2(req.text)
         compiled_prompt = emit_expanded_prompt_v2(ir_v2, diagnostics=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Benchmark compilation failed") from e
+        logger.exception("Benchmark compilation failed")
+        raise HTTPException(status_code=500, detail="Benchmark compilation failed")
 
     # --- Step C: Generate with compiled prompt ----------------------------
     try:
         compiled_output = _generate_llm_output(compiled_prompt, req.model)
     except Exception as e:
-        raise HTTPException(status_code=502, detail="Benchmark model request failed") from e
+        logger.exception("Benchmark compiled model request failed")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed")
 
     # --- Step D: Judge — LLM first, heuristic fallback --------------------
     judge_result = _judge_with_llm(req.text, raw_output, compiled_output)
