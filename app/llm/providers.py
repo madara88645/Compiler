@@ -81,7 +81,10 @@ class OllamaProvider(LLMProvider):
             }
 
         except Exception as e:
-            return LLMResponse(content=f"Error: {str(e)}", latency_ms=0)
+            import logging
+
+            logging.getLogger(__name__).error(f"Provider error: {e}")
+            return LLMResponse(content="Error: An internal error occurred.", latency_ms=0)
 
         latency = (time.time() - start) * 1000
         return LLMResponse(content=content, usage=usage, latency_ms=latency)
@@ -126,7 +129,10 @@ class OpenAIProvider(LLMProvider):
             usage = data.get("usage", {})
 
         except Exception as e:
-            return LLMResponse(content=f"Error: {str(e)}", latency_ms=0)
+            import logging
+
+            logging.getLogger(__name__).error(f"Provider error: {e}")
+            return LLMResponse(content="Error: An internal error occurred.", latency_ms=0)
 
         latency = (time.time() - start) * 1000
         return LLMResponse(content=content, usage=usage, latency_ms=latency)

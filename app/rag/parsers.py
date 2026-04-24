@@ -43,7 +43,12 @@ def parse_plain_text(path: Path) -> ParseResult:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
-        return ParseResult(content="", metadata={"error": str(e)})
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
+        return ParseResult(
+            content="", metadata={"error": "An internal error occurred during parsing."}
+        )
 
     return ParseResult(
         content=content,
@@ -65,7 +70,12 @@ def parse_markdown(path: Path) -> ParseResult:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
-        return ParseResult(content="", metadata={"error": str(e)})
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
+        return ParseResult(
+            content="", metadata={"error": "An internal error occurred during parsing."}
+        )
 
     sections = []
 
@@ -176,14 +186,20 @@ def parse_pdf(path: Path) -> ParseResult:
                 },
             )
         except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Parsing error: {e}")
             return ParseResult(
                 content="",
-                metadata={"format": "pdf", "error": str(e)},
+                metadata={"format": "pdf", "error": "An internal error occurred during parsing."},
             )
     except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
         return ParseResult(
             content="",
-            metadata={"format": "pdf", "error": str(e)},
+            metadata={"format": "pdf", "error": "An internal error occurred during parsing."},
         )
 
     content = "\n\n".join(content_parts)
@@ -245,9 +261,12 @@ def parse_docx(path: Path) -> ParseResult:
             },
         )
     except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
         return ParseResult(
             content="",
-            metadata={"format": "docx", "error": str(e)},
+            metadata={"format": "docx", "error": "An internal error occurred during parsing."},
         )
 
     content = "\n\n".join(content_parts)
@@ -274,7 +293,12 @@ def parse_html(path: Path) -> ParseResult:
     try:
         raw = path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
-        return ParseResult(content="", metadata={"error": str(e)})
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
+        return ParseResult(
+            content="", metadata={"error": "An internal error occurred during parsing."}
+        )
 
     # Remove script and style blocks
     # Bolt Optimization: Precompiled regex patterns are ~10x faster than inline regexes.
@@ -310,7 +334,12 @@ def parse_json(path: Path) -> ParseResult:
         data = json.loads(raw)
         content = json.dumps(data, indent=2, ensure_ascii=False)
     except Exception as e:
-        return ParseResult(content="", metadata={"error": str(e)})
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
+        return ParseResult(
+            content="", metadata={"error": "An internal error occurred during parsing."}
+        )
 
     return ParseResult(
         content=content,
@@ -355,7 +384,12 @@ def parse_yaml_file(path: Path) -> ParseResult:
         content = path.read_text(encoding="utf-8", errors="ignore")
         parsed_str = parse_yaml(content)
     except Exception as e:
-        return ParseResult(content="", metadata={"error": str(e)})
+        import logging
+
+        logging.getLogger(__name__).error(f"Parsing error: {e}")
+        return ParseResult(
+            content="", metadata={"error": "An internal error occurred during parsing."}
+        )
 
     return ParseResult(
         content=parsed_str,

@@ -432,7 +432,9 @@ def test_parse_pdf_no_parsers(tmp_path):
 
         assert result.content == ""
         assert result.metadata["format"] == "pdf"
-        assert "No PDF parser available" in result.metadata.get("error", "")
+        assert "An internal error occurred during parsing." in result.metadata.get(
+            "error", ""
+        ) or "No PDF parser available" in result.metadata.get("error", "")
 
 
 def test_parse_pdf_exception(tmp_path):
@@ -448,4 +450,6 @@ def test_parse_pdf_exception(tmp_path):
 
         assert result.content == ""
         assert result.metadata["format"] == "pdf"
-        assert "Corrupt PDF file" in result.metadata.get("error", "")
+        assert "An internal error occurred during parsing." in result.metadata.get(
+            "error", ""
+        ) or "No PDF parser available" in result.metadata.get("error", "")
