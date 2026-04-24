@@ -81,6 +81,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 <button
                     onClick={() => setPromptOpen(!promptOpen)}
                     aria-expanded={promptOpen}
+                    aria-controls="compiled-prompt-content"
                     className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
                 >
                     <div className="flex items-center gap-2">
@@ -104,7 +105,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 </button>
 
                 {promptOpen && (
-                    <div className="px-5 pb-4 animate-fade-in">
+                    <div id="compiled-prompt-content" className="px-5 pb-4 animate-fade-in">
                         <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-400 overflow-auto max-h-48 shadow-inner leading-relaxed whitespace-pre-wrap">
                             {data.compiled_prompt}
                         </pre>
