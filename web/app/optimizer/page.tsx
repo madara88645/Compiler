@@ -231,6 +231,7 @@ export default function OptimizerPage() {
                     <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/30 p-4 transition-colors focus-within:border-emerald-500/40">
                         <textarea
                             id="original-prompt"
+                            aria-label="Original Prompt"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -267,6 +268,7 @@ export default function OptimizerPage() {
                         {output ? (
                             <textarea
                                 id="optimized-result"
+                                aria-label="Optimized Result"
                                 readOnly
                                 value={output}
                                 className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"

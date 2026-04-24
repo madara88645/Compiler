@@ -106,6 +106,7 @@ export default function SkillsGenerator() {
             <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
                 id="skill-description"
+                aria-label="Skill Description"
                 className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
