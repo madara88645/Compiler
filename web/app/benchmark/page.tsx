@@ -148,7 +148,7 @@ export default function BenchmarkPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white/90">Battle Arena</h1>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
                   Raw vs Compiled Benchmark
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function BenchmarkPage() {
             <div className="rounded-lg border border-white/5 bg-black/30 p-1">
               <label
                 htmlFor="benchmark-model"
-                className="block px-2 pb-1 pt-1 font-mono text-[10px] uppercase tracking-wider text-zinc-500"
+                className="block px-2 pb-1 pt-1 font-mono text-xs uppercase tracking-wider text-zinc-500"
               >
                 Model
               </label>
@@ -171,23 +171,22 @@ export default function BenchmarkPage() {
                 id="benchmark-model"
                 value={selectedModel}
                 onChange={(event) => setSelectedModel(event.target.value)}
-                className="min-w-[240px] cursor-pointer rounded border-none px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none"
-                style={{ backgroundColor: "#1a1a1a" }}
+                className="min-w-[240px] cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none"
               >
-                <option value="mock" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>
+                <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
                   Mock Engine [local]
                 </option>
                 {BENCHMARK_MODEL_GROUPS.map((group) => (
                   <optgroup
                     key={group.label}
                     label={`-- ${group.label} --`}
-                    style={{ backgroundColor: "#1a1a1a", color: "#888" }}
+                    className="bg-[#1a1a1a] text-zinc-500"
                   >
                     {group.options.map((model) => (
                       <option
                         key={model.id}
                         value={model.id}
-                        style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}
+                        className="bg-[#1a1a1a] text-zinc-200"
                       >
                         {`${model.label} [${model.badge}]`}
                       </option>
@@ -195,7 +194,7 @@ export default function BenchmarkPage() {
                   </optgroup>
                 ))}
               </select>
-              <p className="px-2 pb-1 pt-2 text-[11px] text-zinc-500">
+              <p className="px-2 pb-1 pt-2 text-xs text-zinc-500">
                 {selectedModel === "mock"
                   ? "Client-side mock engine for instant UI previews."
                   : selectedModelMeta?.helperText}
@@ -313,11 +312,22 @@ export default function BenchmarkPage() {
                   <h3 className="font-medium tracking-wide text-zinc-200">
                     {errorMessage ? "Benchmark unavailable" : "No benchmark yet"}
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-zinc-400 mb-4">
                     {errorMessage
                       ? errorMessage
                       : "Paste a prompt on the left, pick a model, then hit Start Battle to compare raw vs compiled output."}
                   </p>
+                  {!errorMessage && (
+                    <button
+                      type="button"
+                      onClick={handleBenchmark}
+                      disabled={loading || !prompt.trim()}
+                      title={!prompt.trim() ? "Enter a prompt first to start battle" : "Start Battle"}
+                      className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+                    >
+                      Start Battle
+                    </button>
+                  )}
                 </div>
               </div>
             )}

@@ -61,19 +61,19 @@ class InteractiveCallback:
         self._generation_count = 0
 
     def on_start(self, initial_prompt: str, target_score: float) -> None:
-        pass
+        """Called when optimization starts."""
 
     def on_generation_start(self, generation: int) -> None:
         self._generation_count = generation
 
     def on_candidate_evaluated(self, candidate: Candidate, result: EvaluationResult) -> None:
-        pass
+        """Called after a candidate is scored."""
 
     def on_new_best(self, candidate: Candidate, score: float) -> None:
-        pass
+        """Called when a new global best score is found."""
 
     def on_complete(self, best_candidate: Candidate) -> None:
-        pass
+        """Called when optimization finishes."""
 
     def on_human_intervention_needed(
         self, current_best: Candidate, generation: int

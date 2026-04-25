@@ -50,4 +50,15 @@ describe("Offline compiler page", () => {
       expect(compilePromptMock).toHaveBeenCalledTimes(2);
     });
   });
+
+  it("renders stable offline UI copy without fragile glyphs", () => {
+    render(<OfflinePage />);
+
+    expect(screen.getAllByText("Offline Compiler").length).toBeGreaterThan(0);
+    expect(screen.getByText("Ctrl/Cmd Enter")).toBeTruthy();
+    expect(screen.getAllByText("OF").length).toBeGreaterThan(0);
+    expect(screen.queryByText("🔌")).toBeNull();
+    expect(screen.queryByText("→")).toBeNull();
+    expect(screen.queryByText("Ctrl/⌘ Enter")).toBeNull();
+  });
 });

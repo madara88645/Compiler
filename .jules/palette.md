@@ -16,3 +16,6 @@
 ## 2024-04-20 - Adding Keyboard Focus States to Buttons
 **Learning:** Several utility buttons in the Context Manager components lacked `focus-visible` styles, making keyboard navigation difficult to track. Using Tailwind's `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500` is an effective, reusable pattern for resolving this across the application without breaking custom hover styles.
 **Action:** Next time I build or refactor interactive elements (especially text-based links acting as buttons or small UI toggles), I should proactively add the standard focus rings so keyboard users aren't left guessing where they are.
+## 2025-04-24 - Accessibility for input elements without visible labels
+**Learning:** For interactive elements like `<textarea>` that function as central input areas in full-page editors but lack a dedicated `<label>`, it is crucial to manually add an `aria-label` attribute. Without this, screen readers will announce the element generically (e.g., "text area, blank"), leaving visually impaired users without context on what the input is for.
+**Action:** When creating or reviewing form inputs without explicit visible `<label>` tags, proactively add an `aria-label` to provide the necessary context.
