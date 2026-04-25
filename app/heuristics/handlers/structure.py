@@ -15,8 +15,7 @@ _VAR_PATTERN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
 # Bolt Optimization: Pre-compile regex at module level to avoid overhead inside infer_schema
 _INTENT_PATTERN = re.compile(
-    r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])",
-    re.DOTALL
+    r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])", re.DOTALL
 )
 
 
