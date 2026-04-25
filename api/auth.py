@@ -84,7 +84,16 @@ def verify_api_key(
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:
-        if secrets.compare_digest(api_key.strip(), admin_key):
+        # Prevent length side-channel by ensuring we always compare strings of the same length
+        provided_key = api_key.strip()
+        if len(provided_key) == len(admin_key):
+            is_valid = secrets.compare_digest(provided_key, admin_key)
+        else:
+            # Dummy comparison to prevent timing attacks
+            is_valid = secrets.compare_digest(admin_key, admin_key)
+            is_valid = False
+
+        if is_valid:
             return APIKey(key=api_key, owner="admin", is_active=True)
 
     db = SessionLocal()
