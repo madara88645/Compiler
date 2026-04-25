@@ -56,7 +56,7 @@ describe("Offline compiler page", () => {
 
     expect(screen.getAllByText("Offline Compiler").length).toBeGreaterThan(0);
     expect(screen.getByText("Ctrl/Cmd Enter")).toBeTruthy();
-    expect(screen.getAllByText("OF").length).toBeGreaterThan(0);
+    // "OF" placeholder was replaced by WifiOff SVG icon in #441 — no text to assert
     expect(screen.queryByText("🔌")).toBeNull();
     expect(screen.queryByText("→")).toBeNull();
     expect(screen.queryByText("Ctrl/⌘ Enter")).toBeNull();
