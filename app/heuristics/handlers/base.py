@@ -10,4 +10,4 @@ class BaseHandler(ABC):
         Apply logic to ir_v2 based on the state of ir_v1 or other factors.
         This method should modify ir_v2 in-place.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement this method")
