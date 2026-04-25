@@ -148,7 +148,7 @@ export default function BenchmarkPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white/90">Battle Arena</h1>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
                   Raw vs Compiled Benchmark
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function BenchmarkPage() {
             <div className="rounded-lg border border-white/5 bg-black/30 p-1">
               <label
                 htmlFor="benchmark-model"
-                className="block px-2 pb-1 pt-1 font-mono text-[10px] uppercase tracking-wider text-zinc-500"
+                className="block px-2 pb-1 pt-1 font-mono text-xs uppercase tracking-wider text-zinc-500"
               >
                 Model
               </label>
@@ -171,23 +171,22 @@ export default function BenchmarkPage() {
                 id="benchmark-model"
                 value={selectedModel}
                 onChange={(event) => setSelectedModel(event.target.value)}
-                className="min-w-[240px] cursor-pointer rounded border-none px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none"
-                style={{ backgroundColor: "#1a1a1a" }}
+                className="min-w-[240px] cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none"
               >
-                <option value="mock" style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}>
+                <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
                   Mock Engine [local]
                 </option>
                 {BENCHMARK_MODEL_GROUPS.map((group) => (
                   <optgroup
                     key={group.label}
                     label={`-- ${group.label} --`}
-                    style={{ backgroundColor: "#1a1a1a", color: "#888" }}
+                    className="bg-[#1a1a1a] text-zinc-500"
                   >
                     {group.options.map((model) => (
                       <option
                         key={model.id}
                         value={model.id}
-                        style={{ backgroundColor: "#1a1a1a", color: "#e4e4e7" }}
+                        className="bg-[#1a1a1a] text-zinc-200"
                       >
                         {`${model.label} [${model.badge}]`}
                       </option>
@@ -195,7 +194,7 @@ export default function BenchmarkPage() {
                   </optgroup>
                 ))}
               </select>
-              <p className="px-2 pb-1 pt-2 text-[11px] text-zinc-500">
+              <p className="px-2 pb-1 pt-2 text-xs text-zinc-500">
                 {selectedModel === "mock"
                   ? "Client-side mock engine for instant UI previews."
                   : selectedModelMeta?.helperText}
