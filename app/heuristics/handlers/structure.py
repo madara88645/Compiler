@@ -14,6 +14,11 @@ _CONSTRAINT_RE = re.compile(r"constraint|avoid|do not|limit:|rule|don't")
 _ROLE_RE = re.compile(r"act as|your role|role:")
 _VAR_PATTERN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
+# Bolt Optimization: Pre-compile regex at module level to avoid overhead inside infer_schema
+_INTENT_PATTERN = re.compile(
+    r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])", re.DOTALL
+)
+
 
 class StructureHandler(BaseHandler):
     """
@@ -240,10 +245,8 @@ class StructureHandler(BaseHandler):
 
         # 1. Detect Intent
         # We look for the keyword, then capture everything until a sentence end or double newline
-        intent_pattern = (
-            r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])"
-        )
-        match = re.search(intent_pattern, text_lower, re.DOTALL)
+        # Bolt Optimization: Used pre-compiled _INTENT_PATTERN
+        match = _INTENT_PATTERN.search(text_lower)
 
         if not match:
             return ""
