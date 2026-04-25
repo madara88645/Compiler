@@ -512,7 +512,7 @@ def test_save_stats_success(mock_file, mock_json_dump, manager_with_temp_dirs):
     # Check kwargs
     kwargs = call_args[1]
     assert kwargs["indent"] == 2
-    assert kwargs["ensure_ascii"] == False
+    assert kwargs["ensure_ascii"] is False
 
 
 @patch("builtins.open")
