@@ -214,14 +214,14 @@ export default function BenchmarkPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="z-20 flex w-[350px] shrink-0 flex-col gap-5 border-r border-white/5 bg-black/20 p-5">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+          <div className="z-20 flex w-full md:w-[350px] md:shrink-0 flex-col gap-5 border-b md:border-b-0 md:border-r border-white/5 bg-black/20 p-5">
             <div className="group relative flex-1">
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
               <textarea
                 id="benchmark-prompt"
                 aria-label="Benchmark prompt input"
-                className="h-full w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                className="h-full min-h-[180px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                 placeholder={"Enter a prompt to start the battle...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -240,6 +240,7 @@ export default function BenchmarkPage() {
               type="button"
               onClick={handleBenchmark}
               disabled={loading || !prompt.trim()}
+              title={!prompt.trim() ? "Enter a prompt first to start battle" : "Start Battle"}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             >
             {loading ? <span className="animate-pulse">FIGHTING...</span> : <>START BATTLE <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>}
@@ -304,18 +305,18 @@ export default function BenchmarkPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center opacity-60 animate-fade-in">
-                <div className={`text-6xl drop-shadow-2xl ${errorMessage ? "text-red-300" : "text-zinc-500"}`}>
+              <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center animate-fade-in">
+                <div className={`text-6xl drop-shadow-2xl ${errorMessage ? "text-red-300" : "text-zinc-400"}`}>
                   {errorMessage ? "!" : "B"}
                 </div>
-                <div className="max-w-xs space-y-2">
-                  <h3 className="font-medium tracking-wide text-zinc-300">
-                    {errorMessage ? "Benchmark unavailable" : "Battle Arena Empty"}
+                <div className="max-w-sm space-y-2">
+                  <h3 className="font-medium tracking-wide text-zinc-200">
+                    {errorMessage ? "Benchmark unavailable" : "No benchmark yet"}
                   </h3>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-400">
                     {errorMessage
                       ? errorMessage
-                      : "Enter a prompt and select a model to see the visual comparison."}
+                      : "Paste a prompt on the left, pick a model, then hit Start Battle to compare raw vs compiled output."}
                   </p>
                 </div>
               </div>

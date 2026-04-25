@@ -191,6 +191,7 @@ export default function AgentGenerator() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
+              title={!description.trim() ? "Enter a description first to generate" : "Generate Agent"}
               className={`w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
             >
               {loading ? (
@@ -216,10 +217,11 @@ export default function AgentGenerator() {
           <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
-                <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                  <button type="button" className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
-                    System Prompt
-                  </button>
+                <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
+                  <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">System Prompt</h2>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                    {multiAgent ? "Multi-Agent Swarm" : "Single Agent"}
+                  </span>
                 </div>
 
                 <div className="relative flex-1 min-h-0 overflow-hidden">

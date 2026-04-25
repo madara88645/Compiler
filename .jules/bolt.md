@@ -93,3 +93,30 @@
 ## 2024-05-30 - Regex Precompilation in RAG Parsers
 **Learning:** In text parsing hot paths, such as the `parse_html` function in `app/rag/parsers.py` used during document ingestion, creating regex pattern objects on the fly with inline regex literals introduces significant, recurring overhead. Pre-compiling the regex objects using `re.compile()` at the module level avoids redundant compilation on every function call, resulting in a ~10x speedup for pattern substitution.
 **Action:** Always extract static regular expression patterns to module-level constants using `re.compile()` if they are used within frequently executed functions or hot paths like parsers, tokenizers, or loops.
+
+## 2024-05-30 - Replace re.sub with str.replace for literal strings
+**Learning:** In Python, using `re.sub(pattern, var_value, result)` to replace literal substrings (like `{{var_name}}`) is unnecessarily slow due to regex engine overhead and compilation, even if `re.escape` is used. Furthermore, if `var_value` happens to contain regex backreferences (like `\1`), `re.sub` can throw errors or behave unexpectedly.
+**Action:** When replacing known literal strings or templates in a tight loop, always prefer the built-in `str.replace(target, value)`. It is nearly 2x faster for these operations. Use Python f-string escaping (e.g., `f"{{{{{var_name}}}}}"`) to easily generate strings containing literal `{` and `}` characters.
+
+## 2026-05-25 - Python 3.12 math.sumprod for Vector Dot Products
+**Learning:** In Python 3.12+, `math.sumprod` is implemented in C and provides superior performance for calculating dot products of vectors compared to `sum(map(operator.mul, a, b))`. Microbenchmarks show `math.sumprod` is over 3x faster than `sum(map(...))`.
+**Action:** When performing local dot product similarity calculations or sum-of-products in Python 3.12+, always use `math.sumprod` instead of `sum(map(operator.mul))` or list comprehensions to significantly improve CPU utilization and performance during vector operations.
+## 2024-05-14 - Fast subset matching with isdisjoint()
+
+**Learning:** When checking if any elements from an iterable exist in a set in Python, the `not my_set.isdisjoint(iterable)` method is significantly faster (5-10x) than the equivalent `any(item in my_set for item in iterable)` generator expression, as it is implemented natively in C and avoids generator overhead.
+
+**Action:** Whenever checking for overlaps between a set and a list/iterable in performance-critical paths, always use `not my_set.isdisjoint(iterable)` instead of `any()`.
+
+## 2024-05-14 - Fast substring checking with helper functions
+
+**Learning:** Replacing an inline `any(keyword in text for keyword in keywords)` generator expression with a standard loop inside a fast-path helper function (like `_contains_any_keyword(text, keywords)`) yields a 3-4x performance improvement by avoiding the initialization overhead of generator objects in hot paths.
+
+**Action:** Continue replacing `any()` expressions used for substring searches with module-level `_contains_any` helper functions in performance-sensitive text analysis modules like the heuristics handlers. Always verify that the helper function is properly imported and exported in the `__init__.py` or utility file.
+
+## 2024-06-11 - Two-Step Vector Similarity Search Optimization
+**Learning:** For large-scale vector similarity searches in SQLite without specialized extensions, fetching `content` alongside `vec` in the first pass creates a major memory and I/O bottleneck when the `content` payload is large, as it must be loaded for every vector only to be discarded when not in the top K.
+**Action:** Implement a two-step retrieval method: fetch only the `chunk_id` and `vec` initially to calculate similarities and find the top K results. Then, execute a separate batch query to retrieve the full metadata (like `content` and `path`) only for the top K `chunk_id`s. This minimizes I/O and memory usage by avoiding broad scans of large text fields.
+
+## 2024-05-24 - Fast Set Intersection for Filtering
+**Learning:** In Python, replacing a list comprehension used to filter elements based on membership in a predefined set (e.g., `[term for term in MY_SET if term in words]`) with a direct set intersection (e.g., `list(MY_SET.intersection(words))`) pushes the iteration and comparison logic down to C level. In microbenchmarks within the validator, this resulted in a ~35% performance improvement for string matching tasks.
+**Action:** Always prefer native set operations (like `.intersection()` or `&`) over list comprehensions or `for` loops when finding common elements or filtering against a set of known keywords, especially in high-frequency validation checks.

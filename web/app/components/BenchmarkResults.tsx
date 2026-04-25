@@ -23,6 +23,8 @@ interface BenchmarkResultsProps {
 
 export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
     const [promptOpen, setPromptOpen] = useState(false);
+    const [copiedRaw, setCopiedRaw] = useState(false);
+    const [copiedCompiled, setCopiedCompiled] = useState(false);
 
     const sign = data.improvement_score >= 0 ? "+" : "";
     const isCompiledWinner = data.winner === "compiled";
@@ -82,6 +84,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                     type="button"
                     onClick={() => setPromptOpen(!promptOpen)}
                     aria-expanded={promptOpen}
+                    aria-controls="compiled-prompt-content"
                     className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"
                 >
                     <div className="flex items-center gap-2">
@@ -105,7 +108,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 </button>
 
                 {promptOpen && (
-                    <div className="px-5 pb-4 animate-fade-in">
+                    <div id="compiled-prompt-content" className="px-5 pb-4 animate-fade-in">
                         <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-400 overflow-auto max-h-48 shadow-inner leading-relaxed whitespace-pre-wrap">
                             {data.compiled_prompt}
                         </pre>
@@ -124,12 +127,20 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => navigator.clipboard.writeText(data.raw_output)}
+                            onClick={() => {
+                                navigator.clipboard.writeText(data.raw_output);
+                                setCopiedRaw(true);
+                                setTimeout(() => setCopiedRaw(false), 2000);
+                            }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-                            title="Copy raw output"
-                            aria-label="Copy raw output"
+                            title={copiedRaw ? "Copied!" : "Copy raw output"}
+                            aria-label={copiedRaw ? "Copied" : "Copy raw output"}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            {copiedRaw ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            )}
                         </button>
                     </div>
                     <div className="flex-1 overflow-auto p-4">
@@ -146,12 +157,20 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => navigator.clipboard.writeText(data.compiled_output)}
+                            onClick={() => {
+                                navigator.clipboard.writeText(data.compiled_output);
+                                setCopiedCompiled(true);
+                                setTimeout(() => setCopiedCompiled(false), 2000);
+                            }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-                            title="Copy compiled output"
-                            aria-label="Copy compiled output"
+                            title={copiedCompiled ? "Copied!" : "Copy compiled output"}
+                            aria-label={copiedCompiled ? "Copied" : "Copy compiled output"}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            {copiedCompiled ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            )}
                         </button>
                     </div>
                     <div className="flex-1 overflow-auto p-4">

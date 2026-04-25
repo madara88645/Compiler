@@ -76,6 +76,24 @@ def apply_rate_limit(key: str):
         return
 
     now = time.time()
+
+    # Periodically clean up stale rate limit entries to prevent memory leaks
+    if getattr(apply_rate_limit, "_cleanup_counter", 0) > 1000:
+        apply_rate_limit._cleanup_counter = 0
+        stale_keys = []
+        # Create a list of items to prevent RuntimeError if the dictionary changes size
+        # due to concurrent requests adding new keys during the cleanup iteration.
+        for k, v in list(RATE_LIMIT_STORE.items()):
+            valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
+            if not valid_ts:
+                stale_keys.append(k)
+            else:
+                RATE_LIMIT_STORE[k] = valid_ts
+        for k in stale_keys:
+            RATE_LIMIT_STORE.pop(k, None)
+    else:
+        apply_rate_limit._cleanup_counter = getattr(apply_rate_limit, "_cleanup_counter", 0) + 1
+
     history = RATE_LIMIT_STORE.get(key, [])
     # Filter out timestamps older than window
     history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
@@ -102,7 +120,6 @@ def verify_api_key(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid API Key.")
 
     # --- Master Key Check (for Stateless Deployments like Railway) ---
-    import os
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key:

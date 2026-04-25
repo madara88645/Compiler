@@ -2,13 +2,38 @@
   "name": "promptc-vscode",
   "displayName": "PromptC for VS Code",
   "description": "Compile prompts, tasks, and workflow requests into structured output and visible policy inside VS Code.",
-  "version": "0.0.1",
-  "publisher": "memo",
+  "version": "0.1.0",
+  "publisher": "madara88645",
+  "license": "Apache-2.0",
+  "icon": "icon.png",
+  "homepage": "https://github.com/madara88645/Compiler#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/madara88645/Compiler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/madara88645/Compiler/issues"
+  },
+  "keywords": [
+    "prompt",
+    "prompt-engineering",
+    "llm",
+    "compile",
+    "policy",
+    "ai"
+  ],
+  "galleryBanner": {
+    "color": "#0B1020",
+    "theme": "dark"
+  },
+  "qna": "marketplace",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Programming Languages",
+    "Snippets"
   ],
   "activationEvents": [
     "onCommand:promptc.compileSelection",

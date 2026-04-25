@@ -32,8 +32,19 @@ export type CompileMetadata = JsonObject & {
   retrieval_note?: string;
 };
 
+export type CompilePolicy = {
+  risk_level: string;
+  risk_domains: string[];
+  allowed_tools: string[];
+  forbidden_tools: string[];
+  sanitization_rules: string[];
+  data_sensitivity: string;
+  execution_mode: string;
+};
+
 export type CompileIr = JsonObject & {
   metadata?: CompileMetadata;
+  policy?: CompilePolicy;
 };
 
 export type CritiqueIssue = {
@@ -61,6 +72,10 @@ export type CompileResponse = {
   ir: CompileIr;
   ir_v2?: CompileIr;
   processing_ms: number;
+  request_id?: string;
+  heuristic_version?: string;
+  heuristic2_version?: string;
+  trace?: string[];
   critique?: Critique | null;
 };
 
@@ -69,8 +84,13 @@ export type CompileMode = "conservative" | "default";
 export type CompileRequest = {
   text: string;
   diagnostics: boolean;
+  trace?: boolean;
   v2: boolean;
   render_v2_prompts: boolean;
+  record_analytics?: boolean;
+  user_level?: string;
+  task_type?: string;
+  tags?: string[];
   mode: CompileMode;
 };
 

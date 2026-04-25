@@ -39,6 +39,7 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Force API keys everywhere | `false` for local dev, `true` for hardened deploys |
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
 | `PROMPTC_UPLOAD_DIR` | RAG file upload directory | `~/.promptc_uploads` |
+| `PROMPTC_RAG_DB_PATH` | RAG SQLite index path | Empty = `~/.promptc_index_v3.db`; if that path is not writable, runtime falls back to `./.promptc/<db-name>` |
 | `NEXT_PUBLIC_API_KEY` | Frontend API key for authenticated requests | Optional; injected as `x-api-key` header by `buildGeneratorApiHeaders` |
 | `PROMPTC_RAG_ALLOWED_ROOTS` | Path allowlist for RAG ingest | Empty = restricted to CWD + upload dir |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend URL | `http://127.0.0.1:8080` |
@@ -176,6 +177,12 @@ pytest -q \
 pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py -v
 ```
 
+**Live optimizer tests (opt-in only; requires upstream credentials):**
+
+```bash
+GROQ_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
+```
+
 **Live API smoke test (requires running backend):**
 
 ```bash
@@ -250,6 +257,12 @@ Relevant files: `web/app/`, `web/app/components/`, `web/app/hooks/`
 cd web && npm run test:contracts
 ```
 
+**Frontend unit tests (Vitest):**
+
+```bash
+cd web && npm run test
+```
+
 **Lint:**
 
 ```bash
@@ -318,6 +331,14 @@ python integrations/mcp-server/server.py
 node --test extension/*.test.mjs
 ```
 
+### 5.7 Repo Hygiene (`scripts/`)
+
+Use branch/worktree cleanup audit script before large PR triage or manual cleanup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/branch_audit.ps1 -IncludeDeleteCommands
+```
+
 ---
 
 ## 6. Linting and Code Style
@@ -345,19 +366,23 @@ CI runs on every PR. It must pass before merge. Reproduce it locally with:
 
 ```bash
 # Step 1: Python smoke tests
+pip check
+
+# Step 2: Python smoke tests
 pytest -q \
   tests/test_api_hardening.py \
   tests/test_auth_fast_path.py \
   tests/test_rag_upload.py \
   tests/test_benchmark_api.py
 
-# Step 2: Pre-commit (linting + formatting)
+# Step 3: Pre-commit (linting + formatting)
 pre-commit run --all-files
 
-# Step 3: Frontend
+# Step 4: Frontend
 cd web
 npm ci
 npm run test:contracts
+npm run test
 npm run lint
 npm run build
 cd ..

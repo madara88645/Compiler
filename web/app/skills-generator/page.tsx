@@ -171,6 +171,7 @@ export default function SkillsGenerator() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
+              title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
               className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
             >
               {loading ? (
@@ -196,10 +197,11 @@ export default function SkillsGenerator() {
           <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
-                <div className="flex border-b border-white/5 px-4 pt-4 gap-2">
-                  <button type="button" className="px-4 py-2 text-[13px] font-medium rounded-t-lg text-white bg-white/5 border-t border-x border-white/5 relative">
-                    Skill Definition
-                  </button>
+                <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
+                  <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">Skill Definition</h2>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                    {includeExampleCode ? "With Example Code" : "Plain"}
+                  </span>
                 </div>
 
                 <div className="relative flex-1 min-h-0 overflow-hidden">

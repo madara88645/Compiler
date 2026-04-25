@@ -67,6 +67,54 @@ test("normalizeCompileResponse preserves nested security metadata", () => {
   assert.equal(response.ir.metadata?.security?.findings[0]?.type, "api_key");
 });
 
+test("normalizeCompileResponse rejects empty compile payloads", () => {
+  assert.throws(() => normalizeCompileResponse(null), /Invalid compile response/);
+  assert.throws(
+    () => normalizeCompileResponse({}),
+    /Invalid compile response: missing compiler output/,
+  );
+});
+
+test("normalizeCompileResponse defaults missing policy fields", () => {
+  const response = normalizeCompileResponse({
+    system_prompt: "sys",
+    user_prompt: "usr",
+    plan: "1. step",
+    expanded_prompt: "expanded",
+    ir: {
+      domain: "general",
+    },
+    ir_v2: {
+      domain: "coding",
+    },
+    processing_ms: 25,
+  });
+
+  assert.equal(response.ir.policy?.risk_level, "low");
+  assert.deepEqual(response.ir.policy?.allowed_tools, []);
+  assert.equal(response.ir_v2?.policy?.execution_mode, "advice_only");
+});
+
+test("normalizeCompileResponse falls back to ir when ir_v2 is missing", () => {
+  const response = normalizeCompileResponse({
+    system_prompt: "sys",
+    user_prompt: "usr",
+    plan: "1. step",
+    expanded_prompt: "expanded",
+    ir: {
+      domain: "security",
+      policy: {
+        risk_level: "high",
+      },
+    },
+    processing_ms: 25,
+  });
+
+  assert.equal(response.ir_v2?.domain, "security");
+  assert.equal(response.ir_v2?.policy?.risk_level, "high");
+  assert.equal(response.ir_v2?.policy?.data_sensitivity, "public");
+});
+
 test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
   const response = normalizeCompileResponse({
     system_prompt: "sys",
@@ -85,6 +133,29 @@ test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
 
   assert.equal(response.ir_v2?.domain, "coding");
   assert.deepEqual(response.ir_v2?.metadata?.risk_flags, ["security"]);
+  assert.equal(response.ir_v2?.policy?.risk_level, "low");
+});
+
+test("normalizeCompileResponse preserves backend compile metadata fields", () => {
+  const response = normalizeCompileResponse({
+    system_prompt: "sys",
+    user_prompt: "usr",
+    plan: "1. step",
+    expanded_prompt: "expanded",
+    ir: {
+      domain: "general",
+    },
+    processing_ms: 25,
+    request_id: "abc123",
+    heuristic_version: "v1",
+    heuristic2_version: "v2",
+    trace: ["step 1", "step 2"],
+  });
+
+  assert.equal(response.request_id, "abc123");
+  assert.equal(response.heuristic_version, "v1");
+  assert.equal(response.heuristic2_version, "v2");
+  assert.deepEqual(response.trace, ["step 1", "step 2"]);
 });
 
 test("formatSearchResultForPrompt includes path header", () => {

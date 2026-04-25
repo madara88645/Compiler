@@ -1,11 +1,22 @@
 "use client";
 
-import { useDeferredValue, useMemo, useEffect, useState } from "react";
+import { useDeferredValue, useMemo, useEffect, useState, useSyncExternalStore } from "react";
 import { diff_match_patch, DIFF_INSERT, DIFF_DELETE, DIFF_EQUAL } from "diff-match-patch";
 
 interface DiffViewerProps {
     oldText: string;
     newText: string;
+}
+
+type DomPurifyModule = typeof import("dompurify");
+
+let domPurifyPromise: Promise<DomPurifyModule["default"]> | null = null;
+
+function getDomPurify() {
+    if (!domPurifyPromise) {
+        domPurifyPromise = import("dompurify").then((module) => module.default);
+    }
+    return domPurifyPromise;
 }
 
 /**
@@ -38,28 +49,26 @@ function buildDarkThemeHtml(diffs: [number, string][]): string {
 }
 
 export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
-    const [isClient, setIsClient] = useState(false);
+    const isClient = useSyncExternalStore(
+        () => () => undefined,
+        () => true,
+        () => false,
+    );
     const [sanitizedHtml, setSanitizedHtml] = useState<string | null>(null);
 
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    // Stabilize both texts as a single object so they are always deferred atomically,
-    // preventing mismatched intermediate diffs.
-    const texts = useMemo(() => ({ oldText, newText }), [oldText, newText]);
-    const deferredTexts = useDeferredValue(texts);
+    const deferredOldText = useDeferredValue(oldText);
+    const deferredNewText = useDeferredValue(newText);
 
     const rawHtmlContent = useMemo(() => {
         try {
             const dmp = new diff_match_patch();
-            const diffs = dmp.diff_main(deferredTexts.oldText, deferredTexts.newText);
+            const diffs = dmp.diff_main(deferredOldText, deferredNewText);
             dmp.diff_cleanupSemantic(diffs);
             return buildDarkThemeHtml(diffs);
         } catch {
             return "<div>Error loading diff tool</div>";
         }
-    }, [deferredTexts]);
+    }, [deferredOldText, deferredNewText]);
 
     useEffect(() => {
         let cancelled = false;
@@ -68,11 +77,9 @@ export default function DiffViewer({ oldText, newText }: DiffViewerProps) {
             return undefined;
         }
 
-        setSanitizedHtml(null);
-
         async function sanitizeHtml() {
             try {
-                const { default: DOMPurify } = await import("dompurify");
+                const DOMPurify = await getDomPurify();
                 if (!cancelled) {
                     setSanitizedHtml(DOMPurify.sanitize(rawHtmlContent));
                 }

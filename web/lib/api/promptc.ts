@@ -1,9 +1,10 @@
-import { apiJson } from "../../config.ts";
+import { ApiError, apiJson } from "../../config.ts";
 import type {
   CompileRequest,
   CompileResponse,
   CompileIr,
   CompileMetadata,
+  CompilePolicy,
   ContextSnippet,
   ContextSuggestion,
   Critique,
@@ -38,6 +39,28 @@ function readOptionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizePolicy(value: unknown): CompilePolicy {
+  const record = asObject(value);
+
+  return {
+    risk_level: readString(record?.risk_level, "low"),
+    risk_domains: readStringList(record?.risk_domains),
+    allowed_tools: readStringList(record?.allowed_tools),
+    forbidden_tools: readStringList(record?.forbidden_tools),
+    sanitization_rules: readStringList(record?.sanitization_rules),
+    data_sensitivity: readString(record?.data_sensitivity, "public"),
+    execution_mode: readString(record?.execution_mode, "advice_only"),
+  };
+}
+
 function normalizeSecurityFinding(value: unknown): SecurityFinding {
   const record = asObject(value);
   return {
@@ -53,9 +76,12 @@ function normalizeSecurityMetadata(value: unknown): SecurityMetadata | undefined
     return undefined;
   }
 
+  const findings = Array.isArray(record.findings) ? record.findings.map(normalizeSecurityFinding) : [];
+  const explicitSafety = typeof record.is_safe === "boolean" ? record.is_safe : undefined;
+
   return {
-    is_safe: Boolean(record.is_safe),
-    findings: Array.isArray(record.findings) ? record.findings.map(normalizeSecurityFinding) : [],
+    is_safe: explicitSafety ?? findings.length === 0,
+    findings,
     redacted_text: readString(record.redacted_text),
   };
 }
@@ -111,7 +137,58 @@ function normalizeIr(value: unknown): CompileIr {
   return {
     ...record,
     metadata: normalizeMetadata(record.metadata),
+    policy: normalizePolicy(record.policy),
   };
+}
+
+function hasNonEmptyString(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasNonEmptyArray(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasNonEmptyObject(value: unknown): boolean {
+  const record = asObject(value);
+  return record ? Object.keys(record).length > 0 : false;
+}
+
+function hasUsableIr(value: unknown): boolean {
+  const record = asObject(value);
+  if (!record) {
+    return false;
+  }
+
+  return (
+    hasNonEmptyString(record.language) ||
+    hasNonEmptyString(record.persona) ||
+    hasNonEmptyString(record.role) ||
+    hasNonEmptyString(record.domain) ||
+    hasNonEmptyArray(record.intents) ||
+    hasNonEmptyArray(record.goals) ||
+    hasNonEmptyArray(record.tasks) ||
+    hasNonEmptyArray(record.constraints) ||
+    hasNonEmptyArray(record.steps) ||
+    hasNonEmptyArray(record.tools) ||
+    hasNonEmptyObject(record.metadata) ||
+    hasNonEmptyObject(record.policy)
+  );
+}
+
+function hasUsableCompileOutput(record: JsonObject): boolean {
+  return (
+    hasNonEmptyString(record.system_prompt) ||
+    hasNonEmptyString(record.user_prompt) ||
+    hasNonEmptyString(record.plan) ||
+    hasNonEmptyString(record.expanded_prompt) ||
+    hasNonEmptyString(record.system_prompt_v2) ||
+    hasNonEmptyString(record.user_prompt_v2) ||
+    hasNonEmptyString(record.plan_v2) ||
+    hasNonEmptyString(record.expanded_prompt_v2) ||
+    hasUsableIr(record.ir) ||
+    hasUsableIr(record.ir_v2)
+  );
 }
 
 function normalizeCritiqueIssues(value: unknown): CritiqueIssue[] {
@@ -149,6 +226,13 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     throw new Error("Invalid compile response.");
   }
 
+  if (!hasUsableCompileOutput(record)) {
+    throw new Error("Invalid compile response: missing compiler output.");
+  }
+
+  const ir = normalizeIr(record.ir);
+  const irV2 = asObject(record.ir_v2) ? normalizeIr(record.ir_v2) : ir;
+
   return {
     system_prompt: readString(record.system_prompt),
     user_prompt: readString(record.user_prompt),
@@ -158,9 +242,13 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     user_prompt_v2: readString(record.user_prompt_v2) || undefined,
     plan_v2: readString(record.plan_v2) || undefined,
     expanded_prompt_v2: readString(record.expanded_prompt_v2) || undefined,
-    ir: normalizeIr(record.ir),
-    ir_v2: record.ir_v2 ? normalizeIr(record.ir_v2) : undefined,
+    ir,
+    ir_v2: irV2,
     processing_ms: readNumber(record.processing_ms),
+    request_id: readString(record.request_id) || undefined,
+    heuristic_version: readString(record.heuristic_version) || undefined,
+    heuristic2_version: readString(record.heuristic2_version) || undefined,
+    trace: Array.isArray(record.trace) ? readStringList(record.trace) : undefined,
     critique: normalizeCritique(record.critique),
   };
 }
@@ -232,13 +320,51 @@ export function formatSearchScore(result: RagSearchResult): string {
   return Number.isFinite(result.score) ? result.score.toFixed(3) : "0.000";
 }
 
-export async function compilePrompt(request: CompileRequest, signal?: AbortSignal): Promise<CompileResponse> {
-  const response = await apiJson<unknown>("/compile", {
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isTransientCompileError(error: unknown): boolean {
+  if (isAbortError(error)) {
+    return false;
+  }
+
+  if (error instanceof ApiError) {
+    return [408, 429, 502, 503, 504].includes(error.status);
+  }
+
+  if (error instanceof TypeError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("failed to fetch") || message.includes("networkerror") || message.includes("load failed");
+  }
+
+  return false;
+}
+
+async function postCompile(request: CompileRequest, signal?: AbortSignal): Promise<unknown> {
+  return apiJson<unknown>("/compile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
     signal,
   });
+}
+
+export async function compilePrompt(request: CompileRequest, signal?: AbortSignal): Promise<CompileResponse> {
+  let response: unknown;
+  try {
+    response = await postCompile(request, signal);
+  } catch (error) {
+    if (!isTransientCompileError(error) || signal?.aborted) {
+      throw error;
+    }
+    response = await postCompile(request, signal);
+  }
+
   return normalizeCompileResponse(response);
 }
 

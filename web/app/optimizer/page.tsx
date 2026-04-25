@@ -6,38 +6,148 @@ import { showError } from "../lib/showError";
 
 import InfoButton from "../components/InfoButton";
 
+type OptimizeResponse = {
+    text: string;
+    before_chars: number;
+    after_chars: number;
+    before_tokens: number;
+    after_tokens: number;
+    saved_percent: number;
+    changed: boolean;
+    provider: string;
+    model: string;
+    source_language: string;
+    tokenizer_method: string;
+    estimated_input_cost_usd: number;
+    estimated_output_cost_usd: number;
+    estimated_savings_usd: number;
+    english_variant: string;
+    english_variant_tokens: number;
+    english_variant_cost_usd: number;
+    warnings: string[];
+};
+
+const DEFAULT_OPTIMIZER_PROVIDER = "groq";
+const DEFAULT_OPTIMIZER_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_TOKENIZER_METHOD = "tiktoken:o200k_base:estimated";
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+    const parsed = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toStringValue(value: unknown, fallback = ""): string {
+    return typeof value === "string" ? value : fallback;
+}
+
+function toWarnings(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.filter((warning): warning is string => typeof warning === "string" && warning.trim().length > 0);
+}
+
+function normalizeOptimizeResponse(data: Partial<OptimizeResponse>): OptimizeResponse {
+    const beforeTokens = toFiniteNumber(data.before_tokens);
+    const afterTokens = toFiniteNumber(data.after_tokens);
+    const calculatedSavedPercent = beforeTokens > 0
+        ? Number((((beforeTokens - afterTokens) / beforeTokens) * 100).toFixed(1))
+        : 0;
+
+    return {
+        text: toStringValue(data.text),
+        before_chars: toFiniteNumber(data.before_chars),
+        after_chars: toFiniteNumber(data.after_chars),
+        before_tokens: beforeTokens,
+        after_tokens: afterTokens,
+        saved_percent: toFiniteNumber(data.saved_percent, calculatedSavedPercent),
+        changed: Boolean(data.changed),
+        provider: toStringValue(data.provider, DEFAULT_OPTIMIZER_PROVIDER),
+        model: toStringValue(data.model, DEFAULT_OPTIMIZER_MODEL),
+        source_language: toStringValue(data.source_language, "unknown"),
+        tokenizer_method: toStringValue(data.tokenizer_method, DEFAULT_TOKENIZER_METHOD),
+        estimated_input_cost_usd: toFiniteNumber(data.estimated_input_cost_usd),
+        estimated_output_cost_usd: toFiniteNumber(data.estimated_output_cost_usd),
+        estimated_savings_usd: toFiniteNumber(data.estimated_savings_usd),
+        english_variant: toStringValue(data.english_variant),
+        english_variant_tokens: toFiniteNumber(data.english_variant_tokens),
+        english_variant_cost_usd: toFiniteNumber(data.english_variant_cost_usd),
+        warnings: toWarnings(data.warnings),
+    };
+}
+
+function formatUsd(value: number): string {
+    if (!Number.isFinite(value) || value === 0) {
+        return "$0";
+    }
+    if (Math.abs(value) < 0.01) {
+        return `$${value.toExponential(2)}`;
+    }
+    return `$${value.toFixed(4)}`;
+}
+
+const LANGUAGE_LABELS: Record<string, string> = { tr: "TR", en: "EN" };
+
+function formatLanguage(language: string): string {
+    const key = (language ?? "").toLowerCase();
+    return LANGUAGE_LABELS[key] ?? "UNKNOWN";
+}
+
+function charsPerToken(chars: number, tokens: number): string {
+    if (!tokens) {
+        return "0.00";
+    }
+    return (chars / tokens).toFixed(2);
+}
+
+function MetricTile({
+    label,
+    value,
+    detail,
+}: {
+    label: string;
+    value: string;
+    detail: string;
+}) {
+    return (
+        <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
+            <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
+            <div className="mt-1 text-xs text-zinc-500">{detail}</div>
+        </div>
+    );
+}
+
 export default function OptimizerPage() {
     const [input, setInput] = useState("");
-    const [output, setOutput] = useState("");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [stats, setStats] = useState<any>(null);
+    const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
-    const [maxChars] = useState<string>("");
+
+    const output = result?.text ?? "";
+    const englishVariant = result?.english_variant ?? "";
+    const sourceLanguage = (result?.source_language ?? "").toLowerCase();
+    const showEnglishPanel =
+        !!result &&
+        sourceLanguage !== "en" &&
+        englishVariant.trim().length > 0 &&
+        englishVariant.trim() !== output.trim();
 
     const handleOptimize = async () => {
         if (!input.trim()) return;
         setLoading(true);
         try {
-            const data = await apiJson<{
-                text: string;
-                before_tokens: number;
-                after_tokens: number;
-            }>("/optimize", {
+            const data = await apiJson<Partial<OptimizeResponse>>("/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     text: input,
                     max_tokens: maxTokens,
-                    max_chars: maxChars ? parseInt(maxChars) : undefined,
+                    provider: DEFAULT_OPTIMIZER_PROVIDER,
+                    model: DEFAULT_OPTIMIZER_MODEL,
                 }),
             });
-            setOutput(data.text);
-            setStats({
-                before_tokens: data.before_tokens,
-                after_tokens: data.after_tokens,
-                saved_percent: ((data.before_tokens - data.after_tokens) / data.before_tokens * 100).toFixed(1)
-            });
+            setResult(normalizeOptimizeResponse(data));
         } catch (e) {
             showError(e);
         } finally {
@@ -45,52 +155,80 @@ export default function OptimizerPage() {
         }
     };
 
+    const copyText = (text: string) => {
+        if (!text) return;
+        void navigator.clipboard?.writeText(text).catch(() => {});
+    };
+
     return (
-        <div className="h-full flex flex-col p-6 max-w-6xl mx-auto gap-6 animate-fade-in">
-            <header className="flex items-center justify-between border-b border-white/5 pb-4">
+        <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+            {/* Ambient Background Orbs */}
+            <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-teal-600/10 blur-[120px] pointer-events-none" />
+
+            {/* Floating Main Container */}
+            <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
+            <header className="border-b border-white/5 bg-black/20 p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-md">
                 <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20">
+                        ✨
+                    </div>
                     <div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                            Token Optimizer
-                        </h1>
-                        <p className="text-sm text-zinc-500">Reduce LLM costs without losing meaning.</p>
+                        <h1 className="font-semibold text-lg tracking-tight text-white">Token Optimizer</h1>
+                        <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                            Compress safely • Compare cost
+                        </div>
                     </div>
                     <InfoButton
                         title="Prompt Optimizer"
-                        description="Deterministically shortens your prompts while preserving the core intent and constraints, reducing token usage and cost."
+                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates Groq cost and compares language efficiency."
                     />
                 </div>
 
-                {/* Controls */}
-                <div className="flex items-center gap-4 bg-zinc-900/50 p-2 rounded-xl border border-white/5">
-                    <div className="flex flex-col gap-1 px-2">
-                        <label htmlFor="max-tokens" className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Max Tokens</label>
+                <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/40 p-3 sm:flex-row sm:items-center">
+                    <div className="flex min-w-40 flex-col gap-1">
+                        <label htmlFor="max-tokens" className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                            Max Tokens
+                        </label>
                         <input
                             id="max-tokens"
-                            type="range" min="100" max="4096" step="100"
+                            type="range"
+                            min="100"
+                            max="4096"
+                            step="100"
                             value={maxTokens}
-                            onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-                            className="w-32 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                            onChange={(e) => setMaxTokens(Number.parseInt(e.target.value, 10))}
+                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700 accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         />
-                        <span className="text-xs text-emerald-400 font-mono text-right">{maxTokens}</span>
+                        <span className="text-right font-mono text-xs text-emerald-300">{maxTokens}</span>
                     </div>
 
                     <button
                         type="button"
                         onClick={handleOptimize}
                         disabled={loading || !input.trim()}
-                        className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                        title={!input.trim() ? "Enter a prompt first to analyze cost" : "Analyze cost"}
+                        className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                     >
-                        {loading ? "Compressing..." : <>⚡ Compress <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>}
+                        {loading ? "Analyzing..." : (
+                            <>
+                                Analyze cost
+                                <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-60 md:inline-block">
+                                    Ctrl/⌘ Enter
+                                </kbd>
+                            </>
+                        )}
                     </button>
                 </div>
             </header>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
-                {/* Input */}
-                <div className="flex flex-col gap-2">
-                    <label htmlFor="original-prompt" className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Original Prompt</label>
-                    <div className="flex-1 bg-zinc-900/30 rounded-2xl border border-white/5 p-4 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 flex flex-col gap-5">
+            <div className="grid min-h-[50vh] grid-cols-1 gap-5 lg:grid-cols-2">
+                <section className="flex min-h-80 flex-col gap-2">
+                    <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                        Original Prompt
+                    </label>
+                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/30 p-4 transition-colors focus-within:border-emerald-500/40">
                         <textarea
                             id="original-prompt"
                             value={input}
@@ -103,59 +241,131 @@ export default function OptimizerPage() {
                                     }
                                 }
                             }}
-                            placeholder="Paste your verbose prompt here..."
-                            className="w-full h-full bg-transparent resize-none outline-none text-zinc-300 font-mono text-sm placeholder:text-zinc-700"
+                            placeholder="Paste a verbose prompt here..."
+                            className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
                         />
                     </div>
-                    {stats && (
-                        <div className="text-xs text-zinc-500 text-right font-mono">
-                            Tokens: {stats.before_tokens}
-                        </div>
-                    )}
-                </div>
+                </section>
 
-                {/* Output */}
-                <div className="flex flex-col gap-2">
-                    <label htmlFor="optimized-result" className="text-xs text-zinc-500 uppercase font-bold tracking-wider ml-1">Optimized Result</label>
-                    <div className="flex-1 bg-zinc-900/50 rounded-2xl border border-emerald-500/20 p-4 relative group">
+                <section className="flex min-h-80 flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="optimized-result" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                            Optimized Result
+                        </label>
+                        {!!output && (
+                            <button
+                                type="button"
+                                onClick={() => copyText(output)}
+                                className="rounded-lg border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                aria-label="Copy optimized result"
+                            >
+                                Copy
+                            </button>
+                        )}
+                    </div>
+                    <div className="min-h-0 flex-1 rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-4">
                         {output ? (
-                            <>
                             <textarea
                                 id="optimized-result"
                                 readOnly
                                 value={output}
-                                className="w-full h-full bg-transparent resize-none outline-none text-emerald-100 font-mono text-sm selection:bg-emerald-500/30"
+                                className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"
                             />
-                            <button
-                                type="button"
-                                onClick={() => void navigator.clipboard.writeText(output).catch(() => {})}
-                                className="absolute bottom-4 right-4 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-                                title="Copy optimized result"
-                                aria-label="Copy optimized result"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                            </button>
-                            </>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-zinc-700 text-sm italic">
-                                Ready to optimize...
+                            <div className="flex h-full min-h-72 items-center justify-center text-sm italic text-zinc-400">
+                                Optimized prompt will appear here.
                             </div>
                         )}
                     </div>
+                </section>
+            </div>
 
-                    {/* Stats Badge */}
-                    {stats && (
-                        <div className="flex justify-end gap-3 items-center animate-slide-up">
-                            <div className="text-xs font-mono text-zinc-400">
-                                {stats.after_tokens} tokens
+            {result && (
+                <section className="flex flex-col gap-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <MetricTile
+                            label="Original estimate"
+                            value={`${result.before_tokens}`}
+                            detail={`${formatUsd(result.estimated_input_cost_usd)} input cost`}
+                        />
+                        <MetricTile
+                            label="Optimized estimate"
+                            value={`${result.after_tokens}`}
+                            detail={`${formatUsd(result.estimated_output_cost_usd)} optimized cost`}
+                        />
+                        <MetricTile
+                            label="Saved"
+                            value={`${result.saved_percent}%`}
+                            detail={`${formatUsd(result.estimated_savings_usd)} estimated delta`}
+                        />
+                        <MetricTile
+                            label="Efficiency"
+                            value={formatLanguage(result.source_language)}
+                            detail={`${charsPerToken(result.before_chars, result.before_tokens)} chars/token`}
+                        />
+                    </div>
+
+                    {result.warnings.length > 0 && (
+                        <section
+                            aria-label="Optimizer warnings"
+                            className="space-y-2"
+                        >
+                            {result.warnings.map((warning) => (
+                                <p
+                                    key={warning}
+                                    className="rounded-lg border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-100"
+                                >
+                                    {warning}
+                                </p>
+                            ))}
+                        </section>
+                    )}
+
+                    {showEnglishPanel && (
+                        <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-white">English compact suggestion</h2>
+                                    <p className="mt-1 text-xs text-zinc-500">
+                                        Groq / {result.model}
+                                    </p>
+                                </div>
+                                <span className="rounded-lg border border-white/10 px-2 py-1 font-mono text-xs text-zinc-400">
+                                    {result.english_variant_tokens} tokens
+                                </span>
                             </div>
-                            <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-bold text-emerald-400">
-                                Saved {stats.saved_percent}%
+
+                            <div className="mt-3 flex flex-col gap-3">
+                                <textarea
+                                    readOnly
+                                    value={englishVariant}
+                                    aria-label="English compact suggestion"
+                                    className="min-h-24 w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-sm text-cyan-50 outline-none"
+                                />
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-xs text-zinc-500">
+                                        Estimated cost: {formatUsd(result.english_variant_cost_usd)}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => copyText(englishVariant)}
+                                        className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                                        aria-label="Copy English variant"
+                                    >
+                                        Copy English variant
+                                    </button>
+                                </div>
                             </div>
+
+                            <p className="mt-3 text-[11px] text-zinc-600">
+                                {result.tokenizer_method}
+                            </p>
                         </div>
                     )}
-                </div>
+                </section>
+            )}
             </div>
-        </div>
+            </div>
+        </main>
     );
 }

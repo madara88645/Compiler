@@ -2,28 +2,39 @@
 
 import { useState, useCallback } from "react";
 import ContextManager from "../components/ContextManager";
-import { apiFetch } from "@/config";
+import { describeRequestError } from "@/config";
+import { compilePrompt } from "../../lib/api/promptc";
+import type { CompileMode, CompileResponse } from "../../lib/api/types";
 
 import InfoButton from "../components/InfoButton";
 
-type CompileResponse = {
-    system_prompt: string;
-    user_prompt: string;
-    plan: string;
-    expanded_prompt: string;
-    system_prompt_v2?: string;
-    user_prompt_v2?: string;
-    plan_v2?: string;
-    expanded_prompt_v2?: string;
-    ir: Record<string, unknown>;
-    processing_ms: number;
-};
+type OfflineOutputTab = "system" | "user" | "plan" | "expanded" | "json";
+
+const OFFLINE_MODE: CompileMode = "conservative";
+
+function getOfflineTabContent(result: CompileResponse, activeTab: OfflineOutputTab): string {
+    if (activeTab === "system") {
+        return result.system_prompt_v2 || result.system_prompt || "";
+    }
+
+    if (activeTab === "user") {
+        return result.user_prompt_v2 || result.user_prompt || "";
+    }
+
+    if (activeTab === "plan") {
+        return result.plan_v2 || result.plan || "";
+    }
+
+    return result.expanded_prompt_v2 || result.expanded_prompt || "";
+}
 
 export default function OfflinePage() {
     const [prompt, setPrompt] = useState("");
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<CompileResponse | null>(null);
-    const [activeTab, setActiveTab] = useState<"system" | "user" | "plan" | "expanded" | "json" | "quality">("system");
+    const [activeTab, setActiveTab] = useState<OfflineOutputTab>("system");
+    const [lastError, setLastError] = useState<unknown>(null);
+    const [lastRequest, setLastRequest] = useState("");
 
     // Diagnostics ON by default
     const diagnostics = true;
@@ -35,31 +46,32 @@ export default function OfflinePage() {
         if (!textToCompile.trim()) return;
 
         setLoading(true);
+        setLastError(null);
+        setLastRequest(textToCompile);
         setStatus("Compiling (Offline)...");
 
         try {
-            // Step A: Fast V1 Request Only (Heuristics) -> Now V2
-            const resV1 = await apiFetch("/compile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: textToCompile, diagnostics, v2: false, render_v2_prompts: true }),
+            const data = await compilePrompt({
+                text: textToCompile,
+                diagnostics,
+                v2: false,
+                render_v2_prompts: true,
+                mode: OFFLINE_MODE,
             });
-
-            if (resV1.ok) {
-                const dataV1 = await resV1.json();
-                setResult(dataV1);
-                setStatus(`Done in ${dataV1.processing_ms}ms`);
-            } else {
-                setStatus("Error: Offline Compilation Failed");
-            }
-
+            setResult(data);
+            setStatus(`Done in ${data.processing_ms}ms`);
         } catch (e: unknown) {
-            console.error(e);
-            setStatus(`Error: ${e instanceof Error ? e.message : "Connection Failed"}`);
+            setLastError(e);
+            setStatus(`Error: ${describeRequestError(e)}`);
         } finally {
             setLoading(false);
         }
     }, [prompt, diagnostics]);
+
+    const handleRetry = useCallback(async () => {
+        if (!lastRequest.trim()) return;
+        await handleGenerate(lastRequest);
+    }, [handleGenerate, lastRequest]);
 
     return (
         <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
@@ -74,7 +86,12 @@ export default function OfflinePage() {
                 <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
+                            <div
+                                aria-hidden="true"
+                                className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg"
+                            >
+                                OF
+                            </div>
                             <div>
                                 <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
                                 <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
@@ -96,6 +113,15 @@ export default function OfflinePage() {
                         <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
                             {status}
                         </div>
+                        {!!lastError && !loading && (
+                            <button
+                                type="button"
+                                onClick={() => void handleRetry()}
+                                className="text-xs font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                            >
+                                Retry offline compile
+                            </button>
+                        )}
                     </div>
                 </header>
 
@@ -129,12 +155,21 @@ export default function OfflinePage() {
                                     type="button"
                                     onClick={() => handleGenerate()}
                                     disabled={loading || !prompt.trim()}
+                                    title={!prompt.trim() ? "Enter a prompt first to generate" : "Generate Prompt"}
                                     className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
                                 >
                                     {loading ? (
                                         <span className="animate-pulse">Processing...</span>
                                     ) : (
-                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                                        <>
+                                            Run Heuristics{" "}
+                                            <span className="group-hover:translate-x-0.5 transition-transform">
+                                                {"->"}
+                                            </span>{" "}
+                                            <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">
+                                                Ctrl/Cmd Enter
+                                            </kbd>
+                                        </>
                                     )}
                                 </button>
                             </div>
@@ -172,28 +207,18 @@ export default function OfflinePage() {
                                         </div>
                                     </div>
 
-                                    {activeTab !== "quality" && activeTab !== "json" && (
+                                    {activeTab !== "json" && (
                                         <>
                                             <textarea
                                                 id="offline-output"
                                                 aria-label="Compiled prompt output"
                                                 className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-orange-500/30"
                                                 readOnly
-                                                value={
-                                                    activeTab === "system" ? (result.system_prompt_v2 || result.system_prompt) :
-                                                        activeTab === "user" ? (result.user_prompt_v2 || result.user_prompt) :
-                                                            activeTab === "plan" ? (result.plan_v2 || result.plan) :
-                                                                (result.expanded_prompt_v2 || result.expanded_prompt)
-                                                }
+                                                value={getOfflineTabContent(result, activeTab)}
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => navigator.clipboard.writeText(
-                                                    activeTab === "system" ? result.system_prompt :
-                                                        activeTab === "user" ? result.user_prompt :
-                                                            activeTab === "plan" ? result.plan :
-                                                                result.expanded_prompt
-                                                )}
+                                                onClick={() => navigator.clipboard.writeText(getOfflineTabContent(result, activeTab))}
                                                 className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20"
                                                 title="Copy"
                                                 aria-label="Copy to Clipboard"
@@ -214,7 +239,9 @@ export default function OfflinePage() {
                             </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
-                                <div className="text-6xl grayscale opacity-50">🔌</div>
+                                <div aria-hidden="true" className="text-6xl grayscale opacity-50">
+                                    OF
+                                </div>
                                 <div className="max-w-xs space-y-2">
                                     <h3 className="text-zinc-200 font-medium tracking-wide">Offline Mode</h3>
                                     <p className="text-sm text-zinc-500">Fast, local heuristic compilation without LLM calls.</p>

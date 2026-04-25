@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import hashlib
+import logging
 import re
 from typing import Any, Dict, List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
@@ -51,6 +52,8 @@ from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
 from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
+
+logger = logging.getLogger(__name__)
 
 
 GENERIC_GOAL = {
@@ -259,11 +262,11 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
                         category="context",
                     )
                 )
-        except Exception as e:
-            import sys
-
-            print(f"[COMPILER] Context Strategist failed: {e}", file=sys.stderr)
-            pass  # Graceful degradation
+        except Exception:
+            logger.exception(
+                "Context Strategist failed; continuing without retrieved context",
+                extra={"offline_only": offline_only, "text_length": len(text)},
+            )
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(
@@ -289,6 +292,10 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
 def compile_text(text: str) -> IR:
     lang = detect_language(text)
     domain, evidence = detect_domain(text)
+    coding_ctx = detect_coding_context(text)
+    teaching_intent = detect_teaching_intent(text)
+    recency_required = detect_recency(text)
+    live_debug = detect_live_debug(text) if coding_ctx else False
     goals, tasks = extract_goals_tasks(text, lang)
     length_hint = detect_length_hint(text)
     style, tone = extract_style_tone(text)
@@ -311,7 +318,7 @@ def compile_text(text: str) -> IR:
 
     banned: List[str] = []
     tools: List[str] = []
-    if detect_recency(text):
+    if recency_required:
         tools.append("web")
         add_constraint(RECENCY_CONSTRAINT_TR if lang == "tr" else RECENCY_CONSTRAINT_EN, "recency")
 
@@ -352,12 +359,11 @@ def compile_text(text: str) -> IR:
     persona, persona_info = pick_persona(text)
     role = DEFAULT_ROLE_TR if lang == "tr" else DEFAULT_ROLE_EN
     # Developer persona override: if coding context, prefer developer
-    coding_ctx = detect_coding_context(text)
     if coding_ctx:
         persona = "developer"
         role = DEFAULT_ROLE_DEV_TR if lang == "tr" else DEFAULT_ROLE_DEV_EN
     # If user wants teaching AND not coding, switch to teacher
-    if detect_teaching_intent(text) and not coding_ctx:
+    if teaching_intent and not coding_ctx:
         persona = "teacher"
         lvl = (inputs.get("level") or "").lower()
         dur = inputs.get("duration")
@@ -397,7 +403,7 @@ def compile_text(text: str) -> IR:
             tone.append("friendly")
 
     # Coding-oriented constraints if code context requested
-    if detect_coding_context(text):
+    if coding_ctx:
         if lang == "tr":
             add_constraint(
                 "Önce çalışan, küçük parçalara bölünmüş bir çözüm geliştirin (adım adım).",
@@ -417,7 +423,7 @@ def compile_text(text: str) -> IR:
         if "concise" not in style:
             style.append("concise")
         # Live debug mode: emphasize reproduction and hypothesis-driven fixes
-        if detect_live_debug(text):
+        if live_debug:
             if lang == "tr":
                 add_constraint(
                     "Sorunu yeniden üretmek için minimal bir örnek (MRE) oluştur.", "live_debug"
