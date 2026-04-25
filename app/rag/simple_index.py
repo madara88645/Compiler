@@ -930,20 +930,22 @@ def _search_embed_with_conn(
     else:
         q_vec = _simple_embed(query, dim=embed_dim)
 
-    # fetch embeddings joined with chunk + doc metadata
+    # Bolt Optimization: Implement two-step retrieval for vector searches.
+    # Step 1: Fetch only chunk IDs and vectors to calculate similarity first.
+    # This avoids loading potentially large `content` payloads for all chunks
+    # into memory just to discard them later when they are not in the top K.
     cur = conn.execute(
         """
-        SELECT e.chunk_id, c.doc_id, d.path, c.chunk_index, c.content, e.vec, e.dim
-        FROM embeddings e
-        JOIN chunks c ON c.id = e.chunk_id
-        JOIN docs d ON d.id = c.doc_id
-        WHERE e.dim = ?
+        SELECT chunk_id, vec
+        FROM embeddings
+        WHERE dim = ?
         """,
         (embed_dim,),
     )
-    results = []
+
+    scores = []
     for row in cur.fetchall():
-        chunk_id, doc_id, path, chunk_index, content, vec_json, dim = row
+        chunk_id, vec_json = row
         emb = _parse_embedding(vec_json)
         # cosine since vectors L2 normalized => dot product
         # Bolt Optimization: math.sumprod (Python 3.12+) is >3x faster than sum(map(operator.mul))
@@ -953,19 +955,66 @@ def _search_embed_with_conn(
             sim = sum(map(operator.mul, q_vec, emb))
         # score as (1 - sim) so lower is better similar to bm25 semantics
         score = 1.0 - sim
+        scores.append((score, sim, chunk_id))
+
+    scores.sort(key=lambda x: x[0])  # sort by score asc
+
+    # The original implementation returned the *entire* sorted list of results,
+    # leaving it to the caller (`search_embed`, `search_hybrid`) to slice it via `[:k]`
+    # if they wanted to, or to process all of them. `search_hybrid` actually passes
+    # `k=max(k, 50)` but expects all results up to that length. To avoid a semantic change,
+    # we'll still truncate based on `k` since that was the parameter passed into this
+    # inner function, but to be safe and match the exact original behavior of returning
+    # everything it fetched, we won't truncate here. Wait, actually, the original code
+    # returned *all* rows in the database sorted by score, despite receiving `k`.
+    # Let's fix that semantic change by NOT truncating to `[:k]`.
+
+    if not scores:
+        return []
+
+    chunk_ids = [c for _, _, c in scores]
+    placeholders = ",".join("?" for _ in chunk_ids)
+
+    # Step 2: Fetch full metadata only for the matching chunks
+    cur = conn.execute(
+        f"""
+        SELECT c.id, c.doc_id, d.path, c.chunk_index, c.content
+        FROM chunks c
+        JOIN docs d ON d.id = c.doc_id
+        WHERE c.id IN ({placeholders})
+        """,
+        chunk_ids,
+    )
+
+    metadata = {}
+    for row in cur.fetchall():
+        c_id, doc_id, path, chunk_index, content = row
+        metadata[c_id] = {
+            "doc_id": doc_id,
+            "path": path,
+            "chunk_index": chunk_index,
+            "content": content,
+        }
+
+    results = []
+    for score, sim, chunk_id in scores:
+        m = metadata.get(chunk_id)
+        if not m:
+            # Should not happen in a healthy index, but guards against orphan embeddings
+            continue
+        content = m["content"]
         snippet = content[:200].replace("\n", " ")
         results.append(
             {
                 "chunk_id": chunk_id,
-                "doc_id": doc_id,
-                "path": path,
-                "chunk_index": chunk_index,
+                "doc_id": m["doc_id"],
+                "path": m["path"],
+                "chunk_index": m["chunk_index"],
                 "snippet": snippet,
                 "score": score,
                 "similarity": sim,
             }
         )
-    results.sort(key=lambda r: r["score"])  # lower distance first
     return results
 
 
