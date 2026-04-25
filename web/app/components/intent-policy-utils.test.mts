@@ -95,3 +95,51 @@ test("normalizeIntentPolicy humanizes unknown intents without breaking", async (
     ],
   );
 });
+
+test("normalizeIntentDetails deduplicates repeated intents", async () => {
+  const { normalizeIntentPolicy } = await import("./intent-policy-utils.ts");
+
+  const result = normalizeIntentPolicy({
+    ir_v2: {
+      intents: ["risk", "teaching", "risk"],
+    },
+  });
+
+  // [...new Set(intents)] inside normalizeIntentDetails removes the duplicate "risk"
+  assert.equal(result.intentDetails.length, 2);
+  const keys = result.intentDetails.map((item) => item.key);
+  assert.ok(keys.includes("risk"), "Expected 'risk' in intentDetails keys");
+  assert.ok(keys.includes("teaching"), "Expected 'teaching' in intentDetails keys");
+});
+
+test("normalizeIntentPolicy returns safe defaults when ir and ir_v2 are both absent", async () => {
+  const { normalizeIntentPolicy } = await import("./intent-policy-utils.ts");
+
+  const result = normalizeIntentPolicy({});
+
+  assert.equal(result.domain, "general");
+  assert.equal(result.persona, "assistant");
+  assert.equal(result.riskLevel, "low");
+  assert.equal(result.executionMode, "advice_only");
+  assert.equal(result.dataSensitivity, "public");
+  assert.deepEqual(result.allowedTools, []);
+  assert.deepEqual(result.forbiddenTools, []);
+  assert.deepEqual(result.sanitizationRules, []);
+});
+
+test("normalizeIntentPolicy maps legacy risk_flags 'financial' to riskLevel high", async () => {
+  const { normalizeIntentPolicy } = await import("./intent-policy-utils.ts");
+
+  // No ir_v2, no policy — only legacy ir.metadata.risk_flags.
+  // "financial" is not "security", so the ternary returns "high".
+  const result = normalizeIntentPolicy({
+    ir: {
+      metadata: {
+        risk_flags: ["financial"],
+      },
+    },
+  });
+
+  assert.equal(result.riskLevel, "high");
+  assert.deepEqual(result.riskDomains, ["financial"]);
+});

@@ -157,7 +157,15 @@ export default function OfflinePage() {
                                     {loading ? (
                                         <span className="animate-pulse">Processing...</span>
                                     ) : (
-                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                                        <>
+                                            Run Heuristics{" "}
+                                            <span className="group-hover:translate-x-0.5 transition-transform">
+                                                {"->"}
+                                            </span>{" "}
+                                            <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">
+                                                Ctrl/Cmd Enter
+                                            </kbd>
+                                        </>
                                     )}
                                 </button>
                             </div>
