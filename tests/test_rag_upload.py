@@ -1,35 +1,45 @@
 """Test the stabilized /rag upload/search endpoints."""
 
 import os
+import shutil
+import sqlite3
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.rag import simple_index
+
 
 @pytest.fixture
-def client():
+def rag_test_env(monkeypatch):
+    """Create an isolated temp env for RAG API tests."""
+    td = tempfile.mkdtemp()
+    original_cwd = Path.cwd()
+    test_db = os.path.join(td, "test_upload.db")
+    upload_dir = os.path.join(td, "uploads")
+
+    try:
+        with patch("app.rag.simple_index.DEFAULT_DB_PATH", test_db):
+            monkeypatch.setenv("PROMPTC_UPLOAD_DIR", upload_dir)
+            monkeypatch.setenv("PROMPTC_RAG_ALLOWED_ROOTS", td)
+            os.chdir(td)
+            yield {"temp_dir": td, "test_db": test_db, "upload_dir": upload_dir}
+    finally:
+        os.chdir(original_cwd)
+        shutil.rmtree(td, ignore_errors=True)
+
+
+@pytest.fixture
+def client(rag_test_env):
     """Create a test client, patching startup to skip HybridCompiler."""
-    with tempfile.TemporaryDirectory() as td:
-        test_db = os.path.join(td, "test_upload.db")
-        upload_dir = os.path.join(td, "uploads")
+    del rag_test_env
+    from api.main import app
 
-        with (
-            patch("app.rag.simple_index.DEFAULT_DB_PATH", test_db),
-            patch.dict(
-                os.environ,
-                {
-                    "PROMPTC_UPLOAD_DIR": upload_dir,
-                    "PROMPTC_RAG_ALLOWED_ROOTS": td,
-                },
-                clear=False,
-            ),
-        ):
-            from api.main import app
-
-            with TestClient(app) as c:
-                yield c
+    with TestClient(app) as c:
+        yield c
 
 
 def test_rag_upload_indexes_file(client):
@@ -145,6 +155,53 @@ def test_rag_upload_preserves_relative_paths_for_duplicate_filenames(client):
 
     assert any("src/components/index.ts" in str(row) for row in header_search.json())
     assert any("src/pages/index.ts" in str(row) for row in page_search.json())
+
+
+def test_rag_upload_fallback_db_stays_isolated_per_test(rag_test_env):
+    """Primary DB failures should not leak uploads into a shared workspace fallback DB."""
+    repo_root = Path(__file__).resolve().parent.parent
+    shared_fallback_db = repo_root / ".promptc" / Path(rag_test_env["test_db"]).name
+    simple_index.ingest_text(
+        "seed.md",
+        "shared workspace fallback seed that should stay out of this test",
+        db_path=str(shared_fallback_db),
+    )
+
+    real_connect = sqlite3.connect
+    primary_db = str(Path(rag_test_env["test_db"]))
+
+    def flaky_connect(path, *args, **kwargs):
+        resolved = str(Path(path))
+        if resolved == primary_db:
+            raise sqlite3.OperationalError("unable to open database file")
+        return real_connect(path, *args, **kwargs)
+
+    with patch("app.rag.simple_index.sqlite3.connect", side_effect=flaky_connect):
+        from api.main import app
+
+        with TestClient(app) as client:
+            first = client.post(
+                "/rag/upload",
+                json={
+                    "filename": "index.ts",
+                    "relative_path": "src/components/index.ts",
+                    "content": "export const headerMarker = 'header_unique_signal';",
+                },
+            )
+            second = client.post(
+                "/rag/upload",
+                json={
+                    "filename": "index.ts",
+                    "relative_path": "src/pages/index.ts",
+                    "content": "export const pageMarker = 'page_unique_signal';",
+                },
+            )
+            stats = client.get("/rag/stats")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert stats.status_code == 200
+    assert stats.json()["docs"] == 2
 
 
 def test_rag_upload_with_path_traversal_characters(client):

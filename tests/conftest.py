@@ -1,6 +1,22 @@
+import os
+import tempfile
+from pathlib import Path
+
 import pytest
-from api.main import app
-from api.auth import verify_api_key, APIKey
+
+_TEST_RUNTIME_ROOT = Path(__file__).resolve().parent.parent / ".tmp-test-run"
+_TEST_RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
+_TEST_SESSION_DIR = Path(tempfile.mkdtemp(prefix="pytest-", dir=str(_TEST_RUNTIME_ROOT))).resolve()
+_TEST_DB_DIR = (_TEST_SESSION_DIR / "db").resolve()
+_TEST_DB_DIR.mkdir(parents=True, exist_ok=True)
+
+for env_name in ("TMP", "TEMP", "TMPDIR"):
+    os.environ[env_name] = str(_TEST_SESSION_DIR)
+tempfile.tempdir = str(_TEST_SESSION_DIR)
+os.environ["DB_DIR"] = str(_TEST_DB_DIR)
+
+from api.main import app  # noqa: E402
+from api.auth import verify_api_key, APIKey  # noqa: E402
 
 
 def pytest_addoption(parser):
