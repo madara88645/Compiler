@@ -29,11 +29,11 @@ export default function UploadProgressCard({ uploadProgress }: UploadProgressCar
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-medium text-cyan-100">Uploading context</span>
-                        <span className="text-[10px] font-mono text-cyan-200/80">
+                        <span className="text-xs font-mono text-cyan-200/80">
                             {currentStep}/{uploadProgress.total}
                         </span>
                     </div>
-                    <p className="mt-1 text-[11px] leading-relaxed text-cyan-100/70">
+                    <p className="mt-1 text-xs leading-relaxed text-cyan-100/70">
                         {uploadProgress.currentFile ? uploadProgress.currentFile : "Preparing files..."}
                     </p>
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/20">

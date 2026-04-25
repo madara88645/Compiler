@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import hashlib
+import logging
 import re
 from typing import Any, Dict, List, Tuple
 from .models import IR, DEFAULT_ROLE_TR, DEFAULT_ROLE_EN, DEFAULT_ROLE_DEV_TR, DEFAULT_ROLE_DEV_EN
@@ -51,6 +52,8 @@ from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
 from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
+
+logger = logging.getLogger(__name__)
 
 
 GENERIC_GOAL = {
@@ -259,11 +262,11 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
                         category="context",
                     )
                 )
-        except Exception as e:
-            import sys
-
-            print(f"[COMPILER] Context Strategist failed: {e}", file=sys.stderr)
-            pass  # Graceful degradation
+        except Exception:
+            logger.exception(
+                "Context Strategist failed; continuing without retrieved context",
+                extra={"offline_only": offline_only, "text_length": len(text)},
+            )
     # -------------------------------------------------------------------------
 
     plugin_ctx = PluginContext(

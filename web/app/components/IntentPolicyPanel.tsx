@@ -18,7 +18,7 @@ function FieldList({
 }) {
   return (
     <div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-      <div className="mb-3 text-[11px] font-mono uppercase tracking-[0.18em] text-zinc-500">{title}</div>
+      <div className="mb-3 text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">{title}</div>
       {items.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
