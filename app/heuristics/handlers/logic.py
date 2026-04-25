@@ -107,10 +107,27 @@ class LogicHandler:
             )
 
         # New: Resolve conflicts and inject reasoning
-        self._resolve_conflicts(ir2)
-        self._inject_reasoning(ir2, original_text)
+        # Bolt Optimization: Pre-calculate constraints attributes to avoid repeated expensive getattr
+        # calls inside nested loops.
+        c_texts = [
+            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
+            for c in ir2.constraints
+        ]
+        c_prios = [
+            getattr(c, "priority", 40) if not isinstance(c, dict) else c.get("priority", 40)
+            for c in ir2.constraints
+        ]
 
-    def _resolve_conflicts(self, ir2: IRv2) -> None:
+        self._resolve_conflicts(ir2, c_texts, c_prios)
+
+        # Re-fetch texts as they might have changed after conflict resolution
+        c_texts = [
+            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
+            for c in ir2.constraints
+        ]
+        self._inject_reasoning(ir2, original_text, c_texts)
+
+    def _resolve_conflicts(self, ir2: IRv2, c_texts: List[str], c_prios: List[int]) -> None:
         """
         Identify and prune conflicting constraints based on priority.
         """
@@ -120,22 +137,16 @@ class LogicHandler:
             patterns = definition["patterns"]
 
             # Find matching constraints
-            # Map: pattern_key -> list of (index, ConstraintV2)
-            matches: Dict[str, List[Tuple[int, ConstraintV2]]] = {k: [] for k in patterns}
+            # Map: pattern_key -> list of (index, text, priority)
+            matches: Dict[str, List[Tuple[int, str, int]]] = {k: [] for k in patterns}
 
-            for i, constraint in enumerate(ir2.constraints):
+            for i, text in enumerate(c_texts):
                 # Ensure constraint is a ConstraintV2 object (handle dict if necessary, though IRv2 validator converts)
                 # We'll assume object access if validator ran, but dict access if raw.
-                # Safe access:
-                text = getattr(
-                    constraint,
-                    "text",
-                    constraint.get("text", "") if isinstance(constraint, dict) else "",
-                )
 
                 for key, pattern in patterns.items():
                     if pattern.search(text):
-                        matches[key].append((i, constraint))
+                        matches[key].append((i, text, c_prios[i]))
                         # Assume one pattern match per constraint is sufficient for bucketing
                         break
 
@@ -151,12 +162,7 @@ class LogicHandler:
                 for key in active_keys:
                     # Get max priority for this bucket
                     key_max = -1
-                    for _, constr in matches[key]:
-                        p = getattr(
-                            constr,
-                            "priority",
-                            constr.get("priority", 40) if isinstance(constr, dict) else 40,
-                        )
+                    for _, _, p in matches[key]:
                         if p > key_max:
                             key_max = p
 
@@ -174,18 +180,8 @@ class LogicHandler:
 
                 for key in active_keys:
                     if key != best_key:
-                        for idx, constr in matches[key]:
+                        for idx, t, p in matches[key]:
                             indices_to_remove.add(idx)
-                            t = getattr(
-                                constr,
-                                "text",
-                                constr.get("text", "") if isinstance(constr, dict) else "",
-                            )
-                            p = getattr(
-                                constr,
-                                "priority",
-                                constr.get("priority", 0) if isinstance(constr, dict) else 0,
-                            )
                             dropped_details.append(f"'{t}' (P:{p})")
 
                 if indices_to_remove:
@@ -196,21 +192,24 @@ class LogicHandler:
                     ]
                     ir2.constraints = new_constraints
 
+                    # Also update our parallel lists for remaining definitions in this loop
+                    c_texts[:] = [t for i, t in enumerate(c_texts) if i not in indices_to_remove]
+                    c_prios[:] = [p for i, p in enumerate(c_prios) if i not in indices_to_remove]
+
                     # Add Diagnostic
                     msg = f"Conflict resolved in {group_name}: Kept {best_key} (P:{max_prio}), removed {', '.join(dropped_details)}."
                     ir2.diagnostics.append(
                         DiagnosticItem(severity="warning", message=msg, category="logic_conflict")
                     )
 
-    def _inject_reasoning(self, ir2: IRv2, original_text: str) -> None:
+    def _inject_reasoning(self, ir2: IRv2, original_text: str, c_texts: List[str]) -> None:
         """
         Inject a <thinking> block constraint for complex reasoning tasks.
         """
         if _COMPLEX_PATTERNS_RE.search(original_text):
             # Check if thinking constraint already exists to avoid dupes
             # Iterate and check text
-            for c in ir2.constraints:
-                t = getattr(c, "text", c.get("text", "") if isinstance(c, dict) else "")
+            for t in c_texts:
                 if "<thinking>" in t:
                     return
 

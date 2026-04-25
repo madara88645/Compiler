@@ -139,3 +139,47 @@ def test_policy_harmless_educational_security_prompt_stays_auto_ok():
     assert "security" in ir2.policy.risk_domains
     assert ir2.policy.risk_level == "low"
     assert ir2.policy.execution_mode == "auto_ok"
+
+
+# ---------------------------------------------------------------------------
+# New: benign_educational_risk bypass boundary conditions and _unique()
+# ---------------------------------------------------------------------------
+
+
+def test_policy_educational_plus_financial_domain_is_not_bypassed():
+    # has_high_risk_domain=True because "financial" is in _HIGH_RISK_DOMAINS,
+    # so benign_educational_risk is False → escalates to high/human_approval_required.
+    ir2 = compile_text_v2(
+        "Teach me how to analyze stock portfolios and build an investment strategy."
+    )
+
+    assert ir2.policy.risk_level == "high"
+    assert ir2.policy.execution_mode == "human_approval_required"
+    assert "financial" in ir2.policy.risk_domains
+
+
+def test_policy_educational_two_risk_domains_escalates_to_high():
+    # risk_score == 2 (privacy + financial) blocks benign_educational_risk which
+    # requires risk_score == 1; two overlapping domains always escalate.
+    ir2 = compile_text_v2(
+        "Learn about GDPR privacy requirements for handling financial investment records."
+    )
+
+    assert ir2.policy.risk_level == "high"
+    assert ir2.policy.execution_mode == "human_approval_required"
+    assert "privacy" in ir2.policy.risk_domains
+    assert "financial" in ir2.policy.risk_domains
+
+
+def test_policy_financial_and_privacy_sanitization_rules_are_deduplicated():
+    # Both "financial" and "privacy" domain rules emit "mask_sensitive_values".
+    # PolicyHandler._unique() must ensure it appears exactly once.
+    ir2 = compile_text_v2("Analyze personal investment records for GDPR consent compliance.")
+
+    assert "financial" in ir2.policy.risk_domains
+    assert "privacy" in ir2.policy.risk_domains
+    count = ir2.policy.sanitization_rules.count("mask_sensitive_values")
+    assert count == 1, (
+        f"'mask_sensitive_values' expected exactly once, found {count} times: "
+        f"{ir2.policy.sanitization_rules}"
+    )

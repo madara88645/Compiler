@@ -81,5 +81,8 @@ class LiveModeManager:
             with self._lock:
                 if current_id != self._latest_request_id:
                     return
-            err_msg = str(e)
+            import logging
+
+            logging.getLogger(__name__).error(f"Live UI error: {e}")
+            err_msg = "An internal error occurred."
             self.root.after(0, lambda: self.on_error(err_msg))

@@ -60,15 +60,19 @@ class SwarmAnalyzer:
 
         # Heuristic 2: Coverage (Missing standard roles for a swarm)
         coverage_score = 100.0
-        has_planner = any(
-            r
-            for r in roles
-            if "planner" in r or "coordinator" in r or "manager" in r or "router" in r
-        )
 
-        has_reviewer = any(
-            r for r in roles if "reviewer" in r or "validator" in r or "qa" in r or "critic" in r
-        )
+        # Bolt Optimization: Replace any() generator expressions with fast-path loops
+        has_planner = False
+        for r in roles:
+            if "planner" in r or "coordinator" in r or "manager" in r or "router" in r:
+                has_planner = True
+                break
+
+        has_reviewer = False
+        for r in roles:
+            if "reviewer" in r or "validator" in r or "qa" in r or "critic" in r:
+                has_reviewer = True
+                break
 
         if len(agents) >= 3:
             if not has_planner:

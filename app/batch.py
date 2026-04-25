@@ -83,7 +83,10 @@ def batch_process_files(
 
             return f, True, ir.model_dump() if jsonl_file else None, ""
         except Exception as e:
-            return f, False, None, str(e)
+            import logging
+
+            logging.getLogger(__name__).error(f"Batch processing error: {e}")
+            return f, False, None, "An internal error occurred."
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(process_one, f): f for f in files}

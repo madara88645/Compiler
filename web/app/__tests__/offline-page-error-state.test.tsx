@@ -50,4 +50,15 @@ describe("Offline compiler page", () => {
       expect(compilePromptMock).toHaveBeenCalledTimes(2);
     });
   });
+
+  it("renders stable offline UI copy without fragile glyphs", () => {
+    render(<OfflinePage />);
+
+    expect(screen.getAllByText("Offline Compiler").length).toBeGreaterThan(0);
+    expect(screen.getByText("Ctrl/Cmd Enter")).toBeTruthy();
+    // "OF" placeholder was replaced by WifiOff SVG icon in #441 — no text to assert
+    expect(screen.queryByText("🔌")).toBeNull();
+    expect(screen.queryByText("→")).toBeNull();
+    expect(screen.queryByText("Ctrl/⌘ Enter")).toBeNull();
+  });
 });

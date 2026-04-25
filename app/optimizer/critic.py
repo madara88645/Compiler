@@ -70,6 +70,9 @@ class CriticAgent:
             data = json.loads(response_text)
             return CriticVerdict(**data)
         except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Critic execution error: {e}")
             # Fallback in case of parsing error or LLM failure
             return CriticVerdict(
                 verdict="REJECT",
@@ -77,7 +80,7 @@ class CriticAgent:
                 issues=[
                     CriticIssue(
                         type="System Error",
-                        description=f"Critic failed to execute: {str(e)}",
+                        description="Critic failed to execute: An internal error occurred.",
                         severity="critical",
                     )
                 ],

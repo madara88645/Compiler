@@ -97,7 +97,7 @@ def test_validator_error_handling():
     # Ensure it didn't crash
     assert len(result.detailed_results) == 1
     res = result.detailed_results[0]
-    assert res.error == "API Error"
+    assert res.error == "An internal error occurred."
     assert res.score == 0.0
     # Error models might be excluded from 'scores' dict?
     # Logic: "if not res.error: final_scores[name] = score"

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
 import InfoButton from "../components/InfoButton";
@@ -76,12 +77,12 @@ export default function SkillsGenerator() {
         <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-yellow-600 to-orange-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-yellow-500/20">
-                ⚡
+              <div className="h-9 w-9 bg-gradient-to-br from-yellow-600 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-yellow-500/20">
+                <Zap size={18} aria-hidden="true" />
               </div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Skills Generator</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">
                   Capability Architect
                 </div>
               </div>
@@ -106,6 +107,7 @@ export default function SkillsGenerator() {
             <div className="flex-1 min-h-0 flex flex-col relative group">
               <textarea
                 id="skill-description"
+                aria-label="Skill Description"
                 className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
@@ -135,7 +137,7 @@ export default function SkillsGenerator() {
               </button>
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-zinc-200">Example Code?</span>
-                <span className="text-[10px] text-zinc-500">
+                <span className="text-xs text-zinc-500">
                   Yes = include implementation code, No = keep it code-free
                 </span>
               </div>
@@ -172,7 +174,7 @@ export default function SkillsGenerator() {
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
               title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
-              className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+              className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
               {loading ? (
                 <span className="animate-pulse">Forging Skill...</span>
@@ -213,7 +215,7 @@ export default function SkillsGenerator() {
                   <button
                     type="button"
                     onClick={copyToClipboard}
-                    className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2"
+                    className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
                     title={copied ? "Copied!" : "Copy to Clipboard"}
                     aria-label={copied ? "Copied" : "Copy Markdown"}
                   >
@@ -231,14 +233,23 @@ export default function SkillsGenerator() {
                 <div className="relative group">
                   <div className="absolute inset-0 bg-yellow-500/30 blur-[40px] rounded-full group-hover:bg-yellow-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
-                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">⚡</span>
+                    <Zap size={40} strokeWidth={1.5} aria-hidden="true" className="text-yellow-400/60" />
                   </div>
                 </div>
                 <div className="max-w-xs space-y-2">
                   <h3 className="text-zinc-200 font-medium tracking-wide">Skill Forge</h3>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-500 mb-4">
                     Define a capability to generate a robust, modular skill definition for your AI agents.
                   </p>
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={loading || !description.trim()}
+                    title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
+                    className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+                  >
+                    Generate Skill
+                  </button>
                 </div>
               </div>
             )}

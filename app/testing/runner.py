@@ -185,9 +185,16 @@ class TestRunner:
             )
 
         except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Test runner error: {e}")
             duration = (time.perf_counter() - start) * 1000.0
             return TestResult(
-                test_case_id=case.id, passed=False, output="", duration_ms=duration, error=str(e)
+                test_case_id=case.id,
+                passed=False,
+                output="",
+                duration_ms=duration,
+                error="An internal error occurred.",
             )
 
     def _check_assertion(self, assertion: Assertion, output: str, ir_v2=None) -> bool:
