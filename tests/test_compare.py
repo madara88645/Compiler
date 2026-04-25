@@ -242,3 +242,89 @@ Constraints:
 
     # Structure'lı prompt daha iyi olmalı
     assert result.validation_b.score.total >= result.validation_a.score.total
+
+
+from app.validator import ValidationResult, QualityScore, ValidationIssue
+
+
+def test_prompt_comparator_compare_categories():
+    """Test detailed category comparison logic."""
+    comparator = PromptComparator()
+
+    score_a = QualityScore(total=80, clarity=70, specificity=80, completeness=90, consistency=80)
+    issues_a = [
+        ValidationIssue(
+            severity="warning", category="clarity", message="Vague", suggestion="Be specific"
+        ),
+        ValidationIssue(
+            severity="warning", category="clarity", message="Unclear", suggestion="Clarify"
+        ),
+    ]
+    val_a = ValidationResult(score=score_a, issues=issues_a)
+
+    score_b = QualityScore(total=85, clarity=75, specificity=78, completeness=90, consistency=95)
+    issues_b = [
+        ValidationIssue(
+            severity="warning", category="specificity", message="Broad", suggestion="Narrow"
+        ),
+    ]
+    val_b = ValidationResult(score=score_b, issues=issues_b)
+
+    result = comparator._compare_categories(val_a, val_b)
+
+    assert "clarity" in result
+    assert result["clarity"]["score_a"] == 70
+    assert result["clarity"]["score_b"] == 75
+    assert result["clarity"]["difference"] == 5
+    assert result["clarity"]["better"] == "B"
+    assert result["clarity"]["issues_a_count"] == 2
+    assert result["clarity"]["issues_b_count"] == 0
+
+    assert "specificity" in result
+    assert result["specificity"]["score_a"] == 80
+    assert result["specificity"]["score_b"] == 78
+    assert result["specificity"]["difference"] == -2
+    assert result["specificity"]["better"] == "Equal"
+    assert result["specificity"]["issues_a_count"] == 0
+    assert result["specificity"]["issues_b_count"] == 1
+
+    assert "completeness" in result
+    assert result["completeness"]["difference"] == 0
+    assert result["completeness"]["better"] == "Equal"
+
+    assert "consistency" in result
+    assert result["consistency"]["difference"] == 15
+    assert result["consistency"]["better"] == "B"
+
+
+def test_prompt_comparator_compare_categories_edge_cases():
+    """Test threshold boundaries for category comparison."""
+    comparator = PromptComparator()
+
+    # Exact boundary checks (-2, 2, -2.1, 2.1)
+    val_a = ValidationResult(
+        score=QualityScore(total=50, clarity=50, specificity=50, completeness=50, consistency=50)
+    )
+    val_b = ValidationResult(
+        score=QualityScore(
+            total=50, clarity=52, specificity=48, completeness=52.1, consistency=47.9
+        )
+    )
+
+    result = comparator._compare_categories(val_a, val_b)
+
+    # diff = 2 -> Equal
+    assert result["clarity"]["difference"] == 2
+    assert result["clarity"]["better"] == "Equal"
+
+    # diff = -2 -> Equal
+    assert result["specificity"]["difference"] == -2
+    assert result["specificity"]["better"] == "Equal"
+
+    # diff = 2.1 -> B
+    assert result["completeness"]["difference"] > 2
+    assert result["completeness"]["better"] == "B"
+
+    # diff = -2.1 -> A
+    assert result["consistency"]["difference"] < -2
+    assert result["consistency"]["better"] == "A"
