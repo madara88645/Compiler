@@ -1,3 +1,8 @@
+## 2025-04-25 - [Precomputing Inverse Document Frequency (IDF)]
+**Learning:** In the Simple Index RAG module (`app/rag/simple_index.py`), calculating the TF-IDF for sentences happens iteratively within an inner loop inside `compute_tfidf` function which is called for each sentence against a `doc_freq` Counter. Re-calculating the IDF via `math.log` for the entire dataset inside the inner loop was an unnecessary computation overhead. Since the document count and total frequency mapping are static, these metrics can be pre-calculated upfront using a dictionary cache to allow O(1) lookups.
+**Action:** Precompute static mapping dependencies inside tight inner loops with caching logic to mitigate unnecessary redundant execution overhead.
+
+
 ## 2024-05-24 - Optimizing PricingModel Cache Invalidation
 **Learning:** Adding a short-circuit length check (`len(keys) != len(dict)`) before an O(N) set equality check (`set(keys) != dict.keys()`) helps only when the dictionary size changes (e.g., in tests/mocking). In the steady production state where lengths are equal, the code still builds a set from `keys_to_check` and compares it against the `dict.keys()` view; the length check then adds only a tiny constant overhead.
 **Action:** Using `dict.keys()` directly in set comparisons avoids allocating an extra set for the right-hand side, since `dict_keys` already supports set operations. For further steady-state optimization, consider tracking a version integer or storing a frozenset of keys to avoid set creation entirely when `RATES` is unchanged.
