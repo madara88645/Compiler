@@ -136,6 +136,28 @@ test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
   assert.equal(response.ir_v2?.policy?.risk_level, "low");
 });
 
+test("normalizeCompileResponse preserves backend compile metadata fields", () => {
+  const response = normalizeCompileResponse({
+    system_prompt: "sys",
+    user_prompt: "usr",
+    plan: "1. step",
+    expanded_prompt: "expanded",
+    ir: {
+      domain: "general",
+    },
+    processing_ms: 25,
+    request_id: "abc123",
+    heuristic_version: "v1",
+    heuristic2_version: "v2",
+    trace: ["step 1", "step 2"],
+  });
+
+  assert.equal(response.request_id, "abc123");
+  assert.equal(response.heuristic_version, "v1");
+  assert.equal(response.heuristic2_version, "v2");
+  assert.deepEqual(response.trace, ["step 1", "step 2"]);
+});
+
 test("formatSearchResultForPrompt includes path header", () => {
   assert.equal(
     formatSearchResultForPrompt({
