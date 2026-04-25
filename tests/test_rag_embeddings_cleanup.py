@@ -1,8 +1,8 @@
 import os
-import sqlite3
 import tempfile
-from app.rag.simple_index import ingest_text, _connect, search_embed
+from app.rag.simple_index import ingest_text, _connect
 from unittest.mock import patch
+
 
 def test_delete_chunk_cleans_up_embeddings():
     with tempfile.TemporaryDirectory() as td:
@@ -21,7 +21,12 @@ def test_delete_chunk_cleans_up_embeddings():
             ),
         ):
             # Ingest text with embed=True
-            doc_path, chunks, _ = ingest_text("secret_doc.txt", "This is a super secret document with sensitive data.", db_path=test_db, embed=True)
+            doc_path, chunks, _ = ingest_text(
+                "secret_doc.txt",
+                "This is a super secret document with sensitive data.",
+                db_path=test_db,
+                embed=True,
+            )
 
             # Verify data is in chunks and embeddings
             conn = _connect(test_db)
@@ -36,7 +41,9 @@ def test_delete_chunk_cleans_up_embeddings():
             assert len(emb_chunk_ids) > 0, "Embeddings were not created"
 
             # Re-ingest the document, replacing the old chunks
-            doc_path2, chunks2, _ = ingest_text("secret_doc.txt", "Replacement document.", db_path=test_db, embed=True)
+            doc_path2, chunks2, _ = ingest_text(
+                "secret_doc.txt", "Replacement document.", db_path=test_db, embed=True
+            )
 
             # The old chunks should have been deleted (since doc_id matches and we do DELETE FROM chunks)
             # This should also trigger the chunks_ad_embed trigger and delete the old embeddings.
@@ -51,6 +58,8 @@ def test_delete_chunk_cleans_up_embeddings():
             # Verify the old chunk IDs are gone from embeddings
             for old_id in chunk_ids:
                 if old_id not in new_chunk_ids:
-                    assert old_id not in new_emb_chunk_ids, f"Orphaned embedding found for deleted chunk {old_id}"
+                    assert (
+                        old_id not in new_emb_chunk_ids
+                    ), f"Orphaned embedding found for deleted chunk {old_id}"
 
             conn.close()
