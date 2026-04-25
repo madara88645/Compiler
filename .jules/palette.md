@@ -19,3 +19,5 @@
 ## 2025-04-24 - Accessibility for input elements without visible labels
 **Learning:** For interactive elements like `<textarea>` that function as central input areas in full-page editors but lack a dedicated `<label>`, it is crucial to manually add an `aria-label` attribute. Without this, screen readers will announce the element generically (e.g., "text area, blank"), leaving visually impaired users without context on what the input is for.
 **Action:** When creating or reviewing form inputs without explicit visible `<label>` tags, proactively add an `aria-label` to provide the necessary context.
+
+## 2026-04-24 - Added Keyboard Focus States to Floating Copy Buttons\n**Learning:** Floating copy buttons that appear conditionally or use absolute positioning often lack `focus-visible` states, rendering them inaccessible to keyboard-only users who cannot easily discover them via tab navigation.\n**Action:** When adding utility or floating buttons, always explicitly define `focus-visible:outline-none` and `focus-visible:ring-2` (or `ring-1`) with the appropriate brand color.
