@@ -4,6 +4,7 @@ import secrets
 from pathlib import Path
 from typing import Dict
 import os
+from threading import Lock
 
 from fastapi import HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
@@ -65,6 +66,7 @@ def get_db():
 # Simple sliding window or fixed window?
 # Let's do a simple fixed window or just a list of timestamps with cleanup.
 RATE_LIMIT_STORE: Dict[str, list] = {}
+RATE_LIMIT_LOCK = Lock()
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS = 10
 
@@ -104,32 +106,33 @@ def verify_api_key(
     # --- Rate Limiting ---
     now = time.time()
 
-    # Periodically clean up stale rate limit entries to prevent memory leaks
-    if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
-        verify_api_key._cleanup_counter = 0
-        stale_keys = []
-        for k, v in RATE_LIMIT_STORE.items():
-            valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
-            if not valid_ts:
-                stale_keys.append(k)
-            else:
-                RATE_LIMIT_STORE[k] = valid_ts
-        for k in stale_keys:
-            RATE_LIMIT_STORE.pop(k, None)
-    else:
-        verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
+    with RATE_LIMIT_LOCK:
+        # Periodically clean up stale rate limit entries to prevent memory leaks
+        if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
+            verify_api_key._cleanup_counter = 0
+            stale_keys = []
+            for k, v in RATE_LIMIT_STORE.items():
+                valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
+                if not valid_ts:
+                    stale_keys.append(k)
+                else:
+                    RATE_LIMIT_STORE[k] = valid_ts
+            for k in stale_keys:
+                RATE_LIMIT_STORE.pop(k, None)
+        else:
+            verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
 
-    history = RATE_LIMIT_STORE.get(api_key, [])
-    # Filter out timestamps older than window
-    history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
+        history = RATE_LIMIT_STORE.get(api_key, [])
+        # Filter out timestamps older than window
+        history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
 
-    if len(history) >= RATE_LIMIT_MAX_REQUESTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
-        )
+        if len(history) >= RATE_LIMIT_MAX_REQUESTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
+            )
 
-    history.append(now)
-    RATE_LIMIT_STORE[api_key] = history
+        history.append(now)
+        RATE_LIMIT_STORE[api_key] = history
 
     return key_record
 
