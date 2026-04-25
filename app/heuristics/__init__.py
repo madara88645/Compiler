@@ -917,6 +917,22 @@ _LEVEL_INTERMEDIATE_RE = re.compile(r"\b(intermediate|mid)\b|\b(orta seviye|orta
 _LEVEL_ADVANCED_RE = re.compile(r"\b(advanced|expert)\b|\b(ileri|uzman)\b")
 _HALF_HOUR_RE = re.compile(r"\bhalf\s+(an\s+)?hour\b")
 
+# Bolt Optimization: Pre-compile regex patterns for extract_inputs
+_SPORTS_PATTERNS = [
+    (s, re.compile(rf"\b{s}\b"))
+    for s in ["futbol", "football", "soccer", "basketbol", "basketball", "tenis", "tennis"]
+]
+
+_DUR_PATTERNS = [
+    # Turkish with locative suffix
+    (re.compile(r"(\d{1,3})\s*(dk|dakika)(?:da|de|ta|te)?\b"), "m"),
+    (re.compile(r"(\d{1,2})\s*(saat)(?:te|ta|de|da)?\b"), "h"),
+    # English
+    (re.compile(r"(\d{1,3})\s*(min|minute|minutes|mins|m)\b"), "m"),
+    (re.compile(r"(\d{1,2})\s*(hour|hours|h)\b"), "h"),
+    (re.compile(r"in\s*(\d{1,3})\s*(minutes|minute|mins)\b"), "m"),
+]
+
 
 def detect_language(text: str) -> str:
     # Simple heuristic: presence of Turkish or Spanish indicators, else default English
@@ -1109,9 +1125,9 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
         inputs["interest"] = m.group(1)
     else:
         # common sports keywords
-        sports = ["futbol", "football", "soccer", "basketbol", "basketball", "tenis", "tennis"]
-        for s in sports:
-            if re.search(rf"\b{s}\b", lower):
+        # Bolt Optimization: Explict loop replaces dynamic regex compilation
+        for s, pattern in _SPORTS_PATTERNS:
+            if pattern.search(lower):
                 inputs.setdefault("interest", s)
                 break
 
@@ -1156,17 +1172,9 @@ def extract_inputs(text: str, lang: str) -> Dict[str, str]:
     if "yarım saat" in lower or _HALF_HOUR_RE.search(lower):
         inputs["duration"] = "30m"
     else:
-        dur_patterns = [
-            # Turkish with locative suffix
-            (r"(\d{1,3})\s*(dk|dakika)(?:da|de|ta|te)?\b", "m"),
-            (r"(\d{1,2})\s*(saat)(?:te|ta|de|da)?\b", "h"),
-            # English
-            (r"(\d{1,3})\s*(min|minute|minutes|mins|m)\b", "m"),
-            (r"(\d{1,2})\s*(hour|hours|h)\b", "h"),
-            (r"in\s*(\d{1,3})\s*(minutes|minute|mins)\b", "m"),
-        ]
-        for dp, norm in dur_patterns:
-            md = re.search(dp, lower)
+        # Bolt Optimization: Used pre-compiled _DUR_PATTERNS
+        for dp_compiled, norm in _DUR_PATTERNS:
+            md = dp_compiled.search(lower)
             if md:
                 num = md.group(1)
                 inputs["duration"] = f"{num}{norm}"
