@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from app.templates import TemplateRegistry
+from unittest.mock import mock_open, patch
+from app.templates_manager import TemplateUsageStats
 from app.templates_manager import TemplatesManager
 
 
@@ -477,3 +479,58 @@ def test_stats_persistence(manager_with_temp_dirs):
 
     stats = manager2.get_stats("persist_test")
     assert stats["use_count"] == 2
+
+
+@patch("app.templates_manager.json.dump")
+@patch("builtins.open", new_callable=mock_open)
+def test_save_stats_success(mock_file, mock_json_dump, manager_with_temp_dirs):
+    """Test _save_stats method successfully writes JSON data."""
+    manager = manager_with_temp_dirs
+
+    # Add some mock stats
+    manager._stats = {
+        "test1": TemplateUsageStats(
+            template_id="test1", use_count=5, last_used="2024-01-01T12:00:00", average_rating=4.5
+        )
+    }
+
+    manager._save_stats()
+
+    # Verify file was opened correctly
+    mock_file.assert_called_once_with(manager.stats_file, "w", encoding="utf-8")
+
+    # Verify json.dump was called with correct data
+    assert mock_json_dump.call_count == 1
+    call_args = mock_json_dump.call_args
+
+    # Check the data argument
+    data = call_args[0][0]
+    assert "test1" in data
+    assert data["test1"]["use_count"] == 5
+    assert data["test1"]["average_rating"] == 4.5
+
+    # Check kwargs
+    kwargs = call_args[1]
+    assert kwargs["indent"] == 2
+    assert kwargs["ensure_ascii"] is False
+
+
+@patch("builtins.open")
+def test_save_stats_error(mock_open_func, manager_with_temp_dirs):
+    """Test _save_stats handles file system errors."""
+    manager = manager_with_temp_dirs
+
+    # Add some mock stats to trigger saving
+    manager._stats = {
+        "test1": TemplateUsageStats(
+            template_id="test1", use_count=5, last_used="2024-01-01T12:00:00", average_rating=4.5
+        )
+    }
+
+    # Mock open to raise an error
+    mock_open_func.side_effect = PermissionError("Permission denied")
+
+    # Currently the method does not catch exceptions, so we expect it to raise
+    # If the user snippet is applied, it will catch and print. Let's test the current code.
+    with pytest.raises(PermissionError):
+        manager._save_stats()
