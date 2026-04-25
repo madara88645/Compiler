@@ -1,6 +1,7 @@
 """Tests for prompt comparison functionality"""
 
 from app.compare import compare_prompts, PromptComparator
+from app.validator import ValidationResult, QualityScore, ValidationIssue
 
 
 def test_compare_identical_prompts():
@@ -242,9 +243,6 @@ Constraints:
 
     # Structure'lı prompt daha iyi olmalı
     assert result.validation_b.score.total >= result.validation_a.score.total
-
-
-from app.validator import ValidationResult, QualityScore, ValidationIssue
 
 
 def test_prompt_comparator_compare_categories():
