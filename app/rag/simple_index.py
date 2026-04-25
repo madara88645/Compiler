@@ -360,8 +360,6 @@ def _chunk_text_semantic(
     n_docs = len(sentences)
 
     # Bolt Optimization: Precompute IDF values to avoid redundant math.log calls inside the loop
-    # Pre-calculate common denominator log part
-    # idf = math.log((n_docs + 1) / (doc_freq.get(tok, 0) + 1)) + 1
     default_idf = math.log((n_docs + 1) / 1) + 1
     idf_cache = {tok: math.log((n_docs + 1) / (count + 1)) + 1 for tok, count in doc_freq.items()}
 
