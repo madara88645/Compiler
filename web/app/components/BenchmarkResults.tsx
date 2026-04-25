@@ -32,37 +32,56 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
 
     return (
         <div className="flex flex-col h-full overflow-hidden animate-fade-in">
-
             {/* Winner Banner */}
             <div className="px-5 py-4 border-b border-white/5 bg-black/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="text-sm font-medium text-zinc-400">Result</div>
+                    <div className="text-sm font-medium text-zinc-400">
+                        Result
+                    </div>
 
                     {isTie ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-700/40 border border-zinc-600/30 animate-slide-in">
                             <span className="text-sm">🤝</span>
-                            <span className="text-xs font-bold text-zinc-300 tracking-wide">TIE</span>
+                            <span className="text-xs font-bold text-zinc-300 tracking-wide">
+                                TIE
+                            </span>
                         </div>
                     ) : (
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full animate-slide-in ${isCompiledWinner
-                                ? "bg-emerald-500/15 border border-emerald-500/30"
-                                : "bg-amber-500/15 border border-amber-500/30"
-                            }`}>
-                            <span className="text-sm">{isCompiledWinner ? "🏆" : "⚡"}</span>
-                            <span className={`text-xs font-bold tracking-wide ${isCompiledWinner ? "text-emerald-400" : "text-amber-400"
-                                }`}>
-                                {isCompiledWinner ? "COMPILED WINS" : "RAW WINS"}
+                        <div
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full animate-slide-in ${
+                                isCompiledWinner
+                                    ? "bg-emerald-500/15 border border-emerald-500/30"
+                                    : "bg-amber-500/15 border border-amber-500/30"
+                            }`}
+                        >
+                            <span className="text-sm">
+                                {isCompiledWinner ? "🏆" : "⚡"}
+                            </span>
+                            <span
+                                className={`text-xs font-bold tracking-wide ${
+                                    isCompiledWinner
+                                        ? "text-emerald-400"
+                                        : "text-amber-400"
+                                }`}
+                            >
+                                {isCompiledWinner
+                                    ? "COMPILED WINS"
+                                    : "RAW WINS"}
                             </span>
                         </div>
                     )}
 
                     {/* Improvement Score Badge */}
                     {!isTie && (
-                        <div className={`px-3 py-1 rounded-lg text-sm font-bold tracking-tight animate-slide-in ${data.improvement_score >= 0
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                : "bg-red-500/10 text-red-400 border border-red-500/20"
-                            }`}>
-                            {sign}{data.improvement_score}%
+                        <div
+                            className={`px-3 py-1 rounded-lg text-sm font-bold tracking-tight animate-slide-in ${
+                                data.improvement_score >= 0
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                            }`}
+                        >
+                            {sign}
+                            {data.improvement_score}%
                         </div>
                     )}
                 </div>
@@ -74,8 +93,16 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
 
             {/* Metrics Bar */}
             <div className="px-5 py-3 border-b border-white/5 bg-black/10 flex gap-6">
-                <MetricPill label="Relevance" raw={data.metrics.raw_relevance} compiled={data.metrics.compiled_relevance} />
-                <MetricPill label="Clarity" raw={data.metrics.raw_clarity} compiled={data.metrics.compiled_clarity} />
+                <MetricPill
+                    label="Relevance"
+                    raw={data.metrics.raw_relevance}
+                    compiled={data.metrics.compiled_relevance}
+                />
+                <MetricPill
+                    label="Clarity"
+                    raw={data.metrics.raw_clarity}
+                    compiled={data.metrics.compiled_clarity}
+                />
             </div>
 
             {/* Collapsible Compiled Prompt */}
@@ -89,10 +116,14 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                     <div className="flex items-center gap-2">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            width="14" height="14"
+                            width="14"
+                            height="14"
                             viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                             className={`text-zinc-500 transition-transform duration-200 ${promptOpen ? "rotate-90" : ""}`}
                         >
                             <path d="m9 18 6-6-6-6" />
@@ -121,8 +152,12 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 <div className="flex-1 flex flex-col border-r border-white/5 min-w-0">
                     <div className="px-4 py-2.5 border-b border-white/5 bg-black/20 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${data.winner === "raw" ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]" : "bg-zinc-600"}`} />
-                            <span className="text-xs font-semibold text-zinc-300 tracking-wide">Raw LLM Output</span>
+                            <div
+                                className={`w-2 h-2 rounded-full ${data.winner === "raw" ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]" : "bg-zinc-600"}`}
+                            />
+                            <span className="text-xs font-semibold text-zinc-300 tracking-wide">
+                                Raw LLM Output
+                            </span>
                         </div>
                         <button
                             type="button"
@@ -133,17 +168,53 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                             }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title={copiedRaw ? "Copied!" : "Copy raw output"}
-                            aria-label={copiedRaw ? "Copied" : "Copy raw output"}
+                            aria-label={
+                                copiedRaw ? "Copied" : "Copy raw output"
+                            }
                         >
                             {copiedRaw ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <rect
+                                        width="14"
+                                        height="14"
+                                        x="8"
+                                        y="8"
+                                        rx="2"
+                                        ry="2"
+                                    />
+                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                                </svg>
                             )}
                         </button>
                     </div>
                     <div className="flex-1 overflow-auto p-4">
-                        <pre className="text-sm font-mono text-zinc-400 whitespace-pre-wrap leading-relaxed">{data.raw_output}</pre>
+                        <pre className="text-sm font-mono text-zinc-400 whitespace-pre-wrap leading-relaxed">
+                            {data.raw_output}
+                        </pre>
                     </div>
                 </div>
 
@@ -151,29 +222,80 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="px-4 py-2.5 border-b border-white/5 bg-black/20 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${data.winner === "compiled" ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-zinc-600"}`} />
-                            <span className="text-xs font-semibold text-zinc-300 tracking-wide">Compiled LLM Output</span>
+                            <div
+                                className={`w-2 h-2 rounded-full ${data.winner === "compiled" ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-zinc-600"}`}
+                            />
+                            <span className="text-xs font-semibold text-zinc-300 tracking-wide">
+                                Compiled LLM Output
+                            </span>
                         </div>
                         <button
                             type="button"
                             onClick={() => {
-                                navigator.clipboard.writeText(data.compiled_output);
+                                navigator.clipboard.writeText(
+                                    data.compiled_output,
+                                );
                                 setCopiedCompiled(true);
-                                setTimeout(() => setCopiedCompiled(false), 2000);
+                                setTimeout(
+                                    () => setCopiedCompiled(false),
+                                    2000,
+                                );
                             }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-                            title={copiedCompiled ? "Copied!" : "Copy compiled output"}
-                            aria-label={copiedCompiled ? "Copied" : "Copy compiled output"}
+                            title={
+                                copiedCompiled
+                                    ? "Copied!"
+                                    : "Copy compiled output"
+                            }
+                            aria-label={
+                                copiedCompiled
+                                    ? "Copied"
+                                    : "Copy compiled output"
+                            }
                         >
                             {copiedCompiled ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <rect
+                                        width="14"
+                                        height="14"
+                                        x="8"
+                                        y="8"
+                                        rx="2"
+                                        ry="2"
+                                    />
+                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                                </svg>
                             )}
                         </button>
                     </div>
                     <div className="flex-1 overflow-auto p-4">
-                        <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{data.compiled_output}</pre>
+                        <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                            {data.compiled_output}
+                        </pre>
                     </div>
                 </div>
             </div>
@@ -181,10 +303,17 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
     );
 }
 
-
 /* ─── Small helper ───────────────────────────────────── */
 
-const MetricPill = memo(function MetricPill({ label, raw, compiled }: { label: string; raw: number; compiled: number }) {
+const MetricPill = memo(function MetricPill({
+    label,
+    raw,
+    compiled,
+}: {
+    label: string;
+    raw: number;
+    compiled: number;
+}) {
     const diff = compiled - raw;
     const better = diff > 0;
     return (
@@ -192,12 +321,17 @@ const MetricPill = memo(function MetricPill({ label, raw, compiled }: { label: s
             <span className="text-zinc-500 font-medium">{label}</span>
             <span className="font-mono text-zinc-600">{raw.toFixed(1)}</span>
             <span className="text-zinc-700">→</span>
-            <span className={`font-mono font-semibold ${better ? "text-emerald-400" : diff < 0 ? "text-red-400" : "text-zinc-400"}`}>
+            <span
+                className={`font-mono font-semibold ${better ? "text-emerald-400" : diff < 0 ? "text-red-400" : "text-zinc-400"}`}
+            >
                 {compiled.toFixed(1)}
             </span>
             {diff !== 0 && (
-                <span className={`text-[10px] font-bold ${better ? "text-emerald-500/70" : "text-red-500/70"}`}>
-                    ({diff > 0 ? "+" : ""}{diff.toFixed(1)})
+                <span
+                    className={`text-[10px] font-bold ${better ? "text-emerald-500/70" : "text-red-500/70"}`}
+                >
+                    ({diff > 0 ? "+" : ""}
+                    {diff.toFixed(1)})
                 </span>
             )}
         </div>

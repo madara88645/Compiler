@@ -27,10 +27,11 @@ export default function Sidebar() {
                     <Link
                         key={item.path}
                         href={item.path}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive
-                            ? "bg-white/10 text-white shadow-lg shadow-white/5 ring-1 ring-white/20"
-                            : "text-zinc-500 hover:text-white hover:bg-white/5"
-                            }`}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                            isActive
+                                ? "bg-white/10 text-white shadow-lg shadow-white/5 ring-1 ring-white/20"
+                                : "text-zinc-500 hover:text-white hover:bg-white/5"
+                        }`}
                         aria-label={item.name}
                         aria-current={isActive ? "page" : undefined}
                     >

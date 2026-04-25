@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { apiFetch, describeRequestError } from "../../config";
 import {
@@ -84,12 +84,9 @@ export function useContextManager() {
         }
     }, [refreshStats]);
 
-    const checkConnectionRef = useRef(checkConnection);
-    useEffect(() => { checkConnectionRef.current = checkConnection; }, [checkConnection]);
-
     useEffect(() => {
-        void checkConnectionRef.current();
-    }, []);
+        void checkConnection();
+    }, [checkConnection]);
 
     const uploadFiles = useCallback(
         async (files: File[]) => {

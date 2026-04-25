@@ -4,13 +4,18 @@ type UploadProgressCardProps = {
     uploadProgress: UploadProgress;
 };
 
-export default function UploadProgressCard({ uploadProgress }: UploadProgressCardProps) {
+export default function UploadProgressCard({
+    uploadProgress,
+}: UploadProgressCardProps) {
     const uploadPercent = Math.max(
         8,
         Math.min(
             100,
             Math.round(
-                ((uploadProgress.completed + (uploadProgress.currentFile ? 0.45 : 0)) / uploadProgress.total) * 100,
+                ((uploadProgress.completed +
+                    (uploadProgress.currentFile ? 0.45 : 0)) /
+                    uploadProgress.total) *
+                    100,
             ),
         ),
     );
@@ -28,13 +33,17 @@ export default function UploadProgressCard({ uploadProgress }: UploadProgressCar
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium text-cyan-100">Uploading context</span>
+                        <span className="text-sm font-medium text-cyan-100">
+                            Uploading context
+                        </span>
                         <span className="text-[10px] font-mono text-cyan-200/80">
                             {currentStep}/{uploadProgress.total}
                         </span>
                     </div>
                     <p className="mt-1 text-[11px] leading-relaxed text-cyan-100/70">
-                        {uploadProgress.currentFile ? uploadProgress.currentFile : "Preparing files..."}
+                        {uploadProgress.currentFile
+                            ? uploadProgress.currentFile
+                            : "Preparing files..."}
                     </p>
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/20">
                         <div

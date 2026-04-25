@@ -12,7 +12,10 @@ type OfflineOutputTab = "system" | "user" | "plan" | "expanded" | "json";
 
 const OFFLINE_MODE: CompileMode = "conservative";
 
-function getOfflineTabContent(result: CompileResponse, activeTab: OfflineOutputTab): string {
+function getOfflineTabContent(
+    result: CompileResponse,
+    activeTab: OfflineOutputTab,
+): string {
     if (activeTab === "system") {
         return result.system_prompt_v2 || result.system_prompt || "";
     }
@@ -41,32 +44,36 @@ export default function OfflinePage() {
 
     const [status, setStatus] = useState("Ready");
 
-    const handleGenerate = useCallback(async (textOverride?: string) => {
-        const textToCompile = typeof textOverride === 'string' ? textOverride : prompt;
-        if (!textToCompile.trim()) return;
+    const handleGenerate = useCallback(
+        async (textOverride?: string) => {
+            const textToCompile =
+                typeof textOverride === "string" ? textOverride : prompt;
+            if (!textToCompile.trim()) return;
 
-        setLoading(true);
-        setLastError(null);
-        setLastRequest(textToCompile);
-        setStatus("Compiling (Offline)...");
+            setLoading(true);
+            setLastError(null);
+            setLastRequest(textToCompile);
+            setStatus("Compiling (Offline)...");
 
-        try {
-            const data = await compilePrompt({
-                text: textToCompile,
-                diagnostics,
-                v2: false,
-                render_v2_prompts: true,
-                mode: OFFLINE_MODE,
-            });
-            setResult(data);
-            setStatus(`Done in ${data.processing_ms}ms`);
-        } catch (e: unknown) {
-            setLastError(e);
-            setStatus(`Error: ${describeRequestError(e)}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [prompt, diagnostics]);
+            try {
+                const data = await compilePrompt({
+                    text: textToCompile,
+                    diagnostics,
+                    v2: false,
+                    render_v2_prompts: true,
+                    mode: OFFLINE_MODE,
+                });
+                setResult(data);
+                setStatus(`Done in ${data.processing_ms}ms`);
+            } catch (e: unknown) {
+                setLastError(e);
+                setStatus(`Error: ${describeRequestError(e)}`);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [prompt, diagnostics],
+    );
 
     const handleRetry = useCallback(async () => {
         if (!lastRequest.trim()) return;
@@ -81,15 +88,20 @@ export default function OfflinePage() {
 
             {/* Floating Main Container */}
             <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
-
                 {/* Header */}
                 <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
+                            <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">
+                                🔌
+                            </div>
                             <div>
-                                <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
-                                <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
+                                <h1 className="font-semibold text-lg tracking-tight text-white">
+                                    Offline Compiler
+                                </h1>
+                                <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">
+                                    Heuristic Engine V2
+                                </div>
                             </div>
                         </div>
                         <InfoButton
@@ -123,7 +135,6 @@ export default function OfflinePage() {
                 <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
                     {/* Left Panel: Input */}
                     <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/20">
-
                         <div className="flex-1 flex flex-col relative group">
                             <textarea
                                 id="offline-prompt"
@@ -133,7 +144,10 @@ export default function OfflinePage() {
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                                    if (
+                                        (e.metaKey || e.ctrlKey) &&
+                                        e.key === "Enter"
+                                    ) {
                                         e.preventDefault();
                                         if (!loading && prompt.trim()) {
                                             void handleGenerate();
@@ -150,19 +164,40 @@ export default function OfflinePage() {
                                     type="button"
                                     onClick={() => handleGenerate()}
                                     disabled={loading || !prompt.trim()}
-                                    title={!prompt.trim() ? "Enter a prompt first to generate" : "Generate Prompt"}
+                                    title={
+                                        !prompt.trim()
+                                            ? "Enter a prompt first to generate"
+                                            : "Generate Prompt"
+                                    }
                                     className="px-4 py-3 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
                                 >
                                     {loading ? (
-                                        <span className="animate-pulse">Processing...</span>
+                                        <span className="animate-pulse">
+                                            Processing...
+                                        </span>
                                     ) : (
-                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                                        <>
+                                            Run Heuristics{" "}
+                                            <span className="group-hover:translate-x-0.5 transition-transform">
+                                                →
+                                            </span>{" "}
+                                            <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">
+                                                Ctrl/⌘ Enter
+                                            </kbd>
+                                        </>
                                     )}
                                 </button>
                             </div>
                         </div>
 
-                        <ContextManager onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)} />
+                        <ContextManager
+                            onInsertContext={(text) =>
+                                setPrompt(
+                                    (prev) =>
+                                        prev + "\n\n---\nContext:\n" + text,
+                                )
+                            }
+                        />
                     </div>
 
                     {/* Right Panel: Output */}
@@ -170,17 +205,27 @@ export default function OfflinePage() {
                         {result ? (
                             <>
                                 <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
-                                    {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
+                                    {(
+                                        [
+                                            "system",
+                                            "user",
+                                            "plan",
+                                            "expanded",
+                                            "json",
+                                        ] as const
+                                    ).map((tab) => (
                                         <button
                                             type="button"
                                             key={tab}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${activeTab === tab
-                                                ? "text-white bg-white/5 border-t border-x border-white/5"
-                                                : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
-                                                }`}
+                                            className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${
+                                                activeTab === tab
+                                                    ? "text-white bg-white/5 border-t border-x border-white/5"
+                                                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                                            }`}
                                         >
-                                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                            {tab.charAt(0).toUpperCase() +
+                                                tab.slice(1)}
                                         </button>
                                     ))}
                                 </div>
@@ -190,7 +235,9 @@ export default function OfflinePage() {
                                     <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
                                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                            <span className="text-[10px] text-zinc-400 font-medium">Reasoning V2</span>
+                                            <span className="text-[10px] text-zinc-400 font-medium">
+                                                Reasoning V2
+                                            </span>
                                         </div>
                                     </div>
 
@@ -201,16 +248,46 @@ export default function OfflinePage() {
                                                 aria-label="Compiled prompt output"
                                                 className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-orange-500/30"
                                                 readOnly
-                                                value={getOfflineTabContent(result, activeTab)}
+                                                value={getOfflineTabContent(
+                                                    result,
+                                                    activeTab,
+                                                )}
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => navigator.clipboard.writeText(getOfflineTabContent(result, activeTab))}
+                                                onClick={() =>
+                                                    navigator.clipboard.writeText(
+                                                        getOfflineTabContent(
+                                                            result,
+                                                            activeTab,
+                                                        ),
+                                                    )
+                                                }
                                                 className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20"
                                                 title="Copy"
                                                 aria-label="Copy to Clipboard"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="18"
+                                                    height="18"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                >
+                                                    <rect
+                                                        width="14"
+                                                        height="14"
+                                                        x="8"
+                                                        y="8"
+                                                        rx="2"
+                                                        ry="2"
+                                                    />
+                                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                                                </svg>
                                             </button>
                                         </>
                                     )}
@@ -218,7 +295,11 @@ export default function OfflinePage() {
                                     {activeTab === "json" && (
                                         <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
                                             <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
-                                                {JSON.stringify(result, null, 2)}
+                                                {JSON.stringify(
+                                                    result,
+                                                    null,
+                                                    2,
+                                                )}
                                             </pre>
                                         </div>
                                     )}
@@ -226,10 +307,17 @@ export default function OfflinePage() {
                             </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
-                                <div className="text-6xl grayscale opacity-50">🔌</div>
+                                <div className="text-6xl grayscale opacity-50">
+                                    🔌
+                                </div>
                                 <div className="max-w-xs space-y-2">
-                                    <h3 className="text-zinc-200 font-medium tracking-wide">Offline Mode</h3>
-                                    <p className="text-sm text-zinc-500">Fast, local heuristic compilation without LLM calls.</p>
+                                    <h3 className="text-zinc-200 font-medium tracking-wide">
+                                        Offline Mode
+                                    </h3>
+                                    <p className="text-sm text-zinc-500">
+                                        Fast, local heuristic compilation
+                                        without LLM calls.
+                                    </p>
                                 </div>
                             </div>
                         )}

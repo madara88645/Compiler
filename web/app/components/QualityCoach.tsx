@@ -13,7 +13,6 @@ type ValidationResponse = {
     summary: string;
 };
 
-
 type QualityCoachProps = {
     prompt: string;
     onUpdatePrompt: (newPrompt: string) => void;
@@ -22,7 +21,6 @@ type QualityCoachProps = {
 export default function QualityCoach({ prompt }: QualityCoachProps) {
     const [analyzing, setAnalyzing] = useState(false);
     const [report, setReport] = useState<ValidationResponse | null>(null);
-
 
     const handleAnalyze = async () => {
         if (!prompt.trim()) return;
@@ -41,8 +39,6 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
         }
     };
 
-
-
     return (
         <div className="flex flex-col h-full bg-transparent p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-8 sticky top-0 bg-black/60 backdrop-blur-md p-4 -m-4 border-b border-white/5 z-10">
@@ -52,7 +48,16 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                         <div>Quality Coach</div>
                         {report && (
                             <div className="text-[10px] font-mono text-zinc-400 font-normal">
-                                Score: <span className={report.score >= 80 ? 'text-green-400' : 'text-yellow-400'}>{report.score}/100</span>
+                                Score:{" "}
+                                <span
+                                    className={
+                                        report.score >= 80
+                                            ? "text-green-400"
+                                            : "text-yellow-400"
+                                    }
+                                >
+                                    {report.score}/100
+                                </span>
                             </div>
                         )}
                     </div>
@@ -62,10 +67,18 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                         type="button"
                         onClick={handleAnalyze}
                         disabled={analyzing || !prompt.trim()}
-                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        title={
+                            !prompt.trim()
+                                ? "Enter a prompt first to run analysis"
+                                : "Run quality analysis"
+                        }
                         className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                        {analyzing ? <span className="animate-pulse">Analyzing...</span> : "Run Analysis"}
+                        {analyzing ? (
+                            <span className="animate-pulse">Analyzing...</span>
+                        ) : (
+                            "Run Analysis"
+                        )}
                     </button>
                 </div>
             </div>
@@ -75,15 +88,25 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl mb-2">
                         🛡️
                     </div>
-                    <p className="max-w-[200px] text-center text-sm mb-2">Run analysis to detect potential improvements and safety issues.</p>
+                    <p className="max-w-[200px] text-center text-sm mb-2">
+                        Run analysis to detect potential improvements and safety
+                        issues.
+                    </p>
                     <button
                         onClick={handleAnalyze}
                         disabled={analyzing || !prompt.trim()}
-                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        title={
+                            !prompt.trim()
+                                ? "Enter a prompt first to run analysis"
+                                : "Run quality analysis"
+                        }
                         className="px-6 py-2 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl hover:bg-blue-600/30 text-sm font-medium transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex items-center gap-2"
                     >
                         {analyzing ? (
-                            <><span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span> Analyzing...</>
+                            <>
+                                <span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>{" "}
+                                Analyzing...
+                            </>
                         ) : (
                             "Start Analysis"
                         )}
@@ -91,33 +114,46 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                 </div>
             )}
 
-
-
             {/* Analysis Report */}
             {report && (
                 <div className="space-y-8 animate-fade-in pb-10">
                     {/* Category Scores */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {Object.entries(report.category_scores).map(([cat, score]) => (
-                            <div key={cat} className="glass-panel p-4 rounded-xl relative overflow-hidden group hover:bg-white/5 transition-colors">
-                                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">{cat}</div>
-                                <div className="flex items-end gap-2 mb-3">
-                                    <div className="text-2xl font-bold text-white tracking-tight">
-                                        {typeof score === 'number' ? score.toFixed(0) : score}
+                        {Object.entries(report.category_scores).map(
+                            ([cat, score]) => (
+                                <div
+                                    key={cat}
+                                    className="glass-panel p-4 rounded-xl relative overflow-hidden group hover:bg-white/5 transition-colors"
+                                >
+                                    <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">
+                                        {cat}
                                     </div>
-                                    <div className="text-xs text-zinc-600 mb-1 font-mono">/100</div>
-                                </div>
+                                    <div className="flex items-end gap-2 mb-3">
+                                        <div className="text-2xl font-bold text-white tracking-tight">
+                                            {typeof score === "number"
+                                                ? score.toFixed(0)
+                                                : score}
+                                        </div>
+                                        <div className="text-xs text-zinc-600 mb-1 font-mono">
+                                            /100
+                                        </div>
+                                    </div>
 
-                                {typeof score === 'number' && (
-                                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full transition-all duration-1000 ease-out ${score > 80 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : score > 50 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' : 'bg-gradient-to-r from-red-500 to-rose-400'}`}
-                                            style={{ width: `${score}%`, boxShadow: '0 0 10px rgba(255,255,255,0.2)' }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                    {typeof score === "number" && (
+                                        <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ease-out ${score > 80 ? "bg-gradient-to-r from-green-500 to-emerald-400" : score > 50 ? "bg-gradient-to-r from-yellow-500 to-amber-400" : "bg-gradient-to-r from-red-500 to-rose-400"}`}
+                                                style={{
+                                                    width: `${score}%`,
+                                                    boxShadow:
+                                                        "0 0 10px rgba(255,255,255,0.2)",
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            ),
+                        )}
                     </div>
 
                     {/* Issues List (Weaknesses) */}
@@ -130,12 +166,20 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                             {report.weaknesses.length === 0 ? (
                                 <div className="p-6 rounded-2xl bg-green-500/5 border border-green-500/20 text-green-400 flex flex-col items-center gap-2 text-center">
                                     <span className="text-3xl">🎉</span>
-                                    <span className="font-semibold">Excellent Prompt!</span>
-                                    <span className="text-sm opacity-80">We couldn&apos;t find any significant issues. High five!</span>
+                                    <span className="font-semibold">
+                                        Excellent Prompt!
+                                    </span>
+                                    <span className="text-sm opacity-80">
+                                        We couldn&apos;t find any significant
+                                        issues. High five!
+                                    </span>
                                 </div>
                             ) : (
                                 report.weaknesses.map((weakness, i) => (
-                                    <div key={i} className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors group">
+                                    <div
+                                        key={i}
+                                        className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors group"
+                                    >
                                         <div className="flex items-start gap-3">
                                             <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)] flex-shrink-0" />
                                             <div className="flex-1">
@@ -144,8 +188,17 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                                                 </div>
                                                 {report.suggestions[i] && (
                                                     <div className="mt-3 flex items-start gap-2 text-zinc-400 bg-black/20 p-3 rounded-lg border border-white/5">
-                                                        <span className="text-yellow-500 text-xs">💡</span>
-                                                        <span className="text-xs leading-relaxed">{report.suggestions[i]}</span>
+                                                        <span className="text-yellow-500 text-xs">
+                                                            💡
+                                                        </span>
+                                                        <span className="text-xs leading-relaxed">
+                                                            {
+                                                                report
+                                                                    .suggestions[
+                                                                    i
+                                                                ]
+                                                            }
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>

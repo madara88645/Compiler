@@ -18,13 +18,14 @@ export default function SecurityAlert({
     onProceedOriginal,
     onCancel,
 }: SecurityAlertProps) {
-
     const findingsSummary = useMemo(() => {
         const counts: Record<string, number> = {};
-        findings.forEach(f => {
+        findings.forEach((f) => {
             counts[f.type] = (counts[f.type] || 0) + 1;
         });
-        return Object.entries(counts).map(([type, count]) => `${count} x ${type.toUpperCase()}`);
+        return Object.entries(counts).map(
+            ([type, count]) => `${count} x ${type.toUpperCase()}`,
+        );
     }, [findings]);
 
     return (
@@ -35,7 +36,6 @@ export default function SecurityAlert({
                 aria-labelledby="security-alert-title"
                 className="bg-[#1a1a1a] w-full max-w-2xl rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 overflow-hidden flex flex-col"
             >
-
                 {/* Header */}
                 <div className="bg-red-500/10 border-b border-red-500/20 p-6 flex flex-col gap-2">
                     <div className="flex items-center gap-3">
@@ -43,25 +43,36 @@ export default function SecurityAlert({
                             🛡️
                         </div>
                         <div>
-                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
-                            <p className="text-sm text-red-300/80">Sensitive information detected in your prompt.</p>
+                            <h2
+                                id="security-alert-title"
+                                className="text-xl font-bold text-red-100 tracking-wide"
+                            >
+                                Security Alert
+                            </h2>
+                            <p className="text-sm text-red-300/80">
+                                Sensitive information detected in your prompt.
+                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 flex flex-col gap-4">
-
                     <div className="flex flex-wrap gap-2">
                         {findingsSummary.map((summary, i) => (
-                            <span key={i} className="px-3 py-1 bg-red-500/20 text-red-200 text-xs font-mono rounded-full border border-red-500/30">
+                            <span
+                                key={i}
+                                className="px-3 py-1 bg-red-500/20 text-red-200 text-xs font-mono rounded-full border border-red-500/30"
+                            >
                                 {summary}
                             </span>
                         ))}
                     </div>
 
                     <div className="bg-black/30 rounded-xl border border-white/5 p-4 flex flex-col gap-2">
-                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Preview Redacted Version</span>
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">
+                            Preview Redacted Version
+                        </span>
                         <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto custom-scrollbar">
                             {redactedText}
                         </pre>
@@ -69,11 +80,14 @@ export default function SecurityAlert({
 
                     <div className="p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
                         <p className="text-xs text-yellow-200/80 leading-relaxed">
-                            <strong className="text-yellow-100">Warning:</strong> Sending original secrets to an External LLM provider may expose them.
-                            We recommend stripping them before proceeding.
+                            <strong className="text-yellow-100">
+                                Warning:
+                            </strong>{" "}
+                            Sending original secrets to an External LLM provider
+                            may expose them. We recommend stripping them before
+                            proceeding.
                         </p>
                     </div>
-
                 </div>
 
                 {/* Actions */}

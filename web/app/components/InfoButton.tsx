@@ -10,7 +10,10 @@ interface InfoButtonProps {
 // ⚡ Bolt: Wrapped InfoButton in React.memo to prevent unnecessary re-renders.
 // Since InfoButton only depends on primitive props (title, description),
 // this avoids re-rendering the button every time the parent layout or page state changes.
-const InfoButton = memo(function InfoButton({ title, description }: InfoButtonProps) {
+const InfoButton = memo(function InfoButton({
+    title,
+    description,
+}: InfoButtonProps) {
     const [showTooltip, setShowTooltip] = useState(false);
     const tooltipId = useId();
 
@@ -34,9 +37,17 @@ const InfoButton = memo(function InfoButton({ title, description }: InfoButtonPr
             </button>
 
             {showTooltip && (
-                <div id={tooltipId} role="tooltip" className="absolute z-50 w-64 p-3 mt-2 text-xs font-normal text-left text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-md shadow-xl -left-2 top-full break-words animate-fade-in">
+                <div
+                    id={tooltipId}
+                    role="tooltip"
+                    className="absolute z-50 w-64 p-3 mt-2 text-xs font-normal text-left text-neutral-300 bg-neutral-900 border border-neutral-700 rounded-md shadow-xl -left-2 top-full break-words animate-fade-in"
+                >
                     <div className="absolute w-2 h-2 bg-neutral-900 border-l border-t border-neutral-700 transform rotate-45 -top-1 left-3"></div>
-                    {title && <strong className="block text-white mb-1">{title}</strong>}
+                    {title && (
+                        <strong className="block text-white mb-1">
+                            {title}
+                        </strong>
+                    )}
                     {description}
                 </div>
             )}

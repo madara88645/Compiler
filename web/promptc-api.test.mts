@@ -3,168 +3,173 @@ import test from "node:test";
 
 import { describeApiError } from "./config.ts";
 import {
-  formatSearchResultForPrompt,
-  normalizeCompileResponse,
-  normalizeRagSearchResults,
-  normalizeRagUploadResponse,
+    formatSearchResultForPrompt,
+    normalizeCompileResponse,
+    normalizeRagSearchResults,
+    normalizeRagUploadResponse,
 } from "./lib/api/promptc.ts";
 
 test("describeApiError returns auth-aware copy for 403", () => {
-  assert.equal(
-    describeApiError(403, { detail: "Could not validate credentials" }),
-    "Could not validate credentials",
-  );
+    assert.equal(
+        describeApiError(403, { detail: "Could not validate credentials" }),
+        "Could not validate credentials",
+    );
 });
 
 test("normalizeRagSearchResults maps legacy source/content fields to canonical shape", () => {
-  const results = normalizeRagSearchResults([
-    { source: "docs/auth.md", content: "Use API keys", score: 0.75 },
-  ]);
+    const results = normalizeRagSearchResults([
+        { source: "docs/auth.md", content: "Use API keys", score: 0.75 },
+    ]);
 
-  assert.deepEqual(results, [
-    {
-      path: "docs/auth.md",
-      snippet: "Use API keys",
-      score: 0.75,
-    },
-  ]);
+    assert.deepEqual(results, [
+        {
+            path: "docs/auth.md",
+            snippet: "Use API keys",
+            score: 0.75,
+        },
+    ]);
 });
 
 test("normalizeRagUploadResponse derives compatibility fields from canonical payload", () => {
-  const response = normalizeRagUploadResponse({
-    ingested_docs: 1,
-    total_chunks: 4,
-    elapsed_ms: 12,
-    filename: "auth.py",
-  });
+    const response = normalizeRagUploadResponse({
+        ingested_docs: 1,
+        total_chunks: 4,
+        elapsed_ms: 12,
+        filename: "auth.py",
+    });
 
-  assert.equal(response.success, true);
-  assert.equal(response.num_chunks, 4);
-  assert.match(response.message, /auth\.py/);
+    assert.equal(response.success, true);
+    assert.equal(response.num_chunks, 4);
+    assert.match(response.message, /auth\.py/);
 });
 
 test("normalizeCompileResponse preserves nested security metadata", () => {
-  const response = normalizeCompileResponse({
-    system_prompt: "sys",
-    user_prompt: "usr",
-    plan: "1. step",
-    expanded_prompt: "expanded",
-    ir: {
-      metadata: {
-        security: {
-          is_safe: false,
-          redacted_text: "safe text",
-          findings: [{ type: "api_key", original: "secret", masked: "***" }],
+    const response = normalizeCompileResponse({
+        system_prompt: "sys",
+        user_prompt: "usr",
+        plan: "1. step",
+        expanded_prompt: "expanded",
+        ir: {
+            metadata: {
+                security: {
+                    is_safe: false,
+                    redacted_text: "safe text",
+                    findings: [
+                        { type: "api_key", original: "secret", masked: "***" },
+                    ],
+                },
+            },
         },
-      },
-    },
-    processing_ms: 25,
-  });
+        processing_ms: 25,
+    });
 
-  assert.equal(response.processing_ms, 25);
-  assert.equal(response.ir.metadata?.security?.is_safe, false);
-  assert.equal(response.ir.metadata?.security?.redacted_text, "safe text");
-  assert.equal(response.ir.metadata?.security?.findings[0]?.type, "api_key");
+    assert.equal(response.processing_ms, 25);
+    assert.equal(response.ir.metadata?.security?.is_safe, false);
+    assert.equal(response.ir.metadata?.security?.redacted_text, "safe text");
+    assert.equal(response.ir.metadata?.security?.findings[0]?.type, "api_key");
 });
 
 test("normalizeCompileResponse rejects empty compile payloads", () => {
-  assert.throws(() => normalizeCompileResponse(null), /Invalid compile response/);
-  assert.throws(
-    () => normalizeCompileResponse({}),
-    /Invalid compile response: missing compiler output/,
-  );
+    assert.throws(
+        () => normalizeCompileResponse(null),
+        /Invalid compile response/,
+    );
+    assert.throws(
+        () => normalizeCompileResponse({}),
+        /Invalid compile response: missing compiler output/,
+    );
 });
 
 test("normalizeCompileResponse defaults missing policy fields", () => {
-  const response = normalizeCompileResponse({
-    system_prompt: "sys",
-    user_prompt: "usr",
-    plan: "1. step",
-    expanded_prompt: "expanded",
-    ir: {
-      domain: "general",
-    },
-    ir_v2: {
-      domain: "coding",
-    },
-    processing_ms: 25,
-  });
+    const response = normalizeCompileResponse({
+        system_prompt: "sys",
+        user_prompt: "usr",
+        plan: "1. step",
+        expanded_prompt: "expanded",
+        ir: {
+            domain: "general",
+        },
+        ir_v2: {
+            domain: "coding",
+        },
+        processing_ms: 25,
+    });
 
-  assert.equal(response.ir.policy?.risk_level, "low");
-  assert.deepEqual(response.ir.policy?.allowed_tools, []);
-  assert.equal(response.ir_v2?.policy?.execution_mode, "advice_only");
+    assert.equal(response.ir.policy?.risk_level, "low");
+    assert.deepEqual(response.ir.policy?.allowed_tools, []);
+    assert.equal(response.ir_v2?.policy?.execution_mode, "advice_only");
 });
 
 test("normalizeCompileResponse falls back to ir when ir_v2 is missing", () => {
-  const response = normalizeCompileResponse({
-    system_prompt: "sys",
-    user_prompt: "usr",
-    plan: "1. step",
-    expanded_prompt: "expanded",
-    ir: {
-      domain: "security",
-      policy: {
-        risk_level: "high",
-      },
-    },
-    processing_ms: 25,
-  });
+    const response = normalizeCompileResponse({
+        system_prompt: "sys",
+        user_prompt: "usr",
+        plan: "1. step",
+        expanded_prompt: "expanded",
+        ir: {
+            domain: "security",
+            policy: {
+                risk_level: "high",
+            },
+        },
+        processing_ms: 25,
+    });
 
-  assert.equal(response.ir_v2?.domain, "security");
-  assert.equal(response.ir_v2?.policy?.risk_level, "high");
-  assert.equal(response.ir_v2?.policy?.data_sensitivity, "public");
+    assert.equal(response.ir_v2?.domain, "security");
+    assert.equal(response.ir_v2?.policy?.risk_level, "high");
+    assert.equal(response.ir_v2?.policy?.data_sensitivity, "public");
 });
 
 test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
-  const response = normalizeCompileResponse({
-    system_prompt: "sys",
-    user_prompt: "usr",
-    plan: "1. step",
-    expanded_prompt: "expanded",
-    ir: {},
-    ir_v2: {
-      domain: "coding",
-      metadata: {
-        risk_flags: ["security"],
-      },
-    },
-    processing_ms: 25,
-  });
+    const response = normalizeCompileResponse({
+        system_prompt: "sys",
+        user_prompt: "usr",
+        plan: "1. step",
+        expanded_prompt: "expanded",
+        ir: {},
+        ir_v2: {
+            domain: "coding",
+            metadata: {
+                risk_flags: ["security"],
+            },
+        },
+        processing_ms: 25,
+    });
 
-  assert.equal(response.ir_v2?.domain, "coding");
-  assert.deepEqual(response.ir_v2?.metadata?.risk_flags, ["security"]);
-  assert.equal(response.ir_v2?.policy?.risk_level, "low");
+    assert.equal(response.ir_v2?.domain, "coding");
+    assert.deepEqual(response.ir_v2?.metadata?.risk_flags, ["security"]);
+    assert.equal(response.ir_v2?.policy?.risk_level, "low");
 });
 
 test("normalizeCompileResponse preserves backend compile metadata fields", () => {
-  const response = normalizeCompileResponse({
-    system_prompt: "sys",
-    user_prompt: "usr",
-    plan: "1. step",
-    expanded_prompt: "expanded",
-    ir: {
-      domain: "general",
-    },
-    processing_ms: 25,
-    request_id: "abc123",
-    heuristic_version: "v1",
-    heuristic2_version: "v2",
-    trace: ["step 1", "step 2"],
-  });
+    const response = normalizeCompileResponse({
+        system_prompt: "sys",
+        user_prompt: "usr",
+        plan: "1. step",
+        expanded_prompt: "expanded",
+        ir: {
+            domain: "general",
+        },
+        processing_ms: 25,
+        request_id: "abc123",
+        heuristic_version: "v1",
+        heuristic2_version: "v2",
+        trace: ["step 1", "step 2"],
+    });
 
-  assert.equal(response.request_id, "abc123");
-  assert.equal(response.heuristic_version, "v1");
-  assert.equal(response.heuristic2_version, "v2");
-  assert.deepEqual(response.trace, ["step 1", "step 2"]);
+    assert.equal(response.request_id, "abc123");
+    assert.equal(response.heuristic_version, "v1");
+    assert.equal(response.heuristic2_version, "v2");
+    assert.deepEqual(response.trace, ["step 1", "step 2"]);
 });
 
 test("formatSearchResultForPrompt includes path header", () => {
-  assert.equal(
-    formatSearchResultForPrompt({
-      path: "docs/auth.md",
-      snippet: "Use API keys",
-      score: 0.4,
-    }),
-    "[Source: docs/auth.md]\nUse API keys",
-  );
+    assert.equal(
+        formatSearchResultForPrompt({
+            path: "docs/auth.md",
+            snippet: "Use API keys",
+            score: 0.4,
+        }),
+        "[Source: docs/auth.md]\nUse API keys",
+    );
 });
