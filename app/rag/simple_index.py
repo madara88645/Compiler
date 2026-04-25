@@ -198,6 +198,9 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             DELETE FROM fts WHERE rowid = old.id;
             INSERT INTO fts(rowid, content) VALUES (new.id, new.content);
         END;
+        CREATE TRIGGER IF NOT EXISTS chunks_ad_embed AFTER DELETE ON chunks BEGIN
+            DELETE FROM embeddings WHERE chunk_id = old.id;
+        END;
         """
     )
     conn.commit()
