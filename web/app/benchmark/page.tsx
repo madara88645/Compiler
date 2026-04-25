@@ -312,11 +312,22 @@ export default function BenchmarkPage() {
                   <h3 className="font-medium tracking-wide text-zinc-200">
                     {errorMessage ? "Benchmark unavailable" : "No benchmark yet"}
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-zinc-400 mb-4">
                     {errorMessage
                       ? errorMessage
                       : "Paste a prompt on the left, pick a model, then hit Start Battle to compare raw vs compiled output."}
                   </p>
+                  {!errorMessage && (
+                    <button
+                      type="button"
+                      onClick={handleBenchmark}
+                      disabled={loading || !prompt.trim()}
+                      title={!prompt.trim() ? "Enter a prompt first to start battle" : "Start Battle"}
+                      className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+                    >
+                      Start Battle
+                    </button>
+                  )}
                 </div>
               </div>
             )}
