@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
 
@@ -111,7 +112,7 @@ function MetricTile({
 }) {
     return (
         <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
             <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
             <div className="mt-1 text-xs text-zinc-500">{detail}</div>
         </div>
@@ -170,12 +171,12 @@ export default function OptimizerPage() {
             <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
             <header className="border-b border-white/5 bg-black/20 p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-md">
                 <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20">
-                        ✨
+                    <div className="h-9 w-9 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                        <Sparkles size={18} aria-hidden="true" />
                     </div>
                     <div>
                         <h1 className="font-semibold text-lg tracking-tight text-white">Token Optimizer</h1>
-                        <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">
+                        <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">
                             Compress safely • Compare cost
                         </div>
                     </div>
@@ -187,7 +188,7 @@ export default function OptimizerPage() {
 
                 <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/40 p-3 sm:flex-row sm:items-center">
                     <div className="flex min-w-40 flex-col gap-1">
-                        <label htmlFor="max-tokens" className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                        <label htmlFor="max-tokens" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                             Max Tokens
                         </label>
                         <input
@@ -231,6 +232,7 @@ export default function OptimizerPage() {
                     <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/30 p-4 transition-colors focus-within:border-emerald-500/40">
                         <textarea
                             id="original-prompt"
+                            aria-label="Original Prompt"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -267,6 +269,7 @@ export default function OptimizerPage() {
                         {output ? (
                             <textarea
                                 id="optimized-result"
+                                aria-label="Optimized Result"
                                 readOnly
                                 value={output}
                                 className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"
@@ -357,7 +360,7 @@ export default function OptimizerPage() {
                                 </div>
                             </div>
 
-                            <p className="mt-3 text-[11px] text-zinc-600">
+                            <p className="mt-3 text-xs text-zinc-600">
                                 {result.tokenizer_method}
                             </p>
                         </div>

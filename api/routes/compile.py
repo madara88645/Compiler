@@ -244,16 +244,17 @@ def compile_endpoint(
         try:
             compiler = _get_compiler()
             worker_res = compiler.compile(req.text, mode=mode)
-            ir2 = worker_res.ir
+            ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
+            if used_fallback:
+                logger.warning(
+                    "LLM compile returned unusable IR; falling back to local v2 heuristics",
+                    extra={"mode": mode, "text_length": len(req.text), "request_id": rid},
+                )
 
-            if worker_res.system_prompt and not is_meta_leaked(worker_res.system_prompt):
-                sys_v2 = worker_res.system_prompt
-            if worker_res.user_prompt and not is_meta_leaked(worker_res.user_prompt):
-                user_v2 = worker_res.user_prompt
-            if worker_res.plan:
-                plan_v2 = worker_res.plan
-            if worker_res.optimized_content and not is_meta_leaked(worker_res.optimized_content):
-                exp_v2 = worker_res.optimized_content
+            sys_v2 = _safe_worker_text(worker_res, "system_prompt") or sys_v2
+            user_v2 = _safe_worker_text(worker_res, "user_prompt") or user_v2
+            plan_v2 = _safe_worker_text(worker_res, "plan") or plan_v2
+            exp_v2 = _safe_worker_text(worker_res, "optimized_content") or exp_v2
         except Exception as exc:
             logger.warning("LLM compile failed; falling back to local v2 heuristics: %s", exc)
 
