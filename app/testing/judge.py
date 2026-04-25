@@ -76,7 +76,14 @@ Evaluate the output against the requirement and return your verdict as JSON."""
             return result
 
         except Exception as e:
-            return JudgeResult(passed=False, reason=f"Judge evaluation error: {str(e)}", score=0.0)
+            import logging
+
+            logging.getLogger(__name__).error(f"Judge evaluation error: {e}")
+            return JudgeResult(
+                passed=False,
+                reason="Judge evaluation error: An internal error occurred.",
+                score=0.0,
+            )
 
     def _parse_response(self, response: str) -> JudgeResult:
         """Parse the LLM response into a JudgeResult."""
@@ -218,9 +225,12 @@ Compare the two outputs and return your verdict as JSON."""
             response = self.provider.generate(user_prompt, system_prompt=self.SYSTEM_PROMPT)
             return self._parse_response(response.content)
         except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Comparative evaluation error: {e}")
             return ComparisonResult(
                 winner="A",
-                reason=f"Comparative evaluation error: {str(e)}",
+                reason="Comparative evaluation error: An internal error occurred.",
                 score_diff=0,
             )
 

@@ -81,7 +81,12 @@ class CrossModelValidator:
                 except Exception as e:
                     print(f"[CrossModelValidator] Error with model {model_name}: {e}")
                     results.append(
-                        ModelScore(model_name=model_name, score=0.0, passed=False, error=str(e))
+                        ModelScore(
+                            model_name=model_name,
+                            score=0.0,
+                            passed=False,
+                            error="An internal error occurred.",
+                        )
                     )
 
         # Aggregate results
@@ -130,4 +135,9 @@ class CrossModelValidator:
                 error=error_msg,
             )
         except Exception as e:
-            return ModelScore(model_name=name, score=0.0, passed=False, error=str(e))
+            import logging
+
+            logging.getLogger(__name__).error(f"Validator error: {e}")
+            return ModelScore(
+                model_name=name, score=0.0, passed=False, error="An internal error occurred."
+            )

@@ -779,7 +779,10 @@ def batch(
                 success_count += 1
                 return src
             except Exception as e:
-                errors.append((src, str(e)))
+                import logging
+
+                logging.getLogger(__name__).error(f"CLI core error: {e}")
+                errors.append((src, "An internal error occurred."))
                 if fail_fast:
                     raise
                 return src
