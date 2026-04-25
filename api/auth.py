@@ -107,7 +107,9 @@ def verify_api_key(
     if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
         verify_api_key._cleanup_counter = 0
         stale_keys = []
-        for k, v in RATE_LIMIT_STORE.items():
+        # Create a list of items to prevent RuntimeError if the dictionary changes size
+        # due to concurrent requests adding new keys during the cleanup iteration.
+        for k, v in list(RATE_LIMIT_STORE.items()):
             valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
             if not valid_ts:
                 stale_keys.append(k)

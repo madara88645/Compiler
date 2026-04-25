@@ -72,6 +72,10 @@ export type CompileResponse = {
   ir: CompileIr;
   ir_v2?: CompileIr;
   processing_ms: number;
+  request_id?: string;
+  heuristic_version?: string;
+  heuristic2_version?: string;
+  trace?: string[];
   critique?: Critique | null;
 };
 
@@ -80,8 +84,13 @@ export type CompileMode = "conservative" | "default";
 export type CompileRequest = {
   text: string;
   diagnostics: boolean;
+  trace?: boolean;
   v2: boolean;
   render_v2_prompts: boolean;
+  record_analytics?: boolean;
+  user_level?: string;
+  task_type?: string;
+  tags?: string[];
   mode: CompileMode;
 };
 

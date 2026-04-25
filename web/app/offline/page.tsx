@@ -86,7 +86,12 @@ export default function OfflinePage() {
                 <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">🔌</div>
+                            <div
+                                aria-hidden="true"
+                                className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center font-bold text-white shadow-lg"
+                            >
+                                OF
+                            </div>
                             <div>
                                 <h1 className="font-semibold text-lg tracking-tight text-white">Offline Compiler</h1>
                                 <div className="text-[10px] text-zinc-500 font-mono tracking-wider uppercase opacity-70">Heuristic Engine V2</div>
@@ -156,7 +161,15 @@ export default function OfflinePage() {
                                     {loading ? (
                                         <span className="animate-pulse">Processing...</span>
                                     ) : (
-                                        <>Run Heuristics <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                                        <>
+                                            Run Heuristics{" "}
+                                            <span className="group-hover:translate-x-0.5 transition-transform">
+                                                {"->"}
+                                            </span>{" "}
+                                            <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">
+                                                Ctrl/Cmd Enter
+                                            </kbd>
+                                        </>
                                     )}
                                 </button>
                             </div>
@@ -226,7 +239,9 @@ export default function OfflinePage() {
                             </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
-                                <div className="text-6xl grayscale opacity-50">🔌</div>
+                                <div aria-hidden="true" className="text-6xl grayscale opacity-50">
+                                    OF
+                                </div>
                                 <div className="max-w-xs space-y-2">
                                     <h3 className="text-zinc-200 font-medium tracking-wide">Offline Mode</h3>
                                     <p className="text-sm text-zinc-500">Fast, local heuristic compilation without LLM calls.</p>
