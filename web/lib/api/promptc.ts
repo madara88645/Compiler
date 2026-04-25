@@ -191,6 +191,13 @@ function hasUsableCompileOutput(record: JsonObject): boolean {
   );
 }
 
+export class InvalidCompileResponseError extends Error {
+  constructor(message = "Invalid compile response.") {
+    super(message);
+    this.name = "InvalidCompileResponseError";
+  }
+}
+
 function normalizeCritiqueIssues(value: unknown): CritiqueIssue[] {
   if (!Array.isArray(value)) {
     return [];
@@ -223,11 +230,11 @@ function normalizeCritique(value: unknown): Critique | undefined {
 export function normalizeCompileResponse(value: unknown): CompileResponse {
   const record = asObject(value);
   if (!record) {
-    throw new Error("Invalid compile response.");
+    throw new InvalidCompileResponseError("Invalid compile response.");
   }
 
   if (!hasUsableCompileOutput(record)) {
-    throw new Error("Invalid compile response: missing compiler output.");
+    throw new InvalidCompileResponseError("Invalid compile response: missing compiler output.");
   }
 
   const ir = normalizeIr(record.ir);
@@ -345,6 +352,10 @@ function isTransientCompileError(error: unknown): boolean {
   return false;
 }
 
+function isRetryableCompileError(error: unknown): boolean {
+  return error instanceof InvalidCompileResponseError || isTransientCompileError(error);
+}
+
 async function postCompile(request: CompileRequest, signal?: AbortSignal): Promise<unknown> {
   return apiJson<unknown>("/compile", {
     method: "POST",
@@ -355,17 +366,22 @@ async function postCompile(request: CompileRequest, signal?: AbortSignal): Promi
 }
 
 export async function compilePrompt(request: CompileRequest, signal?: AbortSignal): Promise<CompileResponse> {
-  let response: unknown;
-  try {
-    response = await postCompile(request, signal);
-  } catch (error) {
-    if (!isTransientCompileError(error) || signal?.aborted) {
-      throw error;
+  const maxAttempts = 2;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await postCompile(request, signal);
+      return normalizeCompileResponse(response);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableCompileError(error) || signal?.aborted || attempt === maxAttempts) {
+        throw error;
+      }
     }
-    response = await postCompile(request, signal);
   }
 
-  return normalizeCompileResponse(response);
+  throw lastError;
 }
 
 export async function uploadContextFile(request: RagUploadRequest): Promise<RagUploadResponse> {

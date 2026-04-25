@@ -157,6 +157,80 @@ def test_compile_fast_blank_prompt_parts_are_generated(test_key):
         assert data["expanded_prompt_v2"]
 
 
+def test_compile_fast_retries_worker_exception_then_succeeds(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir = compile_text_v2("Summarize this incident report.", offline_only=True)
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+        mock_compiler.worker.process.side_effect = [Exception("temporary worker error"), mock_res]
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast",
+            json={"text": "hello", "mode": "default"},
+            headers={"x-api-key": test_key},
+        )
+
+        assert resp.status_code == 200
+        assert mock_compiler.worker.process.call_count == 2
+        data = resp.json()
+        assert data["system_prompt_v2"] == "sys"
+        assert data["expanded_prompt_v2"] == "opt"
+
+
+def test_compile_fast_retries_empty_worker_result_then_succeeds(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir = compile_text_v2("Summarize this incident report.", offline_only=True)
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+        mock_compiler.worker.process.side_effect = [None, mock_res]
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast",
+            json={"text": "hello", "mode": "default"},
+            headers={"x-api-key": test_key},
+        )
+
+        assert resp.status_code == 200
+        assert mock_compiler.worker.process.call_count == 2
+        data = resp.json()
+        assert data["system_prompt_v2"] == "sys"
+        assert data["expanded_prompt_v2"] == "opt"
+
+
+def test_compile_fast_falls_back_after_two_worker_failures(test_key):
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.worker.process.side_effect = [
+            Exception("first worker error"),
+            Exception("second worker error"),
+        ]
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast",
+            json={"text": "hello", "mode": "default"},
+            headers={"x-api-key": test_key},
+        )
+
+        assert resp.status_code == 200
+        assert mock_compiler.worker.process.call_count == 2
+        data = resp.json()
+        assert data["ir_v2"]["policy"]["risk_level"] == "low"
+        assert any(
+            item["category"] == "system"
+            and item["severity"] == "warning"
+            and "second worker error" in item["message"]
+            for item in data["ir_v2"]["diagnostics"]
+        )
+
+
 def test_rate_limit(test_key):
     # Depending on how the rate limiter is implemented (in-memory global),
     # we might need to reset it or just spam enough requests.
