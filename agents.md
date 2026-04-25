@@ -228,6 +228,8 @@ Relevant files: `app/rag/simple_index.py`, `api/routes/rag.py`
 pytest tests/test_rag.py tests/test_rag_upload.py tests/test_rag_pipeline.py tests/test_rag_chunking.py tests/test_rag_hybrid_api.py tests/test_rag_parsers.py -v
 ```
 
+**Windows temp-dir note:** if pytest or `tempfile.TemporaryDirectory()` fails with `PermissionError` under `%LOCALAPPDATA%\\Temp`, point `TMP`, `TEMP`, and `DB_DIR` at a repo-local writable directory (for example `.\.tmp-test-run`) before running RAG/auth API tests so SQLite and temp fixtures stay isolated.
+
 **RAG upload smoke (requires running backend and an API key):**
 
 ```bash
