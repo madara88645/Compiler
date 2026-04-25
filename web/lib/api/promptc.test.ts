@@ -30,6 +30,23 @@ describe("compile response normalization", () => {
     expect(response.ir.metadata?.security?.is_safe).toBe(true);
     expect(response.ir.metadata?.security?.findings).toEqual([]);
   });
+
+  it("fills policy defaults when ir_v2 is missing policy fields", () => {
+    const response = normalizeCompileResponse({
+      system_prompt: "system",
+      user_prompt: "user",
+      plan: "plan",
+      expanded_prompt: "expanded",
+      ir: {},
+      ir_v2: {
+        domain: "finance",
+      },
+    });
+
+    expect(response.ir_v2?.policy?.risk_level).toBe("low");
+    expect(response.ir_v2?.policy?.execution_mode).toBe("advice_only");
+    expect(response.ir_v2?.policy?.risk_domains).toEqual([]);
+  });
 });
 
 describe("compilePrompt", () => {
@@ -58,6 +75,68 @@ describe("compilePrompt", () => {
 
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
     expect(response.expanded_prompt).toBe("expanded");
+  });
+
+  it("retries a null compile response once", async () => {
+    apiJsonMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        system_prompt: "system",
+        user_prompt: "user",
+        plan: "plan",
+        expanded_prompt: "expanded",
+        ir: {},
+      });
+
+    const response = await compilePrompt({
+      text: "Summarize an incident report.",
+      diagnostics: true,
+      v2: true,
+      render_v2_prompts: true,
+      mode: "conservative",
+    });
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
+    expect(response.expanded_prompt).toBe("expanded");
+  });
+
+  it("retries an empty compile response once", async () => {
+    apiJsonMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        system_prompt: "system",
+        user_prompt: "user",
+        plan: "plan",
+        expanded_prompt: "expanded",
+        ir: {},
+      });
+
+    const response = await compilePrompt({
+      text: "Summarize an incident report.",
+      diagnostics: true,
+      v2: true,
+      render_v2_prompts: true,
+      mode: "conservative",
+    });
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
+    expect(response.expanded_prompt).toBe("expanded");
+  });
+
+  it("throws after two invalid compile responses", async () => {
+    apiJsonMock.mockResolvedValueOnce(null).mockResolvedValueOnce({});
+
+    await expect(
+      compilePrompt({
+        text: "Summarize an incident report.",
+        diagnostics: true,
+        v2: true,
+        render_v2_prompts: true,
+        mode: "conservative",
+      }),
+    ).rejects.toThrow("Invalid compile response");
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not retry non-transient compile API failures", async () => {

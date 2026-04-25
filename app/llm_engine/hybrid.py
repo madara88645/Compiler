@@ -12,6 +12,7 @@ from .rag import ContextStrategist, SQLiteVectorDB
 import os
 
 logger = logging.getLogger("promptc.llm.hybrid")
+_WORKER_MAX_ATTEMPTS = 2
 
 
 class HybridCompiler:
@@ -52,8 +53,39 @@ class HybridCompiler:
             # Retrieve relevant code context using Agent 6
             rag_context = self.context_strategist.process(text)
 
-            # Pass context to Worker
-            res = self.worker.process(text, context=rag_context, mode=mode or self.default_mode)
+            # Pass context to Worker. Retry once for transient worker/API failures before
+            # dropping to the deterministic heuristic fallback.
+            resolved_mode = mode or self.default_mode
+            for attempt in range(1, _WORKER_MAX_ATTEMPTS + 1):
+                try:
+                    res = self.worker.process(text, context=rag_context, mode=resolved_mode)
+                    break
+                except Exception as e:
+                    if attempt < _WORKER_MAX_ATTEMPTS:
+                        logger.warning(
+                            "Worker LLM attempt failed",
+                            exc_info=True,
+                            extra={
+                                "mode": resolved_mode,
+                                "text_length": len(text),
+                                "attempt": attempt,
+                                "max_attempts": _WORKER_MAX_ATTEMPTS,
+                                "rag_context_available": bool(rag_context),
+                            },
+                        )
+                        continue
+
+                    logger.warning(
+                        "Worker LLM failed; using heuristic fallback",
+                        exc_info=True,
+                        extra={
+                            "mode": resolved_mode,
+                            "text_length": len(text),
+                            "attempts": attempt,
+                            "rag_context_available": bool(rag_context),
+                        },
+                    )
+                    return self._fallback(text, f"{e} after {attempt} attempts")
 
             # --- Safety Heuristics Check (Post-Processing) ---
             # Even if LLM is smart, we enforce safety flags via heuristics
@@ -93,12 +125,25 @@ class HybridCompiler:
                     if diag and not any(d.message == diag.message for d in res.diagnostics):
                         res.diagnostics.append(diag)
             except Exception:
-                pass  # Non-critical logic
+                logger.warning(
+                    "Safety post-processing failed; continuing without extra risk diagnostics",
+                    exc_info=True,
+                    extra={"mode": resolved_mode, "text_length": len(text)},
+                )
 
             self.cache[cache_key] = res
             return res
         except Exception as e:
-            logger.warning("Worker LLM failed; using heuristic fallback: %s", e)
+            logger.warning(
+                "Worker LLM failed before worker response; using heuristic fallback",
+                exc_info=True,
+                extra={
+                    "mode": mode or self.default_mode,
+                    "text_length": len(text),
+                    "attempts": 0,
+                    "rag_context_available": False,
+                },
+            )
             return self._fallback(text, str(e))
 
     def _fallback(self, text: str, error_msg: str) -> WorkerResponse:

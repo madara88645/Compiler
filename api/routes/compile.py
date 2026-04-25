@@ -31,6 +31,7 @@ from app.optimizer.postprocess import strip_wrapper_labels
 router = APIRouter(tags=["compile"])
 
 _MAX_PROMPT_CHARS = 20_000
+_FAST_WORKER_MAX_ATTEMPTS = 2
 
 
 def _get_compiler():
@@ -173,6 +174,74 @@ def _coerce_fast_ir(text: str, worker_res, fallback_reason: str | None = None) -
         ir2.diagnostics.append(_warning_for_fast_fallback(fallback_reason or "unknown error"))
 
     return ir2, used_fallback
+
+
+def _validate_worker_ir(worker_res) -> tuple[bool, str | None]:
+    candidate = getattr(worker_res, "ir", None) if worker_res is not None else None
+    if isinstance(candidate, IRv2):
+        return True, None
+
+    raw_ir = None
+    if isinstance(candidate, dict):
+        raw_ir = candidate
+    elif hasattr(candidate, "model_dump"):
+        try:
+            raw_ir = candidate.model_dump()
+        except Exception as exc:
+            return False, f"IR serialization failed: {exc}"
+
+    if not raw_ir:
+        return False, "worker result was empty or missing ir"
+
+    try:
+        IRv2.model_validate(raw_ir)
+    except Exception as exc:
+        return False, f"IR validation failed: {exc}"
+
+    return True, None
+
+
+async def _run_fast_worker_with_retry(
+    compiler, text: str, mode: str
+) -> tuple[object | None, str | None]:
+    fallback_reason = None
+
+    for attempt in range(1, _FAST_WORKER_MAX_ATTEMPTS + 1):
+        try:
+            res = await anyio.to_thread.run_sync(
+                functools.partial(compiler.worker.process, text, mode=mode)
+            )
+        except Exception as exc:
+            fallback_reason = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "compile_fast worker attempt failed",
+                exc_info=True,
+                extra={
+                    "mode": mode,
+                    "text_length": len(text),
+                    "attempt": attempt,
+                    "max_attempts": _FAST_WORKER_MAX_ATTEMPTS,
+                },
+            )
+            continue
+
+        usable, reason = _validate_worker_ir(res)
+        if usable:
+            return res, None
+
+        fallback_reason = reason or "worker result was empty or missing ir"
+        logger.warning(
+            "compile_fast worker returned unusable IR",
+            extra={
+                "mode": mode,
+                "text_length": len(text),
+                "attempt": attempt,
+                "max_attempts": _FAST_WORKER_MAX_ATTEMPTS,
+                "fallback_reason": fallback_reason,
+            },
+        )
+
+    return None, fallback_reason
 
 
 def _fast_compile_payload(
@@ -336,18 +405,7 @@ async def compile_fast(
         if cache_key in compiler.cache:
             res = compiler.cache[cache_key]
         else:
-            try:
-                res = await anyio.to_thread.run_sync(
-                    functools.partial(compiler.worker.process, req.text, mode=mode)
-                )
-            except Exception as exc:
-                fallback_reason = f"{type(exc).__name__}: {exc}"
-                logger.warning(
-                    "compile_fast worker failed; falling back to local heuristics",
-                    exc_info=True,
-                    extra={"mode": mode, "text_length": len(req.text)},
-                )
-                res = None
+            res, fallback_reason = await _run_fast_worker_with_retry(compiler, req.text, mode)
 
         payload, used_fallback = _fast_compile_payload(req, res, mode, start, fallback_reason)
         if not cache_hit and not used_fallback:

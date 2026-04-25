@@ -100,6 +100,33 @@ def test_compile_success(mock_detect_risk_flags, compiler):
 
 
 @patch("app.llm_engine.hybrid.detect_risk_flags")
+def test_compile_retries_worker_exception_then_succeeds(mock_detect_risk_flags, compiler):
+    mock_detect_risk_flags.return_value = []
+    text = "compile this after a transient worker failure"
+    mock_ir = IRv2(
+        language="en",
+        persona="expert",
+        role="tester",
+        domain="general",
+        output_format="text",
+        length_hint="medium",
+    )
+    mock_res = WorkerResponse(
+        ir=mock_ir, diagnostics=[], thought_process="Success", optimized_content="Optimized."
+    )
+
+    compiler.context_strategist.process.return_value = "Mock context"
+    compiler.worker.process.side_effect = [Exception("temporary worker error"), mock_res]
+
+    res = compiler.compile(text)
+
+    assert res is mock_res
+    compiler.context_strategist.process.assert_called_once_with(text)
+    assert compiler.worker.process.call_count == 2
+    compiler.worker.process.assert_called_with(text, context="Mock context", mode="conservative")
+
+
+@patch("app.llm_engine.hybrid.detect_risk_flags")
 def test_compile_with_risk_flags(mock_detect_risk_flags, compiler):
     # Test adding risk flags to diagnostics
     mock_detect_risk_flags.return_value = ["health", "financial", "legal", "security", "unknown"]
@@ -151,6 +178,39 @@ def test_compile_worker_failure_fallback(compiler):
         assert res.thought_process == "Fallback to heuristics due to LLM error."
         assert any("Worker Error" in d.message for d in res.diagnostics)
         assert res.ir is mock_ir
+
+
+def test_compile_logs_context_and_falls_back_after_two_worker_failures(compiler, caplog):
+    text = "fail me twice"
+    compiler.context_strategist.process.return_value = "Mock context"
+    compiler.worker.process.side_effect = [Exception("first error"), Exception("second error")]
+
+    with patch("app.llm_engine.hybrid.compile_text_v2") as mock_compile_v2:
+        mock_ir = IRv2(
+            language="en",
+            persona="assistant",
+            role="test",
+            domain="general",
+            output_format="text",
+            length_hint="medium",
+        )
+        mock_compile_v2.return_value = mock_ir
+
+        with caplog.at_level("WARNING", logger="promptc.llm.hybrid"):
+            res = compiler.compile(text)
+
+    assert compiler.worker.process.call_count == 2
+    assert res.ir is mock_ir
+    assert any("after 2 attempts" in d.message for d in res.diagnostics)
+    assert any(
+        record.message == "Worker LLM failed; using heuristic fallback"
+        and record.exc_info
+        and record.attempts == 2
+        and record.mode == "conservative"
+        and record.text_length == len(text)
+        and record.rag_context_available is True
+        for record in caplog.records
+    )
 
 
 def test_compile_absolute_worst_case_fallback(compiler):
