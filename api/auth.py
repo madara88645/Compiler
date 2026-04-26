@@ -6,7 +6,7 @@ from threading import Lock
 from typing import Dict
 import os
 
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Security, status, Request
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import create_engine, Column, String, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -69,9 +69,18 @@ RATE_LIMIT_STORE: Dict[str, list] = {}
 RATE_LIMIT_LOCK = Lock()
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS = 10
+HEAVY_RATE_LIMIT_MAX_REQUESTS = 2
+
+
+def _get_route_group_and_limit(path: str) -> tuple[str, int]:
+    heavy_routes = ["/compile", "/optimize", "/run", "/agent-generator", "/skills-generator"]
+    if any(path.startswith(r) for r in heavy_routes):
+        return "heavy", HEAVY_RATE_LIMIT_MAX_REQUESTS
+    return "default", RATE_LIMIT_MAX_REQUESTS
 
 
 def verify_api_key(
+    request: Request,
     api_key: str = Security(api_key_header),
 ) -> APIKey:
     if not api_key:
@@ -113,6 +122,8 @@ def verify_api_key(
 
     # --- Rate Limiting ---
     now = time.time()
+    route_group, max_requests = _get_route_group_and_limit(request.url.path)
+    store_key = f"{api_key}:{route_group}"
 
     with RATE_LIMIT_LOCK:
         # Periodically clean up stale rate limit entries to prevent memory leaks
@@ -130,22 +141,23 @@ def verify_api_key(
         else:
             verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
 
-        history = RATE_LIMIT_STORE.get(api_key, [])
+        history = RATE_LIMIT_STORE.get(store_key, [])
         # Filter out timestamps older than window
         history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
 
-        if len(history) >= RATE_LIMIT_MAX_REQUESTS:
+        if len(history) >= max_requests:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
             )
 
         history.append(now)
-        RATE_LIMIT_STORE[api_key] = history
+        RATE_LIMIT_STORE[store_key] = history
 
     return key_record
 
 
 def verify_api_key_if_required(
+    request: Request,
     api_key: str = Security(api_key_header),
 ) -> APIKey | None:
     if api_key and len(api_key) > 256:
@@ -157,5 +169,5 @@ def verify_api_key_if_required(
         "yes",
         "on",
     }:
-        return verify_api_key(api_key)
+        return verify_api_key(request, api_key)
     return None

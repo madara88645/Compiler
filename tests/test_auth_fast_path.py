@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from unittest.mock import MagicMock, patch
+from fastapi import Request
 import sqlite3
 from pathlib import Path
 
@@ -298,8 +299,13 @@ def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
     monkeypatch.setattr(verify_api_key, "_cleanup_counter", 0, raising=False)
 
     def run_check():
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = "/test"
+        mock_request.client = None
         try:
-            verify_api_key("sk_atomic_db")
+            verify_api_key(mock_request, "sk_atomic_db")
+
             return "ok"
         except HTTPException as exc:
             return exc.status_code
