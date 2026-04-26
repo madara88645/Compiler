@@ -8,6 +8,7 @@ user's prompt based on keyword matching.
 from __future__ import annotations
 
 import re
+import functools
 from typing import List, Dict
 from pathlib import Path
 
@@ -15,6 +16,16 @@ from .base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2
 from app.rag.simple_index import get_all_indexed_files, DEFAULT_DB_PATH
+
+
+@functools.lru_cache(maxsize=1024)
+def _get_stem_pattern(stem: str) -> re.Pattern:
+    """
+    Bolt Optimization: Cache compiled regex patterns for file stems to avoid
+    repeated compilation overhead inside the inner loop. Bounded by LRU cache
+    to prevent memory leaks.
+    """
+    return re.compile(r"\b" + re.escape(stem) + r"\b")
 
 
 class ContextSuggestionHandler(BaseHandler):
@@ -76,7 +87,7 @@ class ContextSuggestionHandler(BaseHandler):
             # Check for stem as a distinct word
             # Use regex word boundary to avoid matching "authentication" with "auth" if strictness desired
             # But "auth" is often a prefix. Let's stick to word boundaries for precision.
-            if re.search(r"\b" + re.escape(stem) + r"\b", text_lower):
+            if _get_stem_pattern(stem).search(text_lower):
                 if path_str not in seen_paths:
                     suggestions.append(
                         {"path": path_str, "name": path.name, "reason": f"Topic '{stem}' detected"}
