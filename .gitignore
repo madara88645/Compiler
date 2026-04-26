@@ -64,3 +64,5 @@ scripts/probe_deployment.py
 # Database files
 *.db
 users.db
+.tmp-test-run/
+.tmp-test-run/

@@ -373,7 +373,9 @@ class TemplateGallery:
             results = [t for t in results if t.difficulty == difficulty]
 
         if tags:
-            results = [t for t in results if any(tag in t.tags for tag in tags)]
+            # Bolt Optimization: Use isdisjoint for fast set intersection check instead of any() generator expression
+            search_tags_set = set(tags)
+            results = [t for t in results if not search_tags_set.isdisjoint(t.tags)]
 
         return sorted(results, key=lambda t: (t.category, t.name))
 
