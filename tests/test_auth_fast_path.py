@@ -302,7 +302,6 @@ def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
     monkeypatch.setattr(verify_api_key, "_cleanup_counter", 0, raising=False)
 
     def run_check():
-
         mock_request = MagicMock(spec=Request)
         mock_request.url.path = "/test"
         mock_request.client = None
