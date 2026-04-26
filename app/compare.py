@@ -339,9 +339,6 @@ class PromptComparator:
             if issue.category in counts_b:
                 counts_b[issue.category] += 1
 
-        scores_a = validation_a.score
-        scores_b = validation_b.score
-
         categories = ["clarity", "specificity", "completeness", "consistency"]
         for category in categories:
             # QualityScore'dan kategori skorunu al
