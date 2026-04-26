@@ -108,23 +108,28 @@ class LogicHandler:
 
         # New: Resolve conflicts and inject reasoning
         # Bolt Optimization: Pre-calculate constraints attributes to avoid repeated expensive getattr
-        # calls inside nested loops.
-        c_texts = [
-            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
-            for c in ir2.constraints
-        ]
-        c_prios = [
-            getattr(c, "priority", 40) if not isinstance(c, dict) else c.get("priority", 40)
-            for c in ir2.constraints
-        ]
+        # calls inside nested loops. Replaced list comprehensions with an explicit loop to avoid
+        # multiple passes and slow `getattr` overhead by directly accessing attributes.
+        c_texts = []
+        c_prios = []
+        for c in ir2.constraints:
+            if isinstance(c, dict):
+                c_texts.append(c.get("text", ""))
+                c_prios.append(c.get("priority", 40))
+            else:
+                c_texts.append(getattr(c, "text", ""))
+                c_prios.append(getattr(c, "priority", 40))
 
         self._resolve_conflicts(ir2, c_texts, c_prios)
 
         # Re-fetch texts as they might have changed after conflict resolution
-        c_texts = [
-            getattr(c, "text", "") if not isinstance(c, dict) else c.get("text", "")
-            for c in ir2.constraints
-        ]
+        c_texts = []
+        for c in ir2.constraints:
+            if isinstance(c, dict):
+                c_texts.append(c.get("text", ""))
+            else:
+                c_texts.append(getattr(c, "text", ""))
+
         self._inject_reasoning(ir2, original_text, c_texts)
 
     def _resolve_conflicts(self, ir2: IRv2, c_texts: List[str], c_prios: List[int]) -> None:

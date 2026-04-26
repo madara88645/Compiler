@@ -137,3 +137,11 @@
 ## 2024-05-24 - Fast Set Intersection for Filtering
 **Learning:** In Python, replacing a list comprehension used to filter elements based on membership in a predefined set (e.g., `[term for term in MY_SET if term in words]`) with a direct set intersection (e.g., `list(MY_SET.intersection(words))`) pushes the iteration and comparison logic down to C level. In microbenchmarks within the validator, this resulted in a ~35% performance improvement for string matching tasks.
 **Action:** Always prefer native set operations (like `.intersection()` or `&`) over list comprehensions or `for` loops when finding common elements or filtering against a set of known keywords, especially in high-frequency validation checks.
+
+## 2024-05-30 - O(N) Tallying over O(N*M) List Comprehensions
+**Learning:** In `app/compare.py`, filtering the same list of objects repeatedly using a list comprehension inside a loop over categories (`[i for i in issues if i.category == category]`) creates an O(N*M) operation that degrades performance as the number of issues scales.
+**Action:** To optimize counting or grouping objects by category in Python, avoid iterating over predefined categories and using list comprehensions to filter items. Instead, use a single O(N) pass over the items to tally counts directly into a dictionary.
+
+## 2024-05-30 - Combining List Comprehensions
+**Learning:** In `app/heuristics/handlers/logic.py`, using multiple consecutive list comprehensions to extract different properties (e.g. `text` and `priority`) from the same list of objects iterates over the list multiple times, introducing redundant overhead.
+**Action:** When extracting multiple separate properties from the same list of objects in Python, use a single explicit `for` loop to append to multiple lists simultaneously rather than executing multiple consecutive list comprehensions. This avoids redundant O(N) iterations and reduces overhead.
