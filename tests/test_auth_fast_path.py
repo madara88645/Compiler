@@ -1,10 +1,14 @@
+from concurrent.futures import ThreadPoolExecutor
+import threading
+
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 import sqlite3
 from pathlib import Path
 from api.main import app
-from api.auth import APIKey, SessionLocal
+from api.auth import APIKey, SessionLocal, verify_api_key
 from app.compiler import compile_text_v2
 from app.rag import simple_index
 
@@ -256,6 +260,59 @@ def test_rate_limit(test_key):
         mock.cache = {}
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
         assert resp.status_code == 429
+
+
+def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
+    class SlowDict(dict):
+        def __init__(self):
+            super().__init__()
+            self._lock = threading.Lock()
+            self.active_gets = 0
+            self.max_active_gets = 0
+
+        def get(self, key, default=None):
+            with self._lock:
+                self.active_gets += 1
+                self.max_active_gets = max(self.max_active_gets, self.active_gets)
+            try:
+                threading.Event().wait(0.05)
+            finally:
+                with self._lock:
+                    self.active_gets -= 1
+            return super().get(key, default)
+
+    rate_limit_store = SlowDict()
+
+    db = SessionLocal()
+    key = APIKey(key="sk_atomic_db", owner="pytest")
+    db.add(key)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    monkeypatch.setattr("api.auth.RATE_LIMIT_STORE", rate_limit_store)
+    monkeypatch.setattr("api.auth.RATE_LIMIT_MAX_REQUESTS", 1)
+    monkeypatch.setattr("api.auth.RATE_LIMIT_WINDOW", 60)
+    monkeypatch.setattr(verify_api_key, "_cleanup_counter", 0, raising=False)
+
+    def run_check():
+        try:
+            verify_api_key("sk_atomic_db")
+            return "ok"
+        except HTTPException as exc:
+            return exc.status_code
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: run_check(), range(2)))
+    finally:
+        db.delete(key)
+        db.commit()
+        db.close()
+
+    assert sorted(results, key=str) == [429, "ok"]
+    assert rate_limit_store.max_active_gets == 1
 
 
 def test_compile_no_key():
