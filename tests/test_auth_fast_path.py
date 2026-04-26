@@ -244,8 +244,10 @@ def test_rate_limit(test_key):
 
     RATE_LIMIT_STORE.clear()
 
-    # Send 10 requests (allowed)
-    for _ in range(10):
+    from api.auth import HEAVY_RATE_LIMIT_MAX_REQUESTS
+
+    # Send allowed requests
+    for _ in range(HEAVY_RATE_LIMIT_MAX_REQUESTS):
         with patch("api.main.hybrid_compiler") as mock:
             mock.cache = {}
             mock.worker.process.return_value = MagicMock(
@@ -255,9 +257,10 @@ def test_rate_limit(test_key):
                 plan="",
                 optimized_content="",
             )
-            client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+            resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+            assert resp.status_code == 200
 
-    # 11th request should fail
+    # Next request should fail
     with patch("api.main.hybrid_compiler") as mock:
         mock.cache = {}
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
