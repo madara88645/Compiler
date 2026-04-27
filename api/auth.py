@@ -71,6 +71,16 @@ RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS = 10
 
 
+def _matches_admin_api_key(provided_key: str, admin_key: str) -> bool:
+    normalized_key = provided_key.strip()
+    if len(normalized_key) == len(admin_key):
+        return secrets.compare_digest(normalized_key, admin_key)
+
+    # Run a same-length dummy comparison to avoid leaking the admin key length.
+    secrets.compare_digest(admin_key, admin_key)
+    return False
+
+
 def verify_api_key(
     api_key: str = Security(api_key_header),
 ) -> APIKey:
@@ -85,18 +95,8 @@ def verify_api_key(
     # --- Master Key Check (for Stateless Deployments like Railway) ---
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
-    if admin_key:
-        # Prevent length side-channel by ensuring we always compare strings of the same length
-        provided_key = api_key.strip()
-        if len(provided_key) == len(admin_key):
-            is_valid = secrets.compare_digest(provided_key, admin_key)
-        else:
-            # Dummy comparison to prevent timing attacks
-            is_valid = secrets.compare_digest(admin_key, admin_key)
-            is_valid = False
-
-        if is_valid:
-            return APIKey(key=api_key, owner="admin", is_active=True)
+    if admin_key and _matches_admin_api_key(api_key, admin_key):
+        return APIKey(key=api_key, owner="admin", is_active=True)
 
     db = SessionLocal()
     key_record = db.query(APIKey).filter(APIKey.key == api_key).first()
