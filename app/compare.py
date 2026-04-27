@@ -318,25 +318,41 @@ class PromptComparator:
         """Kategori bazında detaylı karşılaştırma"""
         comparison = {}
 
-        categories = ["clarity", "specificity", "completeness", "consistency"]
+        # Bolt Optimization: Calculate category counts in a single O(N) pass to avoid O(N*M) looping
+        counts_a: Dict[str, int] = {
+            "clarity": 0,
+            "specificity": 0,
+            "completeness": 0,
+            "consistency": 0,
+        }
+        for issue in validation_a.issues:
+            if issue.category in counts_a:
+                counts_a[issue.category] += 1
 
+        counts_b: Dict[str, int] = {
+            "clarity": 0,
+            "specificity": 0,
+            "completeness": 0,
+            "consistency": 0,
+        }
+        for issue in validation_b.issues:
+            if issue.category in counts_b:
+                counts_b[issue.category] += 1
+
+        categories = ["clarity", "specificity", "completeness", "consistency"]
         for category in categories:
             # QualityScore'dan kategori skorunu al
             score_a = getattr(validation_a.score, category, 0)
             score_b = getattr(validation_b.score, category, 0)
             diff = score_b - score_a
 
-            # Bu kategorideki issue'ları filtrele
-            issues_a = [i for i in validation_a.issues if i.category == category]
-            issues_b = [i for i in validation_b.issues if i.category == category]
-
             comparison[category] = {
                 "score_a": score_a,
                 "score_b": score_b,
                 "difference": diff,
                 "better": "B" if diff > 2 else ("A" if diff < -2 else "Equal"),
-                "issues_a_count": len(issues_a),
-                "issues_b_count": len(issues_b),
+                "issues_a_count": counts_a.get(category, 0),
+                "issues_b_count": counts_b.get(category, 0),
             }
 
         return comparison
