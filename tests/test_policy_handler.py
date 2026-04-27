@@ -124,6 +124,30 @@ def test_policy_domain_tools_health():
     assert "secret_access" in ir2.policy.forbidden_tools
 
 
+def test_policy_domain_tools_legal():
+    ir2 = compile_text_v2("Review this contract for legal risks before I sign it.")
+
+    assert "legal" in ir2.policy.risk_domains
+    assert ir2.policy.risk_level == "high"
+    assert "reference_lookup" in ir2.policy.allowed_tools
+    assert "secret_access" in ir2.policy.forbidden_tools
+    assert "external_share" in ir2.policy.forbidden_tools
+    assert "jurisdiction_check" in ir2.policy.sanitization_rules
+    assert "no_professional_advice" in ir2.policy.sanitization_rules
+
+
+def test_policy_reasons_explain_escalation_sources():
+    ir2 = compile_text_v2(
+        "Debug this legal contract parser using logs from C:\\app\\logs and email memo@example.com."
+    )
+
+    reasons = ir2.metadata.get("policy_reasons") or []
+    assert "high_risk_domain:legal" in reasons
+    assert "file_or_system_request" in reasons
+    assert "debug_request" in reasons
+    assert "pii_detected:email" in reasons
+
+
 def test_pii_detects_ssn():
     from app.heuristics import detect_pii
 

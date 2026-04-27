@@ -74,9 +74,31 @@ class ContextStrategist:
                 json_mode=True,
             )
             data = json.loads(response)
-            if isinstance(data, list):
-                return data[:3]
-            return []
+            return self._normalize_queries(data)
         except Exception as e:
             print(f"[STRATEGIST] Query expansion failed: {e}", file=sys.stderr)
             return []
+
+    @staticmethod
+    def _normalize_queries(data: Any) -> List[str]:
+        if isinstance(data, dict):
+            data = data.get("queries")
+        if not isinstance(data, list):
+            return []
+
+        queries: List[str] = []
+        seen: set[str] = set()
+        for item in data:
+            if not isinstance(item, str):
+                continue
+            query = " ".join(item.strip().split())
+            if not query:
+                continue
+            key = query.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            queries.append(query)
+            if len(queries) >= 3:
+                break
+        return queries

@@ -9,6 +9,7 @@ The user wants to modify code or understand a concept. Your job is to bridge the
 3.  **Generate Queries**:
     *   **Exact Matches**: Likely file names or function names.
     *   **Semantic Queries**: Concepts described in natural language.
+    *   **Grounding**: Do not invent filenames, do not invent functions, do not invent endpoints, and do not invent API names unless they are present in the user text or provided context.
 4.  **Format**: Return a JSON object with a list of strings under the key "queries".
 
 ## Example

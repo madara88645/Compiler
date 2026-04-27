@@ -338,6 +338,23 @@ def _top_constraints_text_v2(cons: List[ConstraintV2], limit: int = 3) -> str:
     return " | ".join(format_constraint(c) for c in top)
 
 
+def _policy_summary_text_v2(ir: IRv2) -> str:
+    policy = ir.policy
+    parts = [
+        f"risk={policy.risk_level}",
+        f"execution={policy.execution_mode}",
+    ]
+    if policy.risk_domains:
+        parts.append("domains=" + ",".join(policy.risk_domains[:5]))
+    if policy.forbidden_tools:
+        parts.append("forbidden_tools=" + ",".join(policy.forbidden_tools[:5]))
+    if policy.sanitization_rules:
+        parts.append("sanitization=" + ",".join(policy.sanitization_rules[:5]))
+    if policy.data_sensitivity and policy.data_sensitivity != "public":
+        parts.append(f"data={policy.data_sensitivity}")
+    return "; ".join(parts)
+
+
 def emit_system_prompt_v2(ir: IRv2) -> str:
     parts: List[str] = [
         f"Persona: {ir.persona}",
@@ -361,6 +378,9 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
     c_line = _top_constraints_text_v2(ir.constraints, limit=3)
     if c_line:
         parts.append("Key Constraints: " + c_line)
+    policy_line = _policy_summary_text_v2(ir)
+    if policy_line:
+        parts.append("Policy: " + policy_line)
     if ir.style:
         parts.append("Style: " + ", ".join(ir.style))
     if ir.tone:
@@ -407,11 +427,26 @@ def emit_user_prompt_v2(ir: IRv2) -> str:
 
 def emit_plan_v2(ir: IRv2) -> str:
     out: List[str] = []
+    clarify_questions = (ir.metadata or {}).get("clarify_questions") or []
+    if clarify_questions:
+        out.append(
+            "1. [clarify] Ask the unresolved clarification questions before choosing a final approach.\n"
+            "   Rationale: missing details should be resolved instead of guessed"
+        )
+    if ir.policy.execution_mode == "human_approval_required":
+        step_number = len(out) + 1
+        out.append(
+            f"{step_number}. [policy] Pause for human approval before executing or relying on tools.\n"
+            f"   Rationale: policy requires human approval for {ir.policy.risk_level} risk"
+        )
     steps = ir.steps if ir.steps else [StepV2(type="task", text=t) for t in ir.tasks]
     for i, step in enumerate(steps, start=1):
-        rationale = "Rationale: execute task effectively"
+        step_number = len(out) + 1
+        rationale = (
+            "Rationale: complete the user's stated task without adding unstated requirements"
+        )
         kind = step.type if hasattr(step, "type") else "task"
-        out.append(f"{i}. [{kind}] {step.text}\n   {rationale}")
+        out.append(f"{step_number}. [{kind}] {step.text}\n   {rationale}")
     return (
         "\n".join(out)
         if out
@@ -470,6 +505,9 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + c_line
         )
+    policy_line = _policy_summary_text_v2(ir)
+    if policy_line:
+        ctx_lines.append("Policy: " + policy_line)
     if ir.inputs:
         kv = [f"{k}={v}" for k, v in list(ir.inputs.items())[:4]]
         ctx_lines.append(
@@ -535,6 +573,17 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         "",
         fmt_line,
     ]
+    clarify_all = (ir.metadata or {}).get("clarify_questions") or []
+    if clarify_all:
+        prompt.extend(
+            [
+                "",
+                ("Clarification Questions" if lang != "tr" else "Açıklama Soruları") + ":",
+            ]
+        )
+        for q in clarify_all[:5]:
+            prompt.append(f"- {q}")
+
     # Follow-up Questions (same approach as v1)
     followups: List[str] = []
     if lang == "tr":

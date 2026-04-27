@@ -24,6 +24,24 @@ class TestContextStrategist:
         assert result == ["query1", "query2", "query3"]
         mock_client._call_api.assert_called_once()
 
+    def test_expand_query_accepts_queries_object(self):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = json.dumps({"queries": ["query1", "query2"]})
+        strategist = ContextStrategist(client=mock_client)
+
+        result = strategist._expand_query("test prompt")
+        assert result == ["query1", "query2"]
+
+    def test_expand_query_filters_invalid_duplicates_and_limits_results(self):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = json.dumps(
+            ["query1", "", " query1 ", 42, "query2", {"q": "bad"}, "query3", "query4"]
+        )
+        strategist = ContextStrategist(client=mock_client)
+
+        result = strategist._expand_query("test prompt")
+        assert result == ["query1", "query2", "query3"]
+
     def test_expand_query_malformed_json(self):
         mock_client = MagicMock()
         mock_client._call_api.return_value = "invalid json"
