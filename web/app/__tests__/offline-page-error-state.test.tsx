@@ -40,7 +40,7 @@ describe("Offline compiler page", () => {
     fireEvent.change(screen.getByLabelText("Offline prompt input"), {
       target: { value: "Summarize this incident report." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Run Heuristics/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Heuristics/i })[0]);
 
     expect(await screen.findByText("Error: Offline backend unavailable")).toBeTruthy();
 
