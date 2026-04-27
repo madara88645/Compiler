@@ -47,8 +47,8 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
     const connectionBadge = getConnectionBadge(isConnected);
 
     return (
-        <div className="flex flex-col gap-4 border-t border-white/5 pt-4 mt-4">
-            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center justify-between gap-2">
+        <div className="mt-2 flex shrink-0 flex-col gap-3 border-t border-white/5 pt-3">
+            <h3 className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                 <div className="flex items-center gap-2">
                     <span>Context Manager</span>
                     <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">RAG</span>
@@ -61,7 +61,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             <ContextSuggestions suggestions={suggestions} onInsertContext={onInsertContext} />
 
             {indexStats && indexStats.docs > 0 && (
-                <div className="flex gap-4 px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-zinc-500 uppercase">Documents</span>
                         <span className="text-xs font-mono text-zinc-300">{indexStats.docs}</span>
@@ -80,7 +80,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             <FileUploadZone ingesting={ingesting} uploadProgress={uploadProgress} onUploadFiles={uploadFiles} />
 
             {status && (
-                <div aria-live="polite" className={`text-[10px] px-2 py-1.5 rounded-lg ${getStatusTone(status)}`}>
+                <div aria-live="polite" className={`rounded-lg px-2 py-1 text-[10px] ${getStatusTone(status)}`}>
                     {status}
                 </div>
             )}
@@ -93,7 +93,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     <input
                         type="text"
                         aria-label="Path to file or folder..."
-                        className="w-full bg-black/30 p-2.5 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
+                        className="w-full rounded-lg border border-white/5 bg-black/30 p-2 text-xs font-mono transition-colors placeholder-zinc-600 focus:border-blue-500/30 focus:outline-none"
                         placeholder="Path to file or folder..."
                         value={filePath}
                         onChange={(e) => setFilePath(e.target.value)}
@@ -103,7 +103,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         onClick={() => void ingestPath(filePath)}
                         disabled={ingesting || !filePath}
                         title={!filePath ? "Enter a file path first to ingest" : "Ingest Path"}
-                        className="w-full py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-xs font-medium text-zinc-300 rounded-lg disabled:opacity-50 transition-colors border border-white/5 flex items-center justify-center gap-2"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-700/50 disabled:opacity-50"
                     >
                         {ingesting ? <span className="animate-pulse">Indexing...</span> : "Ingest Path"}
                     </button>

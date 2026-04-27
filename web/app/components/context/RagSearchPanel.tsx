@@ -26,7 +26,7 @@ export default function RagSearchPanel({
                     <input
                         type="text"
                         aria-label="Search context..."
-                        className="w-full bg-black/30 p-2.5 pr-8 rounded-lg text-xs border border-white/5 focus:border-blue-500/30 focus:outline-none transition-colors placeholder-zinc-600 font-mono"
+                        className="w-full rounded-lg border border-white/5 bg-black/30 p-2 pr-8 font-mono text-xs transition-colors placeholder-zinc-600 focus:border-blue-500/30 focus:outline-none"
                         placeholder="Search context..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -49,13 +49,13 @@ export default function RagSearchPanel({
                     onClick={onRunSearch}
                     disabled={searching || !query.trim()}
                     title={!query.trim() ? "Enter a query first to search" : "Search"}
-                    className="px-3 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs hover:bg-blue-500/20 transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+                    className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 text-xs font-medium text-blue-400 transition-all hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:opacity-50"
                 >
                     Search
                 </button>
             </div>
 
-            <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="custom-scrollbar flex max-h-32 flex-col gap-2 overflow-y-auto pr-1 sm:max-h-40">
                 {!searching && query && results.length === 0 && (
                     <div className="text-[10px] text-zinc-500 text-center py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
                         No results found for &quot;{query}&quot;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Code2 } from "lucide-react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -100,7 +99,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+    <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
 
       {/* Security Alert Modal */}
       {securityFindings.length > 0 && (
@@ -117,25 +116,25 @@ export default function Home() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
 
       {/* Floating Main Container */}
-      <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
+      <div className="glass flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 animate-fade-in md:h-full md:max-h-[90vh] md:rounded-3xl">
 
         {/* Header */}
-        <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
+        <header className="flex flex-col gap-3 border-b border-white/5 bg-black/20 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"><Code2 size={18} aria-hidden="true" /></div>
+              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20">💠</div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-                <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">Policy-Aware Prompt Workflows</div>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Vague Request To Prompt, Plan, And Policy</div>
               </div>
             </div>
             <InfoButton
               title="Prompt Compiler"
-              description="Turns vague requests into structured prompts, execution plans, and policy-checked workflows — idea to safe, usable AI output in seconds."
+              description="Turns vague requests into structured prompts, execution plans, and policy-checked workflows so you can go from rough intent to safe, usable AI output in seconds."
             />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setConservativeMode((prev) => !prev)}
@@ -156,7 +155,7 @@ export default function Home() {
               />
               <span className="flex flex-col items-start leading-none">
                 <span>Conservative</span>
-                <span className="mt-1 text-xs font-normal opacity-75">
+                <span className="mt-1 text-[10px] font-normal opacity-75">
                   {conservativeMode ? "No hallucinations" : "Aggressive optimize"}
                 </span>
               </span>
@@ -168,7 +167,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
+              <div className="min-w-[88px] rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-center font-mono text-xs text-zinc-500">
                 {status}
               </div>
               {!!lastError && !loading && (
@@ -184,16 +183,16 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10">
+          <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
 
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <textarea
                 aria-label="Describe what you want compiled"
-                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-500 transition-all shadow-inner"
-                placeholder="Describe what you want compiled... e.g. 'Turn this GitHub issue into a safe implementation brief'"
+                className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
+                placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
@@ -218,7 +217,7 @@ export default function Home() {
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
                 ) : (
-                  <>Generate <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                  <>Generate <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span> <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>
                 )}
               </button>
             </div>
@@ -231,7 +230,7 @@ export default function Home() {
           </div>
 
           {/* Right Panel: Output */}
-          <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
+          <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[65%]">
 
             {/* ── Compiler Output View ── */}
             {!!lastError && !loading ? (
@@ -239,7 +238,7 @@ export default function Home() {
             ) : result ? (
               <>
                 {/* Tabs */}
-                <div role="tablist" aria-label="Output views" className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto scroll-smooth" style={{ maskImage: "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)" }}>
+                <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       type="button"
@@ -249,7 +248,7 @@ export default function Home() {
                       aria-controls={`tabpanel-${tab}`}
                       id={`tab-${tab}`}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:z-10 ${activeTab === tab
+                      className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${activeTab === tab
                         ? "text-white bg-white/5 border-t border-x border-white/5"
                         : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
                         }`}
@@ -410,28 +409,22 @@ export default function Home() {
             ) : loading ? (
               <OutputSkeleton />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center gap-6 p-10 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center sm:gap-6 sm:p-10">
                 <div className="relative group">
                   <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
-                    <Code2 size={40} strokeWidth={1.5} aria-hidden="true" className="text-blue-400/60" />
+                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">💠</span>
                   </div>
                 </div>
                 <div className="max-w-sm space-y-2">
-                  <h3 className="text-zinc-100 font-semibold tracking-tight text-base">Start with any rough idea</h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed mb-4">
-                    Paste a task, question, or workflow on the left, then press <kbd className="text-[11px] font-mono border border-white/20 rounded px-1 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd>.
-                    You&apos;ll get a clean system &amp; user prompt, an execution plan, and safety checks — ready to drop into any LLM.
+                  <h3 className="text-zinc-100 font-semibold tracking-tight text-base">Start with any rough request</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    Paste a task, question, bug report, or workflow on the left, then press <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">Ctrl/Cmd Enter</kbd>.
+                    You&apos;ll get structured prompts, an execution plan, and policy checks you can inspect before using the result downstream.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleGenerate()}
-                    disabled={loading || !prompt.trim()}
-                    title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
-                    className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
-                  >
-                    Compile Prompt
-                  </button>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
+                  </p>
                   <p className="text-[10px] text-zinc-500 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>
