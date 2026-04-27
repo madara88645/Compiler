@@ -137,3 +137,7 @@
 ## 2024-05-24 - Fast Set Intersection for Filtering
 **Learning:** In Python, replacing a list comprehension used to filter elements based on membership in a predefined set (e.g., `[term for term in MY_SET if term in words]`) with a direct set intersection (e.g., `list(MY_SET.intersection(words))`) pushes the iteration and comparison logic down to C level. In microbenchmarks within the validator, this resulted in a ~35% performance improvement for string matching tasks.
 **Action:** Always prefer native set operations (like `.intersection()` or `&`) over list comprehensions or `for` loops when finding common elements or filtering against a set of known keywords, especially in high-frequency validation checks.
+
+## 2024-05-31 - Fast Pydantic Serialization
+**Learning:** When attempting to optimize JSON serialization of a Pydantic model by switching from `json.dumps(model.model_dump())` to `orjson.dumps(model.model_dump())`, I learned that the fastest, native, and dependency-free method is simply using `model.model_dump_json()`. Pydantic's internal Rust-powered serialization is significantly faster than dumping to a Python dict and then serializing via a separate library.
+**Action:** When working with Pydantic models (v2) and needing a JSON string, always use `model.model_dump_json()` rather than standard `json` or external libraries like `orjson` to minimize overhead and avoid introducing unnecessary dependencies.
