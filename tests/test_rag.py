@@ -32,6 +32,30 @@ def test_expand_query(strategist):
     assert len(queries) == 2
 
 
+def test_expand_query_filters_invented_artifact_names(mock_db):
+    class ArtifactLLMClient:
+        def expand_query_intent(self, text):
+            return {
+                "queries": [
+                    "User.authenticate",
+                    "password_regex",
+                    "login error handling",
+                    text,
+                ]
+            }
+
+    strategist = ContextStrategist(mock_db, ArtifactLLMClient())
+
+    queries = strategist.expand_query(
+        "The login page returns 500 when the password has a special character."
+    )
+
+    assert queries == [
+        "The login page returns 500 when the password has a special character.",
+        "login error handling",
+    ]
+
+
 def test_retrieve_rrf(strategist, mock_db):
     # Setup mock returns structure for multiple calls if needed
     # But for now the simple return_value is enough

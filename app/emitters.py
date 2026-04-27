@@ -355,6 +355,91 @@ def _policy_summary_text_v2(ir: IRv2) -> str:
     return "; ".join(parts)
 
 
+def _policy_reason_phrases_v2(ir: IRv2) -> List[str]:
+    reasons = (ir.metadata or {}).get("policy_reasons") or []
+    phrases: List[str] = []
+    for reason in reasons:
+        if not isinstance(reason, str):
+            continue
+        if reason.startswith("high_risk_domain:"):
+            phrases.append(f"high-risk domain: {reason.split(':', 1)[1]}")
+        elif reason.startswith("risk_domain:"):
+            phrases.append(f"risk domain: {reason.split(':', 1)[1]}")
+        elif reason.startswith("pii_detected:"):
+            phrases.append(f"sensitive data detected: {reason.split(':', 1)[1]}")
+        elif reason == "overlapping_risk_domains":
+            phrases.append("overlapping risk domains")
+        elif reason == "debug_request":
+            phrases.append("debugging or code execution context")
+        elif reason == "file_or_system_request":
+            phrases.append("file or system access requested")
+        else:
+            phrases.append(reason.replace("_", " "))
+
+    if not phrases and ir.policy.execution_mode == "human_approval_required":
+        phrases.append(f"{ir.policy.risk_level} risk policy")
+    return phrases
+
+
+def _policy_check_lines_v2(ir: IRv2) -> List[str]:
+    policy = ir.policy
+    if (
+        policy.execution_mode != "human_approval_required"
+        and not policy.forbidden_tools
+        and not policy.sanitization_rules
+        and policy.data_sensitivity == "public"
+    ):
+        return []
+
+    lines: List[str] = []
+    reasons = _policy_reason_phrases_v2(ir)
+    if policy.execution_mode == "human_approval_required":
+        lines.append("Approval required because " + ", ".join(reasons) + ".")
+    elif reasons:
+        lines.append("Policy trigger: " + ", ".join(reasons) + ".")
+    if policy.forbidden_tools:
+        lines.append("Do not use: " + ", ".join(policy.forbidden_tools[:5]) + ".")
+    if policy.sanitization_rules:
+        lines.append("Apply sanitization: " + ", ".join(policy.sanitization_rules[:5]) + ".")
+    if policy.data_sensitivity and policy.data_sensitivity != "public":
+        lines.append(f"Data sensitivity: {policy.data_sensitivity}.")
+    return lines
+
+
+def _clean_domain_suggestion_text(text: str) -> str:
+    value = " ".join((text or "").strip().split())
+    for marker in ("Include ", "Add ", "Review ", "Use ", "Follow ", "Consider ", "Handle "):
+        index = value.find(marker)
+        if 0 < index <= 8:
+            return value[index:]
+    return value
+
+
+def _domain_suggestions_v2(ir: IRv2, limit: int = 3) -> List[str]:
+    raw = (ir.metadata or {}).get("domain_suggestions") or []
+    if not isinstance(raw, list):
+        return []
+
+    items: List[tuple[int, str]] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        text = _clean_domain_suggestion_text(str(item.get("text") or ""))
+        key = text.lower()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        try:
+            priority = int(item.get("priority") or 0)
+        except Exception:
+            priority = 0
+        items.append((priority, text))
+
+    items.sort(key=lambda pair: pair[0], reverse=True)
+    return [text for _, text in items[:limit]]
+
+
 def emit_system_prompt_v2(ir: IRv2) -> str:
     parts: List[str] = [
         f"Persona: {ir.persona}",
@@ -435,9 +520,13 @@ def emit_plan_v2(ir: IRv2) -> str:
         )
     if ir.policy.execution_mode == "human_approval_required":
         step_number = len(out) + 1
+        policy_lines = _policy_check_lines_v2(ir)
+        rationale = "Rationale: policy requires human approval for " f"{ir.policy.risk_level} risk"
+        if policy_lines:
+            rationale += "\n   " + "\n   ".join(policy_lines)
         out.append(
             f"{step_number}. [policy] Pause for human approval before executing or relying on tools.\n"
-            f"   Rationale: policy requires human approval for {ir.policy.risk_level} risk"
+            f"   {rationale}"
         )
     steps = ir.steps if ir.steps else [StepV2(type="task", text=t) for t in ir.tasks]
     for i, step in enumerate(steps, start=1):
@@ -508,6 +597,11 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
     policy_line = _policy_summary_text_v2(ir)
     if policy_line:
         ctx_lines.append("Policy: " + policy_line)
+    policy_checks = _policy_check_lines_v2(ir)
+    if policy_checks:
+        ctx_lines.append("Policy Checks:")
+        for line in policy_checks:
+            ctx_lines.append(f"- {line}")
     if ir.inputs:
         kv = [f"{k}={v}" for k, v in list(ir.inputs.items())[:4]]
         ctx_lines.append(
@@ -531,6 +625,18 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + ", ".join(ir.tone)
         )
+    optional_suggestions = _domain_suggestions_v2(ir, limit=3)
+    if optional_suggestions:
+        ctx_lines.append(
+            (
+                "Istege bagli degerlendirmeler"
+                if lang == "tr"
+                else ("Consideraciones opcionales" if lang == "es" else "Optional considerations")
+            )
+            + ":"
+        )
+        for suggestion in optional_suggestions:
+            ctx_lines.append(f"- {suggestion}")
 
     # --- Agent 6: Context Injection ---
     context_snippets = (ir.metadata or {}).get("context_snippets")

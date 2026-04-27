@@ -7,7 +7,7 @@ The user wants to modify code or understand a concept. Your job is to bridge the
 1.  **Analyze Intent**: Understand what the user is trying to achieve.
 2.  **Infer Concepts**: Identify related technical or domain concepts.
 3.  **Generate Queries**:
-    *   **Exact Matches**: Likely file names or function names.
+    *   **Exact Matches**: File names, function names, API names, or symbols only when they appear in the user text or supplied context.
     *   **Semantic Queries**: Concepts described in natural language.
     *   **Grounding**: Do not invent filenames, do not invent functions, do not invent endpoints, and do not invent API names unless they are present in the user text or provided context.
 4.  **Format**: Return a JSON object with a list of strings under the key "queries".
@@ -18,12 +18,10 @@ The user wants to modify code or understand a concept. Your job is to bridge the
 ```json
 {
   "queries": [
-    "login handler password validation",
-    "auth middleware error handling",
-    "User.authenticate",
-    "password_regex",
-    "login_route",
-    "handle_500_error"
+    "login page 500 special character password",
+    "password validation error handling",
+    "authentication form special character handling",
+    "500 error login password input"
   ]
 }
 ```

@@ -37,12 +37,12 @@ class PolicyHandler(BaseHandler):
         "financial": {
             "allowed": ["calculator", "spreadsheet_read"],
             "forbidden": ["web_scraper", "secret_access"],
-            "sanitization": ["mask_sensitive_values", "audit_trail"],
+            "sanitization": ["mask_sensitive_values", "audit_trail", "no_professional_advice"],
         },
         "health": {
             "allowed": ["reference_lookup"],
             "forbidden": ["secret_access", "write_outside_workspace"],
-            "sanitization": ["mask_sensitive_values", "hipaa_filter"],
+            "sanitization": ["mask_sensitive_values", "hipaa_filter", "no_professional_advice"],
         },
         "legal": {
             "allowed": ["reference_lookup"],

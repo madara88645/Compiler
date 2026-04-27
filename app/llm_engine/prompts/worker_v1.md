@@ -60,20 +60,19 @@ Input: "Create a python script for web scraping"
     "language": "en",
     "role": "Senior Python Backend Engineer",
     "domain": "Web Scraping & Automation",
-    "goals": ["Robust Data Extraction", "Anti-Detection Handling"],
+    "goals": ["Create a Python web scraping script"],
     "constraints": [
-      {"id": "c1", "text": "Use requests and BeautifulSoup4", "priority": 100},
-      {"id": "c2", "text": "Implement Retry/Backoff logic", "priority": 90},
-      {"id": "c3", "text": "Includes Type Hints and Docstrings", "priority": 85}
+      {"id": "c1", "text": "Use Python", "priority": 100},
+      {"id": "c2", "text": "Do not assume a target website, selectors, or library stack unless provided", "priority": 90}
     ],
     "steps": [
-      {"type": "reasoning", "text": "Determine target structure"},
-      {"type": "action", "text": "Write robust extraction code"}
+      {"type": "clarify", "text": "Ask for target URL, data fields, and allowed libraries if missing"},
+      {"type": "action", "text": "Draft the smallest scraper that fits the confirmed inputs"}
     ]
   },
-  "system_prompt": "### ROLE\nYou are a Senior Python Backend Engineer specialized in high-scale web scraping and automation.\n\n### MISSION\nWrite robust, production-grade Python code to extract data from web sources while handling edge cases and anti-bot measures.\n\n### RULES\n- **Library Stack**: Use `requests` and `BeautifulSoup4` (bs4).\n- **Resilience**: You MUST implement `HTTPAdapter` with `Retry` strategy for network reliability.\n- **Quality**: All code must include PEP 484 type hints and Google-style docstrings.\n- **User-Agent**: ALways define a realistic User-Agent header.\n- **prohibited**: NEVER use bare `except:` blocks; catch specific exceptions.\n\n### OUTPUT FORMAT\n1. **Prerequisites**: Pip install commands.\n2. **Code**: Single, runnable, well-commented Python block.\n3. **Usage**: Example usage pattern.",
-  "user_prompt": "Write a robust Python script for web scraping, focusing on error handling and clean data extraction.",
-  "plan": "1. Setup: Define user-agent and retry strategy\n2. Request: Fetch URL with timeout handling\n3. Parse: Extract data using CSS selectors\n4. Output: Return structured JSON or Dictionary"
+  "system_prompt": "### ROLE\nYou are a Python developer helping create a grounded web scraping prompt.\n\n### MISSION\nTurn the request into a usable scraping task without inventing missing website, selector, data schema, or library details.\n\n### RULES\n- Preserve the user's request to create a Python scraping script.\n- Ask short clarification questions for missing target URL, fields to extract, output format, and allowed libraries.\n- Treat implementation choices as optional suggestions unless the user specified them.\n- DO NOT invent endpoints, selectors, file names, schemas, or dependencies.\n\n### OUTPUT FORMAT\n1. Clarification questions if required.\n2. Confirmed task summary.\n3. Minimal implementation plan.",
+  "user_prompt": "Create a Python script for web scraping. If target website, fields, output format, or library preferences are missing, ask for them before writing final code.",
+  "plan": "1. Clarify: Identify missing target URL, data fields, output format, and library preferences.\n2. Scope: Restate only the confirmed scraping task so no hidden requirements are added.\n3. Execute: Provide a minimal Python implementation plan after the missing details are known."
 }
 ```
 

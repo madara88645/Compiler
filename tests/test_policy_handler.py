@@ -112,6 +112,7 @@ def test_policy_domain_tools_financial():
     assert "calculator" in ir2.policy.allowed_tools
     assert "web_scraper" in ir2.policy.forbidden_tools
     assert "audit_trail" in ir2.policy.sanitization_rules
+    assert "no_professional_advice" in ir2.policy.sanitization_rules
 
 
 def test_policy_domain_tools_health():
@@ -121,6 +122,7 @@ def test_policy_domain_tools_health():
 
     assert "health" in ir2.policy.risk_domains
     assert "hipaa_filter" in ir2.policy.sanitization_rules
+    assert "no_professional_advice" in ir2.policy.sanitization_rules
     assert "secret_access" in ir2.policy.forbidden_tools
 
 

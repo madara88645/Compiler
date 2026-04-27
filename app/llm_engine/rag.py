@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -80,13 +81,17 @@ class ContextStrategist:
         self.vector_db = vector_db
         self.llm = llm_client
 
+    _ARTIFACT_LIKE_RE = re.compile(
+        r"(?:\b[A-Za-z_]\w*\.[A-Za-z_]\w*\b|\b[A-Za-z_]\w*_[A-Za-z_]\w*\b|\b[\w.-]+\.(?:py|ts|tsx|js|jsx|md|json|ya?ml|toml|sql)\b)"
+    )
+
     def expand_query(self, user_text: str) -> List[str]:
         try:
             response = self.llm.expand_query_intent(user_text)
-            return response.get("queries", [user_text])
+            return self._normalize_queries(response.get("queries"), user_text)
         except Exception as exc:
             logger.debug("Query expansion failed: %s", exc)
-            return [user_text]
+            return self._normalize_queries([], user_text)
 
     def retrieve(self, queries: List[str]) -> List[Snippet]:
         all_results: Dict[str, Snippet] = {}
@@ -140,3 +145,38 @@ class ContextStrategist:
                 else "No indexed context available."
             ),
         }
+
+    @classmethod
+    def _normalize_queries(cls, queries: Any, original_query: str) -> List[str]:
+        if not isinstance(queries, list):
+            queries = []
+
+        normalized: List[str] = []
+        seen: set[str] = set()
+
+        def add_query(value: str) -> None:
+            query = " ".join(value.strip().split())
+            if not query:
+                return
+            key = query.lower()
+            if key in seen:
+                return
+            if cls._looks_like_invented_artifact(query, original_query):
+                return
+            seen.add(key)
+            normalized.append(query)
+
+        add_query(original_query)
+        for item in queries:
+            if not isinstance(item, str):
+                continue
+            add_query(item)
+            if len(normalized) >= 3:
+                break
+        return normalized
+
+    @classmethod
+    def _looks_like_invented_artifact(cls, query: str, original_query: str) -> bool:
+        if not cls._ARTIFACT_LIKE_RE.search(query):
+            return False
+        return query.lower() not in original_query.lower()
