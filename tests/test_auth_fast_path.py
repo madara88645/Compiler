@@ -324,6 +324,36 @@ def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
     assert rate_limit_store.max_active_gets == 1
 
 
+def test_matches_admin_api_key_uses_dummy_compare_on_length_mismatch(monkeypatch):
+    compare_calls = []
+
+    def fake_compare_digest(left, right):
+        compare_calls.append((left, right))
+        return left == right
+
+    monkeypatch.setattr("api.auth.secrets.compare_digest", fake_compare_digest)
+
+    from api.auth import _matches_admin_api_key
+
+    assert _matches_admin_api_key("short", "much-longer-admin-key") is False
+    assert compare_calls == [("much-longer-admin-key", "much-longer-admin-key")]
+
+
+def test_matches_admin_api_key_compares_provided_key_when_lengths_match(monkeypatch):
+    compare_calls = []
+
+    def fake_compare_digest(left, right):
+        compare_calls.append((left, right))
+        return left == right
+
+    monkeypatch.setattr("api.auth.secrets.compare_digest", fake_compare_digest)
+
+    from api.auth import _matches_admin_api_key
+
+    assert _matches_admin_api_key("admin-key", "admin-key") is True
+    assert compare_calls == [("admin-key", "admin-key")]
+
+
 def test_compile_no_key():
     resp = client.post("/compile", json={"text": "hello", "v2": False})
     assert resp.status_code == 200
