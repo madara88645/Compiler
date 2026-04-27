@@ -135,21 +135,21 @@ export default function BenchmarkPage() {
   }, [benchmarkResult]);
 
   return (
-    <main className="relative flex h-screen flex-col items-center justify-center overflow-hidden bg-[#050505] p-4 md:p-8">
+    <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden bg-[#050505] p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
       <div className="pointer-events-none absolute left-[-20%] top-[-20%] h-[50vw] w-[50vw] rounded-full bg-amber-600/10 blur-[150px]" />
       <div className="pointer-events-none absolute bottom-[-20%] right-[-20%] h-[50vw] w-[50vw] rounded-full bg-orange-600/10 blur-[150px]" />
 
-      <div className="glass animate-fade-in z-10 flex h-full max-h-[95vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl shadow-2xl ring-1 ring-white/10">
-        <header className="flex shrink-0 items-center justify-between border-b border-white/5 bg-black/40 p-4 backdrop-blur-md">
+      <div className="glass z-10 flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 animate-fade-in md:h-full md:max-h-[95vh] md:rounded-3xl">
+        <header className="flex shrink-0 flex-col gap-3 border-b border-white/5 bg-black/40 p-4 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-600 to-orange-600 text-xl font-bold text-white shadow-lg shadow-amber-500/20">
                 B
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white/90">Battle Arena</h1>
+                <h1 className="text-xl font-bold tracking-tight text-white/90">Prompt Benchmark</h1>
                 <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
-                  Raw vs Compiled Benchmark
+                  Compare raw vs compiled output
                 </div>
               </div>
             </div>
@@ -159,8 +159,8 @@ export default function BenchmarkPage() {
             />
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="rounded-lg border border-white/5 bg-black/30 p-1">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+            <div className="w-full rounded-lg border border-white/5 bg-black/30 p-1 sm:w-auto">
               <label
                 htmlFor="benchmark-model"
                 className="block px-2 pb-1 pt-1 font-mono text-xs uppercase tracking-wider text-zinc-500"
@@ -171,7 +171,7 @@ export default function BenchmarkPage() {
                 id="benchmark-model"
                 value={selectedModel}
                 onChange={(event) => setSelectedModel(event.target.value)}
-                className="min-w-[240px] cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none"
+                className="w-full cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none sm:min-w-[240px]"
               >
                 <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
                   Mock Engine [local]
@@ -202,7 +202,7 @@ export default function BenchmarkPage() {
             </div>
 
             <div
-              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${
+              className={`flex items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold sm:justify-start ${
                 errorMessage
                   ? "border-red-500/30 bg-red-500/10 text-red-300"
                   : "border-amber-500/30 bg-amber-500/10 text-amber-400"
@@ -213,15 +213,15 @@ export default function BenchmarkPage() {
           </div>
         </header>
 
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-          <div className="z-20 flex w-full md:w-[350px] md:shrink-0 flex-col gap-5 border-b md:border-b-0 md:border-r border-white/5 bg-black/20 p-5">
+        <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
+          <div className="z-20 flex w-full flex-col gap-4 border-b border-white/5 bg-black/20 p-4 sm:p-5 md:w-[350px] md:shrink-0 md:border-b-0 md:border-r">
             <div className="group relative flex-1">
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
               <textarea
                 id="benchmark-prompt"
                 aria-label="Benchmark prompt input"
-                className="h-full min-h-[180px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-                placeholder={"Enter a prompt to start the battle...\n\ne.g. 'Write a Python script to scrape data'"}
+                className="h-full min-h-[160px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
               onKeyDown={(e) => {
@@ -239,10 +239,10 @@ export default function BenchmarkPage() {
               type="button"
               onClick={handleBenchmark}
               disabled={loading || !prompt.trim()}
-              title={!prompt.trim() ? "Enter a prompt first to start battle" : "Start Battle"}
+              title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             >
-            {loading ? <span className="animate-pulse">FIGHTING...</span> : <>START BATTLE <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>}
+            {loading ? <span className="animate-pulse">Running...</span> : <>Run Benchmark <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>}
             </button>
 
             {errorMessage && (
@@ -315,17 +315,17 @@ export default function BenchmarkPage() {
                   <p className="text-sm text-zinc-400 mb-4">
                     {errorMessage
                       ? errorMessage
-                      : "Paste a prompt on the left, pick a model, then hit Start Battle to compare raw vs compiled output."}
+                      : "Paste a prompt on the left, pick a model, then run a benchmark to compare raw vs compiled output."}
                   </p>
                   {!errorMessage && (
                     <button
                       type="button"
                       onClick={handleBenchmark}
                       disabled={loading || !prompt.trim()}
-                      title={!prompt.trim() ? "Enter a prompt first to start battle" : "Start Battle"}
+                      title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
                       className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
                     >
-                      Start Battle
+                      Run Benchmark
                     </button>
                   )}
                 </div>

@@ -75,16 +75,16 @@ export default function OfflinePage() {
     }, [handleGenerate, lastRequest]);
 
     return (
-        <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+        <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
             {/* Darker Ambient Background for Offline Feel */}
             <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-zinc-600/10 blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-slate-600/10 blur-[120px] pointer-events-none" />
 
             {/* Floating Main Container */}
-            <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
+            <div className="glass flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 animate-fade-in md:h-full md:max-h-[90vh] md:rounded-3xl">
 
                 {/* Header */}
-                <header className="border-b border-white/5 bg-black/40 p-4 flex items-center justify-between backdrop-blur-md">
+                <header className="flex flex-col gap-3 border-b border-white/5 bg-black/40 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-3">
                             <div className="h-9 w-9 bg-zinc-700 rounded-xl flex items-center justify-center text-white shadow-lg"><WifiOff size={18} aria-hidden="true" /></div>
@@ -99,14 +99,14 @@ export default function OfflinePage() {
                         />
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                         {/* Forced Offline Badge */}
                         <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 bg-zinc-800/50 border-zinc-700 text-zinc-400">
                             <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                             OFFLINE MODE
                         </div>
 
-                        <div className="text-xs font-mono text-zinc-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 min-w-[100px] text-center">
+                        <div className="min-w-[88px] rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-center font-mono text-xs text-zinc-500">
                             {status}
                         </div>
                         {!!lastError && !loading && (
@@ -121,15 +121,15 @@ export default function OfflinePage() {
                     </div>
                 </header>
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
                     {/* Left Panel: Input */}
-                    <div className="w-full md:w-[35%] p-5 flex flex-col gap-5 border-r border-white/5 bg-black/20">
+                    <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/20 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
 
                         <div className="flex-1 flex flex-col relative group">
                             <textarea
                                 id="offline-prompt"
                                 aria-label="Offline prompt input"
-                                className="flex-1 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-zinc-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                                className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 sm:min-h-44 md:min-h-0"
                                 placeholder="Enter prompt (offline heuristics active)..."
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
@@ -163,7 +163,7 @@ export default function OfflinePage() {
                                                 {"->"}
                                             </span>{" "}
                                             <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">
-                                                Ctrl/Cmd Enter
+                                                    Ctrl/Cmd Enter
                                             </kbd>
                                         </>
                                     )}
@@ -175,16 +175,16 @@ export default function OfflinePage() {
                     </div>
 
                     {/* Right Panel: Output */}
-                    <div className="w-full md:w-[65%] flex flex-col bg-black/30 relative">
+                    <div className="relative flex min-h-[360px] w-full flex-col bg-black/30 md:min-h-0 md:w-[65%]">
                         {result ? (
                             <>
-                                <div className="flex border-b border-white/5 px-4 pt-4 gap-2 overflow-x-auto no-scrollbar">
+                                <div className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
                                             type="button"
                                             key={tab}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`px-4 py-2 text-[13px] font-medium rounded-t-lg transition-all relative whitespace-nowrap ${activeTab === tab
+                                            className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 sm:px-4 ${activeTab === tab
                                                 ? "text-white bg-white/5 border-t border-x border-white/5"
                                                 : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
                                                 }`}
@@ -234,11 +234,11 @@ export default function OfflinePage() {
                                 </div>
                             </>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
+                            <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center text-zinc-600 opacity-75 sm:gap-6 sm:p-10">
                                 <WifiOff size={56} strokeWidth={1.25} aria-hidden="true" className="text-zinc-500/50" />
                                 <div className="max-w-xs space-y-2">
                                     <h3 className="text-zinc-200 font-medium tracking-wide">Offline Mode</h3>
-                                    <p className="text-sm text-zinc-500">Fast, local heuristic compilation without LLM calls.</p>
+                                    <p className="text-sm text-zinc-500">Paste a prompt on the left, run heuristics, then inspect or copy the local compiled output.</p>
                                 </div>
                             </div>
                         )}

@@ -44,7 +44,7 @@ export default function FileUploadZone({ ingesting, uploadProgress, onUploadFile
             onDragOver={(e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={(e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(false); }}
             className={`
-                relative flex flex-col items-center justify-center gap-2 p-4
+                relative flex flex-col items-center justify-center gap-1.5 p-3
                 border-2 border-dashed rounded-xl
                 transition-all duration-200
                 ${isDragging ? "border-blue-500 bg-blue-500/10 scale-[1.02]" : "border-white/10 bg-white/[0.02]"}
@@ -67,8 +67,8 @@ export default function FileUploadZone({ ingesting, uploadProgress, onUploadFile
                 <UploadProgressCard uploadProgress={uploadProgress} />
             ) : (
                 <>
-                    <div className={`text-2xl ${isDragging ? "scale-110" : ""} transition-transform`}>Files</div>
-                    <div className="flex gap-2">
+                    <div className={`text-sm font-semibold text-zinc-300 ${isDragging ? "scale-105" : ""} transition-transform`}>Add context</div>
+                    <div className="flex flex-wrap justify-center gap-2">
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs text-blue-400 font-medium hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1">
                             Upload Files
                         </button>
@@ -77,7 +77,7 @@ export default function FileUploadZone({ ingesting, uploadProgress, onUploadFile
                             Upload Folder
                         </button>
                     </div>
-                    <div className="text-[10px] text-zinc-600 mt-1">Or drag and drop project context</div>
+                    <div className="mt-0.5 text-[10px] text-zinc-600">Drag and drop files or folders</div>
                 </>
             )}
         </div>

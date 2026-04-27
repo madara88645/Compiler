@@ -162,14 +162,14 @@ export default function OptimizerPage() {
     };
 
     return (
-        <main className="flex h-screen flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+        <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
             {/* Ambient Background Orbs */}
             <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-teal-600/10 blur-[120px] pointer-events-none" />
 
             {/* Floating Main Container */}
-            <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10">
-            <header className="border-b border-white/5 bg-black/20 p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-md">
+            <div className="glass flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 animate-fade-in md:h-full md:max-h-[90vh] md:rounded-3xl">
+            <header className="flex flex-col gap-3 border-b border-white/5 bg-black/20 p-4 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-3">
                     <div className="h-9 w-9 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
                         <Sparkles size={18} aria-hidden="true" />
@@ -177,7 +177,7 @@ export default function OptimizerPage() {
                     <div>
                         <h1 className="font-semibold text-lg tracking-tight text-white">Token Optimizer</h1>
                         <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase opacity-70">
-                            Compress safely • Compare cost
+                            Compress safely / Compare cost
                         </div>
                     </div>
                     <InfoButton
@@ -186,7 +186,7 @@ export default function OptimizerPage() {
                     />
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/40 p-3 sm:flex-row sm:items-center">
+                <div className="flex w-full flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/50 p-3 sm:flex-row sm:items-center lg:w-auto">
                     <div className="flex min-w-40 flex-col gap-1">
                         <label htmlFor="max-tokens" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                             Max Tokens
@@ -199,7 +199,7 @@ export default function OptimizerPage() {
                             step="100"
                             value={maxTokens}
                             onChange={(e) => setMaxTokens(Number.parseInt(e.target.value, 10))}
-                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700 accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-600 accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         />
                         <span className="text-right font-mono text-xs text-emerald-300">{maxTokens}</span>
                     </div>
@@ -209,13 +209,13 @@ export default function OptimizerPage() {
                         onClick={handleOptimize}
                         disabled={loading || !input.trim()}
                         title={!input.trim() ? "Enter a prompt first to analyze cost" : "Analyze cost"}
-                        className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                        className="w-full rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 sm:w-auto"
                     >
                         {loading ? "Analyzing..." : (
                             <>
                                 Analyze cost
                                 <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-60 md:inline-block">
-                                    Ctrl/⌘ Enter
+                                    Ctrl/Cmd Enter
                                 </kbd>
                             </>
                         )}
@@ -223,13 +223,13 @@ export default function OptimizerPage() {
                 </div>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 flex flex-col gap-5">
+            <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 md:min-h-0 md:p-6">
             <div className="grid min-h-[50vh] grid-cols-1 gap-5 lg:grid-cols-2">
                 <section className="flex min-h-80 flex-col gap-2">
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Original Prompt
                     </label>
-                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/30 p-4 transition-colors focus-within:border-emerald-500/40">
+                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40">
                         <textarea
                             id="original-prompt"
                             aria-label="Original Prompt"
@@ -265,7 +265,7 @@ export default function OptimizerPage() {
                             </button>
                         )}
                     </div>
-                    <div className="min-h-0 flex-1 rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-4">
+                    <div className="min-h-0 flex-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-4">
                         {output ? (
                             <textarea
                                 id="optimized-result"

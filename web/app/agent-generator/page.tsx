@@ -67,16 +67,16 @@ export default function AgentGenerator() {
   };
 
   return (
-    <main className="flex h-full min-h-0 flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-[#050505]">
+    <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden bg-[#050505] p-3 py-4 sm:p-4 md:h-full md:min-h-0 md:justify-center md:overflow-hidden md:p-8">
       {/* Ambient Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-green-600/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
       {/* Main Container */}
-      <div className="glass w-full max-w-7xl h-full max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-fade-in ring-1 ring-white/10 bg-black/40 backdrop-blur-xl">
+      <div className="glass flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-black/40 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl animate-fade-in md:h-full md:max-h-[90vh] md:rounded-3xl">
 
         {/* Header */}
-        <header className="border-b border-white/5 bg-black/20 p-4 flex items-center justify-between backdrop-blur-md">
+        <header className="flex flex-col gap-3 border-b border-white/5 bg-black/20 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
@@ -96,9 +96,9 @@ export default function AgentGenerator() {
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
           {/* Left Panel: Input */}
-          <div className="w-full md:w-[35%] min-h-0 p-5 flex flex-col gap-5 border-r border-white/5 bg-black/10 overflow-hidden">
+          <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
             <div className="flex flex-col gap-2">
               <label htmlFor="agent-description" className="text-sm font-medium text-zinc-300">Agent Description</label>
               <p id="agent-description-help" className="text-xs text-zinc-500">
@@ -111,7 +111,7 @@ export default function AgentGenerator() {
                 id="agent-description"
                 aria-label="Agent Description"
                 aria-describedby="agent-description-help"
-                className="flex-1 min-h-[240px] md:min-h-0 w-full bg-black/20 p-5 rounded-2xl border border-white/10 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 transition-all shadow-inner"
+                className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-0"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -127,7 +127,7 @@ export default function AgentGenerator() {
               />
             </div>
 
-            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+            <div className="flex shrink-0 items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-3">
               <button
                 type="button"
                 role="switch"
@@ -138,13 +138,13 @@ export default function AgentGenerator() {
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${multiAgent ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
-              <div className="flex flex-col">
+              <div className="flex min-w-0 flex-col">
                 <span className="text-xs font-medium text-zinc-200">Multi-Agent Swarm</span>
                 <span className="text-xs text-zinc-500">Decompose into 2-4 specialized agents</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+            <div className="flex shrink-0 items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-3">
               <button
                 type="button"
                 role="switch"
@@ -155,7 +155,7 @@ export default function AgentGenerator() {
               >
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
-              <div className="flex flex-col">
+              <div className="flex min-w-0 flex-col">
                 <span className="text-xs font-medium text-zinc-200">Example Code?</span>
                 <span className="text-xs text-zinc-500">
                   Yes = include example code, No = keep it code-free to avoid confusion
@@ -199,7 +199,7 @@ export default function AgentGenerator() {
               {loading ? (
                 <span className="animate-pulse">Architecting...</span>
               ) : (
-                <>Generate {multiAgent ? 'Swarm' : 'Agent'} <span className="group-hover:translate-x-0.5 transition-transform">→</span> <kbd className="hidden md:inline-block ml-2 text-[10px] font-mono opacity-50 border border-white/20 rounded px-1.5 py-0.5 bg-white/5">Ctrl/⌘ Enter</kbd></>
+                <>Generate {multiAgent ? 'Swarm' : 'Agent'} <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span> <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>
               )}
             </button>
 
@@ -216,7 +216,7 @@ export default function AgentGenerator() {
           </div>
 
           {/* Right Panel: Output */}
-          <div className="w-full md:w-[65%] min-h-0 flex flex-col bg-black/20 relative">
+          <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[65%]">
             {result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
@@ -249,7 +249,7 @@ export default function AgentGenerator() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 gap-6 p-10 text-center opacity-60">
+              <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center text-zinc-600 opacity-75 sm:gap-6 sm:p-10">
                 <div className="relative group">
                   <div className="absolute inset-0 bg-green-500/30 blur-[40px] rounded-full group-hover:bg-green-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
@@ -259,7 +259,7 @@ export default function AgentGenerator() {
                 <div className="max-w-xs space-y-2">
                   <h3 className="text-zinc-200 font-medium tracking-wide">Agent Blueprint</h3>
                   <p className="text-sm text-zinc-500 mb-4">
-                    Enter a description to generate a professional, structured system prompt for your AI agent.
+                    Describe the role on the left, choose single or swarm mode, then generate and copy the system prompt.
                   </p>
                   <button
                     type="button"
