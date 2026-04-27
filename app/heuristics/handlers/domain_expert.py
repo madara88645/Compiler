@@ -22,7 +22,7 @@ from app.models import (
     DEFAULT_ROLE_TR,
     IR,
 )
-from app.models_v2 import IRv2, ConstraintV2, DiagnosticItem
+from app.models_v2 import IRv2, DiagnosticItem
 
 
 # ==============================================================================
@@ -705,17 +705,32 @@ class DomainHandler(BaseHandler):
         # Perform domain analysis
         analysis = self.analyze_domain(original_text, detected_domain)
 
-        # Add suggestions as constraints
-        for suggestion in analysis.suggestions:
-            ir_v2.constraints.append(
-                ConstraintV2(
-                    id=self._hash_id(suggestion.text),
-                    text=suggestion.text,
-                    origin=f"domain_{analysis.detected_domain}",
-                    priority=suggestion.priority,
-                    rationale=suggestion.rationale,
+        # Keep inferred domain best practices as optional guidance instead of
+        # promoting them to hard constraints. Explicit user constraints are
+        # already handled earlier by ConstraintHandler.
+        if analysis.suggestions:
+            existing = ir_v2.metadata.get("domain_suggestions")
+            if not isinstance(existing, list):
+                existing = []
+            seen = {
+                (item.get("text") or "").strip().lower()
+                for item in existing
+                if isinstance(item, dict)
+            }
+            for suggestion in analysis.suggestions:
+                key = suggestion.text.strip().lower()
+                if not key or key in seen:
+                    continue
+                existing.append(
+                    {
+                        "text": suggestion.text,
+                        "category": suggestion.category,
+                        "priority": suggestion.priority,
+                        "rationale": suggestion.rationale,
+                    }
                 )
-            )
+                seen.add(key)
+            ir_v2.metadata["domain_suggestions"] = existing
 
         # Add diagnostics
         ir_v2.diagnostics.extend(analysis.diagnostics)

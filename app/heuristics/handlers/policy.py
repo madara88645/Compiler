@@ -37,12 +37,17 @@ class PolicyHandler(BaseHandler):
         "financial": {
             "allowed": ["calculator", "spreadsheet_read"],
             "forbidden": ["web_scraper", "secret_access"],
-            "sanitization": ["mask_sensitive_values", "audit_trail"],
+            "sanitization": ["mask_sensitive_values", "audit_trail", "no_professional_advice"],
         },
         "health": {
             "allowed": ["reference_lookup"],
             "forbidden": ["secret_access", "write_outside_workspace"],
-            "sanitization": ["mask_sensitive_values", "hipaa_filter"],
+            "sanitization": ["mask_sensitive_values", "hipaa_filter", "no_professional_advice"],
+        },
+        "legal": {
+            "allowed": ["reference_lookup"],
+            "forbidden": ["secret_access", "external_share"],
+            "sanitization": ["jurisdiction_check", "no_professional_advice"],
         },
         "security": {
             "allowed": ["workspace_read", "run_tests", "log_inspection"],
@@ -102,6 +107,20 @@ class PolicyHandler(BaseHandler):
             and not debug_request
             and not file_or_system_request
         )
+        policy_reasons: list[str] = []
+        for domain in risk_flags:
+            if domain in self._HIGH_RISK_DOMAINS:
+                policy_reasons.append(f"high_risk_domain:{domain}")
+            else:
+                policy_reasons.append(f"risk_domain:{domain}")
+        if risk_score >= 2:
+            policy_reasons.append("overlapping_risk_domains")
+        if debug_request:
+            policy_reasons.append("debug_request")
+        if file_or_system_request:
+            policy_reasons.append("file_or_system_request")
+        for flag in pii_flags:
+            policy_reasons.append(f"pii_detected:{flag}")
 
         # Cumulative risk scoring: 2+ overlapping domains always escalate
         if benign_educational_risk:
@@ -161,6 +180,7 @@ class PolicyHandler(BaseHandler):
         elif has_high_risk_domain and policy.data_sensitivity == "public":
             policy.data_sensitivity = "internal"
 
+        ir_v2.metadata["policy_reasons"] = self._unique(policy_reasons)
         ir_v2.metadata["policy_summary"] = policy.model_dump()
 
     @classmethod

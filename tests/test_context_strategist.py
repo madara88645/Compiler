@@ -21,8 +21,42 @@ class TestContextStrategist:
         strategist = ContextStrategist(client=mock_client)
 
         result = strategist._expand_query("test prompt")
-        assert result == ["query1", "query2", "query3"]
+        assert result == ["test prompt", "query1", "query2"]
         mock_client._call_api.assert_called_once()
+
+    def test_expand_query_accepts_queries_object(self):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = json.dumps({"queries": ["query1", "query2"]})
+        strategist = ContextStrategist(client=mock_client)
+
+        result = strategist._expand_query("test prompt")
+        assert result == ["test prompt", "query1", "query2"]
+
+    def test_expand_query_filters_invalid_duplicates_and_limits_results(self):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = json.dumps(
+            ["query1", "", " query1 ", 42, "query2", {"q": "bad"}, "query3", "query4"]
+        )
+        strategist = ContextStrategist(client=mock_client)
+
+        result = strategist._expand_query("test prompt")
+        assert result == ["test prompt", "query1", "query2"]
+
+    def test_expand_query_filters_invented_artifact_names(self):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = json.dumps(
+            ["User.authenticate", "password_regex", "login error handling"]
+        )
+        strategist = ContextStrategist(client=mock_client)
+
+        result = strategist._expand_query(
+            "The login page returns 500 when the password has a special character."
+        )
+
+        assert result == [
+            "The login page returns 500 when the password has a special character.",
+            "login error handling",
+        ]
 
     def test_expand_query_malformed_json(self):
         mock_client = MagicMock()
@@ -30,7 +64,7 @@ class TestContextStrategist:
         strategist = ContextStrategist(client=mock_client)
 
         result = strategist._expand_query("test prompt")
-        assert result == []
+        assert result == ["test prompt"]
 
     def test_expand_query_api_exception(self):
         mock_client = MagicMock()
@@ -38,7 +72,7 @@ class TestContextStrategist:
         strategist = ContextStrategist(client=mock_client)
 
         result = strategist._expand_query("test prompt")
-        assert result == []
+        assert result == ["test prompt"]
 
     def test_expand_query_non_list_response(self):
         mock_client = MagicMock()
@@ -46,7 +80,7 @@ class TestContextStrategist:
         strategist = ContextStrategist(client=mock_client)
 
         result = strategist._expand_query("test prompt")
-        assert result == []
+        assert result == ["test prompt"]
 
     @patch("app.agents.context_strategist.search_hybrid")
     def test_retrieve_happy_path(self, mock_search_hybrid):
