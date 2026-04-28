@@ -65,7 +65,8 @@ def batch_process_files(
 
             # Generate output content
             if output_format == "json":
-                out_content = json.dumps(ir.model_dump(), indent=2, ensure_ascii=False)
+                # Bolt Optimization: Use native model_dump_json for fast Rust-powered serialization
+                out_content = ir.model_dump_json(indent=2)
             elif output_format in ["yaml", "yml"]:
                 out_content = yaml.safe_dump(ir.model_dump(), sort_keys=False, allow_unicode=True)
             else:
@@ -81,7 +82,7 @@ def batch_process_files(
             out_path = output_dir / out_name
             out_path.write_text(out_content, encoding="utf-8")
 
-            return f, True, ir.model_dump() if jsonl_file else None, ""
+            return f, True, ir.model_dump_json() if jsonl_file else None, ""
         except Exception as e:
             import logging
 
@@ -96,7 +97,7 @@ def batch_process_files(
             if success:
                 result.successful += 1
                 if jsonl_file and data:
-                    jsonl_file.write(json.dumps(data, ensure_ascii=False) + "\n")
+                    jsonl_file.write(data + "\n")
             else:
                 result.failed += 1
                 result.failures.append({"file": str(f), "error": error})
