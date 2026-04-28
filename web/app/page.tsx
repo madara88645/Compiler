@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Code2 } from "lucide-react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -37,7 +38,7 @@ function CompilerErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex-1 flex items-center justify-center p-10 text-center" role="alert">
+    <div className="flex flex-1 items-center justify-center p-10 text-center" role="alert">
       <div className="max-w-md rounded-lg border border-red-500/20 bg-red-500/10 p-6 shadow-xl shadow-red-950/10">
         <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-red-400/30 bg-red-400/10 text-lg font-semibold text-red-200">
           !
@@ -100,8 +101,6 @@ export default function Home() {
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
-
-      {/* Security Alert Modal */}
       {securityFindings.length > 0 && (
         <SecurityAlert
           findings={securityFindings}
@@ -111,21 +110,22 @@ export default function Home() {
           onCancel={cancelSecurityReview}
         />
       )}
-      {/* Ambient Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
 
-      {/* Floating Main Container */}
-      <div className="glass flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 animate-fade-in md:h-full md:max-h-[90vh] md:rounded-3xl">
+      <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[40vw] w-[40vw] rounded-full bg-blue-600/10 blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[40vw] w-[40vw] rounded-full bg-purple-600/10 blur-[120px]" />
 
-        {/* Header */}
+      <div className="glass animate-fade-in flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10 md:h-full md:max-h-[90vh] md:rounded-3xl">
         <header className="flex flex-col gap-3 border-b border-white/5 bg-black/20 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20">💠</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20">
+                <Code2 size={18} aria-hidden="true" />
+              </div>
               <div>
-                <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Vague Request To Prompt, Plan, And Policy</div>
+                <h1 className="text-lg font-semibold tracking-tight text-white">Prompt Compiler</h1>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-400 opacity-70">
+                  Vague Request To Prompt, Plan, And Policy
+                </div>
               </div>
             </div>
             <InfoButton
@@ -161,8 +161,8 @@ export default function Home() {
               </span>
             </button>
 
-            <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 bg-green-500/10 border-green-500/30 text-green-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <div className="flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-400 transition-all duration-300">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
               AI MODE
             </div>
 
@@ -174,7 +174,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => void retry()}
-                  className="text-xs font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   Retry
                 </button>
@@ -184,11 +184,9 @@ export default function Home() {
         </header>
 
         <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
-          {/* Left Panel: Input */}
           <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
-
-            <div className="flex-1 flex flex-col relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+            <div className="group relative flex flex-1 flex-col">
+              <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
               <textarea
                 aria-label="Describe what you want compiled"
                 className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
@@ -212,33 +210,38 @@ export default function Home() {
                 onClick={() => handleGenerate()}
                 disabled={loading || !prompt.trim()}
                 title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
-                className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
               >
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
                 ) : (
-                  <>Generate <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span> <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>
+                  <>
+                    Generate <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span>{" "}
+                    <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">
+                      Ctrl/Cmd Enter
+                    </kbd>
+                  </>
                 )}
               </button>
             </div>
 
-            {/* Context Manager */}
             <ContextManager
-              onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)}
+              onInsertContext={(text) => setPrompt((prev) => prev + "\n\n---\nContext:\n" + text)}
               suggestions={result?.ir?.metadata?.context_suggestions}
             />
           </div>
 
-          {/* Right Panel: Output */}
           <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[65%]">
-
-            {/* ── Compiler Output View ── */}
             {!!lastError && !loading ? (
               <CompilerErrorState error={lastError} onRetry={() => void retry()} />
             ) : result ? (
               <>
-                {/* Tabs */}
-                <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                <div
+                  role="tablist"
+                  aria-label="Output views"
+                  className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pb-1 pt-4"
+                  style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}
+                >
                   {(["intent", "system", "user", "plan", "expanded", "json", "quality"] as const).map((tab) => (
                     <button
                       type="button"
@@ -248,34 +251,31 @@ export default function Home() {
                       aria-controls={`tabpanel-${tab}`}
                       id={`tab-${tab}`}
                       onClick={() => setActiveTab(tab)}
-                      className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${activeTab === tab
-                        ? "text-white bg-white/5 border-t border-x border-white/5"
-                        : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
-                        }`}
+                      className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${
+                        activeTab === tab
+                          ? "border-x border-t border-white/5 bg-white/5 text-white"
+                          : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                      }`}
                     >
                       {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
                   ))}
                 </div>
 
-                {/* Content — one stable tabpanel per tab, hidden when inactive */}
-
-                {/* intent panel */}
                 <div
                   role="tabpanel"
                   id="tabpanel-intent"
                   aria-labelledby="tab-intent"
                   hidden={activeTab !== "intent"}
-                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                  className="group relative flex-1 min-h-0 overflow-hidden bg-black/20 p-0"
                 >
                   {activeTab === "intent" && (
-                    <div className="absolute inset-0 bg-transparent z-20">
+                    <div className="absolute inset-0 z-20 bg-transparent">
                       <IntentPolicyPanel result={result} />
                     </div>
                   )}
                 </div>
 
-                {/* text-content panels: system, user, plan, expanded */}
                 {(["system", "user", "plan", "expanded"] as const).map((tab) => (
                   <div
                     key={tab}
@@ -283,45 +283,70 @@ export default function Home() {
                     id={`tabpanel-${tab}`}
                     aria-labelledby={`tab-${tab}`}
                     hidden={activeTab !== tab}
-                    className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                    className="group relative flex-1 min-h-0 overflow-hidden bg-black/20 p-0"
                   >
                     {activeTab === tab && (
                       <>
-                        {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
-                        <div className="absolute top-4 right-6 z-10 flex gap-2">
-                          {/* Agent 6 Badge */}
+                        <div className="absolute right-6 top-4 z-10 flex gap-2">
                           {result.ir?.metadata?.context_snippets && result.ir.metadata.context_snippets.length > 0 && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title="Context Strategist Active">
-                              <div className="text-[10px]">🕵️</div>
-                              <span className="text-[10px] text-indigo-200 font-medium">
+                            <div
+                              className="flex items-center gap-1.5 rounded-md border border-indigo-500/20 bg-indigo-500/10 px-2 py-1 backdrop-blur-md"
+                              title="Context Strategist Active"
+                            >
+                              <div className="text-[10px] font-semibold">CTX</div>
+                              <span className="text-[10px] font-medium text-indigo-200">
                                 {result.ir.metadata.context_snippets.length} Sources
                               </span>
                             </div>
                           )}
 
-                          {/* Agent 7 Badge */}
                           {result.critique && (
-                            <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
-                              ? "bg-red-500/10 border-red-500/30"
-                              : "bg-green-500/10 border-green-500/30"
-                              }`}>
-                              <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
-                              <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
+                            <div
+                              tabIndex={0}
+                              className={`group/critic relative flex cursor-help items-center gap-1.5 rounded-md border px-2 py-1 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                                result.critique.verdict === "REJECT"
+                                  ? "border-red-500/30 bg-red-500/10"
+                                  : "border-green-500/30 bg-green-500/10"
+                              }`}
+                            >
+                              <div
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"
+                                }`}
+                              />
+                              <span
+                                className={`text-[10px] font-medium ${
+                                  result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"
+                                }`}
+                              >
                                 Critic: {result.critique.score}/100
                               </span>
 
-                              {/* Hover Popup */}
-                              <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
-                                <div className="flex justify-between items-center mb-2">
+                              <div className="invisible absolute right-0 top-8 z-50 w-64 rounded-xl border border-white/10 bg-zinc-900 p-3 opacity-0 shadow-2xl transition-all group-hover/critic:visible group-hover/critic:opacity-100 group-focus-visible/critic:visible group-focus-visible/critic:opacity-100">
+                                <div className="mb-2 flex items-center justify-between">
                                   <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 text-[10px] ${
+                                      result.critique.verdict === "REJECT"
+                                        ? "bg-red-900 text-red-300"
+                                        : "bg-green-900 text-green-300"
+                                    }`}
+                                  >
+                                    {result.critique.verdict}
+                                  </span>
                                 </div>
-                                <p className="text-[10px] text-zinc-400 mb-2 leading-relaxed">{result.critique.feedback}</p>
+                                <p className="mb-2 text-[10px] leading-relaxed text-zinc-400">
+                                  {result.critique.feedback}
+                                </p>
                                 {result.critique.issues.length > 0 && (
                                   <div className="space-y-1">
-                                    {result.critique.issues.map((issue, i) => (
-                                      <div key={i} className="text-[9px] bg-black/20 p-1.5 rounded border border-white/5 text-zinc-400">
-                                        <span className="text-red-400 font-semibold">[{issue.type}]</span> {issue.description}
+                                    {result.critique.issues.map((issue, index) => (
+                                      <div
+                                        key={index}
+                                        className="rounded border border-white/5 bg-black/20 p-1.5 text-[9px] text-zinc-400"
+                                      >
+                                        <span className="font-semibold text-red-400">[{issue.type}]</span>{" "}
+                                        {issue.description}
                                       </div>
                                     ))}
                                   </div>
@@ -330,16 +355,15 @@ export default function Home() {
                             </div>
                           )}
 
-                          {/* Reasoning Badge */}
                           {result.system_prompt_v2 ? (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
-                              <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
+                            <div className="flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 backdrop-blur-md">
+                              <div className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
+                              <span className="text-[10px] font-medium text-blue-200">Reasoning Model</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md">
-                              <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                              <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
+                            <div className="flex items-center gap-1.5 rounded-md border border-zinc-700/50 bg-zinc-800/50 px-2 py-1 backdrop-blur-md">
+                              <div className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                              <span className="text-[10px] font-medium text-zinc-400">Standard</span>
                             </div>
                           )}
                         </div>
@@ -347,7 +371,7 @@ export default function Home() {
                         <textarea
                           id="compiled-output"
                           aria-label="Compiled prompt output"
-                          className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
+                          className="h-full w-full resize-none overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm leading-relaxed text-zinc-300 selection:bg-blue-500/30 focus:outline-none"
                           readOnly
                           value={getTabContent(result, tab)}
                         />
@@ -359,14 +383,39 @@ export default function Home() {
                             setCopied(true);
                             setTimeout(() => setCopied(false), 2000);
                           }}
-                          className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          className="absolute bottom-6 right-6 z-20 rounded-xl bg-blue-600 p-3 text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:bg-blue-500 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           title={copied ? "Copied!" : "Copy to Clipboard"}
                           aria-label={copied ? "Copied" : "Copy to Clipboard"}
                         >
                           {copied ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
                           ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                            </svg>
                           )}
                         </button>
                       </>
@@ -374,33 +423,31 @@ export default function Home() {
                   </div>
                 ))}
 
-                {/* json panel */}
                 <div
                   role="tabpanel"
                   id="tabpanel-json"
                   aria-labelledby="tab-json"
                   hidden={activeTab !== "json"}
-                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                  className="group relative flex-1 min-h-0 overflow-hidden bg-black/20 p-0"
                 >
                   {activeTab === "json" && (
-                    <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
-                      <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
+                    <div className="absolute inset-0 z-20 overflow-auto bg-transparent p-6">
+                      <pre className="h-full overflow-auto rounded-xl border border-white/5 bg-black/30 p-4 font-mono text-xs text-zinc-300 shadow-inner">
                         {JSON.stringify(result, null, 2)}
                       </pre>
                     </div>
                   )}
                 </div>
 
-                {/* quality panel */}
                 <div
                   role="tabpanel"
                   id="tabpanel-quality"
                   aria-labelledby="tab-quality"
                   hidden={activeTab !== "quality"}
-                  className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
+                  className="group relative flex-1 min-h-0 overflow-hidden bg-black/20 p-0"
                 >
                   {activeTab === "quality" && (
-                    <div className="absolute inset-0 bg-transparent z-20">
+                    <div className="absolute inset-0 z-20 bg-transparent">
                       <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />
                     </div>
                   )}
@@ -410,28 +457,40 @@ export default function Home() {
               <OutputSkeleton />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center sm:gap-6 sm:p-10">
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
-                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
-                    <span className="text-4xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">💠</span>
+                <div className="group relative">
+                  <div className="absolute inset-0 rounded-full bg-blue-500/30 blur-[40px] transition-all duration-700 group-hover:bg-blue-500/50" />
+                  <div className="relative flex h-24 w-24 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-800 to-black shadow-2xl">
+                    <Code2
+                      size={40}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                      className="text-blue-400/60 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]"
+                    />
                   </div>
                 </div>
                 <div className="max-w-sm space-y-2">
-                  <h3 className="text-zinc-100 font-semibold tracking-tight text-base">Start with any rough request</h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed">
-                    Paste a task, question, bug report, or workflow on the left, then press <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">Ctrl/Cmd Enter</kbd>.
-                    You&apos;ll get structured prompts, an execution plan, and policy checks you can inspect before using the result downstream.
+                  <h3 className="text-base font-semibold tracking-tight text-zinc-100">
+                    Start with any rough request
+                  </h3>
+                  <p className="text-sm leading-relaxed text-zinc-400">
+                    Paste a task, question, bug report, or workflow on the left, then press{" "}
+                    <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">
+                      Ctrl/Cmd Enter
+                    </kbd>
+                    . You&apos;ll get structured prompts, an execution plan, and policy checks you can inspect before
+                    using the result downstream.
                   </p>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
-                    Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
+                  <p className="text-xs leading-relaxed text-zinc-500">
+                    Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a
+                    spec to implementation plan.
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-4 font-mono">v0.1.1</p>
+                  <p className="mt-4 font-mono text-[10px] text-zinc-500">v0.1.1</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div >
-    </main >
+      </div>
+    </main>
   );
 }
