@@ -30,6 +30,14 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   return result.expanded_prompt_v2 || result.expanded_prompt;
 }
 
+function getResultKey(result: CompileResponse | null): string {
+  if (!result) {
+    return "empty";
+  }
+
+  return [result.processing_ms, result.system_prompt_v2 || result.system_prompt, result.expanded_prompt_v2 || result.expanded_prompt].join("::");
+}
+
 function CompilerErrorState({
   error,
   onRetry,
@@ -62,8 +70,11 @@ function CompilerErrorState({
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
-  const [activeTab, setActiveTab] = useState<OutputTab>("intent");
-  const [copied, setCopied] = useState(false);
+  const [tabState, setTabState] = useState<{ resultKey: string | null; tab: OutputTab }>({
+    resultKey: null,
+    tab: "intent",
+  });
+  const [copiedForResultKey, setCopiedForResultKey] = useState<string | null>(null);
   const [conservativeMode, setConservativeMode] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -90,6 +101,9 @@ export default function Home() {
   }, [conservativeMode]);
 
   const activeMode: CompileMode = conservativeMode ? "conservative" : "default";
+  const resultKey = getResultKey(result);
+  const activeTab: OutputTab = result && tabState.resultKey === resultKey ? tabState.tab : "intent";
+  const copied = copiedForResultKey === resultKey;
 
   const handleGenerate = async () => {
     await runCompile(prompt, activeMode);
@@ -250,7 +264,7 @@ export default function Home() {
                       aria-selected={activeTab === tab}
                       aria-controls={`tabpanel-${tab}`}
                       id={`tab-${tab}`}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => setTabState({ resultKey, tab })}
                       className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${
                         activeTab === tab
                           ? "border-x border-t border-white/5 bg-white/5 text-white"
@@ -380,8 +394,8 @@ export default function Home() {
                           type="button"
                           onClick={() => {
                             navigator.clipboard.writeText(getTabContent(result, tab));
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
+                            setCopiedForResultKey(resultKey);
+                            setTimeout(() => setCopiedForResultKey((current) => (current === resultKey ? null : current)), 2000);
                           }}
                           className="absolute bottom-6 right-6 z-20 rounded-xl bg-blue-600 p-3 text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:bg-blue-500 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           title={copied ? "Copied!" : "Copy to Clipboard"}
