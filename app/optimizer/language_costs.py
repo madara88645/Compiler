@@ -96,8 +96,15 @@ def detect_language(text: str) -> str:
         return "tr"
 
     words = [word.lower().strip("'") for word in _WORD_RE.findall(value)]
-    tr_score = sum(1 for word in words if word in _TURKISH_HINTS)
-    en_score = sum(1 for word in words if word in _ENGLISH_HINTS)
+
+    # Bolt Optimization: Single explicit loop to avoid multiple generator expressions and redundant O(N) iterations
+    tr_score = 0
+    en_score = 0
+    for word in words:
+        if word in _TURKISH_HINTS:
+            tr_score += 1
+        if word in _ENGLISH_HINTS:
+            en_score += 1
 
     if tr_score > en_score:
         return "tr"
