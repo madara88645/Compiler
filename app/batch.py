@@ -65,7 +65,9 @@ def batch_process_files(
 
             # Generate output content
             if output_format == "json":
-                out_content = json.dumps(ir.model_dump(), indent=2, ensure_ascii=False)
+                # ⚡ Bolt Performance Optimization: Replace json.dumps(model_dump()) with native model_dump_json()
+                # Impact: Leverages Rust-powered serialization, avoids intermediate dict creation, significantly faster.
+                out_content = ir.model_dump_json(indent=2)
             elif output_format in ["yaml", "yml"]:
                 out_content = yaml.safe_dump(ir.model_dump(), sort_keys=False, allow_unicode=True)
             else:

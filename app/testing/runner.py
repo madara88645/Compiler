@@ -219,7 +219,9 @@ class TestRunner:
                 return str(assertion.value) in combined
 
         if assertion.target == "ir" and ir_v2 is not None:
-            payload = json.dumps(ir_v2.model_dump(), ensure_ascii=False)
+            # ⚡ Bolt Performance Optimization: Replace json.dumps(model_dump()) with native model_dump_json()
+            # Impact: Leverages Rust-powered serialization, avoids intermediate dict creation, significantly faster.
+            payload = ir_v2.model_dump_json()
             if assertion.type in {"contains", "includes"}:
                 return str(assertion.value) in payload
             elif assertion.type == "not_contains":
