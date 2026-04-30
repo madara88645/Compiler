@@ -285,24 +285,24 @@ async def benchmark_run(
     # --- Step A: Generate with raw prompt ---------------------------------
     try:
         raw_output = _generate_llm_output(req.text, req.model)
-    except Exception:
+    except Exception as exc:
         logger.exception("Benchmark raw model request failed")
-        raise HTTPException(status_code=502, detail="Benchmark model request failed")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed") from exc
 
     # --- Step B: Compile the prompt ---------------------------------------
     try:
         ir_v2 = compile_text_v2(req.text)
         compiled_prompt = emit_expanded_prompt_v2(ir_v2, diagnostics=True)
-    except Exception:
+    except Exception as exc:
         logger.exception("Benchmark compilation failed")
-        raise HTTPException(status_code=500, detail="Benchmark compilation failed")
+        raise HTTPException(status_code=500, detail="Benchmark compilation failed") from exc
 
     # --- Step C: Generate with compiled prompt ----------------------------
     try:
         compiled_output = _generate_llm_output(compiled_prompt, req.model)
-    except Exception:
+    except Exception as exc:
         logger.exception("Benchmark compiled model request failed")
-        raise HTTPException(status_code=502, detail="Benchmark model request failed")
+        raise HTTPException(status_code=502, detail="Benchmark model request failed") from exc
 
     # --- Step D: Judge — LLM first, heuristic fallback --------------------
     judge_result = _judge_with_llm(req.text, raw_output, compiled_output)
