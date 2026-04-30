@@ -1,20 +1,20 @@
 # Runtime dependency snapshot for deploy targets.
 # Update `pyproject.toml` first, then refresh this file to keep packaging in sync.
-fastapi==0.136.0
+fastapi==0.136.1
 uvicorn==0.46.0
 pydantic==2.13.3
-typer==0.24.2
+typer==0.25.0
 click==8.3.3
 jsonschema==4.26.0
 rich==15.0.0
-textual==8.2.4
-pyyaml>=6.0
-ttkbootstrap>=1.10.1
-pillow>=10.3.0
-openai>=1.108.1
-python-dotenv>=1.2.1
-Jinja2>=3.1.0
+textual==8.2.5
+pyyaml>=6.0.3
+ttkbootstrap>=1.20.2
+pillow>=12.2.0
+openai>=2.33.0
+python-dotenv>=1.2.2
+Jinja2>=3.1.6
 tiktoken>=0.12.0
-cachetools>=7.0.0
-sqlalchemy>=2.0.47
-orjson>=3.10.0
+cachetools>=7.0.6
+sqlalchemy>=2.0.49
+orjson>=3.11.8
