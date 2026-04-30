@@ -238,7 +238,16 @@ export default function OfflinePage() {
                                 <WifiOff size={56} strokeWidth={1.25} aria-hidden="true" className="text-zinc-500/50" />
                                 <div className="max-w-xs space-y-2">
                                     <h3 className="text-zinc-200 font-medium tracking-wide">Offline Mode</h3>
-                                    <p className="text-sm text-zinc-500">Paste a prompt on the left, run heuristics, then inspect or copy the local compiled output.</p>
+                                    <p className="text-sm text-zinc-500 mb-4">Paste a prompt on the left, run heuristics, then inspect or copy the local compiled output.</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleGenerate()}
+                                        disabled={loading || !prompt.trim()}
+                                        title={!prompt.trim() ? "Enter a prompt first to generate" : "Run Heuristics"}
+                                        className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50"
+                                    >
+                                        Run Heuristics
+                                    </button>
                                 </div>
                             </div>
                         )}
