@@ -418,3 +418,133 @@ def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path
     assert resp.status_code == 200
     assert resp.json()["docs"] == 0
     assert (workspace / ".promptc" / primary_db.name).exists()
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        ("post", "/compile", {"text": "hello", "v2": False}),
+        ("post", "/validate", {"text": "hello"}),
+        ("post", "/optimize", {"text": "a much longer prompt"}),
+        ("get", "/rag/stats", None),
+        ("post", "/rag/search", {"query": "compiler", "limit": 3}),
+        ("post", "/rag/query", {"query": "compiler", "k": 3, "method": "keyword"}),
+        ("post", "/rag/pack", {"query": "compiler", "k": 3, "method": "keyword"}),
+    ],
+)
+def test_optional_auth_routes_require_key_when_global_enforcement_enabled(
+    method, path, payload, monkeypatch
+):
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+
+    kwargs = {"json": payload} if payload is not None else {}
+    response = getattr(client, method)(path, **kwargs)
+
+    assert response.status_code == 403
+
+
+def test_optional_auth_routes_accept_valid_key_when_global_enforcement_enabled(
+    test_key, monkeypatch
+):
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+    headers = {"x-api-key": test_key}
+
+    compile_response = client.post("/compile", json={"text": "hello", "v2": False}, headers=headers)
+    assert compile_response.status_code == 200
+
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_report = MagicMock()
+        mock_report.weaknesses = []
+        mock_report.strengths = ["clear"]
+        mock_report.suggestions = ["none"]
+        mock_report.score = 95
+        mock_report.category_scores = {}
+        mock_report.summary = "Looks good"
+        mock_get_compiler.return_value.worker.analyze_prompt.return_value = mock_report
+
+        validate_response = client.post("/validate", json={"text": "hello"}, headers=headers)
+
+    assert validate_response.status_code == 200
+
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_get_compiler.return_value.worker.optimize_prompt.return_value = ("short prompt", None)
+
+        optimize_response = client.post(
+            "/optimize",
+            json={"text": "a much longer prompt"},
+            headers=headers,
+        )
+
+    assert optimize_response.status_code == 200
+
+    rag_stats_response = client.get("/rag/stats", headers=headers)
+    assert rag_stats_response.status_code == 200
+
+    rag_search_response = client.post(
+        "/rag/search",
+        json={"query": "compiler", "limit": 3},
+        headers=headers,
+    )
+    assert rag_search_response.status_code == 200
+
+    rag_query_response = client.post(
+        "/rag/query",
+        json={"query": "compiler", "k": 3, "method": "fts"},
+        headers=headers,
+    )
+    assert rag_query_response.status_code == 200
+
+    rag_pack_response = client.post(
+        "/rag/pack",
+        json={"query": "compiler", "k": 3, "method": "fts"},
+        headers=headers,
+    )
+    assert rag_pack_response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("path", "payload", "expected_key"),
+    [
+        (
+            "/agent-generator/export",
+            {
+                "system_prompt": "# Role\nYou help with triage.\n\n## Steps\n1. Review the input.",
+                "format": "claude-sdk",
+                "output_type": "python",
+            },
+            "python_code",
+        ),
+        (
+            "/skills-generator/export",
+            {
+                "skill_definition": "# Skill\nA helper that searches docs.",
+                "format": "langchain-tool",
+                "output_type": "python",
+            },
+            "json_config",
+        ),
+    ],
+)
+def test_export_routes_follow_global_auth_enforcement(
+    path, payload, expected_key, test_key, monkeypatch
+):
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+
+    unauthorized_response = client.post(path, json=payload)
+    assert unauthorized_response.status_code == 403
+
+    authorized_response = client.post(path, json=payload, headers={"x-api-key": test_key})
+    assert authorized_response.status_code == 200
+    assert expected_key in authorized_response.json()
+
+
+def test_optional_auth_routes_reject_invalid_and_oversized_keys_when_global_enforcement_enabled(
+    monkeypatch,
+):
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+
+    invalid_response = client.get("/rag/stats", headers={"x-api-key": "invalid"})
+    assert invalid_response.status_code == 403
+
+    oversized_response = client.get("/rag/stats", headers={"x-api-key": "x" * 257})
+    assert oversized_response.status_code == 400
