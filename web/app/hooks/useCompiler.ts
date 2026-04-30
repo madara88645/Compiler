@@ -43,6 +43,7 @@ export function useCompiler() {
 
     lastCallRef.current = { text, mode };
     setLastError(null);
+    setResult(null);
     setLoading(true);
     setStatus("Generating...");
 
