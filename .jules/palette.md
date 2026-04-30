@@ -21,3 +21,7 @@
 **Action:** When creating or reviewing form inputs without explicit visible `<label>` tags, proactively add an `aria-label` to provide the necessary context.
 
 ## 2026-04-24 - Added Keyboard Focus States to Floating Copy Buttons\n**Learning:** Floating copy buttons that appear conditionally or use absolute positioning often lack `focus-visible` states, rendering them inaccessible to keyboard-only users who cannot easily discover them via tab navigation.\n**Action:** When adding utility or floating buttons, always explicitly define `focus-visible:outline-none` and `focus-visible:ring-2` (or `ring-1`) with the appropriate brand color.
+
+## 2024-05-15 - [Add aria-controls to ExportPanel buttons]
+**Learning:** For collapsible content, buttons with `aria-expanded` must also have an `aria-controls` attribute linking them to the content container's ID for screen readers.
+**Action:** When creating expanding/collapsing UI panels, generate a unique ID (e.g. via `useId`) to link the toggle control directly to its target content.
