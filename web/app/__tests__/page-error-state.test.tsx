@@ -14,6 +14,10 @@ vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));
 
+vi.mock("../components/OutputSkeleton", () => ({
+  default: () => <div data-testid="output-skeleton" />,
+}));
+
 describe("Prompt Compiler home", () => {
   beforeEach(() => {
     retryMock.mockReset();
@@ -42,5 +46,25 @@ describe("Prompt Compiler home", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry compile" }));
 
     expect(retryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows loading skeleton instead of stale result during recompile", () => {
+    useCompilerMock.mockReturnValue({
+      loading: true,
+      result: { system_prompt: "old result should not render while loading" },
+      status: "Generating...",
+      lastError: null,
+      securityFindings: [],
+      redactedText: "",
+      runCompile: vi.fn(),
+      retry: retryMock,
+      resolveSecurityDecision: vi.fn(),
+      cancelSecurityReview: vi.fn(),
+    });
+
+    render(<Home />);
+
+    expect(screen.getByTestId("output-skeleton")).toBeTruthy();
+    expect(screen.queryByText("old result should not render while loading")).toBeNull();
   });
 });

@@ -235,6 +235,8 @@ export default function Home() {
             {/* ── Compiler Output View ── */}
             {!!lastError && !loading ? (
               <CompilerErrorState error={lastError} onRetry={() => void retry()} />
+            ) : loading ? (
+              <OutputSkeleton />
             ) : result ? (
               <>
                 {/* Tabs */}
@@ -406,8 +408,6 @@ export default function Home() {
                   )}
                 </div>
               </>
-            ) : loading ? (
-              <OutputSkeleton />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center sm:gap-6 sm:p-10">
                 <div className="relative group">
