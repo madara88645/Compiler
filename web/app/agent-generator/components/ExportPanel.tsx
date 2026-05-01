@@ -127,6 +127,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
         type="button"
         onClick={handleToggle}
         aria-expanded={isOpen}
+        aria-controls="agent-export-panel-content"
         className="w-full flex items-center justify-between px-2 py-1 group"
       >
         <div className="flex items-center gap-2">
@@ -154,7 +155,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
       </button>
 
       {isOpen && (
-        <div className="mt-3 rounded-2xl border border-white/8 bg-black/30 overflow-hidden">
+        <div id="agent-export-panel-content" className="mt-3 rounded-2xl border border-white/8 bg-black/30 overflow-hidden">
           {/* Framework tabs */}
           <div className="flex gap-1 p-3 border-b border-white/5">
             {FRAMEWORKS.map((fw) => (

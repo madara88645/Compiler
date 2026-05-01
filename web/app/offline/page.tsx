@@ -183,6 +183,8 @@ export default function OfflinePage() {
                                         <button
                                             type="button"
                                             key={tab}
+                                            role="tab"
+                                            aria-selected={activeTab === tab}
                                             onClick={() => setActiveTab(tab)}
                                             className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 sm:px-4 ${activeTab === tab
                                                 ? "text-white bg-white/5 border-t border-x border-white/5"
