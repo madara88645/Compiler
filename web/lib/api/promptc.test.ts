@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, apiJson } from "../../config";
-import { compilePrompt, normalizeCompileResponse } from "./promptc";
+import {
+  compilePrompt,
+  normalizeCompileResponse,
+  normalizeRagSearchResults,
+  normalizeRagStats,
+  normalizeRagUploadResponse,
+} from "./promptc";
 
 vi.mock("../../config", async () => {
   const actual = await vi.importActual<typeof import("../../config")>("../../config");
@@ -46,6 +52,48 @@ describe("compile response normalization", () => {
     expect(response.ir_v2?.policy?.risk_level).toBe("low");
     expect(response.ir_v2?.policy?.execution_mode).toBe("advice_only");
     expect(response.ir_v2?.policy?.risk_domains).toEqual([]);
+  });
+});
+
+describe("RAG response normalization", () => {
+  it("normalizes upload responses that only provide compatibility fields", () => {
+    const response = normalizeRagUploadResponse({
+      success: true,
+      num_chunks: 4,
+      elapsed_ms: 18,
+    });
+
+    expect(response).toEqual({
+      ingested_docs: 1,
+      total_chunks: 4,
+      elapsed_ms: 18,
+      filename: "upload.txt",
+      success: true,
+      num_chunks: 4,
+      message: "Indexed upload.txt into the RAG index.",
+    });
+  });
+
+  it("maps legacy RAG search fields into canonical results", () => {
+    const results = normalizeRagSearchResults([
+      {
+        source: "docs/spec.md",
+        content: "Auth flow notes",
+        score: 0.73,
+      },
+    ]);
+
+    expect(results).toEqual([
+      {
+        path: "docs/spec.md",
+        snippet: "Auth flow notes",
+        score: 0.73,
+      },
+    ]);
+  });
+
+  it("rejects invalid stats payloads", () => {
+    expect(() => normalizeRagStats(null)).toThrow("Invalid RAG stats response.");
   });
 });
 

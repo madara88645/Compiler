@@ -76,7 +76,6 @@ export function useContextManager() {
   }, [refreshStats]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void checkConnection();
   }, [checkConnection]);
 
@@ -172,6 +171,7 @@ export function useContextManager() {
     try {
       const response = await searchContext({ query: query.trim(), limit: 5 });
       setResults(response);
+      setStatus("");
       setIsConnected(true);
     } catch (error: unknown) {
       setStatus(`Search failed: ${toUserMessage(error)}`);
