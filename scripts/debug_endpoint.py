@@ -18,7 +18,7 @@ def check(path, method="GET", data=None):
         else:
             req = urllib.request.Request(url, method=method)
 
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=30.0) as response:
             print(f"✅ Status: {response.status}")
             print(response.read().decode()[:200])
     except urllib.error.HTTPError as e:

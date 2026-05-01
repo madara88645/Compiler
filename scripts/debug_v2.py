@@ -15,7 +15,7 @@ print(f"Sending request to {url}...")
 t0 = time.time()
 try:
     req = urllib.request.Request(url, data=json.dumps(data).encode(), headers=headers)
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=30.0) as response:
         elapsed = time.time() - t0
         print(f"Time: {elapsed:.2f}s")
         res_data = json.load(response)
