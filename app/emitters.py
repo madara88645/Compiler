@@ -73,6 +73,14 @@ def _is_trivial_input(original_text: str, domain: str, complexity: str) -> bool:
     return False
 
 
+def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
+    """Fast-path helper to bypass any() generator overhead."""
+    for marker in markers:
+        if marker in text:
+            return True
+    return False
+
+
 def _minimal_greeting_prompt(original_text: str, lang: str) -> str:
     """Return a minimal downstream instruction for greeting/very-short inputs."""
     orig = " ".join(original_text.strip().split())
@@ -80,7 +88,8 @@ def _minimal_greeting_prompt(original_text: str, lang: str) -> str:
         orig = "hello" if lang != "tr" else "merhaba"
     lowered = orig.lower()
     turkish_markers = ("merhaba", "selam", "slm", "gunaydin", "iyi aksamlar", "nasilsin")
-    if lang == "tr" or any(marker in lowered for marker in turkish_markers):
+    # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+    if lang == "tr" or _contains_any_marker(lowered, turkish_markers):
         return (
             "Asagidaki kisa kullanici mesajina kisa, dogal ve dogrudan yanit ver. "
             "Yeni konu ekleme veya gereksiz yonlendirme yapma.\n\n"
@@ -521,7 +530,7 @@ def emit_plan_v2(ir: IRv2) -> str:
     if ir.policy.execution_mode == "human_approval_required":
         step_number = len(out) + 1
         policy_lines = _policy_check_lines_v2(ir)
-        rationale = "Rationale: policy requires human approval for " f"{ir.policy.risk_level} risk"
+        rationale = f"Rationale: policy requires human approval for {ir.policy.risk_level} risk"
         if policy_lines:
             rationale += "\n   " + "\n   ".join(policy_lines)
         out.append(
