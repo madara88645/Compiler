@@ -193,6 +193,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         END;
         CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
             DELETE FROM fts WHERE rowid = old.id;
+            DELETE FROM embeddings WHERE chunk_id = old.id;
         END;
         CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
             DELETE FROM fts WHERE rowid = old.id;
