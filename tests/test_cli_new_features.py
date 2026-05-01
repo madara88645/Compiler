@@ -66,7 +66,7 @@ def test_validate_summary_and_api_schemas(tmp_path: Path):
         import json as _j
 
         for p in ("/schema/ir_v1", "/schema/ir_v2"):
-            with urllib.request.urlopen(f"http://127.0.0.1:8000{p}") as resp:
+            with urllib.request.urlopen(f"http://127.0.0.1:8000{p}", timeout=30.0) as resp:
                 data = _j.loads(resp.read().decode("utf-8"))
                 assert "schema" in data and isinstance(data["schema"], str)
 
