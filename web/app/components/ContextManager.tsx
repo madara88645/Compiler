@@ -97,6 +97,11 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                         placeholder="Path to file or folder..."
                         value={filePath}
                         onChange={(e) => setFilePath(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !ingesting && filePath) {
+                                void ingestPath(filePath);
+                            }
+                        }}
                     />
                     <button
                         type="button"
