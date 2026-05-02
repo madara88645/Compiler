@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return `
           <button class="history-item${activeClass}" type="button" data-preview-id="${historyEntry.id}">
             <div class="history-item-top">
-              <span class="history-item-title">${historyEntry.siteLabel}</span>
+              <span class="history-item-title">${escapeHtml(historyEntry.siteLabel)}</span>
               <span class="history-item-time">${formatRelativeTime(historyEntry.createdAt)}</span>
             </div>
             <div class="history-item-snippet">${escapeHtml(snippet)}${historyEntry.optimizedText.length > 64 ? "..." : ""}</div>
@@ -197,7 +197,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return value
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function setRestoreButtonState(restored) {
