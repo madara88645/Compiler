@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -27,6 +27,63 @@ function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   }
 
   return result.expanded_prompt_v2 || result.expanded_prompt;
+}
+
+function TabButton({
+  tabKey,
+  label,
+  hint,
+  isActive,
+  primary,
+  onSelect,
+}: {
+  tabKey: OutputTab;
+  label: string;
+  hint: string;
+  isActive: boolean;
+  primary: boolean;
+  onSelect: (key: OutputTab) => void;
+}) {
+  const [showTip, setShowTip] = useState(false);
+  const tipId = useId();
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={isActive}
+        aria-controls={`tabpanel-${tabKey}`}
+        aria-describedby={showTip ? tipId : undefined}
+        id={`tab-${tabKey}`}
+        onClick={() => onSelect(tabKey)}
+        onMouseEnter={() => setShowTip(true)}
+        onMouseLeave={() => setShowTip(false)}
+        onFocus={() => setShowTip(true)}
+        onBlur={() => setShowTip(false)}
+        className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${isActive
+          ? "text-white bg-white/5 border-t border-x border-white/5"
+          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+          }`}
+      >
+        <span>{label}</span>
+        {primary && (
+          <span className="ml-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 align-middle text-[9px] font-mono uppercase tracking-wider text-emerald-300">
+            Use this
+          </span>
+        )}
+      </button>
+      {showTip && (
+        <span
+          id={tipId}
+          role="tooltip"
+          className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-64 -translate-x-1/2 rounded-md border border-neutral-700 bg-neutral-900 p-2.5 text-left text-xs font-normal leading-snug text-neutral-300 shadow-xl animate-fade-in"
+        >
+          {hint}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function CompilerErrorState({
@@ -243,41 +300,25 @@ export default function Home() {
                 <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                   {(
                     [
-                      { key: "user", label: "User Prompt", title: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
-                      { key: "system", label: "System Prompt", title: "Role and behavior rules for the model — paste this into a system message.", primary: false },
-                      { key: "plan", label: "Execution Plan", title: "Step-by-step plan the compiler suggests for carrying out the request.", primary: false },
-                      { key: "expanded", label: "Long-form", title: "Verbose, fully expanded version of the prompt with all context inlined.", primary: false },
-                      { key: "intent", label: "Intent", title: "Detected intent and safety policy for this request.", primary: false },
-                      { key: "json", label: "JSON", title: "Raw machine-readable compile output — useful for piping into other tools.", primary: false },
-                      { key: "quality", label: "Quality Scores", title: "Quality, clarity, and safety scores the compiler assigned to the result.", primary: false },
-                    ] satisfies ReadonlyArray<{ key: OutputTab; label: string; title: string; primary: boolean }>
-                  ).map(({ key, label, title, primary }) => {
-                    const isActive = activeTab === key;
-                    const showPrimaryHint = !!primary && !isActive;
-                    return (
-                      <button
-                        type="button"
-                        key={key}
-                        role="tab"
-                        aria-selected={isActive}
-                        aria-controls={`tabpanel-${key}`}
-                        id={`tab-${key}`}
-                        title={title}
-                        onClick={() => setActiveTab(key)}
-                        className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${isActive
-                          ? "text-white bg-white/5 border-t border-x border-white/5"
-                          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
-                          }`}
-                      >
-                        <span>{label}</span>
-                        {showPrimaryHint && (
-                          <span className="ml-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 align-middle text-[9px] font-mono uppercase tracking-wider text-emerald-300">
-                            Use this
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                      { key: "user", label: "User Prompt", hint: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
+                      { key: "system", label: "System Prompt", hint: "Role and behavior rules for the model — paste this into a system message.", primary: false },
+                      { key: "plan", label: "Execution Plan", hint: "Step-by-step plan the compiler suggests for carrying out the request.", primary: false },
+                      { key: "expanded", label: "Long-form", hint: "Verbose, fully expanded version of the prompt with all context inlined.", primary: false },
+                      { key: "intent", label: "Intent", hint: "Detected intent and safety policy for this request.", primary: false },
+                      { key: "json", label: "JSON", hint: "Raw machine-readable compile output — useful for piping into other tools.", primary: false },
+                      { key: "quality", label: "Quality Scores", hint: "Quality, clarity, and safety scores the compiler assigned to the result.", primary: false },
+                    ] satisfies ReadonlyArray<{ key: OutputTab; label: string; hint: string; primary: boolean }>
+                  ).map(({ key, label, hint, primary }) => (
+                    <TabButton
+                      key={key}
+                      tabKey={key}
+                      label={label}
+                      hint={hint}
+                      isActive={activeTab === key}
+                      primary={primary}
+                      onSelect={setActiveTab}
+                    />
+                  ))}
                 </div>
 
                 {/* Content — one stable tabpanel per tab, hidden when inactive */}

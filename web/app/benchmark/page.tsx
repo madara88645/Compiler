@@ -92,7 +92,10 @@ export default function BenchmarkPage() {
     setResultIsMock(false);
     setErrorMessage(null);
 
-    const modelLabel = selectedModelMeta?.label ?? "Mock Engine";
+    const modelLabel =
+      selectedModel === "mock"
+        ? "Mock Engine (demo)"
+        : selectedModelMeta?.label ?? "Mock Engine (demo)";
     setStatus(`Benchmarking with ${modelLabel}...`);
 
     try {

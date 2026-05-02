@@ -1,11 +1,22 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import type { CompileResponse } from "../../lib/api/types";
 import { humanizeIntentPolicyValue, normalizeIntentPolicy, type IntentDisplayGroup } from "./intent-policy-utils";
 
 type IntentPolicyPanelProps = {
   result: CompileResponse;
 };
+
+function FieldLabel({ children, hint }: { children: ReactNode; hint?: string }) {
+  return (
+    <div>
+      <div className="text-xs text-zinc-500">{children}</div>
+      {hint && <div className="mt-0.5 text-[11px] leading-snug text-zinc-600">{hint}</div>}
+    </div>
+  );
+}
 
 function FieldList({
   title,
@@ -20,12 +31,8 @@ function FieldList({
 }) {
   return (
     <div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-      <div
-        className="mb-3 text-xs font-mono uppercase tracking-[0.18em] text-zinc-500"
-        title={hint}
-      >
-        {title}
-      </div>
+      <div className="mb-1 text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">{title}</div>
+      {hint && <div className="mb-3 text-[11px] leading-snug text-zinc-600">{hint}</div>}
       {items.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
@@ -65,107 +72,74 @@ export default function IntentPolicyPanel({ result }: IntentPolicyPanelProps) {
     <div className="h-full overflow-y-auto p-6 text-zinc-200">
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-3xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/10 to-transparent p-5">
-          <div
-            className="mb-2 text-[11px] font-mono uppercase tracking-[0.18em] text-cyan-300/80"
-            title="What the compiler thinks you're trying to do."
-          >
+          <div className="mb-1 text-[11px] font-mono uppercase tracking-[0.18em] text-cyan-300/80">
             Intent
           </div>
+          <p className="mb-3 text-[11px] leading-snug text-cyan-200/70">
+            What the compiler thinks you are trying to do.
+          </p>
           <div className="space-y-3">
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="What kind of work this request is about (code, ops, writing…)."
-              >
-                Domain
-              </div>
-              <div className="text-lg font-semibold text-white">{intentPolicy.domain}</div>
+              <FieldLabel hint="What kind of work this request is about (code, ops, writing, …).">Domain</FieldLabel>
+              <div className="mt-1 text-lg font-semibold text-white">{intentPolicy.domain}</div>
             </div>
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="Who the AI should act as while answering."
-              >
-                Persona
-              </div>
-              <div className="text-sm text-zinc-200">{humanizeIntentPolicyValue(intentPolicy.persona)}</div>
+              <FieldLabel hint="Who the AI should act as while answering.">Persona</FieldLabel>
+              <div className="mt-1 text-sm text-zinc-200">{humanizeIntentPolicyValue(intentPolicy.persona)}</div>
             </div>
             <div>
-              <div
-                className="mb-2 text-xs text-zinc-500"
-                title="Specific intent signals the compiler picked up from your request."
-              >
-                Detected Intents
-              </div>
-              {intentPolicy.intentDetails.length > 0 ? (
-                <div className="grid gap-3">
-                  {intentPolicy.intentDetails.map((intent) => (
-                    <div
-                      key={intent.key}
-                      className="rounded-2xl border border-white/8 bg-black/20 p-3"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-white">{intent.label}</div>
-                        <IntentGroupBadge group={intent.group} />
+              <FieldLabel hint="Specific intent signals the compiler picked up from your request.">Detected Intents</FieldLabel>
+              <div className="mt-2">
+                {intentPolicy.intentDetails.length > 0 ? (
+                  <div className="grid gap-3">
+                    {intentPolicy.intentDetails.map((intent) => (
+                      <div
+                        key={intent.key}
+                        className="rounded-2xl border border-white/8 bg-black/20 p-3"
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-white">{intent.label}</div>
+                          <IntentGroupBadge group={intent.group} />
+                        </div>
+                        <div className="text-xs leading-relaxed text-zinc-400">{intent.description}</div>
                       </div>
-                      <div className="text-xs leading-relaxed text-zinc-400">{intent.description}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4">
-                  <div className="text-sm font-medium text-white">General Request</div>
-                  <div className="mt-1 text-sm text-zinc-500">
-                    No special intent signals were inferred, so the compiler is treating this as a general-purpose request.
+                    ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4">
+                    <div className="text-sm font-medium text-white">General Request</div>
+                    <div className="mt-1 text-sm text-zinc-500">
+                      No special intent signals were inferred, so the compiler is treating this as a general-purpose request.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         <div className="rounded-3xl border border-amber-500/15 bg-gradient-to-br from-amber-500/10 to-transparent p-5">
-          <div
-            className="mb-2 text-[11px] font-mono uppercase tracking-[0.18em] text-amber-300/80"
-            title="Safety rules the compiler applied to this request."
-          >
+          <div className="mb-1 text-[11px] font-mono uppercase tracking-[0.18em] text-amber-300/80">
             Policy
           </div>
+          <p className="mb-3 text-[11px] leading-snug text-amber-200/70">
+            Safety rules the compiler applied to this request.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="How cautious the compiler was when shaping the output."
-              >
-                Risk Level
-              </div>
+              <FieldLabel hint="How cautious the compiler was when shaping the output.">Risk Level</FieldLabel>
               <div className="mt-1 text-lg font-semibold text-white">{humanizeIntentPolicyValue(intentPolicy.riskLevel)}</div>
             </div>
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="Whether the result is meant to be run automatically or only suggested."
-              >
-                Execution Mode
-              </div>
+              <FieldLabel hint="Whether the result is meant to be run automatically or only suggested.">Execution Mode</FieldLabel>
               <div className="mt-1 text-lg font-semibold text-white">{humanizeIntentPolicyValue(intentPolicy.executionMode)}</div>
             </div>
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="How private the input data looked to the scanner."
-              >
-                Data Sensitivity
-              </div>
+              <FieldLabel hint="How private the input data looked to the scanner.">Data Sensitivity</FieldLabel>
               <div className="mt-1 text-sm text-zinc-200">{humanizeIntentPolicyValue(intentPolicy.dataSensitivity)}</div>
             </div>
             <div>
-              <div
-                className="text-xs text-zinc-500"
-                title="Categories the compiler flagged as needing extra care."
-              >
-                Risk Domains
-              </div>
+              <FieldLabel hint="Categories the compiler flagged as needing extra care.">Risk Domains</FieldLabel>
               <div className="mt-1 text-sm text-zinc-200">
                 {intentPolicy.riskDomains.length > 0
                   ? intentPolicy.riskDomains.map(humanizeIntentPolicyValue).join(", ")

@@ -21,27 +21,33 @@ export default function SecurityAlert({
 }: SecurityAlertProps) {
 
     const findingsSummary = useMemo(() => {
+        // Keys match the backend security scanner types in app/heuristics/security.py
+        // (openai_key, github_token, generic_api_key, private_key, email, ipv4, credit_card).
         const friendlyLabel: Record<string, { singular: string; plural: string }> = {
+            openai_key: { singular: "OpenAI API key", plural: "OpenAI API keys" },
+            github_token: { singular: "GitHub token", plural: "GitHub tokens" },
+            generic_api_key: { singular: "API key", plural: "API keys" },
+            private_key: { singular: "private key", plural: "private keys" },
             email: { singular: "email address", plural: "email addresses" },
+            ipv4: { singular: "IP address", plural: "IP addresses" },
+            credit_card: { singular: "credit-card number", plural: "credit-card numbers" },
             phone: { singular: "phone number", plural: "phone numbers" },
-            secret: { singular: "secret / API key", plural: "secrets / API keys" },
-            apikey: { singular: "API key", plural: "API keys" },
-            token: { singular: "auth token", plural: "auth tokens" },
-            creditcard: { singular: "credit-card number", plural: "credit-card numbers" },
             ssn: { singular: "social security number", plural: "social security numbers" },
-            ip: { singular: "IP address", plural: "IP addresses" },
+        };
+        const humanizeFallback = (type: string, count: number) => {
+            const words = type.toLowerCase().replace(/[_-]+/g, " ").trim();
+            return `${count} ${words}${count === 1 ? "" : "s"}`;
         };
         const counts: Record<string, number> = {};
         findings.forEach(f => {
             counts[f.type] = (counts[f.type] || 0) + 1;
         });
         return Object.entries(counts).map(([type, count]) => {
-            const key = type.toLowerCase().replace(/[\s_-]/g, "");
-            const label = friendlyLabel[key];
+            const label = friendlyLabel[type.toLowerCase()];
             if (label) {
                 return `${count} ${count === 1 ? label.singular : label.plural}`;
             }
-            return `${count} ${type.toLowerCase()}${count === 1 ? "" : "s"}`;
+            return humanizeFallback(type, count);
         });
     }, [findings]);
 
@@ -62,7 +68,7 @@ export default function SecurityAlert({
                         </div>
                         <div>
                             <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Possible secrets in your prompt</h2>
-                            <p className="text-sm text-red-300/80">We scanned locally and spotted patterns that look like personal data or credentials. Nothing has been sent to any model yet — it's your call.</p>
+                            <p className="text-sm text-red-300/80">Patterns that look like personal data or credentials were detected. Choose how the next compile should handle them.</p>
                         </div>
                     </div>
                 </div>
@@ -81,7 +87,8 @@ export default function SecurityAlert({
                     <div className="bg-black/30 rounded-xl border border-white/5 p-4 flex flex-col gap-2">
                         <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Preview Redacted Version</span>
                         <p className="text-xs text-zinc-400 leading-relaxed">
-                            <strong className="text-zinc-300">Strip Secrets &amp; Proceed</strong> will send the version below — your local prompt is unchanged.
+                            <strong className="text-zinc-300">Strip Secrets &amp; Proceed</strong> retries with the redacted version below.{" "}
+                            <strong className="text-zinc-300">Send original anyway</strong> retries with your prompt unchanged.
                         </p>
                         <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto custom-scrollbar">
                             {redactedText}
