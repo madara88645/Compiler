@@ -275,8 +275,19 @@ export default function OptimizerPage() {
                                 className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"
                             />
                         ) : (
-                            <div className="flex h-full min-h-72 items-center justify-center text-sm italic text-zinc-400">
-                                Optimized prompt will appear here.
+                            <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
+                                <div className="text-sm italic text-zinc-400 mb-4">
+                                    Optimized prompt will appear here.
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleOptimize}
+                                    disabled={loading || !input.trim()}
+                                    title={!input.trim() ? "Enter a prompt first to analyze cost" : "Analyze cost"}
+                                    className="rounded-lg bg-emerald-600/20 border border-emerald-500/30 px-5 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-600/30 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                >
+                                    {loading ? "Analyzing..." : "Analyze cost"}
+                                </button>
                             </div>
                         )}
                     </div>
