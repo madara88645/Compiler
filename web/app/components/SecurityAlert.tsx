@@ -21,11 +21,28 @@ export default function SecurityAlert({
 }: SecurityAlertProps) {
 
     const findingsSummary = useMemo(() => {
+        const friendlyLabel: Record<string, { singular: string; plural: string }> = {
+            email: { singular: "email address", plural: "email addresses" },
+            phone: { singular: "phone number", plural: "phone numbers" },
+            secret: { singular: "secret / API key", plural: "secrets / API keys" },
+            apikey: { singular: "API key", plural: "API keys" },
+            token: { singular: "auth token", plural: "auth tokens" },
+            creditcard: { singular: "credit-card number", plural: "credit-card numbers" },
+            ssn: { singular: "social security number", plural: "social security numbers" },
+            ip: { singular: "IP address", plural: "IP addresses" },
+        };
         const counts: Record<string, number> = {};
         findings.forEach(f => {
             counts[f.type] = (counts[f.type] || 0) + 1;
         });
-        return Object.entries(counts).map(([type, count]) => `${count} x ${type.toUpperCase()}`);
+        return Object.entries(counts).map(([type, count]) => {
+            const key = type.toLowerCase().replace(/[\s_-]/g, "");
+            const label = friendlyLabel[key];
+            if (label) {
+                return `${count} ${count === 1 ? label.singular : label.plural}`;
+            }
+            return `${count} ${type.toLowerCase()}${count === 1 ? "" : "s"}`;
+        });
     }, [findings]);
 
     return (
@@ -44,8 +61,8 @@ export default function SecurityAlert({
                             <ShieldAlert size={22} className="text-red-300" aria-hidden="true" />
                         </div>
                         <div>
-                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
-                            <p className="text-sm text-red-300/80">Sensitive information detected in your prompt.</p>
+                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Possible secrets in your prompt</h2>
+                            <p className="text-sm text-red-300/80">We scanned locally and spotted patterns that look like personal data or credentials. Nothing has been sent to any model yet — it's your call.</p>
                         </div>
                     </div>
                 </div>
@@ -63,6 +80,9 @@ export default function SecurityAlert({
 
                     <div className="bg-black/30 rounded-xl border border-white/5 p-4 flex flex-col gap-2">
                         <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Preview Redacted Version</span>
+                        <p className="text-xs text-zinc-400 leading-relaxed">
+                            <strong className="text-zinc-300">Strip Secrets &amp; Proceed</strong> will send the version below — your local prompt is unchanged.
+                        </p>
                         <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto custom-scrollbar">
                             {redactedText}
                         </pre>
@@ -92,7 +112,7 @@ export default function SecurityAlert({
                         onClick={onProceedOriginal}
                         className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     >
-                        Proceed Unsafe (Original)
+                        Send original anyway
                     </button>
 
                     <button

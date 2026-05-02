@@ -45,6 +45,7 @@ export default function BenchmarkPage() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
+  const [resultIsMock, setResultIsMock] = useState(false);
   const [selectedModel, setSelectedModel] = useState("mock");
   const [status, setStatus] = useState("Ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export default function BenchmarkPage() {
 
     setLoading(true);
     setBenchmarkResult(null);
+    setResultIsMock(false);
     setErrorMessage(null);
 
     const modelLabel = selectedModelMeta?.label ?? "Mock Engine";
@@ -97,7 +99,8 @@ export default function BenchmarkPage() {
       if (selectedModel === "mock") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
         setBenchmarkResult(generateMockResult());
-        setStatus("Benchmark complete (Mock)");
+        setResultIsMock(true);
+        setStatus("Demo result (Mock Engine — fake scores)");
         return;
       }
 
@@ -107,6 +110,7 @@ export default function BenchmarkPage() {
         body: JSON.stringify({ text: prompt.trim(), model: selectedModel }),
       });
       setBenchmarkResult(data);
+      setResultIsMock(false);
       setStatus(`Benchmark complete (${data.processing_ms}ms)`);
     } catch (error) {
       showError(error);
@@ -174,7 +178,7 @@ export default function BenchmarkPage() {
                 className="w-full cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none sm:min-w-[240px]"
               >
                 <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
-                  Mock Engine [local]
+                  Mock Engine — demo (fake scores)
                 </option>
                 {BENCHMARK_MODEL_GROUPS.map((group) => (
                   <optgroup
@@ -194,9 +198,11 @@ export default function BenchmarkPage() {
                   </optgroup>
                 ))}
               </select>
-              <p className="px-2 pb-1 pt-2 text-xs text-zinc-500">
+              <p
+                className={`px-2 pb-1 pt-2 text-xs ${selectedModel === "mock" ? "text-amber-300/80" : "text-zinc-500"}`}
+              >
                 {selectedModel === "mock"
-                  ? "Client-side mock engine for instant UI previews."
+                  ? "No model is called. Numbers below are randomized for UI preview only — pick a real model to run an actual benchmark."
                   : selectedModelMeta?.helperText}
               </p>
             </div>
@@ -255,6 +261,12 @@ export default function BenchmarkPage() {
           <div className="relative flex flex-1 flex-col overflow-hidden bg-black/10">
             {benchmarkResult ? (
               <div className="flex h-full flex-1 flex-col overflow-hidden animate-fade-in">
+                {resultIsMock && (
+                  <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
+                    <strong className="font-bold text-amber-50">Demo data — not a real benchmark.</strong>{" "}
+                    These scores are randomized to show what a real run looks like. Pick a real model above and re-run to measure your prompt.
+                  </div>
+                )}
                 <div className="flex h-[40%] min-h-[300px] border-b border-white/5">
                   <div className="relative flex flex-1 items-center justify-center p-4">
                     <h3 className="absolute left-4 top-4 text-xs font-semibold uppercase text-zinc-500">
@@ -315,7 +327,7 @@ export default function BenchmarkPage() {
                   <p className="text-sm text-zinc-400 mb-4">
                     {errorMessage
                       ? errorMessage
-                      : "Paste a prompt on the left, pick a model, then run a benchmark to compare raw vs compiled output."}
+                      : "Paste a prompt on the left, pick a real model (the default Mock Engine returns demo numbers), then run a benchmark."}
                   </p>
                   {!errorMessage && (
                     <button
