@@ -1,17 +1,17 @@
+import orjson
 import re
 import time
-from pathlib import Path
-from typing import Any, Dict, Optional
-
+import json
 import jsonschema
-import orjson
-
+from typing import Dict, Any, Optional
+from pathlib import Path
+from .models import TestSuite, TestCase, TestResult, SuiteResult, Assertion
+from .judge import LLMJudge
 from app.compiler import compile_text, compile_text_v2
 from app.emitters import emit_expanded_prompt
-from app.llm.base import LLMProvider
 
-from .judge import LLMJudge
-from .models import Assertion, SuiteResult, TestCase, TestResult, TestSuite
+
+from app.llm.base import LLMProvider
 
 
 # Mock Executor Interface for now
@@ -244,7 +244,7 @@ class TestRunner:
         elif assertion.type == "json_schema":
             # Basic validation that it IS json
             try:
-                parsed = orjson.loads(output.encode("utf-8"))
+                parsed = orjson.loads(output)
                 # Validate against schema if value is provided and not a simple True boolean
                 if isinstance(assertion.value, dict) or assertion.value is False:
                     jsonschema.validate(instance=parsed, schema=assertion.value)

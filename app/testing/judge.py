@@ -1,11 +1,11 @@
 """LLM-based Judge for evaluating AI outputs against requirements."""
 from __future__ import annotations
-
-from typing import Any, Optional
-
 import orjson
-from pydantic import BaseModel
 
+
+import json
+from typing import Optional, Any
+from pydantic import BaseModel
 from app.llm.base import LLMProvider
 
 
@@ -98,13 +98,13 @@ Evaluate the output against the requirement and return your verdict as JSON."""
                 lines = clean_response.split("\n")
                 clean_response = "\n".join(lines[1:-1])
 
-            data = orjson.loads(clean_response.encode("utf-8"))
+            data = orjson.loads(clean_response)
             return JudgeResult(
                 passed=bool(data.get("passed", False)),
                 reason=str(data.get("reason", "No reason provided")),
                 score=float(data.get("score", 0.0 if not data.get("passed") else 1.0)),
             )
-        except (orjson.JSONDecodeError, TypeError):
+        except orjson.JSONDecodeError:
             # If parsing fails, try to infer from text
             lower_response = response.lower()
             passed = "passed" in lower_response or "pass" in lower_response
@@ -141,9 +141,9 @@ Evaluate the output against the requirement and return your verdict as JSON."""
 
         if "valid json" in req_lower:
             try:
-                orjson.loads(output.encode("utf-8"))
+                orjson.loads(output)
                 return JudgeResult(passed=True, reason="Output is valid JSON", score=1.0)
-            except (orjson.JSONDecodeError, TypeError):
+            except orjson.JSONDecodeError:
                 return JudgeResult(passed=False, reason="Output is not valid JSON", score=0.0)
 
         # Default: optimistic mock
@@ -244,7 +244,7 @@ Compare the two outputs and return your verdict as JSON."""
                 lines = clean_response.split("\n")
                 clean_response = "\n".join(lines[1:-1])
 
-            data = orjson.loads(clean_response.encode("utf-8"))
+            data = orjson.loads(clean_response)
 
             winner = str(data.get("winner", "A")).upper()
             if winner not in ("A", "B"):
@@ -255,7 +255,7 @@ Compare the two outputs and return your verdict as JSON."""
                 reason=str(data.get("reason", "No reason provided")),
                 score_diff=float(data.get("score_diff", 0)),
             )
-        except (orjson.JSONDecodeError, TypeError):
+        except orjson.JSONDecodeError:
             lower_response = response.lower()
             winner = "B" if "output b" in lower_response and "better" in lower_response else "A"
             return ComparisonResult(
