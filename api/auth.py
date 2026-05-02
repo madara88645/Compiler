@@ -74,8 +74,10 @@ HEAVY_RATE_LIMIT_MAX_REQUESTS = 2
 
 def _get_route_group_and_limit(path: str) -> tuple[str, int]:
     heavy_routes = ["/compile", "/optimize", "/run", "/agent-generator", "/skills-generator"]
-    if any(path.startswith(r) for r in heavy_routes):
-        return "heavy", HEAVY_RATE_LIMIT_MAX_REQUESTS
+    # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+    for r in heavy_routes:
+        if path.startswith(r):
+            return "heavy", HEAVY_RATE_LIMIT_MAX_REQUESTS
     return "default", RATE_LIMIT_MAX_REQUESTS
 
 

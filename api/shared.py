@@ -25,7 +25,10 @@ _META_LEAK_PATTERNS = [
 def is_meta_leaked(text: str) -> bool:
     lower = text.lower().strip()
     if len(lower) < 120:
-        return any(pattern in lower for pattern in _META_LEAK_PATTERNS)
+        # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+        for pattern in _META_LEAK_PATTERNS:
+            if pattern in lower:
+                return True
     return False
 
 
