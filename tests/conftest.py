@@ -3,17 +3,18 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from tests.runtime_bootstrap import apply_test_runtime, prepare_test_runtime
 
 _TEST_RUNTIME_ROOT = Path(__file__).resolve().parent.parent / ".tmp-test-run"
-_TEST_RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
-_TEST_SESSION_DIR = Path(tempfile.mkdtemp(prefix="pytest-", dir=str(_TEST_RUNTIME_ROOT))).resolve()
-_TEST_DB_DIR = (_TEST_SESSION_DIR / "db").resolve()
-_TEST_DB_DIR.mkdir(parents=True, exist_ok=True)
+_FALLBACK_RUNTIME_ROOTS = [Path(tempfile.gettempdir()) / "promptc-pytest-runtime"]
+_TEST_RUNTIME = prepare_test_runtime(
+    preferred_root=_TEST_RUNTIME_ROOT,
+    fallback_roots=_FALLBACK_RUNTIME_ROOTS,
+)
+_TEST_SESSION_DIR = _TEST_RUNTIME.session_dir
+_TEST_DB_DIR = _TEST_RUNTIME.db_dir
 
-for env_name in ("TMP", "TEMP", "TMPDIR"):
-    os.environ[env_name] = str(_TEST_SESSION_DIR)
-tempfile.tempdir = str(_TEST_SESSION_DIR)
-os.environ["DB_DIR"] = str(_TEST_DB_DIR)
+apply_test_runtime(_TEST_RUNTIME)
 
 from api.main import app  # noqa: E402
 from api.auth import verify_api_key, APIKey  # noqa: E402
@@ -29,8 +30,6 @@ def pytest_addoption(parser):
 
 
 def pytest_collection_modifyitems(config, items):
-    import os
-
     run_live = config.getoption("--run-live") or os.environ.get("PROMPTC_RUN_LIVE_TESTS") == "1"
     if run_live:
         return
