@@ -127,8 +127,8 @@ class SwarmAnalysisReport(BaseModel):
 class AgentDefinition(BaseModel):
     """Schema for an individual agent in a swarm definition."""
 
-    role: str = Field(..., description="The role of the agent (e.g., 'planner', 'executor')")
-    prompt: str = Field(..., description="The system prompt for the agent")
+    role: str = Field(..., max_length=200, description="The role of the agent (e.g., 'planner', 'executor')")
+    prompt: str = Field(..., max_length=30000, description="The system prompt for the agent")
     metadata: Optional[Dict[str, Any]] = Field(
         default=None, description="Optional additional metadata for the agent"
     )
@@ -138,5 +138,5 @@ class AgentDefinition(BaseModel):
 
 class SwarmAnalysisRequest(BaseModel):
     agents: List[AgentDefinition] = Field(..., description="List of generated agent definitions")
-    original_description: str = Field(..., description="User's original task request")
+    original_description: str = Field(..., max_length=8000, description="User's original task request")
     run_tests: bool = Field(default=True, description="Whether to run synthetic test scenarios")

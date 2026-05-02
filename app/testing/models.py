@@ -31,8 +31,8 @@ class TestCase(BaseModel):
 
     __test__ = False
 
-    id: str
-    description: Optional[str] = None
+    id: str = Field(..., max_length=100)
+    description: Optional[str] = Field(default=None, max_length=2000)
     input_variables: Dict[str, Any] = Field(default_factory=dict)
     assertions: List[Assertion] = Field(default_factory=list)
     # Optional LLM config overrides for this specific test
@@ -45,9 +45,9 @@ class TestSuite(BaseModel):
 
     __test__ = False
 
-    name: str
-    description: Optional[str] = None
-    prompt_file: str  # Path to the prompt file being tested (relative to suite or absolute)
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    prompt_file: str = Field(..., max_length=1024)  # Path to the prompt file being tested (relative to suite or absolute)
     defaults: Dict[str, Any] = Field(default_factory=dict)  # Default input vars
     test_cases: List[TestCase]
 
