@@ -21,11 +21,34 @@ export default function SecurityAlert({
 }: SecurityAlertProps) {
 
     const findingsSummary = useMemo(() => {
+        // Keys match the backend security scanner types in app/heuristics/security.py
+        // (openai_key, github_token, generic_api_key, private_key, email, ipv4, credit_card).
+        const friendlyLabel: Record<string, { singular: string; plural: string }> = {
+            openai_key: { singular: "OpenAI API key", plural: "OpenAI API keys" },
+            github_token: { singular: "GitHub token", plural: "GitHub tokens" },
+            generic_api_key: { singular: "API key", plural: "API keys" },
+            private_key: { singular: "private key", plural: "private keys" },
+            email: { singular: "email address", plural: "email addresses" },
+            ipv4: { singular: "IP address", plural: "IP addresses" },
+            credit_card: { singular: "credit-card number", plural: "credit-card numbers" },
+            phone: { singular: "phone number", plural: "phone numbers" },
+            ssn: { singular: "social security number", plural: "social security numbers" },
+        };
+        const humanizeFallback = (type: string, count: number) => {
+            const words = type.toLowerCase().replace(/[_-]+/g, " ").trim();
+            return `${count} ${words}${count === 1 ? "" : "s"}`;
+        };
         const counts: Record<string, number> = {};
         findings.forEach(f => {
             counts[f.type] = (counts[f.type] || 0) + 1;
         });
-        return Object.entries(counts).map(([type, count]) => `${count} x ${type.toUpperCase()}`);
+        return Object.entries(counts).map(([type, count]) => {
+            const label = friendlyLabel[type.toLowerCase()];
+            if (label) {
+                return `${count} ${count === 1 ? label.singular : label.plural}`;
+            }
+            return humanizeFallback(type, count);
+        });
     }, [findings]);
 
     return (
@@ -44,8 +67,8 @@ export default function SecurityAlert({
                             <ShieldAlert size={22} className="text-red-300" aria-hidden="true" />
                         </div>
                         <div>
-                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Security Alert</h2>
-                            <p className="text-sm text-red-300/80">Sensitive information detected in your prompt.</p>
+                            <h2 id="security-alert-title" className="text-xl font-bold text-red-100 tracking-wide">Possible secrets in your prompt</h2>
+                            <p className="text-sm text-red-300/80">Patterns that look like personal data or credentials were detected. Choose how the next compile should handle them.</p>
                         </div>
                     </div>
                 </div>
@@ -63,6 +86,10 @@ export default function SecurityAlert({
 
                     <div className="bg-black/30 rounded-xl border border-white/5 p-4 flex flex-col gap-2">
                         <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Preview Redacted Version</span>
+                        <p className="text-xs text-zinc-400 leading-relaxed">
+                            <strong className="text-zinc-300">Strip Secrets &amp; Proceed</strong> retries with the redacted version below.{" "}
+                            <strong className="text-zinc-300">Send original anyway</strong> retries with your prompt unchanged.
+                        </p>
                         <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto custom-scrollbar">
                             {redactedText}
                         </pre>
@@ -92,7 +119,7 @@ export default function SecurityAlert({
                         onClick={onProceedOriginal}
                         className="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     >
-                        Proceed Unsafe (Original)
+                        Send original anyway
                     </button>
 
                     <button
