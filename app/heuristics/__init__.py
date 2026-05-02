@@ -383,7 +383,14 @@ def extract_comparison_items(text: str) -> list[str]:
 
 def extract_variant_count(text: str) -> int:
     lower = text.lower()
-    if any(k in lower for k in VARIANT_KEYWORDS):
+    has_variant = False
+    for k in VARIANT_KEYWORDS:
+        if k in lower:
+            has_variant = True
+            break
+
+    # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+    if has_variant:
         m = _VARIANT_RE.search(lower)
         if m:
             try:
