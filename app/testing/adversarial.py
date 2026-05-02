@@ -6,7 +6,6 @@ from __future__ import annotations
 import orjson
 
 
-import json
 from typing import List
 from uuid import uuid4
 
