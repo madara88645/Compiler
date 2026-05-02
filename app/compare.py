@@ -4,10 +4,11 @@ Prompt Comparison Module
 Bu modül iki prompt'u karşılaştırır ve detaylı analiz sağlar.
 """
 
-import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
 from difflib import unified_diff
+from typing import Any, Dict, List, Optional, Tuple
+
+import orjson
 
 from app.compiler import compile_text_v2
 from app.validator import PromptValidator, ValidationResult
@@ -161,8 +162,8 @@ class PromptComparator:
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """IR farklarını bul"""
         # JSON'a çevir (pretty print)
-        json_a = json.dumps(ir_a, indent=2, ensure_ascii=False, sort_keys=True)
-        json_b = json.dumps(ir_b, indent=2, ensure_ascii=False, sort_keys=True)
+        json_a = orjson.dumps(ir_a, option=orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS).decode("utf-8")
+        json_b = orjson.dumps(ir_b, option=orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS).decode("utf-8")
 
         # Unified diff oluştur
         diff_lines = list(

@@ -3,15 +3,14 @@
 Uses an LLM to generate tricky test inputs designed to break prompts.
 """
 from __future__ import annotations
-import orjson
 
-
-import json
 from typing import List
 from uuid import uuid4
 
+import orjson
+
 from app.llm.base import LLMProvider
-from app.testing.models import TestCase, Assertion
+from app.testing.models import Assertion, TestCase
 
 
 class AdversarialGenerator:
@@ -96,7 +95,7 @@ Generate test cases that could expose vulnerabilities in this prompt."""
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
 
-            data = orjson.loads(content.strip())
+            data = orjson.loads(content.strip().encode("utf-8"))
 
             if not isinstance(data, list):
                 data = [data]
@@ -134,7 +133,7 @@ Generate test cases that could expose vulnerabilities in this prompt."""
 
             return test_cases
 
-        except orjson.JSONDecodeError as e:
+        except (orjson.JSONDecodeError, TypeError) as e:
             print(f"[AdversarialGenerator] JSON parse error: {e}")
             return []
 

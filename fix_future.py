@@ -1,5 +1,3 @@
-import re
-
 files_to_patch = [
     "app/testing/runner.py",
     "app/testing/judge.py",
@@ -7,7 +5,7 @@ files_to_patch = [
 ]
 
 for filename in files_to_patch:
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Move from __future__ to the very top (after docstrings if any, but easier just top line)
@@ -25,7 +23,7 @@ for filename in files_to_patch:
     if filename == "app/testing/runner.py" and "from __future__" not in content:
         content = "import orjson\n" + content
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(content)
 
 print("fixed.")

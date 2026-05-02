@@ -5,14 +5,14 @@ files_to_patch = [
 ]
 
 for filename in files_to_patch:
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # remove redundant import orjson
     while "import orjson\nimport orjson" in content:
         content = content.replace("import orjson\nimport orjson", "import orjson")
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(content)
 
 print("fixed.")

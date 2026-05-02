@@ -1,6 +1,3 @@
-import os
-import re
-
 files_to_patch = [
     "app/testing/runner.py",
     "app/testing/judge.py",
@@ -8,7 +5,7 @@ files_to_patch = [
 ]
 
 for filename in files_to_patch:
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # ensure import orjson is there
@@ -20,7 +17,7 @@ for filename in files_to_patch:
     # json.JSONDecodeError needs to be handled
     content = content.replace("json.JSONDecodeError", "orjson.JSONDecodeError")
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(content)
 
 print("patched.")
