@@ -2,8 +2,10 @@
 
 Uses an LLM to generate tricky test inputs designed to break prompts.
 """
-
 from __future__ import annotations
+import orjson
+
+
 import json
 from typing import List
 from uuid import uuid4
@@ -94,7 +96,7 @@ Generate test cases that could expose vulnerabilities in this prompt."""
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
 
-            data = json.loads(content.strip())
+            data = orjson.loads(content.strip())
 
             if not isinstance(data, list):
                 data = [data]
@@ -132,7 +134,7 @@ Generate test cases that could expose vulnerabilities in this prompt."""
 
             return test_cases
 
-        except json.JSONDecodeError as e:
+        except orjson.JSONDecodeError as e:
             print(f"[AdversarialGenerator] JSON parse error: {e}")
             return []
 

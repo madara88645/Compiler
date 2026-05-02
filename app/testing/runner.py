@@ -1,3 +1,4 @@
+import orjson
 import re
 import time
 import json
@@ -243,7 +244,7 @@ class TestRunner:
         elif assertion.type == "json_schema":
             # Basic validation that it IS json
             try:
-                parsed = json.loads(output)
+                parsed = orjson.loads(output)
                 # Validate against schema if value is provided and not a simple True boolean
                 if isinstance(assertion.value, dict) or assertion.value is False:
                     jsonschema.validate(instance=parsed, schema=assertion.value)
