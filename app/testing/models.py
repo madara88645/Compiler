@@ -47,7 +47,9 @@ class TestSuite(BaseModel):
 
     name: str = Field(..., max_length=100)
     description: Optional[str] = Field(default=None, max_length=2000)
-    prompt_file: str = Field(..., max_length=1024)  # Path to the prompt file being tested (relative to suite or absolute)
+    prompt_file: str = Field(
+        ..., max_length=1024
+    )  # Path to the prompt file being tested (relative to suite or absolute)
     defaults: Dict[str, Any] = Field(default_factory=dict)  # Default input vars
     test_cases: List[TestCase]
 
