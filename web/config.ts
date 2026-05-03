@@ -1,5 +1,4 @@
 const DEFAULT_LOCAL_API_BASE = "http://127.0.0.1:8080";
-const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
 type LocationLike = {
   hostname: string;
@@ -12,14 +11,7 @@ export function buildApiHeaders(headers: HeadersInit = {}): Record<string, strin
 }
 
 export function buildGeneratorApiHeaders(headers: HeadersInit = {}): Record<string, string> {
-  const mergedHeaders = new Headers(buildApiHeaders(headers));
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY?.trim();
-
-  if (apiKey && !mergedHeaders.has("x-api-key")) {
-    mergedHeaders.set("x-api-key", apiKey);
-  }
-
-  return Object.fromEntries(mergedHeaders.entries());
+  return buildApiHeaders(headers);
 }
 
 export class ApiError extends Error {
@@ -37,18 +29,16 @@ export class ApiError extends Error {
 }
 
 export function resolveApiBase(locationLike?: LocationLike | null): string {
-  const configuredBase = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredBase) {
-    return configuredBase;
-  }
-
   const runtimeLocation =
     locationLike ?? (typeof window !== "undefined" ? window.location : undefined);
 
   if (runtimeLocation) {
-    return LOCAL_DEV_HOSTS.has(runtimeLocation.hostname)
-      ? DEFAULT_LOCAL_API_BASE
-      : runtimeLocation.origin;
+    return runtimeLocation.origin;
+  }
+
+  const configuredBase = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configuredBase) {
+    return configuredBase;
   }
 
   return DEFAULT_LOCAL_API_BASE;

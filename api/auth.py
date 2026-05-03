@@ -107,6 +107,7 @@ def verify_api_key(
 
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     if admin_key and _matches_admin_api_key(api_key, admin_key):
+        request.state.api_key_owner = "admin"
         return APIKey(key=api_key, owner="admin", is_active=True)
 
     db = SessionLocal()
@@ -155,6 +156,7 @@ def verify_api_key(
         history.append(now)
         RATE_LIMIT_STORE[store_key] = history
 
+    request.state.api_key_owner = key_record.owner
     return key_record
 
 
