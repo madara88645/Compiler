@@ -52,6 +52,36 @@ describe("backend proxy", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
+  it("overrides caller supplied x-api-key on protected routes", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ system_prompt: "safe" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const request = new Request("http://localhost:3000/agent-generator/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "caller-secret",
+      },
+      body: JSON.stringify({ description: "review code" }),
+    });
+
+    await proxyBackendRequest(request, "/agent-generator/generate", {
+      requireServerApiKey: true,
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const proxiedHeaders = new Headers(init?.headers);
+
+    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+  });
+
   it("returns a config error when a protected route has no server API key", async () => {
     const request = new Request("http://localhost:3000/agent-generator/generate", {
       method: "POST",
