@@ -84,7 +84,9 @@ def _python_literal_for(value: str, py_type: str) -> str:
         return "True" if native else "False"
     if isinstance(native, (int, float)):
         return str(native)
-    return f'"{native}"'
+    # json.dumps properly escapes backslashes, quotes, newlines, and other
+    # special characters so the output is always a valid Python string literal.
+    return json.dumps(str(native))
 
 
 def _param_field_line(p: SkillParam, example_map: dict[str, str | None]) -> str:
@@ -226,15 +228,24 @@ def _py_to_json_type(py_type: str) -> str:
     return mapping.get(py_type, "string")
 
 
+# Lowercase only — the comparison always calls .lower() first, so mixed-case
+# variants such as "Yes", "YES", "True", "On", etc. are covered automatically.
+_YAML11_RESERVED = frozenset({
+    "y", "n", "yes", "no", "true", "false", "on", "off", "null", "~",
+})
+
 _DESC_MAX = 200
 
 
 def _yaml_safe(value: str) -> str:
     """
     Encode a value safely for a YAML scalar in frontmatter.
-    Quotes the value when it contains characters that would break a bare scalar.
+    Quotes the value when it contains characters that would break a bare scalar,
+    or when it is a YAML 1.1 reserved word that could be coerced to bool/null.
     """
     value = value.replace("\r", " ").replace("\n", " ").strip()
+    if value.lower() in _YAML11_RESERVED:
+        return f'"{value}"'
     if any(
         ch in value
         for ch in (":", "#", "`", '"', "'", "[", "]", "{", "}", "&", "*", "!", "|", ">", "%", "@")

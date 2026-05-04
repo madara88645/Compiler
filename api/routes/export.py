@@ -90,6 +90,6 @@ async def export_skill(
         "python_code": python_code,
         "json_config": json_config,
         "markdown": markdown,
-        "code": python_code,
+        "code": markdown if is_agent_skill else python_code,
         "files": [],
     }
