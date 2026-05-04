@@ -76,6 +76,10 @@ export function useContextManager() {
   }, [refreshStats]);
 
   useEffect(() => {
+    // We intentionally ignore the rule here because `checkConnection` initializes our
+    // app connection status explicitly on mount, and we rely on `checkConnection`
+    // handling state cleanly based on async results.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void checkConnection();
   }, [checkConnection]);
 

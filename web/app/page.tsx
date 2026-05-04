@@ -483,15 +483,32 @@ export default function Home() {
                     Paste a task, question, bug report, or workflow on the left, then press <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">Ctrl/Cmd Enter</kbd>.
                     You&apos;ll get structured prompts, an execution plan, and policy checks you can inspect before using the result downstream.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleGenerate()}
-                    disabled={loading || !prompt.trim()}
-                    title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
-                    className="mt-2 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
-                  >
-                    Compile Prompt
-                  </button>
+                  <div className="flex flex-col items-center gap-3 mt-2 w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate()}
+                      disabled={loading || !prompt.trim()}
+                      title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
+                      className="mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+                    >
+                      Compile Prompt
+                    </button>
+                    {!prompt.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrompt("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.");
+                          setTimeout(() => {
+                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className="text-xs text-blue-400/80 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded px-2 py-1"
+                      >
+                        or try an example
+                      </button>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500 leading-relaxed mt-4">
                     Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
                   </p>
