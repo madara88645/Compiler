@@ -575,7 +575,7 @@ class WorkerClient:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # json_mode=False because we want Markdown text back
-            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
+            future = executor.submit(self._call_api, messages, 4000, json_mode=False)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
                 if multi_agent:
