@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import orjson
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,7 +40,9 @@ class RAGHistoryStore:
     def load(self) -> None:
         try:
             if self.path.exists():
-                data = json.loads(self.path.read_text(encoding="utf-8"))
+                # Bolt Optimization: orjson.loads is ~5-10x faster than json.loads
+                # for deserializing history JSON files.
+                data = orjson.loads(self.path.read_bytes())
             else:
                 data = {}
         except Exception:
@@ -72,9 +74,9 @@ class RAGHistoryStore:
             "pins": [entry.__dict__ for entry in self.pins[-self.max_pins :]],
         }
         try:
-            self.path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps
+            # for serializing history payloads to disk.
+            self.path.write_bytes(orjson.dumps(payload, option=orjson.OPT_INDENT_2))
         except Exception:
             pass
 
