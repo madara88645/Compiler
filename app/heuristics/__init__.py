@@ -688,7 +688,12 @@ def _has_fp_hint_around_match(text: str, start: int, end: int, window: int = 24)
     lo = max(0, start - window)
     hi = min(len(text), end + window)
     ctx = text[lo:hi].lower()
-    return any(hint in ctx for hint in _PII_CONTEXT_FALSE_POSITIVE_HINTS)
+    # Bolt Optimization: Replace any() generator expression with an explicit fast-path
+    # loop to avoid generator initialization overhead in this frequently called hot path.
+    for hint in _PII_CONTEXT_FALSE_POSITIVE_HINTS:
+        if hint in ctx:
+            return True
+    return False
 
 
 def detect_pii(text: str) -> list[str]:
