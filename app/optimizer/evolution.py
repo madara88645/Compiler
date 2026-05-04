@@ -282,9 +282,10 @@ class EvolutionEngine:
             # Track Cost
             # Estimate: Input = Parent + System Prompt(~500), Output = New Candidates
             in_tokens = TokenCounter.count(parent.prompt_text, self.config.model) + 500
-            out_tokens = sum(
-                TokenCounter.count(c.prompt_text, self.config.model) for c in new_candidates
-            )
+            # Bolt Optimization: Replace sum() generator expression with explicit loop to avoid overhead
+            out_tokens = 0
+            for c in new_candidates:
+                out_tokens += TokenCounter.count(c.prompt_text, self.config.model)
             self.cost_tracker.add_usage(self.config.model, in_tokens, "input")
             self.cost_tracker.add_usage(self.config.model, out_tokens, "output")
 
