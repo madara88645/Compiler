@@ -157,8 +157,8 @@ def test_multi_agent_template_includes_topology_and_io():
     for include_example_code in (True, False):
         rendered = client._multi_agent_prompt(include_example_code)
         assert (
-            "Topology" in rendered
-        ), f"Missing topology declaration guidance (include_example_code={include_example_code})"
+            "> **Topology:**" in rendered
+        ), f"Missing '> **Topology:**' declaration guidance (include_example_code={include_example_code})"
         assert (
             "## Inputs" in rendered
         ), f"Missing '## Inputs' (include_example_code={include_example_code})"
