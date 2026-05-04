@@ -24,13 +24,15 @@ The output must strictly follow this Markdown structure:
 [Unique identifier, snake_case (e.g., `json_validator`)]
 
 ## Purpose
-[A clear, concise description of what problem this skill solves and when to use it.]
+**What:** [One-sentence, third-person statement of what the skill does. Avoid first-person ("I", "we") and second-person ("you").]
+**When to use:** [Third-person trigger conditions — what user task or agent state should activate this skill. Start with phrases like "Use when..." or "Activate this skill when...".]
 
 ## Input Schema
 [Define expected parameters with types and descriptions.]
 - `param_name` (Type): Description
 
 ## Output Schema
+**Type:** `<one of: dict, list, str, int, float, bool>`
 [Define the return format and structure.]
 - `return_field` (Type): Description
 
@@ -41,6 +43,11 @@ The output must strictly follow this Markdown structure:
 [Required libraries, tools, or API keys.]
 - Library/Tool 1
 - Library/Tool 2
+
+## Examples
+[At least one and at most three concrete invocations. Use the exact arrow form below so downstream tooling can parse them.]
+- Input: `{param_name: "value"}` → Output: `<expected output>`
+- Input: `{param_name: ""}` → Output: `<expected behavior on edge case>`
 
 ## Error Handling
 [Describe how to handle edge cases, failures, or invalid inputs.]

@@ -56,26 +56,40 @@ async def export_agent(
     }
 
 
+_SKILL_EXPORT_FORMATS = frozenset(
+    {"claude-tool", "claude-tool-use", "langchain-tool", "agent-skill"}
+)
+
+
 @router.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     del api_key
-    if req.format not in ["claude-tool", "langchain-tool"]:
+    if req.format not in _SKILL_EXPORT_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 
-    from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
+    from app.adapters.skill_adapter import (
+        to_agent_skill,
+        to_claude_tool_use,
+        to_langchain_tool,
+    )
     from app.adapters.skill_ir import parse_skill_markdown
 
     ir = parse_skill_markdown(req.skill_definition or "")
 
-    python_code = to_langchain_tool(ir)
-    json_config = to_claude_tool_use(ir)
+    # Only call the adapters needed for the requested format.
+    # agent-skill needs only SKILL.md; all other formats expose both Python and JSON tabs.
+    is_agent_skill = req.format == "agent-skill"
+    python_code = None if is_agent_skill else to_langchain_tool(ir)
+    json_config = None if is_agent_skill else to_claude_tool_use(ir)
+    markdown = to_agent_skill(ir) if is_agent_skill else None
 
     return {
         "python_code": python_code,
         "json_config": json_config,
+        "markdown": markdown,
         "code": python_code,
         "files": [],
     }
