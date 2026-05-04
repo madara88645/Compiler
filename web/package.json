@@ -12,7 +12,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:contracts": "node --test config.test.mts promptc-api.test.mts"
+    "test:contracts": "node --test config.test.mts promptc-api.test.mts && vitest run lib/server/backendProxy.test.ts app/proxy-routes.test.ts"
   },
   "dependencies": {
     "@types/diff-match-patch": "^1.0.36",
