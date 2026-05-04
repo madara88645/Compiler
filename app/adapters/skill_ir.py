@@ -2,7 +2,8 @@
 skill_ir.py — Parse Skills Generator markdown output into a structured IR.
 
 Skills Generator output has sections: Name, Purpose, Input Schema, Output Schema,
-Implementation, Dependencies, Error Handling, Implementation Example (optional).
+Implementation, Dependencies, Examples, Error Handling, Testing Strategy,
+Performance Considerations, Implementation Example (optional).
 """
 from __future__ import annotations
 
@@ -17,13 +18,24 @@ class SkillParam(BaseModel):
     required: bool = True
 
 
+class SkillExample(BaseModel):
+    input: str = ""
+    output: str = ""
+
+
 class SkillExportIR(BaseModel):
-    name: str = "skill_name"  # snake_case from ## Name
-    purpose: str = ""  # from ## Purpose
-    params: list[SkillParam] = Field(default_factory=list)  # from ## Input Schema
-    output_type: str = "str"  # inferred from ## Output Schema
+    name: str = "skill_name"
+    purpose: str = ""
+    when_to_use: str = ""
+    params: list[SkillParam] = Field(default_factory=list)
+    output_type: str = "str"
     output_description: str = ""
-    dependencies: list[str] = Field(default_factory=list)  # from ## Dependencies
+    dependencies: list[str] = Field(default_factory=list)
+    error_handling: list[str] = Field(default_factory=list)
+    testing_strategy: list[str] = Field(default_factory=list)
+    performance_notes: list[str] = Field(default_factory=list)
+    examples: list[SkillExample] = Field(default_factory=list)
+    implementation: str = ""
     raw_definition: str = ""
 
 
@@ -37,10 +49,8 @@ def _clean_section(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
-        # If it ends with ``` and has at least 2 lines (opening and closing fence)
         if len(lines) > 1 and lines[-1].strip() == "```":
             return "\n".join(lines[1:-1]).strip()
-        # If it just starts with ``` but doesn't end with it
         elif len(lines) > 0:
             return "\n".join(lines[1:]).strip()
     return text
@@ -89,52 +99,70 @@ def _extract_title(markdown: str) -> str:
 
 
 def _to_snake(name: str) -> str:
-    # Preserve underscores and hyphens (convert hyphens to spaces later)
     s = re.sub(r"[^a-zA-Z0-9_\s-]", " ", name)
-
-    # Handle CamelCase/PascalCase
-    # 1. Insert space before uppercase letters that are followed by lowercase (e.g., HTTPResponse -> HTTP Response)
     s = re.sub(r"([A-Z])([A-Z][a-z])", r"\1 \2", s)
-    # 2. Insert space between lowercase/number and uppercase (e.g., camelCase -> camel Case, var123A -> var123 A)
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
-
-    # Replace hyphens with spaces to handle kebab-case uniformly
     s = s.replace("-", " ")
-
-    # Replace all whitespace sequences with a single underscore and convert to lowercase
     s = re.sub(r"\s+", "_", s.strip()).lower()
-
-    # Clean up multiple consecutive underscores if any were present initially alongside spaces
     s = re.sub(r"_+", "_", s)
     s = s.strip("_")
-
     return s or "skill_name"
 
 
 def _parse_name_section(text: str) -> str:
-    """Extract snake_case name from ## Name section."""
     for line in text.splitlines():
         stripped = line.strip()
         if stripped and not stripped.startswith("#"):
-            # Already snake_case most of the time
             return _to_snake(stripped.split()[0])
     return ""
 
 
+def _parse_purpose_block(text: str) -> tuple[str, str]:
+    """
+    Parse ## Purpose. Recognises:
+        **What:** ...
+        **When to use:** ...
+    Falls back to: whole block in `purpose`, empty `when_to_use`.
+    Returns (purpose, when_to_use).
+    """
+    text = _clean_section(text)
+    if not text:
+        return "", ""
+
+    current = None
+    buf: dict[str, list[str]] = {"what": [], "when": []}
+
+    for line in text.splitlines():
+        m = _PURPOSE_LABEL_RE.match(line)
+        if m:
+            tag = "what" if m.group(1).lower() == "what" else "when"
+            current = tag
+            rest = m.group(2).strip()
+            if rest:
+                buf[tag].append(rest)
+        elif current is not None:
+            buf[current].append(line.rstrip())
+
+    what = " ".join(s.strip() for s in buf["what"] if s.strip()).strip()
+    when = " ".join(s.strip() for s in buf["when"] if s.strip()).strip()
+
+    if not what and not when:
+        # Legacy single-block purpose — keep it all as the purpose.
+        return text.strip(), ""
+
+    return what, when
+
+
 def _parse_params(text: str) -> list[SkillParam]:
-    """
-    Parse ## Input Schema into SkillParam list.
-    Handles both markdown table format and bullet list format.
-    """
+    """Parse ## Input Schema into SkillParam list."""
     params: list[SkillParam] = []
 
-    # Try table format: | Name | Type | Description | Required |
     table_rows = re.findall(
         r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|(?:\s*([^|]+?)\s*\|)?",
         text,
         re.MULTILINE,
     )
-    if len(table_rows) > 1:  # >1 because first row is header
+    if len(table_rows) > 1:
         for row in table_rows[1:]:
             name_cell = row[0].strip()
             type_cell = row[1].strip()
@@ -155,12 +183,10 @@ def _parse_params(text: str) -> list[SkillParam]:
         if params:
             return params
 
-    # Fallback: bullet list  "- param_name (type): description"
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith(("- ", "* ")):
             content = stripped[2:].strip()
-            # Pattern: name (type): description
             m = re.match(r"^(\w+)\s*\(([^)]+)\)\s*:?\s*(.*)", content)
             if m:
                 params.append(
@@ -171,7 +197,6 @@ def _parse_params(text: str) -> list[SkillParam]:
                     )
                 )
             else:
-                # Plain bullet: treat as str param
                 name = _to_snake(content.split(":")[0].split(" ")[0])
                 if name:
                     params.append(SkillParam(name=name))
@@ -179,8 +204,29 @@ def _parse_params(text: str) -> list[SkillParam]:
     return params
 
 
+_TYPE_TAG_RE = re.compile(
+    r"\*\*\s*type\s*:?\s*\*\*\s*`?\s*([A-Za-z][A-Za-z0-9_]*)\s*`?",
+    re.IGNORECASE,
+)
+
+
 def _parse_output_type(text: str) -> tuple[str, str]:
-    """Infer output type from ## Output Schema text. Returns (type, description)."""
+    r"""
+    Infer output type from ## Output Schema text.
+
+    Prefers an explicit ``**Type:** `<token>` `` marker; falls back to
+    keyword heuristics on the remaining text. Returns (type, description).
+    """
+    if not text:
+        return "str", ""
+
+    m = _TYPE_TAG_RE.search(text)
+    if m:
+        explicit = _normalise_type(m.group(1))
+        # Strip the type-tag line out of the description for cleanliness.
+        desc = _TYPE_TAG_RE.sub("", text, count=1).strip()
+        return explicit, desc
+
     text_lower = text.lower()
     type_map = [
         (["dict", "json", "object", "map"], "dict"),
@@ -195,19 +241,52 @@ def _parse_output_type(text: str) -> tuple[str, str]:
     return "str", text.strip()
 
 
-def _parse_dependencies(text: str) -> list[str]:
-    deps: list[str] = []
+def _parse_bullet_list(text: str) -> list[str]:
+    """Extract `- ` / `* ` bullet items from a markdown block."""
+    items: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith(("- ", "* ")):
-            dep = stripped[2:].strip()
-            if dep:
-                deps.append(dep)
-    return deps
+            item = stripped[2:].strip()
+            if item:
+                items.append(item)
+    return items
+
+
+# Backward-compatible alias — older imports use `_parse_dependencies`.
+_parse_dependencies = _parse_bullet_list
+
+
+_PURPOSE_LABEL_RE = re.compile(
+    r"^\s*\*\*\s*(what|when(?:\s+to\s+use)?)\s*:?\s*\*\*\s*(.*)$",
+    re.IGNORECASE,
+)
+
+_EXAMPLE_LINE_RE = re.compile(
+    r"input\s*:\s*(?P<input>.+?)\s*(?:→|->|=>)\s*output\s*:\s*(?P<output>.+)$",
+    re.IGNORECASE,
+)
+
+
+def _parse_examples(text: str) -> list[SkillExample]:
+    """Parse `Input: ... → Output: ...` pairs from ## Examples."""
+    examples: list[SkillExample] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("- ", "* ")):
+            stripped = stripped[2:].strip()
+        m = _EXAMPLE_LINE_RE.search(stripped)
+        if m:
+            examples.append(
+                SkillExample(
+                    input=m.group("input").strip().strip("`"),
+                    output=m.group("output").strip().strip("`"),
+                )
+            )
+    return examples
 
 
 def _normalise_type(raw: str) -> str:
-    """Map common type strings to Python type hints."""
     mapping = {
         "string": "str",
         "text": "str",
@@ -240,14 +319,21 @@ def parse_skill_markdown(markdown: str) -> SkillExportIR:
     raw_name = sections.get("name", "")
     parsed_name = _parse_name_section(raw_name) if raw_name else _to_snake(_extract_title(markdown))
 
+    purpose, when_to_use = _parse_purpose_block(sections.get("purpose", ""))
     output_type, output_desc = _parse_output_type(sections.get("output schema", ""))
 
     return SkillExportIR(
         name=parsed_name or "skill_name",
-        purpose=_clean_section(sections.get("purpose", "")),
+        purpose=purpose,
+        when_to_use=when_to_use,
         params=_parse_params(sections.get("input schema", "")),
         output_type=output_type,
         output_description=output_desc,
-        dependencies=_parse_dependencies(sections.get("dependencies", "")),
+        dependencies=_parse_bullet_list(sections.get("dependencies", "")),
+        error_handling=_parse_bullet_list(sections.get("error handling", "")),
+        testing_strategy=_parse_bullet_list(sections.get("testing strategy", "")),
+        performance_notes=_parse_bullet_list(sections.get("performance considerations", "")),
+        examples=_parse_examples(sections.get("examples", "")),
+        implementation=_clean_section(sections.get("implementation", "")),
         raw_definition=markdown,
     )

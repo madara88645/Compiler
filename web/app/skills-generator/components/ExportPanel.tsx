@@ -3,17 +3,36 @@
 import { useState, useEffect, useRef, useId } from "react";
 import { apiFetch } from "@/config";
 
-type SkillFormat = "langchain-tool" | "claude-tool-use";
-type OutputTab = "python" | "json";
+type SkillFormat = "langchain-tool" | "claude-tool-use" | "agent-skill";
+type OutputTab = "python" | "json" | "markdown";
 
 interface SkillExportResult {
     python_code: string | null;
     json_config: string | null;
+    markdown: string | null;
 }
 
 interface ExportPanelProps {
     skillDefinition: string | null;
 }
+
+const OUTPUT_TABS: Record<SkillFormat, { id: OutputTab; label: string }[]> = {
+    "langchain-tool": [
+        { id: "python", label: "Python Tool" },
+        { id: "json", label: "JSON Schema" },
+    ],
+    "claude-tool-use": [
+        { id: "json", label: "JSON Config" },
+        { id: "python", label: "Python Tool" },
+    ],
+    "agent-skill": [{ id: "markdown", label: "SKILL.md" }],
+};
+
+const CONTENT_KEY: Record<OutputTab, keyof SkillExportResult> = {
+    python: "python_code",
+    json: "json_config",
+    markdown: "markdown",
+};
 
 const FORMATS: {
     id: SkillFormat;
@@ -32,6 +51,12 @@ const FORMATS: {
         label: "Claude tool_use",
         color: "text-zinc-400 border-transparent hover:border-orange-500/40 hover:text-orange-300",
         activeColor: "text-orange-300 border-orange-500/60 bg-orange-500/10",
+    },
+    {
+        id: "agent-skill",
+        label: "Agent Skill",
+        color: "text-zinc-400 border-transparent hover:border-purple-500/40 hover:text-purple-300",
+        activeColor: "text-purple-300 border-purple-500/60 bg-purple-500/10",
     },
 ];
 
@@ -97,8 +122,9 @@ export default function SkillExportPanel({
     const handleFormatClick = (fmt: SkillFormat) => {
         setFormat(fmt);
         fetchExport(fmt);
-        // Reset output tab to a valid default for each format
+        // Reset output tab to a valid default for the selected format
         if (fmt === "claude-tool-use") setOutputTab("json");
+        else if (fmt === "agent-skill") setOutputTab("markdown");
         else setOutputTab("python");
     };
 
@@ -110,11 +136,10 @@ export default function SkillExportPanel({
         }
     };
 
+    const codeContent = currentResult?.[CONTENT_KEY[outputTab]] ?? null;
+
     const handleCopy = () => {
-        const text =
-            outputTab === "python"
-                ? currentResult?.python_code
-                : currentResult?.json_config;
+        const text = codeContent;
         if (text) {
             navigator.clipboard.writeText(text).then(() => {
                 setCopied(true);
@@ -123,21 +148,20 @@ export default function SkillExportPanel({
         }
     };
 
-    const outputTabs: { id: OutputTab; label: string }[] =
-        format === "claude-tool-use"
-            ? [
-                  { id: "json", label: "JSON Config" },
-                  { id: "python", label: "Python Tool" },
-              ]
-            : [
-                  { id: "python", label: "Python Tool" },
-                  { id: "json", label: "JSON Schema" },
-              ];
+    const handleDownloadSkill = () => {
+        const text = currentResult?.markdown;
+        if (!text) return;
+        const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "SKILL.md";
+        anchor.click();
+        // Revoke after a tick so the browser has time to initiate the download.
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    };
 
-    const codeContent =
-        outputTab === "python"
-            ? currentResult?.python_code
-            : currentResult?.json_config;
+    const outputTabs = OUTPUT_TABS[format];
 
     if (!skillDefinition) return null;
 
@@ -229,31 +253,15 @@ export default function SkillExportPanel({
                                 <pre className="overflow-x-auto overflow-y-auto max-h-72 text-[11px] leading-relaxed font-mono text-zinc-300 bg-black/40 rounded-xl p-4 border border-white/5 whitespace-pre">
                                     <code>{codeContent}</code>
                                 </pre>
-                                <button
-                                    type="button"
-                                    onClick={handleCopy}
-                                    className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
-                                    aria-label="Copy code"
-                                >
-                                    {copied ? (
-                                        <>
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="11"
-                                                height="11"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2.5"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            >
-                                                <path d="M20 6 9 17l-5-5" />
-                                            </svg>
-                                            Copied!
-                                        </>
-                                    ) : (
-                                        <>
+                                <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover/code:opacity-100 focus-within:opacity-100 transition-opacity">
+                                    {/* Download button — only shown for SKILL.md */}
+                                    {format === "agent-skill" && (
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadSkill}
+                                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                            aria-label="Download SKILL.md"
+                                        >
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
                                                 width="11"
@@ -265,20 +273,65 @@ export default function SkillExportPanel({
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
                                             >
-                                                <rect
-                                                    width="14"
-                                                    height="14"
-                                                    x="8"
-                                                    y="8"
-                                                    rx="2"
-                                                    ry="2"
-                                                />
-                                                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
                                             </svg>
-                                            Copy
-                                        </>
+                                            SKILL.md
+                                        </button>
                                     )}
-                                </button>
+                                    {/* Copy button */}
+                                    <button
+                                        type="button"
+                                        onClick={handleCopy}
+                                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                        aria-label="Copy code"
+                                    >
+                                        {copied ? (
+                                            <>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="11"
+                                                    height="11"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2.5"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                >
+                                                    <path d="M20 6 9 17l-5-5" />
+                                                </svg>
+                                                Copied!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="11"
+                                                    height="11"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                >
+                                                    <rect
+                                                        width="14"
+                                                        height="14"
+                                                        x="8"
+                                                        y="8"
+                                                        rx="2"
+                                                        ry="2"
+                                                    />
+                                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                                                </svg>
+                                                Copy
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-16 text-zinc-600 text-xs">

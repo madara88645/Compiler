@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from app.adapters.agent_ir import AgentExportIR, parse_agent_markdown
 from app.adapters.claude_sdk import to_python, to_yaml
 from app.adapters.langchain import to_langchain_python, to_langgraph_python
-from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
+from app.adapters.skill_adapter import to_agent_skill, to_claude_tool_use, to_langchain_tool
 from app.adapters.skill_ir import SkillExportIR, parse_skill_markdown
 
 
@@ -338,6 +338,34 @@ def test_export_api_endpoint_skill(client):
 
     parsed = json.loads(data["json_config"])
     assert parsed["name"] == "web_search"
+
+
+def test_export_api_endpoint_skill_agent_skill_format(client):
+    response = client.post(
+        "/skills-generator/export",
+        json={
+            "skill_definition": SKILL_MARKDOWN,
+            "format": "agent-skill",
+            "output_type": "markdown",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("markdown"), "agent-skill format must populate the `markdown` field"
+    md = data["markdown"]
+    assert md.startswith("---\n"), "SKILL.md must lead with YAML frontmatter"
+    assert "name: web-search" in md
+    assert "description:" in md
+    assert "## Overview" in md
+
+
+def test_agent_skill_renders_for_legacy_skill_markdown():
+    """Backwards compatibility: legacy skill markdown (no **What:** / **Type:**) still renders."""
+    ir = parse_skill_markdown(SKILL_MARKDOWN)
+    skill_md = to_agent_skill(ir)
+    assert skill_md.startswith("---\n")
+    assert "name: web-search" in skill_md
+    assert "## Inputs" in skill_md
 
 
 def test_export_api_invalid_format(client):
