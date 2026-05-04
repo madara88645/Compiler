@@ -125,3 +125,64 @@ def test_api_generate_agent_endpoint_with_example_code_enabled():
         mock_compiler.generate_agent.assert_called_with(
             "Test Agent Request", multi_agent=False, include_example_code=True
         )
+
+
+# ── New section-coverage regression tests ─────────────────────────────────────
+
+
+def test_single_agent_template_includes_new_sections():
+    """Rendered single-agent prompt must instruct the LLM to generate the three new sections."""
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    # Both enabled and disabled example-code modes should include the new sections.
+    for include_example_code in (True, False):
+        rendered = client._single_agent_prompt(include_example_code)
+        assert (
+            "## Tools & Integrations" in rendered
+        ), f"Missing '## Tools & Integrations' (include_example_code={include_example_code})"
+        assert (
+            "## Stop Conditions" in rendered
+        ), f"Missing '## Stop Conditions' (include_example_code={include_example_code})"
+        assert (
+            "## Self-Verification" in rendered
+        ), f"Missing '## Self-Verification' (include_example_code={include_example_code})"
+
+
+def test_multi_agent_template_includes_topology_and_io():
+    """Rendered multi-agent prompt must instruct the LLM to declare topology, per-agent I/O, and swarm stop conditions."""
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    for include_example_code in (True, False):
+        rendered = client._multi_agent_prompt(include_example_code)
+        assert (
+            "Topology" in rendered
+        ), f"Missing topology declaration guidance (include_example_code={include_example_code})"
+        assert (
+            "## Inputs" in rendered
+        ), f"Missing '## Inputs' (include_example_code={include_example_code})"
+        assert (
+            "## Outputs" in rendered
+        ), f"Missing '## Outputs' (include_example_code={include_example_code})"
+        assert (
+            "## Swarm Stop Conditions" in rendered
+        ), f"Missing '## Swarm Stop Conditions' (include_example_code={include_example_code})"
+
+
+def test_example_code_strip_still_works():
+    """Disabling example code must strip the skeleton section but leave new sections intact."""
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    single_no_code = client._single_agent_prompt(include_example_code=False)
+    assert "## Example Code (Pseudo-code Skeleton)" not in single_no_code
+    assert "## Tools & Integrations" in single_no_code
+    assert "## Self-Verification" in single_no_code
+
+    multi_no_code = client._multi_agent_prompt(include_example_code=False)
+    # The EXAMPLE CODE SETTING note mentions "## Swarm Example Code" in its anti-instruction,
+    # so check the full skeleton header (with the disambiguation suffix) is absent instead.
+    assert "## Swarm Example Code (Pseudo-code Skeleton)" not in multi_no_code
+    assert "## Inputs" in multi_no_code
+    assert "## Swarm Stop Conditions" in multi_no_code
