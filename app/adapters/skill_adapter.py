@@ -6,6 +6,7 @@ Supported targets:
   * Claude tool_use JSON config       (to_claude_tool_use)
   * Anthropic Agent Skill SKILL.md    (to_agent_skill)
 """
+
 from __future__ import annotations
 
 import json
@@ -230,9 +231,20 @@ def _py_to_json_type(py_type: str) -> str:
 
 # Lowercase only — the comparison always calls .lower() first, so mixed-case
 # variants such as "Yes", "YES", "True", "On", etc. are covered automatically.
-_YAML11_RESERVED = frozenset({
-    "y", "n", "yes", "no", "true", "false", "on", "off", "null", "~",
-})
+_YAML11_RESERVED = frozenset(
+    {
+        "y",
+        "n",
+        "yes",
+        "no",
+        "true",
+        "false",
+        "on",
+        "off",
+        "null",
+        "~",
+    }
+)
 
 _DESC_MAX = 200
 
