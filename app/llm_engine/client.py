@@ -159,26 +159,26 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(r"^- In Example Code:.*\n", "", prompt, flags=re.MULTILINE)
-        prompt = re.sub(r"^- Keep code examples.*\n", "", prompt, flags=re.MULTILINE)
-        prompt = re.sub(
-            r"^- Only include an `## Example Code .*?$\n?",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        # Bolt Optimization: re.compile for regexes used multiple times inside a function
+        import functools
+
+        @functools.lru_cache(maxsize=1)
+        def _get_single_agent_patterns():
+            return [
+                re.compile(
+                    r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
+                    flags=re.DOTALL,
+                ),
+                re.compile(
+                    r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)", flags=re.DOTALL
+                ),
+                re.compile(r"^- In Example Code:.*\n", flags=re.MULTILINE),
+                re.compile(r"^- Keep code examples.*\n", flags=re.MULTILINE),
+                re.compile(r"^- Only include an `## Example Code .*?$\n?", flags=re.MULTILINE),
+            ]
+
+        for p in _get_single_agent_patterns():
+            prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
@@ -195,24 +195,24 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"^- Only include a final `## Swarm Example Code .*?$\n?",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        # Bolt Optimization: re.compile for regexes used multiple times inside a function
+        import functools
+
+        @functools.lru_cache(maxsize=1)
+        def _get_multi_agent_patterns():
+            return [
+                re.compile(
+                    r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
+                    flags=re.DOTALL,
+                ),
+                re.compile(r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*", flags=re.DOTALL),
+                re.compile(
+                    r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE
+                ),
+            ]
+
+        for p in _get_multi_agent_patterns():
+            prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
@@ -229,18 +229,23 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        prompt = re.sub(
-            r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
-            "",
-            prompt,
-            flags=re.DOTALL,
-        )
-        prompt = re.sub(
-            r"^- Only include an implementation example section.*\n",
-            "",
-            prompt,
-            flags=re.MULTILINE,
-        )
+        # Bolt Optimization: re.compile for regexes used multiple times inside a function
+        import functools
+
+        @functools.lru_cache(maxsize=1)
+        def _get_skill_patterns():
+            return [
+                re.compile(
+                    r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
+                    flags=re.DOTALL,
+                ),
+                re.compile(
+                    r"^- Only include an implementation example section.*\n", flags=re.MULTILINE
+                ),
+            ]
+
+        for p in _get_skill_patterns():
+            prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
