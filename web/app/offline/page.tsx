@@ -178,10 +178,14 @@ export default function OfflinePage() {
                     <div className="relative flex min-h-[360px] w-full flex-col bg-black/30 md:min-h-0 md:w-[65%]">
                         {result ? (
                             <>
-                                <div className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                                <div role="tablist" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
                                             type="button"
+                                            role="tab"
+                                            aria-selected={activeTab === tab}
+                                            aria-controls={`tabpanel-${tab}`}
+                                            id={`tab-${tab}`}
                                             key={tab}
                                             onClick={() => setActiveTab(tab)}
                                             className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 sm:px-4 ${activeTab === tab
@@ -204,7 +208,7 @@ export default function OfflinePage() {
                                     </div>
 
                                     {activeTab !== "json" && (
-                                        <>
+                                        <div role="tabpanel" id={`tabpanel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="h-full w-full">
                                             <textarea
                                                 id="offline-output"
                                                 aria-label="Compiled prompt output"
@@ -221,11 +225,11 @@ export default function OfflinePage() {
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
                                             </button>
-                                        </>
+                                        </div>
                                     )}
 
                                     {activeTab === "json" && (
-                                        <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
+                                        <div role="tabpanel" id="tabpanel-json" aria-labelledby="tab-json" className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
                                             <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
                                                 {JSON.stringify(result, null, 2)}
                                             </pre>
