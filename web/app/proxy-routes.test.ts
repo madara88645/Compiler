@@ -2,8 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
+import { POST as benchmarkRunRoute } from "./benchmark/run/route";
+import { POST as optimizeRoute } from "./optimize/route";
+import { POST as agentExportRoute } from "./agent-generator/export/route";
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
+import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
+import { POST as ragSearchRoute } from "./rag/search/route";
+import { GET as ragStatsRoute } from "./rag/stats/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
 
@@ -72,6 +78,83 @@ describe("Next backend proxy route wiring", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/compile");
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
+  });
+
+  it.each<RouteCase>([
+    {
+      name: "benchmark run",
+      handler: benchmarkRunRoute,
+      requestUrl: "http://localhost:3000/benchmark/run",
+      requestBody: { text: "summarize this", model: "llama-3.1-8b-instant" },
+      expectedUrl: "http://127.0.0.1:8080/benchmark/run",
+    },
+    {
+      name: "optimize",
+      handler: optimizeRoute,
+      requestUrl: "http://localhost:3000/optimize",
+      requestBody: { text: "summarize this" },
+      expectedUrl: "http://127.0.0.1:8080/optimize",
+    },
+    {
+      name: "agent export",
+      handler: agentExportRoute,
+      requestUrl: "http://localhost:3000/agent-generator/export",
+      requestBody: { system_prompt: "You are a reviewer." },
+      expectedUrl: "http://127.0.0.1:8080/agent-generator/export",
+    },
+    {
+      name: "skills export",
+      handler: skillsExportRoute,
+      requestUrl: "http://localhost:3000/skills-generator/export",
+      requestBody: { skill_definition: "name: docs-search" },
+      expectedUrl: "http://127.0.0.1:8080/skills-generator/export",
+    },
+    {
+      name: "RAG search",
+      handler: ragSearchRoute,
+      requestUrl: "http://localhost:3000/rag/search",
+      requestBody: { query: "compiler", limit: 3 },
+      expectedUrl: "http://127.0.0.1:8080/rag/search",
+    },
+  ])("forwards public $name requests to the matching backend path", async ({ handler, requestUrl, requestBody, expectedUrl }) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await handler(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("forwards RAG stats requests to the matching backend path", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ documents: 4 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await ragStatsRoute(
+      new Request("http://localhost:3000/rag/stats", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/rag/stats");
+    await expect(response.json()).resolves.toEqual({ documents: 4 });
   });
 
   it.each<RouteCase>([

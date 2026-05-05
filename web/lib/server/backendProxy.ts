@@ -68,7 +68,9 @@ export async function proxyBackendRequest(
   }
 
   const headers = copyProxyHeaders(request);
-  if (serverApiKey && !headers.has("x-api-key")) {
+  if (options.requireServerApiKey && serverApiKey) {
+    headers.set("x-api-key", serverApiKey);
+  } else if (serverApiKey && !headers.has("x-api-key")) {
     headers.set("x-api-key", serverApiKey);
   }
 

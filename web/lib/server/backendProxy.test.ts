@@ -60,6 +60,39 @@ describe("backend proxy", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
+  it("overrides caller API keys on protected routes with the server API key", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const request = new Request("http://localhost:3000/agent-generator/generate", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": "caller-secret",
+      },
+      body: JSON.stringify({ description: "review code" }),
+    });
+
+    await proxyBackendRequest(request, "/agent-generator/generate", {
+      requireServerApiKey: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const proxiedHeaders = new Headers(init?.headers);
+
+    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+  });
+
   it("returns a config error when a protected route has no server API key", async () => {
     const request = new Request("http://localhost:3000/agent-generator/generate", {
       method: "POST",
@@ -74,6 +107,25 @@ describe("backend proxy", () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
+    });
+  });
+
+  it("returns a network error when the upstream backend is unreachable", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("connect failed"));
+
+    const request = new Request("http://localhost:3000/compile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "summarize this" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/compile");
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      detail: "Could not reach the backend from the web server.",
     });
   });
 });
