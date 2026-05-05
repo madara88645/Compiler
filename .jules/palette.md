@@ -25,3 +25,7 @@
 ## 2024-05-15 - [Add aria-controls to ExportPanel buttons]
 **Learning:** For collapsible content, buttons with `aria-expanded` must also have an `aria-controls` attribute linking them to the content container's ID for screen readers.
 **Action:** When creating expanding/collapsing UI panels, generate a unique ID (e.g. via `useId`) to link the toggle control directly to its target content.
+
+## 2026-04-24 - Empty States with Actions
+**Learning:** Empty states without Call-to-Action (CTA) buttons create friction, especially when the required action button is visually distant (e.g., in a top-right corner). Adding an inline CTA directly in the empty state significantly improves UX by making the next step obvious and easily accessible.
+**Action:** When designing or refactoring empty states, always include a clear CTA button inline if the state requires user action to change. Ensure the CTA has descriptive disabled states/tooltips if conditions aren't met (e.g., missing input).
