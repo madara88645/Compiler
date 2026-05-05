@@ -25,3 +25,6 @@
 ## 2024-05-15 - [Add aria-controls to ExportPanel buttons]
 **Learning:** For collapsible content, buttons with `aria-expanded` must also have an `aria-controls` attribute linking them to the content container's ID for screen readers.
 **Action:** When creating expanding/collapsing UI panels, generate a unique ID (e.g. via `useId`) to link the toggle control directly to its target content.
+## 2024-05-24 - Missing ARIA attributes in manual tabs
+**Learning:** When creating manual tabbed interfaces in React, developers frequently forget to include standard ARIA roles (tablist, tab, tabpanel) and state attributes (aria-selected, aria-controls), rendering them inaccessible to screen readers.
+**Action:** Always ensure manual tab implementations include complete ARIA coverage mapping the tab buttons to their respective panels.
