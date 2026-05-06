@@ -33,6 +33,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         query,
         setQuery,
         results,
+        setResults,
         filePath,
         setFilePath,
         status,
@@ -117,7 +118,10 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
 
             <RagSearchPanel
                 query={query}
-                setQuery={setQuery}
+                setQuery={(q) => {
+                    setQuery(q);
+                    if (!q) setResults([]);
+                }}
                 searching={searching}
                 results={results}
                 onRunSearch={() => void runSearch()}

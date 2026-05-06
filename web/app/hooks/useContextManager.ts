@@ -187,6 +187,7 @@ export function useContextManager() {
     query,
     setQuery,
     results,
+    setResults,
     filePath,
     setFilePath,
     status,
