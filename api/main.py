@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,8 +29,7 @@ def get_compiler():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_compiler()
-    logger.info("HybridCompiler initialized", extra={"version": get_build_info()["version"]})
+    logger.info("Application startup complete", extra={"version": get_build_info()["version"]})
     yield
 
 
@@ -73,6 +73,45 @@ async def add_security_headers(request, call_next):
     response.headers[
         "Content-Security-Policy"
     ] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com"
+    return response
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    started_at = time.perf_counter()
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        logger.exception(
+            "request failed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "client_ip": client_ip,
+                "user_agent": user_agent,
+                "duration_ms": duration_ms,
+                "api_key_owner": getattr(request.state, "api_key_owner", None),
+            },
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    logger.info(
+        "request completed",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "client_ip": client_ip,
+            "user_agent": user_agent,
+            "duration_ms": duration_ms,
+            "api_key_owner": getattr(request.state, "api_key_owner", None),
+        },
+    )
     return response
 
 
