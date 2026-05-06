@@ -178,11 +178,15 @@ export default function OfflinePage() {
                     <div className="relative flex min-h-[360px] w-full flex-col bg-black/30 md:min-h-0 md:w-[65%]">
                         {result ? (
                             <>
-                                <div className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                                <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
                                             type="button"
                                             key={tab}
+                                            role="tab"
+                                            aria-selected={activeTab === tab}
+                                            aria-controls={`tabpanel-${tab}`}
+                                            id={`tab-${tab}`}
                                             onClick={() => setActiveTab(tab)}
                                             className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 sm:px-4 ${activeTab === tab
                                                 ? "text-white bg-white/5 border-t border-x border-white/5"
@@ -194,7 +198,12 @@ export default function OfflinePage() {
                                     ))}
                                 </div>
 
-                                <div className="flex-1 p-0 overflow-hidden relative group bg-black/20">
+                                <div
+                                    role="tabpanel"
+                                    id={`tabpanel-${activeTab}`}
+                                    aria-labelledby={`tab-${activeTab}`}
+                                    className="flex-1 p-0 overflow-hidden relative group bg-black/20"
+                                >
                                     {/* Badge */}
                                     <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
                                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
