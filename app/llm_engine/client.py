@@ -39,6 +39,34 @@ except ValueError:
 COACH_TIMEOUT_SECONDS = 20
 logger = logging.getLogger("promptc.llm.client")
 
+_SINGLE_AGENT_PATTERNS = [
+    re.compile(
+        r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
+        flags=re.DOTALL,
+    ),
+    re.compile(r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)", flags=re.DOTALL),
+    re.compile(r"^- In Example Code:.*\n", flags=re.MULTILINE),
+    re.compile(r"^- Keep code examples.*\n", flags=re.MULTILINE),
+    re.compile(r"^- Only include an `## Example Code .*?$\n?", flags=re.MULTILINE),
+]
+
+_MULTI_AGENT_PATTERNS = [
+    re.compile(
+        r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
+        flags=re.DOTALL,
+    ),
+    re.compile(r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*", flags=re.DOTALL),
+    re.compile(r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE),
+]
+
+_SKILL_PATTERNS = [
+    re.compile(
+        r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
+        flags=re.DOTALL,
+    ),
+    re.compile(r"^- Only include an implementation example section.*\n", flags=re.MULTILINE),
+]
+
 
 class WorkerClient:
     def __init__(
@@ -159,25 +187,7 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        # Bolt Optimization: re.compile for regexes used multiple times inside a function
-        import functools
-
-        @functools.lru_cache(maxsize=1)
-        def _get_single_agent_patterns():
-            return [
-                re.compile(
-                    r"\n## Example Code \(Pseudo-code Skeleton\).*?(?=\n## TONE & STYLE)",
-                    flags=re.DOTALL,
-                ),
-                re.compile(
-                    r"\n## OPTIONAL EXAMPLE CODE SECTION.*?(?=\n## INPUT HANDLING)", flags=re.DOTALL
-                ),
-                re.compile(r"^- In Example Code:.*\n", flags=re.MULTILINE),
-                re.compile(r"^- Keep code examples.*\n", flags=re.MULTILINE),
-                re.compile(r"^- Only include an `## Example Code .*?$\n?", flags=re.MULTILINE),
-            ]
-
-        for p in _get_single_agent_patterns():
+        for p in _SINGLE_AGENT_PATTERNS:
             prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
@@ -195,23 +205,7 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        # Bolt Optimization: re.compile for regexes used multiple times inside a function
-        import functools
-
-        @functools.lru_cache(maxsize=1)
-        def _get_multi_agent_patterns():
-            return [
-                re.compile(
-                    r"\nAfter all agents, add a swarm-level pseudo-code skeleton:.*?(?=\n## RULES)",
-                    flags=re.DOTALL,
-                ),
-                re.compile(r"\n## OPTIONAL SWARM EXAMPLE CODE SECTION.*", flags=re.DOTALL),
-                re.compile(
-                    r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE
-                ),
-            ]
-
-        for p in _get_multi_agent_patterns():
+        for p in _MULTI_AGENT_PATTERNS:
             prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
@@ -229,22 +223,7 @@ class WorkerClient:
         if include_example_code:
             return prompt
 
-        # Bolt Optimization: re.compile for regexes used multiple times inside a function
-        import functools
-
-        @functools.lru_cache(maxsize=1)
-        def _get_skill_patterns():
-            return [
-                re.compile(
-                    r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
-                    flags=re.DOTALL,
-                ),
-                re.compile(
-                    r"^- Only include an implementation example section.*\n", flags=re.MULTILINE
-                ),
-            ]
-
-        for p in _get_skill_patterns():
+        for p in _SKILL_PATTERNS:
             prompt = p.sub("", prompt)
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
