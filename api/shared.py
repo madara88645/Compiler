@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from typing import Optional
 
 from fastapi import Request
@@ -10,6 +11,28 @@ from app.emitters import _is_trivial_input, emit_expanded_prompt_v2
 
 
 logger = logging.getLogger("promptc.api")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(
+        logging.Formatter(
+            "%(levelname)s:%(name)s:%(message)s method=%(method)s path=%(path)s "
+            "status_code=%(status_code)s duration_ms=%(duration_ms)s client_ip=%(client_ip)s "
+            "api_key_owner=%(api_key_owner)s user_agent=%(user_agent)s",
+            defaults={
+                "method": "-",
+                "path": "-",
+                "status_code": "-",
+                "duration_ms": "-",
+                "client_ip": "-",
+                "api_key_owner": "-",
+                "user_agent": "-",
+            },
+        )
+    )
+    logger.addHandler(handler)
+logger.propagate = False
 
 _META_LEAK_PATTERNS = [
     "output only valid json",

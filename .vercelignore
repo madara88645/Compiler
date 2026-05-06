@@ -1,0 +1,10 @@
+*
+!.vercel
+!.vercel/**
+!web
+!web/**
+
+web/.next
+web/coverage
+web/node_modules
+web/.vercel

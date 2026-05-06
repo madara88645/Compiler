@@ -178,7 +178,8 @@ export default function OfflinePage() {
                     <div className="relative flex min-h-[360px] w-full flex-col bg-black/30 md:min-h-0 md:w-[65%]">
                         {result ? (
                             <>
-                                <div role="tablist" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                                <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
                                             type="button"
@@ -198,7 +199,9 @@ export default function OfflinePage() {
                                     ))}
                                 </div>
 
-                                <div className="flex-1 p-0 overflow-hidden relative group bg-black/20">
+                                <div
+                                    className="flex-1 p-0 overflow-hidden relative group bg-black/20"
+                                >
                                     {/* Badge */}
                                     <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
                                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
