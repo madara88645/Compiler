@@ -76,4 +76,56 @@ describe("backend proxy", () => {
       detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
     });
   });
+
+  it("overrides caller-supplied x-api-key with the server API key", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const request = new Request("http://localhost:3000/agent-generator/generate", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": "caller-key",
+      },
+      body: JSON.stringify({ description: "review code" }),
+    });
+
+    await proxyBackendRequest(request, "/agent-generator/generate", {
+      requireServerApiKey: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const proxiedHeaders = new Headers(init?.headers);
+
+    expect(url).toBe("https://api.memo.dev/agent-generator/generate");
+    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+  });
+
+  it("returns a 502 bad gateway when the upstream fetch throws a network error", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fetch failed"));
+
+    const request = new Request("http://localhost:3000/health", {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+
+    const response = await proxyBackendRequest(request, "/health", {});
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      detail: "Could not reach the backend from the web server.",
+    });
+  });
 });
