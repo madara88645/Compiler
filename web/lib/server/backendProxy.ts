@@ -1,6 +1,10 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const CONFIG_ERROR_DETAIL = "PROMPTC_SERVER_API_KEY is not configured on the web server.";
 const NETWORK_ERROR_DETAIL = "Could not reach the backend from the web server.";
+
+if (!process.env.PROMPTC_SERVER_API_KEY?.trim()) {
+  console.warn("PROMPTC_SERVER_API_KEY not set - protected proxy routes will forward no API key");
+}
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "content-length",
@@ -19,11 +23,7 @@ type ProxyOptions = {
 };
 
 function resolveServerApiKey(): string {
-  return (
-    process.env.PROMPTC_SERVER_API_KEY?.trim() ||
-    process.env.ADMIN_API_KEY?.trim() ||
-    ""
-  );
+  return process.env.PROMPTC_SERVER_API_KEY?.trim() || "";
 }
 
 function isBodylessMethod(method: string): boolean {
@@ -72,7 +72,9 @@ export async function proxyBackendRequest(
     headers.set("x-api-key", serverApiKey);
   }
 
-  const targetUrl = `${resolveBackendApiBase()}${backendPath}`;
+  const base = resolveBackendApiBase().replace(/\/+$/, '');
+  const path = backendPath.startsWith('/') ? backendPath : '/' + backendPath;
+  const targetUrl = base + path;
 
   try {
     const upstreamResponse = await fetch(targetUrl, {
