@@ -122,8 +122,15 @@ class HybridCompiler:
                             category="safety",
                         )
 
-                    if diag and not any(d.message == diag.message for d in res.diagnostics):
-                        res.diagnostics.append(diag)
+                    if diag:
+                        # Bolt Optimization: Replace any() generator expression with fast-path loop
+                        diag_found = False
+                        for d in res.diagnostics:
+                            if d.message == diag.message:
+                                diag_found = True
+                                break
+                        if not diag_found:
+                            res.diagnostics.append(diag)
             except Exception:
                 logger.warning(
                     "Safety post-processing failed; continuing without extra risk diagnostics",

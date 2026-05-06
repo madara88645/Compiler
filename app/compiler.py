@@ -742,7 +742,14 @@ def optimize_ir(ir: IR) -> IR:
     baseline = baselines.get(domain_key) or baselines.get(ir.domain or "")
     if baseline:
         existing_lower = {c.lower()[:40] for c in ir.constraints}
-        if not any(baseline.lower()[:40] in e for e in existing_lower):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop
+        baseline_frag = baseline.lower()[:40]
+        found = False
+        for e in existing_lower:
+            if baseline_frag in e:
+                found = True
+                break
+        if not found:
             ir.constraints.append(baseline)
 
     ir.metadata["optimized"] = True

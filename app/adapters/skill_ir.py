@@ -5,6 +5,7 @@ Skills Generator output has sections: Name, Purpose, Input Schema, Output Schema
 Implementation, Dependencies, Examples, Error Handling, Testing Strategy,
 Performance Considerations, Implementation Example (optional).
 """
+
 from __future__ import annotations
 
 import re
@@ -236,7 +237,13 @@ def _parse_output_type(text: str) -> tuple[str, str]:
         (["float", "decimal"], "float"),
     ]
     for keywords, py_type in type_map:
-        if any(kw in text_lower for kw in keywords):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop
+        found = False
+        for kw in keywords:
+            if kw in text_lower:
+                found = True
+                break
+        if found:
             return py_type, text.strip()
     return "str", text.strip()
 

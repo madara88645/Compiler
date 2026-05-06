@@ -161,7 +161,14 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
         "from pydantic import BaseModel, Field",
     ]
 
-    if any(p.type == "Any" for p in ir.params) or ir.output_type == "Any":
+    # Bolt Optimization: Replace any() generator expression with fast-path loop
+    has_any_param = False
+    for p in ir.params:
+        if p.type == "Any":
+            has_any_param = True
+            break
+
+    if has_any_param or ir.output_type == "Any":
         parts.append("from typing import Any")
 
     parts.append("")
@@ -258,10 +265,15 @@ def _yaml_safe(value: str) -> str:
     value = value.replace("\r", " ").replace("\n", " ").strip()
     if value.lower() in _YAML11_RESERVED:
         return f'"{value}"'
-    if any(
-        ch in value
-        for ch in (":", "#", "`", '"', "'", "[", "]", "{", "}", "&", "*", "!", "|", ">", "%", "@")
-    ):
+
+    # Bolt Optimization: Replace any() generator expression with fast-path loop
+    has_special_char = False
+    for ch in (":", "#", "`", '"', "'", "[", "]", "{", "}", "&", "*", "!", "|", ">", "%", "@"):
+        if ch in value:
+            has_special_char = True
+            break
+
+    if has_special_char:
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
     return value
