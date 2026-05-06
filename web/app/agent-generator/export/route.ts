@@ -1,5 +1,5 @@
 import { proxyBackendRequest } from "@/lib/server/backendProxy";
 
 export async function POST(request: Request): Promise<Response> {
-  return proxyBackendRequest(request, "/agent-generator/export");
+  return proxyBackendRequest(request, "/agent-generator/export", { requireServerApiKey: true });
 }

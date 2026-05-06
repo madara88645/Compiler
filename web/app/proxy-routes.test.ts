@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
+import { POST as agentExportRoute } from "./agent-generator/export/route";
+import { POST as benchmarkRunRoute } from "./benchmark/run/route";
+import { POST as optimizeRoute } from "./optimize/route";
+import { POST as ragSearchRoute } from "./rag/search/route";
+import { GET as ragStatsRoute } from "./rag/stats/route";
 import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
+import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
 
@@ -11,6 +17,7 @@ type RouteCase = {
   name: string;
   handler: (request: Request) => Promise<Response>;
   requestUrl: string;
+  requestMethod?: string;
   requestBody?: Record<string, unknown>;
   expectedUrl: string;
 };
@@ -103,14 +110,56 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { path: "docs/README.md" },
       expectedUrl: "https://api.memo.dev/rag/ingest",
     },
-  ])("returns a config error when $name route is missing a server API key", async ({ handler, requestUrl, requestBody }) => {
+    {
+      name: "agent export",
+      handler: agentExportRoute,
+      requestUrl: "http://localhost:3000/agent-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "https://api.memo.dev/agent-generator/export",
+    },
+    {
+      name: "benchmark run",
+      handler: benchmarkRunRoute,
+      requestUrl: "http://localhost:3000/benchmark/run",
+      requestBody: { model: "gpt-4" },
+      expectedUrl: "https://api.memo.dev/benchmark/run",
+    },
+    {
+      name: "optimize",
+      handler: optimizeRoute,
+      requestUrl: "http://localhost:3000/optimize",
+      requestBody: { system_prompt: "hello" },
+      expectedUrl: "https://api.memo.dev/optimize",
+    },
+    {
+      name: "RAG search",
+      handler: ragSearchRoute,
+      requestUrl: "http://localhost:3000/rag/search",
+      requestBody: { query: "test" },
+      expectedUrl: "https://api.memo.dev/rag/search",
+    },
+    {
+      name: "RAG stats",
+      handler: ragStatsRoute as (request: Request) => Promise<Response>,
+      requestUrl: "http://localhost:3000/rag/stats",
+      requestMethod: "GET",
+      expectedUrl: "https://api.memo.dev/rag/stats",
+    },
+    {
+      name: "skills export",
+      handler: skillsExportRoute,
+      requestUrl: "http://localhost:3000/skills-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "https://api.memo.dev/skills-generator/export",
+    },
+  ])("returns a config error when $name route is missing a server API key", async ({ handler, requestUrl, requestMethod, requestBody }) => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const response = await handler(
       new Request(requestUrl, {
-        method: "POST",
+        method: requestMethod || "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
       }),
     );
 
@@ -150,7 +199,49 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { path: "docs/README.md" },
       expectedUrl: "https://api.memo.dev/rag/ingest",
     },
-  ])("injects the server API key and proxies $name to the backend", async ({ handler, requestUrl, requestBody, expectedUrl }) => {
+    {
+      name: "agent export",
+      handler: agentExportRoute,
+      requestUrl: "http://localhost:3000/agent-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "https://api.memo.dev/agent-generator/export",
+    },
+    {
+      name: "benchmark run",
+      handler: benchmarkRunRoute,
+      requestUrl: "http://localhost:3000/benchmark/run",
+      requestBody: { model: "gpt-4" },
+      expectedUrl: "https://api.memo.dev/benchmark/run",
+    },
+    {
+      name: "optimize",
+      handler: optimizeRoute,
+      requestUrl: "http://localhost:3000/optimize",
+      requestBody: { system_prompt: "hello" },
+      expectedUrl: "https://api.memo.dev/optimize",
+    },
+    {
+      name: "RAG search",
+      handler: ragSearchRoute,
+      requestUrl: "http://localhost:3000/rag/search",
+      requestBody: { query: "test" },
+      expectedUrl: "https://api.memo.dev/rag/search",
+    },
+    {
+      name: "RAG stats",
+      handler: ragStatsRoute as (request: Request) => Promise<Response>,
+      requestUrl: "http://localhost:3000/rag/stats",
+      requestMethod: "GET",
+      expectedUrl: "https://api.memo.dev/rag/stats",
+    },
+    {
+      name: "skills export",
+      handler: skillsExportRoute,
+      requestUrl: "http://localhost:3000/skills-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "https://api.memo.dev/skills-generator/export",
+    },
+  ])("injects the server API key and proxies $name to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
     process.env.PROMPTC_SERVER_API_KEY = "server-secret";
 
@@ -163,12 +254,12 @@ describe("Next backend proxy route wiring", () => {
 
     const response = await handler(
       new Request(requestUrl, {
-        method: "POST",
+        method: requestMethod || "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
       }),
     );
 
