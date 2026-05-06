@@ -65,3 +65,4 @@ scripts/probe_deployment.py
 *.db
 users.db
 .tmp-test-run/
+.vercel

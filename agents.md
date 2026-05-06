@@ -40,7 +40,8 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
 | `PROMPTC_UPLOAD_DIR` | RAG file upload directory | `~/.promptc_uploads` |
 | `PROMPTC_RAG_DB_PATH` | RAG SQLite index path | Empty = `~/.promptc_index_v3.db`; if that path is not writable, runtime falls back to `./.promptc/<db-name>` |
-| `NEXT_PUBLIC_API_KEY` | Frontend API key for authenticated requests | Optional; injected as `x-api-key` header by `buildGeneratorApiHeaders` |
+| `PROMPTC_SERVER_API_KEY` | Next.js server-side proxy API key | Optional locally; required in deploys if proxied routes must authenticate to backend |
+| `NEXT_PUBLIC_API_KEY` | Deprecated browser API key | Do not use in deploys; protected frontend routes now go through same-origin Next proxy handlers |
 | `PROMPTC_RAG_ALLOWED_ROOTS` | Path allowlist for RAG ingest | Empty = restricted to CWD + upload dir |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend URL | `http://127.0.0.1:8080` |
 | `ALLOWED_ORIGINS` | CORS origin list (comma-separated) | Defaults to localhost:3000/3001 |
@@ -82,12 +83,24 @@ cd web && npm run dev
 
 Open http://localhost:3000 in a browser.
 
+Protected frontend routes now use same-origin Next proxy handlers. For local generator/RAG upload testing through the web UI, set `PROMPTC_SERVER_API_KEY` to a valid backend API key (or the same value as `ADMIN_API_KEY`) in the Next.js environment if backend auth is enabled.
+
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
 ### Production-style run (single process, no reload)
 
 ```bash
 uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Fly.io operational note
+
+- `mycompiler-api` has proven too tight at `256mb` on Fly Machines for generator/RAG-backed requests. Treat `512mb` as the minimum practical production memory size unless profiling proves otherwise.
+- When Fly emails an `OOM: uvicorn killed` alert, check the current machine and recent logs first:
+
+```bash
+fly status -a mycompiler-api
+fly logs -a mycompiler-api --no-tail
 ```
 
 ### Docker

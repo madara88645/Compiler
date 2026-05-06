@@ -1,20 +1,20 @@
 .PHONY: install dev dev-backend dev-web test test-backend test-web build clean
 
 install:
-	pip install -r requirements.txt
-	cd web && npm install
+	pip install -e .[dev,docs]
+	cd web && npm ci
 
 dev-backend:
-	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn api.main:app --reload --host 0.0.0.0 --port 8080
 
 dev-web:
 	cd web && npm run dev
 
 dev:
-	@echo "Starting backend (8000) + web (3000) in parallel..."
+	@echo "Starting backend (8080) + web (3000) in parallel..."
 	@if command -v npx >/dev/null 2>&1; then \
 		npx -y concurrently -n backend,web -c blue,green \
-			"uvicorn api.main:app --reload --host 0.0.0.0 --port 8000" \
+			"uvicorn api.main:app --reload --host 0.0.0.0 --port 8080" \
 			"cd web && npm run dev"; \
 	else \
 		echo "npx not found — run 'make dev-backend' and 'make dev-web' in separate terminals"; \
@@ -22,7 +22,7 @@ dev:
 	fi
 
 test-backend:
-	pytest -q
+	python -m pytest -q
 
 test-web:
 	cd web && npm test
