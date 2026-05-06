@@ -42,10 +42,14 @@ function copyProxyHeaders(request: Request): Headers {
   return headers;
 }
 
-async function cloneProxyResponse(response: Response): Promise<Response> {
+function cloneProxyResponse(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
-  return new Response(await response.arrayBuffer(), {
+  // ⚡ Bolt Performance Optimization
+  // We forward the response.body ReadableStream directly instead of buffering the whole payload
+  // via await response.arrayBuffer(). This prevents OOM kills on machines with low memory
+  // (like Fly.io 512MB VMs) when passing through large RAG payloads.
+  return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
@@ -75,13 +79,20 @@ export async function proxyBackendRequest(
   const targetUrl = `${resolveBackendApiBase()}${backendPath}`;
 
   try {
-    const upstreamResponse = await fetch(targetUrl, {
+    // ⚡ Bolt Performance Optimization
+    // We forward the request.body ReadableStream directly instead of buffering it into memory
+    // using await request.arrayBuffer(). Streaming large requests directly to the backend
+    // reduces memory spikes and prevents OOM crashes on constrained environments.
+    const init: RequestInit & { duplex?: "half" } = {
       method: request.method,
       headers,
-      body: isBodylessMethod(request.method) ? undefined : await request.arrayBuffer(),
+      body: isBodylessMethod(request.method) ? undefined : request.body,
       cache: "no-store",
       redirect: "manual",
-    });
+    };
+    if (init.body) init.duplex = "half";
+
+    const upstreamResponse = await fetch(targetUrl, init as RequestInit);
 
     return cloneProxyResponse(upstreamResponse);
   } catch {
