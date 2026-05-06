@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json
+import orjson
 import hashlib
 import logging
 import re
@@ -127,7 +127,8 @@ def _canonical_constraints(items: List[str]) -> List[str]:
 
 
 def _compute_signature(ir: IR) -> str:
-    data = json.dumps(
+    # Bolt Optimization: orjson.dumps is significantly faster than json.dumps
+    data = orjson.dumps(
         {
             "goals": ir.goals,
             "tasks": ir.tasks,
@@ -137,9 +138,9 @@ def _compute_signature(ir: IR) -> str:
             "language": ir.language,
             "heur_ver": ir.metadata.get("heuristic_version") if ir.metadata else None,
         },
-        sort_keys=True,
+        option=orjson.OPT_SORT_KEYS,
     )
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(data).hexdigest()[:16]
 
 
 def _mk_id(text: str) -> str:
