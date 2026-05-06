@@ -12,9 +12,14 @@ def client():
     """Create a test client with the benchmark router mounted."""
     from fastapi import FastAPI
     from app.routers.benchmark import router
+    from api.auth import verify_api_key
 
     test_app = FastAPI()
     test_app.include_router(router)
+
+    # Override auth to allow unauthenticated test calls
+    test_app.dependency_overrides[verify_api_key] = lambda: None
+
     return TestClient(test_app)
 
 
