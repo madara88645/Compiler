@@ -57,6 +57,10 @@ describe("backend proxy", () => {
     expect(url).toBe("https://api.memo.dev/agent-generator/generate");
     expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
     expect(proxiedHeaders.get("content-type")).toBe("application/json");
+
+    expect(init?.duplex).toBe("half");
+    expect(init?.body).toBeInstanceOf(ReadableStream);
+
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
