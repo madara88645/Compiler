@@ -170,7 +170,7 @@ python -m cli.main github render --type pr-review-brief --from-file prompt.txt
 
 ---
 
-### VS Code Extension MVP
+### VS Code Extension
 
 The VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension). Once the Marketplace publisher is claimed and the first `vscode-v*` tag is pushed, it installs from:
 
@@ -181,10 +181,11 @@ Until then, install from source (see [the extension README](integrations/vscode-
 
 Features:
 
-- `PromptC: Compile Selection`
-- `PromptC: Open Panel`
-- Tabs: `Intent`, `Policy`, `Prompts`, `Raw JSON`
-- Settings: `promptc.apiBaseUrl`, `promptc.conservativeMode`
+- Commands: `PromptC: Compile Selection`, `PromptC: Compile File`, `PromptC: Recompile Last`
+- Activity Bar sidebar for backend status, latest compile summary, history, and favorites
+- Panel tabs: `Intent`, `Policy`, `Prompts`, `Raw JSON`
+- Artifact actions: copy, insert into editor, save favorite
+- Settings: `promptc.apiBaseUrl`, `promptc.conservativeMode`, `promptc.requestTimeoutMs`, `promptc.autoOpenPanel`, `promptc.historySize`
 
 API keys are stored in VS Code secret storage, not workspace settings.
 

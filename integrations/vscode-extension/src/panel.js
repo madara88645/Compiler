@@ -13,7 +13,21 @@ function renderList(items, emptyLabel) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function renderPanelHtml(state) {
+function renderArtifactCard(title, type, value) {
+  return `<div class="card">
+    <div class="artifact-header">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="artifact-actions">
+        <button data-action="copy-artifact" data-artifact="${escapeHtml(type)}">Copy</button>
+        <button data-action="insert-artifact" data-artifact="${escapeHtml(type)}">Insert</button>
+        <button data-action="save-favorite" data-artifact="${escapeHtml(type)}">Favorite</button>
+      </div>
+    </div>
+    <pre>${escapeHtml(value)}</pre>
+  </div>`;
+}
+
+function renderPanelHtml(state, options = {}) {
   const normalized = state || {
     intent: { domain: "general", persona: "assistant", intents: [] },
     policy: {
@@ -26,8 +40,10 @@ function renderPanelHtml(state) {
       executionMode: "advice_only",
     },
     prompts: { system: "", user: "", plan: "", expanded: "" },
+    summary: { requestId: "not-run-yet", processingMs: 0 },
     raw: {},
   };
+  const activeTab = options.activeTab || "intent";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -36,6 +52,7 @@ function renderPanelHtml(state) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 16px; }
+      h1 { margin-top: 0; margin-bottom: 16px; }
       .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
       .tab-button { border: 1px solid var(--vscode-panel-border); background: transparent; color: inherit; padding: 8px 12px; cursor: pointer; border-radius: 8px; }
       .tab-button.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
@@ -47,29 +64,35 @@ function renderPanelHtml(state) {
       ul { padding-left: 18px; }
       .empty { opacity: 0.7; }
       .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+      .artifact-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .artifact-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      .artifact-actions button { border: 1px solid var(--vscode-panel-border); background: transparent; color: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
     </style>
   </head>
   <body>
+    <h1>PromptC Panel</h1>
     <div class="tabs">
-      <button class="tab-button active" data-tab="intent">Intent</button>
-      <button class="tab-button" data-tab="policy">Policy</button>
-      <button class="tab-button" data-tab="prompts">Prompts</button>
-      <button class="tab-button" data-tab="raw">Raw JSON</button>
+      <button class="tab-button ${activeTab === "intent" ? "active" : ""}" data-tab="intent">Intent</button>
+      <button class="tab-button ${activeTab === "policy" ? "active" : ""}" data-tab="policy">Policy</button>
+      <button class="tab-button ${activeTab === "prompts" ? "active" : ""}" data-tab="prompts">Prompts</button>
+      <button class="tab-button ${activeTab === "raw" ? "active" : ""}" data-tab="raw">Raw JSON</button>
     </div>
 
-    <section id="intent" class="tab active">
+    <section id="intent" class="tab ${activeTab === "intent" ? "active" : ""}">
       <div class="card">
         <h2>Intent</h2>
         <div class="meta">
           <div><strong>Domain</strong><div>${escapeHtml(normalized.intent.domain)}</div></div>
           <div><strong>Persona</strong><div>${escapeHtml(normalized.intent.persona)}</div></div>
+          <div><strong>Request ID</strong><div>${escapeHtml(normalized.summary.requestId)}</div></div>
+          <div><strong>Latency</strong><div>${escapeHtml(normalized.summary.processingMs)} ms</div></div>
         </div>
         <h3>Detected Intents</h3>
         ${renderList(normalized.intent.intents, "No special intent flags detected.")}
       </div>
     </section>
 
-    <section id="policy" class="tab">
+    <section id="policy" class="tab ${activeTab === "policy" ? "active" : ""}">
       <div class="card">
         <h2>Policy</h2>
         <div class="meta">
@@ -96,18 +119,19 @@ function renderPanelHtml(state) {
       </div>
     </section>
 
-    <section id="prompts" class="tab">
-      <div class="card"><h3>System</h3><pre>${escapeHtml(normalized.prompts.system)}</pre></div>
-      <div class="card"><h3>User</h3><pre>${escapeHtml(normalized.prompts.user)}</pre></div>
-      <div class="card"><h3>Plan</h3><pre>${escapeHtml(normalized.prompts.plan)}</pre></div>
-      <div class="card"><h3>Expanded</h3><pre>${escapeHtml(normalized.prompts.expanded)}</pre></div>
+    <section id="prompts" class="tab ${activeTab === "prompts" ? "active" : ""}">
+      ${renderArtifactCard("System", "system", normalized.prompts.system)}
+      ${renderArtifactCard("User", "user", normalized.prompts.user)}
+      ${renderArtifactCard("Plan", "plan", normalized.prompts.plan)}
+      ${renderArtifactCard("Expanded", "expanded", normalized.prompts.expanded)}
     </section>
 
-    <section id="raw" class="tab">
+    <section id="raw" class="tab ${activeTab === "raw" ? "active" : ""}">
       <pre>${escapeHtml(JSON.stringify(normalized.raw, null, 2))}</pre>
     </section>
 
     <script>
+      const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;
       const buttons = Array.from(document.querySelectorAll(".tab-button"));
       const tabs = Array.from(document.querySelectorAll(".tab"));
       buttons.forEach((button) => {
@@ -116,6 +140,22 @@ function renderPanelHtml(state) {
           tabs.forEach((item) => item.classList.remove("active"));
           button.classList.add("active");
           document.getElementById(button.dataset.tab).classList.add("active");
+          if (vscode) {
+            vscode.postMessage({ type: "panel.tabChanged", tab: button.dataset.tab });
+          }
+        });
+      });
+
+      Array.from(document.querySelectorAll("[data-action]")).forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!vscode) {
+            return;
+          }
+          vscode.postMessage({
+            type: "panel.action",
+            action: button.dataset.action,
+            artifact: button.dataset.artifact,
+          });
         });
       });
     </script>
