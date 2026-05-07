@@ -37,7 +37,11 @@ ENV/
 scripts/probe_deployment.py
 
 # Local agent/worktree metadata
-.claude/
+.claude/*
+!.claude/agents/
+!.claude/agents/**
+!.claude/settings.json
+.claude/worktrees/
 
 # Local PR triage scratch files
 /batch_pr_data.txt

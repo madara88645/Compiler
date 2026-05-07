@@ -48,6 +48,100 @@ async def optimize_prompt(text: str) -> str:
             return f"Error: Unexpected error during optimization: {e}"
 
 
+def _backend_origin() -> str:
+    compile_url = resolve_compile_post_url()
+    if compile_url.endswith("/compile"):
+        return compile_url[: -len("/compile")]
+    return compile_url.rsplit("/", 1)[0]
+
+
+def _json_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    api_key = resolve_api_key()
+    if api_key:
+        headers["x-api-key"] = api_key
+    return headers
+
+
+async def _post_json(path: str, payload: dict) -> dict:
+    url = f"{_backend_origin()}{path}"
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=_json_headers(), timeout=30.0)
+        response.raise_for_status()
+        return response.json()
+
+
+@mcp.tool()
+async def compile_prompt(text: str) -> dict:
+    """
+    Compile a prompt through the Prompt Compiler backend and return the structured response.
+    """
+    mode = resolve_prompt_mode()
+    payload = build_compile_body(text, mode)
+    return await _post_json("/compile", payload)
+
+
+@mcp.tool()
+async def generate_agent(description: str, multi_agent: bool = False) -> str:
+    """
+    Generate a Claude-friendly agent/system prompt from a natural-language description.
+    """
+    data = await _post_json(
+        "/agent-generator/generate",
+        {
+            "description": description,
+            "multi_agent": multi_agent,
+            "include_example_code": False,
+        },
+    )
+    return data["system_prompt"]
+
+
+@mcp.tool()
+async def generate_skill(description: str) -> str:
+    """
+    Generate a structured skill/tool definition from a natural-language capability description.
+    """
+    data = await _post_json(
+        "/skills-generator/generate",
+        {
+            "description": description,
+            "include_example_code": False,
+        },
+    )
+    return data["skill_definition"]
+
+
+@mcp.tool()
+async def export_claude_pack(system_prompt: str) -> dict:
+    """
+    Convert a generated agent prompt into a Claude Code project pack manifest.
+    """
+    return await _post_json(
+        "/agent-generator/export",
+        {
+            "system_prompt": system_prompt,
+            "format": "claude-project-pack",
+            "output_type": "manifest",
+            "is_multi_agent": False,
+        },
+    )
+
+
+@mcp.tool()
+async def benchmark_prompt(text: str, model: str = "llama-3.1-8b-instant") -> dict:
+    """
+    Benchmark a raw prompt against the compiled prompt and return the comparison payload.
+    """
+    return await _post_json(
+        "/benchmark/run",
+        {
+            "text": text,
+            "model": model,
+        },
+    )
+
+
 if __name__ == "__main__":
     # Run the server using stdio transport (default for FastMCP.run())
     mcp.run()

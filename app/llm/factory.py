@@ -5,13 +5,14 @@ import os
 from typing import Optional
 
 from .base import LLMProvider, ProviderConfig
-from .providers import MockProvider, OllamaProvider, OpenAIProvider
+from .providers import AnthropicProvider, MockProvider, OllamaProvider, OpenAIProvider
 
 # Registry of available providers
 PROVIDERS = {
     "mock": MockProvider,
     "ollama": OllamaProvider,
     "openai": OpenAIProvider,
+    "anthropic": AnthropicProvider,
 }
 
 
@@ -45,10 +46,21 @@ def get_provider(
 
     # Build config from env vars if not provided
     if config is None:
+        if name == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            base_url = os.environ.get("PROMPTC_LLM_BASE_URL") or os.environ.get(
+                "ANTHROPIC_BASE_URL"
+            )
+            model = os.environ.get("PROMPTC_LLM_MODEL", "claude-opus-4-7")
+        else:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            base_url = os.environ.get("PROMPTC_LLM_BASE_URL")
+            model = os.environ.get("PROMPTC_LLM_MODEL", "gpt-4o")
+
         config = ProviderConfig(
-            api_key=os.environ.get("OPENAI_API_KEY"),
-            base_url=os.environ.get("PROMPTC_LLM_BASE_URL"),
-            model=os.environ.get("PROMPTC_LLM_MODEL", "gpt-4o"),
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
             temperature=float(os.environ.get("PROMPTC_LLM_TEMPERATURE", "0.7")),
             max_tokens=int(os.environ.get("PROMPTC_LLM_MAX_TOKENS", "2048")),
             timeout=float(os.environ.get("PROMPTC_LLM_TIMEOUT", "30.0")),

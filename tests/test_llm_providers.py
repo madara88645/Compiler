@@ -1,11 +1,11 @@
 """Tests for LLM providers and factory."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import pytest
 
 from app.llm.base import LLMProvider, ProviderConfig, LLMResponse
-from app.llm.providers import MockProvider, OllamaProvider, OpenAIProvider
+from app.llm.providers import AnthropicProvider, MockProvider, OllamaProvider, OpenAIProvider
 from app.llm.factory import get_provider, register_provider, PROVIDERS
 
 
@@ -52,6 +52,10 @@ class TestFactory:
         provider = get_provider("openai")
         assert isinstance(provider, OpenAIProvider)
 
+    def test_get_anthropic_provider(self):
+        provider = get_provider("anthropic")
+        assert isinstance(provider, AnthropicProvider)
+
     def test_unknown_provider_raises(self):
         with pytest.raises(ValueError, match="Unknown provider"):
             get_provider("unknown_provider")
@@ -67,6 +71,39 @@ class TestFactory:
         with patch.dict(os.environ, {"PROMPTC_LLM_PROVIDER": "ollama"}):
             provider = get_provider()
             assert isinstance(provider, OllamaProvider)
+
+    def test_anthropic_env_defaults(self):
+        with patch.dict(os.environ, {"PROMPTC_LLM_PROVIDER": "anthropic"}, clear=False):
+            provider = get_provider()
+            assert isinstance(provider, AnthropicProvider)
+            assert provider.config.model == "claude-opus-4-7"
+
+
+class TestAnthropicProvider:
+    def test_missing_api_key_returns_error(self):
+        config = ProviderConfig()
+        provider = AnthropicProvider(config)
+
+        response = provider.generate("Hello")
+
+        assert response.content == "Error: Missing Anthropic API Key"
+
+    def test_successful_response(self):
+        config = ProviderConfig(api_key="test-key", model="claude-opus-4-7")
+        provider = AnthropicProvider(config)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "content": [{"type": "text", "text": "Anthropic says hi"}],
+            "usage": {"input_tokens": 12, "output_tokens": 34},
+        }
+
+        with patch("app.llm.providers.httpx.post", return_value=mock_response):
+            response = provider.generate("Hello", system_prompt="Be concise")
+
+        assert response.content == "Anthropic says hi"
+        assert response.usage == {"prompt_tokens": 12, "completion_tokens": 34}
 
     def test_custom_config(self):
         config = ProviderConfig(model="custom-model", temperature=0.9)

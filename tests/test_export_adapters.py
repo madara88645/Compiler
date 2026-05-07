@@ -13,6 +13,13 @@ import yaml
 from fastapi.testclient import TestClient
 
 from app.adapters.agent_ir import AgentExportIR, parse_agent_markdown
+from app.adapters.claude_code import (
+    to_agent_sdk_python,
+    to_agent_sdk_typescript,
+    to_claude_project_pack,
+    to_claude_subagent,
+    to_claude_mcp_tool_stub,
+)
 from app.adapters.claude_sdk import to_python, to_yaml
 from app.adapters.langchain import to_langchain_python, to_langgraph_python
 from app.adapters.skill_adapter import to_claude_tool_use, to_langchain_tool
@@ -155,6 +162,9 @@ def test_parse_single_agent_ir():
     assert len(ir.workflows) >= 4
     assert len(ir.tech_stack) >= 2
     assert ir.is_multi_agent is False
+    assert ir.permission_mode == "acceptEdits"
+    assert "Read" in ir.allowed_tools
+    assert "Edit" in ir.allowed_tools
     assert ir.raw_system_prompt.strip() == SINGLE_AGENT_MARKDOWN.strip()
 
 
@@ -202,6 +212,58 @@ def test_claude_sdk_yaml_output():
     assert parsed["max_tokens"] == 8096
     assert "system" in parsed
     assert "Data Analyst" in parsed["system"]
+
+
+def test_claude_agent_sdk_python_output():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    code = to_agent_sdk_python(ir)
+
+    assert "from claude_agent_sdk import query, ClaudeAgentOptions" in code
+    assert 'allowed_tools=["Read", "Edit", "Write"' in code
+    assert "prompt=" in code
+
+
+def test_claude_agent_sdk_typescript_output():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    code = to_agent_sdk_typescript(ir)
+
+    assert 'import { query } from "@anthropic-ai/claude-agent-sdk"' in code
+    assert "allowedTools" in code
+    assert "claude-opus" in code
+
+
+def test_claude_subagent_output():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    file_spec = to_claude_subagent(ir)
+
+    assert file_spec["path"].startswith(".claude/agents/")
+    assert file_spec["path"].endswith(".md")
+    assert "name:" in file_spec["content"]
+    assert "description:" in file_spec["content"]
+    assert "tools:" in file_spec["content"]
+
+
+def test_claude_project_pack_output():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    pack = to_claude_project_pack(ir)
+    paths = {item["path"] for item in pack}
+
+    assert "CLAUDE.md" in paths
+    assert ".claude/settings.json" in paths
+    assert ".github/workflows/claude.yml" in paths
+    assert any(path.startswith(".claude/agents/") for path in paths)
+
+
+def test_claude_mcp_tool_stub_output():
+    ir = parse_skill_markdown(SKILL_MARKDOWN)
+    stub = to_claude_mcp_tool_stub(ir)
+    paths = {item["path"] for item in stub}
+
+    assert "server.py" in paths
+    assert "README.md" in paths
+    server_file = next(item for item in stub if item["path"] == "server.py")
+    assert "FastMCP" in server_file["content"]
+    assert "web_search" in server_file["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +400,89 @@ def test_export_api_endpoint_skill(client):
 
     parsed = json.loads(data["json_config"])
     assert parsed["name"] == "web_search"
+
+
+def test_export_api_endpoint_agent_sdk_python(client):
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": SINGLE_AGENT_MARKDOWN,
+            "format": "claude-agent-sdk-py",
+            "output_type": "python",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "claude_agent_sdk" in data["python_code"]
+    assert data["files"] == []
+
+
+def test_export_api_endpoint_agent_sdk_typescript(client):
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": SINGLE_AGENT_MARKDOWN,
+            "format": "claude-agent-sdk-ts",
+            "output_type": "typescript",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "@anthropic-ai/claude-agent-sdk" in data["code"]
+
+
+def test_export_api_endpoint_claude_subagent(client):
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": SINGLE_AGENT_MARKDOWN,
+            "format": "claude-subagent",
+            "output_type": "markdown",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["python_code"] is None
+    assert len(data["files"]) == 1
+    assert data["files"][0]["path"].startswith(".claude/agents/")
+
+
+def test_export_api_endpoint_claude_project_pack(client):
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": SINGLE_AGENT_MARKDOWN,
+            "format": "claude-project-pack",
+            "output_type": "manifest",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    paths = {item["path"] for item in data["files"]}
+    assert "CLAUDE.md" in paths
+    assert ".claude/settings.json" in paths
+    assert ".github/workflows/claude.yml" in paths
+
+
+def test_export_api_endpoint_skill_mcp_stub(client):
+    response = client.post(
+        "/skills-generator/export",
+        json={
+            "skill_definition": SKILL_MARKDOWN,
+            "format": "claude-mcp-tool-stub",
+            "output_type": "python",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    paths = {item["path"] for item in data["files"]}
+    assert "server.py" in paths
+    assert "README.md" in paths
 
 
 def test_export_api_invalid_format(client):

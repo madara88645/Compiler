@@ -49,6 +49,12 @@ class AgentExportIR(BaseModel):
     model: str = "claude-opus-4-6"
     is_multi_agent: bool = False
     agents: list["AgentExportIR"] = Field(default_factory=list)
+    permission_mode: str = "acceptEdits"
+    allowed_tools: list[str] = Field(default_factory=list)
+    hook_suggestions: list[str] = Field(default_factory=list)
+    mcp_servers: list[str] = Field(default_factory=list)
+    ci_automation_intent: list[str] = Field(default_factory=list)
+    memory_outline: list[str] = Field(default_factory=list)
     raw_system_prompt: str = ""  # always the full original markdown
 
 
@@ -138,14 +144,28 @@ def _build_ir(markdown: str, is_multi_agent: bool = False) -> AgentExportIR:
 
     name = _extract_title(markdown)
 
+    role = sections.get("role", "").strip()
+    goals = _parse_bullets(sections.get("goals", ""))
+    constraints = _parse_bullets(sections.get("constraints", ""))
+    workflows = _parse_bullets(sections.get("workflows", ""))
+    tech_stack = _parse_bullets(sections.get("tech_stack", ""))
+    combined_text = "\n".join([name, role, *goals, *constraints, *workflows, *tech_stack]).lower()
+
     return AgentExportIR(
         name=name,
-        role=sections.get("role", "").strip(),
-        goals=_parse_bullets(sections.get("goals", "")),
-        constraints=_parse_bullets(sections.get("constraints", "")),
-        workflows=_parse_bullets(sections.get("workflows", "")),
-        tech_stack=_parse_bullets(sections.get("tech_stack", "")),
+        role=role,
+        goals=goals,
+        constraints=constraints,
+        workflows=workflows,
+        tech_stack=tech_stack,
         is_multi_agent=is_multi_agent,
+        allowed_tools=_infer_allowed_tools(combined_text),
+        hook_suggestions=_infer_hook_suggestions(combined_text),
+        mcp_servers=_infer_mcp_servers(combined_text),
+        ci_automation_intent=_infer_ci_automation_intent(combined_text),
+        memory_outline=_infer_memory_outline(
+            name=name, role=role, goals=goals, constraints=constraints
+        ),
         raw_system_prompt=markdown.strip(),
     )
 
@@ -211,3 +231,62 @@ def _split_multi_agent_blocks(markdown: str) -> list[str]:
         blocks.append(tail)
 
     return blocks
+
+
+def _infer_allowed_tools(text: str) -> list[str]:
+    tools = {"Read", "Edit", "Write", "Glob", "Grep"}
+    if any(
+        keyword in text for keyword in ("code", "react", "python", "typescript", "debug", "build")
+    ):
+        tools.add("Bash")
+    if any(keyword in text for keyword in ("web", "research", "search", "source", "docs")):
+        tools.update({"WebSearch", "WebFetch"})
+    if "github" in text or "pull request" in text or "pr " in text:
+        tools.add("Bash")
+    return sorted(tools)
+
+
+def _infer_hook_suggestions(text: str) -> list[str]:
+    suggestions = [
+        "Block reads of .env and secrets before tool execution.",
+        "Run targeted tests or lint checks after code edits.",
+    ]
+    if any(keyword in text for keyword in ("frontend", "react", "ui")):
+        suggestions.append("Run frontend lint/build hooks after editing TSX or CSS.")
+    if any(keyword in text for keyword in ("deploy", "ci", "release")):
+        suggestions.append("Require human confirmation before git push or deploy commands.")
+    return suggestions
+
+
+def _infer_mcp_servers(text: str) -> list[str]:
+    mapping = {
+        "github": "github",
+        "figma": "figma",
+        "slack": "slack",
+        "notion": "notion",
+        "jira": "jira",
+        "sentry": "sentry",
+    }
+    return [server for keyword, server in mapping.items() if keyword in text]
+
+
+def _infer_ci_automation_intent(text: str) -> list[str]:
+    intents: list[str] = []
+    if any(keyword in text for keyword in ("review", "pull request", "pr ")):
+        intents.append("review")
+    if any(keyword in text for keyword in ("issue", "implement", "feature", "bug")):
+        intents.append("implementation")
+    if any(keyword in text for keyword in ("fix", "autofix", "failing test", "flaky")):
+        intents.append("autofix")
+    return intents
+
+
+def _infer_memory_outline(
+    *, name: str, role: str, goals: list[str], constraints: list[str]
+) -> list[str]:
+    outline = [f"Agent name: {name}"]
+    if role:
+        outline.append(f"Primary role: {role}")
+    outline.extend(f"Goal: {goal}" for goal in goals[:3])
+    outline.extend(f"Constraint: {constraint}" for constraint in constraints[:3])
+    return outline
