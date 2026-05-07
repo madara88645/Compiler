@@ -71,10 +71,38 @@ jobs:
         working-directory: web
         run: npm run build
 
+  vscode-extension:
+    name: VS Code Extension
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: integrations/vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: integrations/vscode-extension
+        run: npm ci
+
+      - name: Extension unit tests
+        working-directory: integrations/vscode-extension
+        run: npm run test:unit
+
+      - name: Extension integration tests
+        working-directory: integrations/vscode-extension
+        run: npm run test:integration
+
+      - name: VSIX packaging check
+        working-directory: integrations/vscode-extension
+        run: npm run package
+
   full-test:
     name: Full Test
     if: github.event_name != 'pull_request'
-    needs: smoke
+    needs: [smoke, vscode-extension]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

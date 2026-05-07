@@ -332,7 +332,14 @@ pytest tests/test_cli_console_refactor.py tests/test_cli_new_features.py tests/t
 
 ### 5.6 Integrations
 
-**VS Code extension** (`integrations/vscode-extension/`): no automated tests. Open the folder in VS Code and press F5 to launch the extension development host. Requires a running backend.
+**VS Code extension** (`integrations/vscode-extension/`): install deps with `cd integrations/vscode-extension && npm ci`. Open the folder in VS Code and press F5 (or use `.vscode/launch.json`) to launch the extension development host. Requires a running backend. Automated checks:
+
+```bash
+cd integrations/vscode-extension
+npm run test:unit
+npm run test:integration
+npm run package
+```
 
 **MCP server** (`integrations/mcp-server/`): install its own requirements (`pip install -r integrations/mcp-server/requirements.txt`) and run with:
 
@@ -401,6 +408,14 @@ npm run test
 npm run lint
 npm run build
 cd ..
+
+# Step 5: VS Code extension
+cd integrations/vscode-extension
+npm ci
+npm run test:unit
+npm run test:integration
+npm run package
+cd ../..
 ```
 
 Full matrix tests (Python 3.10–3.12, Linux/Windows/macOS) only run on push to `main`, not on PRs.

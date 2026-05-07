@@ -37,10 +37,42 @@
   ],
   "activationEvents": [
     "onCommand:promptc.compileSelection",
-    "onCommand:promptc.openPanel"
+    "onCommand:promptc.compileFile",
+    "onCommand:promptc.openPanel",
+    "onCommand:promptc.recompileLast",
+    "onCommand:promptc.checkConnection",
+    "onView:promptcSidebar"
   ],
   "main": "./src/extension.js",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --test tests/*.test.mjs",
+    "test:integration": "node ./tests/run-integration.mjs",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.1",
+    "mocha": "^11.7.1"
+  },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "promptc",
+          "title": "PromptC",
+          "icon": "icon.png"
+        }
+      ]
+    },
+    "views": {
+      "promptc": [
+        {
+          "id": "promptcSidebar",
+          "name": "Workspace"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "promptc.compileSelection",
@@ -49,8 +81,64 @@
       {
         "command": "promptc.openPanel",
         "title": "PromptC: Open Panel"
+      },
+      {
+        "command": "promptc.compileFile",
+        "title": "PromptC: Compile File"
+      },
+      {
+        "command": "promptc.recompileLast",
+        "title": "PromptC: Recompile Last"
+      },
+      {
+        "command": "promptc.checkConnection",
+        "title": "PromptC: Check Connection"
+      },
+      {
+        "command": "promptc.setApiKey",
+        "title": "PromptC: Set API Key"
+      },
+      {
+        "command": "promptc.clearApiKey",
+        "title": "PromptC: Clear API Key"
+      },
+      {
+        "command": "promptc.copyArtifact",
+        "title": "PromptC: Copy Artifact"
+      },
+      {
+        "command": "promptc.insertArtifact",
+        "title": "PromptC: Insert Artifact"
+      },
+      {
+        "command": "promptc.saveFavorite",
+        "title": "PromptC: Save Favorite"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "promptc.compileSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "promptc.compileFile",
+          "when": "editorTextFocus"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "promptc.checkConnection",
+          "when": "view == promptcSidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "promptc.recompileLast",
+          "when": "view == promptcSidebar",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "PromptC",
       "properties": {
@@ -63,6 +151,24 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "When enabled, PromptC asks for grounded, conservative output."
+        },
+        "promptc.requestTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "markdownDescription": "Timeout in milliseconds for PromptC API requests."
+        },
+        "promptc.autoOpenPanel": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically reveal the PromptC panel after a successful compile."
+        },
+        "promptc.historySize": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100,
+          "markdownDescription": "How many compile results PromptC stores per workspace."
         }
       }
     }
