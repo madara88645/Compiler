@@ -19,11 +19,7 @@ type ProxyOptions = {
 };
 
 function resolveServerApiKey(): string {
-  return (
-    process.env.PROMPTC_SERVER_API_KEY?.trim() ||
-    process.env.ADMIN_API_KEY?.trim() ||
-    ""
-  );
+  return process.env.PROMPTC_SERVER_API_KEY?.trim() || "";
 }
 
 function isBodylessMethod(method: string): boolean {
