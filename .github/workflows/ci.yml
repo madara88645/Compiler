@@ -51,6 +51,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
+      - name: Browser extension tests
+        run: node --test extension/*.test.mjs
+
       - name: Install frontend dependencies
         working-directory: web
         run: npm ci

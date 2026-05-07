@@ -4,6 +4,11 @@ import {
   getActivePreviewEntry,
   getRestoreText,
 } from "./popup-preview.mjs";
+import {
+  formatRelativeTime,
+  getConfigStatusView,
+  renderPreviewHistoryItems,
+} from "./popup-ui.mjs";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const enabledToggle = document.getElementById("enabledToggle");
@@ -127,15 +132,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     configStatus.classList.remove("status-enabled", "status-disabled", "status-warning");
-
-    if (result.ok) {
-      configStatus.textContent = justSaved ? "Saved" : "Configured";
-      configStatus.classList.add("status-enabled");
-      return;
-    }
-
-    configStatus.textContent = justSaved ? "Check fields" : "Missing config";
-    configStatus.classList.add(justSaved ? "status-warning" : "status-disabled");
+    const view = getConfigStatusView(result, justSaved);
+    configStatus.textContent = view.text;
+    configStatus.classList.add(view.className);
   }
 
   function renderPreview() {
@@ -159,47 +158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     previewDelta.textContent = formatPreviewDelta(entry);
     previewOriginal.textContent = entry.originalText;
     previewOptimized.textContent = entry.optimizedText;
-    previewHistoryList.innerHTML = previewHistory
-      .map((historyEntry) => {
-        const snippet = historyEntry.optimizedText.replace(/\s+/g, " ").trim().slice(0, 64);
-        const activeClass = historyEntry.id === entry.id ? " history-item-active" : "";
-        return `
-          <button class="history-item${activeClass}" type="button" data-preview-id="${historyEntry.id}">
-            <div class="history-item-top">
-              <span class="history-item-title">${escapeHtml(historyEntry.siteLabel)}</span>
-              <span class="history-item-time">${formatRelativeTime(historyEntry.createdAt)}</span>
-            </div>
-            <div class="history-item-snippet">${escapeHtml(snippet)}${historyEntry.optimizedText.length > 64 ? "..." : ""}</div>
-          </button>
-        `;
-      })
-      .join("");
-  }
-
-  function formatRelativeTime(timestamp) {
-    const diffMs = Date.now() - timestamp;
-    const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
-
-    if (diffMinutes < 60) {
-      return `${diffMinutes}m ago`;
-    }
-
-    const diffHours = Math.round(diffMinutes / 60);
-    if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    }
-
-    const diffDays = Math.round(diffHours / 24);
-    return `${diffDays}d ago`;
-  }
-
-  function escapeHtml(value) {
-    return value
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    previewHistoryList.innerHTML = renderPreviewHistoryItems(previewHistory, entry.id);
   }
 
   function setRestoreButtonState(restored) {

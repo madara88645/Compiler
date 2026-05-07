@@ -381,6 +381,8 @@ pytest -q \
 pre-commit run --all-files
 
 # Step 4: Frontend
+node --test extension/*.test.mjs
+
 cd web
 npm ci
 npm run test:contracts
