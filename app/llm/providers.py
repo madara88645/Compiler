@@ -136,3 +136,58 @@ class OpenAIProvider(LLMProvider):
 
         latency = (time.time() - start) * 1000
         return LLMResponse(content=content, usage=usage, latency_ms=latency)
+
+
+class AnthropicProvider(LLMProvider):
+    """
+    Provider for Anthropic Messages API.
+    Requires ANTHROPIC_API_KEY env var or config.api_key.
+    """
+
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
+        api_key = self.config.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return LLMResponse(content="Error: Missing Anthropic API Key", latency_ms=0)
+
+        url = (
+            self.config.base_url
+            or os.environ.get("ANTHROPIC_BASE_URL")
+            or "https://api.anthropic.com"
+        ).rstrip("/")
+        url = f"{url}/v1/messages"
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        payload = {
+            "model": kwargs.get("model", self.config.model),
+            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system_prompt:
+            payload["system"] = system_prompt
+
+        start = time.time()
+        try:
+            resp = httpx.post(url, json=payload, headers=headers, timeout=self.config.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+            blocks = data.get("content", [])
+            content = "\n".join(
+                block.get("text", "") for block in blocks if block.get("type") == "text"
+            )
+            usage_data = data.get("usage", {})
+            usage = {
+                "prompt_tokens": usage_data.get("input_tokens", 0),
+                "completion_tokens": usage_data.get("output_tokens", 0),
+            }
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Provider error: {e}")
+            return LLMResponse(content="Error: An internal error occurred.", latency_ms=0)
+
+        latency = (time.time() - start) * 1000
+        return LLMResponse(content=content, usage=usage, latency_ms=latency)

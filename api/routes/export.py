@@ -24,10 +24,25 @@ async def export_agent(
     api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     del api_key
-    if req.format not in ["claude-sdk", "langchain", "langchain-yaml", "langgraph"]:
+    if req.format not in [
+        "claude-sdk",
+        "claude-agent-sdk-py",
+        "claude-agent-sdk-ts",
+        "claude-subagent",
+        "claude-project-pack",
+        "langchain",
+        "langchain-yaml",
+        "langgraph",
+    ]:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 
     from app.adapters.agent_ir import parse_agent_markdown
+    from app.adapters.claude_code import (
+        to_agent_sdk_python,
+        to_agent_sdk_typescript,
+        to_claude_project_pack,
+        to_claude_subagent,
+    )
     from app.adapters.claude_sdk import to_python, to_yaml
     from app.adapters.langchain import to_langchain_python, to_langgraph_python
 
@@ -35,15 +50,30 @@ async def export_agent(
 
     python_code = None
     yaml_config = None
+    code = None
+    files = []
 
     if req.format == "claude-sdk":
         python_code = to_python(ir)
+        code = python_code
         if req.output_type != "python":
             yaml_config = to_yaml(ir)
+    elif req.format == "claude-agent-sdk-py":
+        python_code = to_agent_sdk_python(ir)
+        code = python_code
+    elif req.format == "claude-agent-sdk-ts":
+        code = to_agent_sdk_typescript(ir)
+    elif req.format == "claude-subagent":
+        files = [to_claude_subagent(ir)]
+        code = files[0]["content"]
+    elif req.format == "claude-project-pack":
+        files = to_claude_project_pack(ir)
     elif req.format in {"langchain", "langchain-yaml"}:
         python_code = to_langchain_python(ir)
+        code = python_code
     elif req.format == "langgraph":
         python_code = to_langgraph_python(ir)
+        code = python_code
 
     if req.output_type == "python":
         yaml_config = None
@@ -51,13 +81,19 @@ async def export_agent(
     return {
         "python_code": python_code,
         "yaml_config": yaml_config,
-        "code": python_code,
-        "files": [],
+        "code": code or python_code,
+        "files": files,
     }
 
 
 _SKILL_EXPORT_FORMATS = frozenset(
-    {"claude-tool", "claude-tool-use", "langchain-tool", "agent-skill"}
+    {
+        "claude-tool",
+        "claude-tool-use",
+        "claude-mcp-tool-stub",
+        "langchain-tool",
+        "agent-skill",
+    }
 )
 
 
@@ -70,6 +106,7 @@ async def export_skill(
     if req.format not in _SKILL_EXPORT_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 
+    from app.adapters.claude_code import to_claude_mcp_tool_stub
     from app.adapters.skill_adapter import (
         to_agent_skill,
         to_claude_tool_use,
@@ -79,17 +116,20 @@ async def export_skill(
 
     ir = parse_skill_markdown(req.skill_definition or "")
 
-    # Only call the adapters needed for the requested format.
-    # agent-skill needs only SKILL.md; all other formats expose both Python and JSON tabs.
     is_agent_skill = req.format == "agent-skill"
     python_code = None if is_agent_skill else to_langchain_tool(ir)
     json_config = None if is_agent_skill else to_claude_tool_use(ir)
     markdown = to_agent_skill(ir) if is_agent_skill else None
+    files: list[dict] = []
+
+    if req.format == "claude-mcp-tool-stub":
+        files = to_claude_mcp_tool_stub(ir)
+        python_code = files[0]["content"]
 
     return {
         "python_code": python_code,
         "json_config": json_config,
         "markdown": markdown,
         "code": markdown if is_agent_skill else python_code,
-        "files": [],
+        "files": files,
     }

@@ -116,6 +116,7 @@ async def log_requests(request, call_next):
 
 
 from api.routes.compile import router as compile_router  # noqa: E402
+from api.routes.agent_packs import router as agent_packs_router  # noqa: E402
 from api.routes.export import router as export_router  # noqa: E402
 from api.routes.generators import router as generators_router  # noqa: E402
 from api.routes.meta import router as meta_router  # noqa: E402
@@ -125,6 +126,7 @@ from app.routers.jules import router as jules_router  # noqa: E402
 
 app.include_router(meta_router)
 app.include_router(compile_router)
+app.include_router(agent_packs_router)
 app.include_router(generators_router)
 app.include_router(export_router)
 app.include_router(rag_router)
