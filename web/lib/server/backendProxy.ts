@@ -42,9 +42,22 @@ function copyProxyHeaders(request: Request): Headers {
   return headers;
 }
 
-function cloneProxyResponse(response: Response): Response {
+function shouldBufferProxyResponse(response: Response): boolean {
+  const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+  return contentType.includes("application/json") || contentType.startsWith("text/");
+}
+
+async function cloneProxyResponse(response: Response): Promise<Response> {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
+  if (shouldBufferProxyResponse(response)) {
+    headers.delete("content-encoding");
+    return new Response(await response.arrayBuffer(), {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
   // ⚡ Bolt Performance Optimization
   // We forward the response.body ReadableStream directly instead of buffering the whole payload
   // via await response.arrayBuffer(). This prevents OOM kills on machines with low memory
@@ -66,8 +79,9 @@ export async function proxyBackendRequest(
   options: ProxyOptions = {},
 ): Promise<Response> {
   const serverApiKey = resolveServerApiKey();
+  const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
 
-  if (options.requireServerApiKey && !serverApiKey) {
+  if (options.requireServerApiKey && !serverApiKey && !callerApiKey) {
     return Response.json({ detail: CONFIG_ERROR_DETAIL }, { status: 500 });
   }
 
@@ -96,7 +110,7 @@ export async function proxyBackendRequest(
 
     const upstreamResponse = await fetch(targetUrl, init as RequestInit);
 
-    return cloneProxyResponse(upstreamResponse);
+    return await cloneProxyResponse(upstreamResponse);
   } catch {
     return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
   }

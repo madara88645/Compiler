@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles } from "lucide-react";
 
-import { apiFetch, apiJson, buildGeneratorApiHeaders } from "@/config";
+import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
 import { agentPackProviders } from "./providerRegistry";
@@ -75,6 +75,7 @@ function bundleFiles(files: AgentPackFile[]): string {
 }
 
 export default function AgentPacksPage() {
+  const CLIENT_AGENT_PACKS_API_KEY = "promptc_agentpacks_api_key";
   const provider = agentPackProviders[0];
   const [request, setRequest] = useState<AgentPackRequest>(DEFAULT_REQUEST);
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
@@ -84,6 +85,22 @@ export default function AgentPacksPage() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
+  const [clientApiKey, setClientApiKey] = useState("");
+
+  useEffect(() => {
+    const storedKey = window.localStorage.getItem(CLIENT_AGENT_PACKS_API_KEY);
+    if (storedKey) {
+      setClientApiKey(storedKey);
+    }
+  }, []);
+
+  const requestHeaders = useMemo(() => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (clientApiKey.trim()) {
+      headers["x-api-key"] = clientApiKey.trim();
+    }
+    return buildGeneratorApiHeaders(headers);
+  }, [clientApiKey]);
 
   const previewGroups = useMemo(() => {
     if (!manifest) return [];
@@ -118,7 +135,7 @@ export default function AgentPacksPage() {
     try {
       const data = await apiJson<AgentPackManifest>("/agent-packs/claude", {
         method: "POST",
-        headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
+        headers: requestHeaders,
         body: JSON.stringify(request),
       });
       setManifest(data);
@@ -126,7 +143,7 @@ export default function AgentPacksPage() {
       setSelectedPath(data.files[0]?.path ?? null);
     } catch (err: unknown) {
       showError(err);
-      setError(err instanceof Error ? err.message : "Failed to generate agent pack.");
+      setError(describeRequestError(err, { fallback: "Failed to generate agent pack." }));
     } finally {
       setLoading(false);
     }
@@ -154,7 +171,7 @@ export default function AgentPacksPage() {
     try {
       const response = await apiFetch("/agent-packs/claude/download", {
         method: "POST",
-        headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
+        headers: requestHeaders,
         body: JSON.stringify(request),
       });
 
@@ -173,7 +190,7 @@ export default function AgentPacksPage() {
       URL.revokeObjectURL(href);
     } catch (err: unknown) {
       showError(err);
-      setError(err instanceof Error ? err.message : "Failed to download agent pack.");
+      setError(describeRequestError(err, { fallback: "Failed to download agent pack." }));
     } finally {
       setDownloading(false);
     }
@@ -238,6 +255,41 @@ export default function AgentPacksPage() {
                 Ready
               </div>
             </button>
+
+            <label className="flex flex-col gap-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+              <span className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
+                Agent Packs API Key (Opsiyonel)
+              </span>
+              <input
+                type="password"
+                value={clientApiKey}
+                onChange={(event) => setClientApiKey(event.target.value)}
+                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
+                placeholder="x-api-key değeri"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.localStorage.setItem(CLIENT_AGENT_PACKS_API_KEY, clientApiKey.trim())}
+                  className="rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-500/25"
+                >
+                  Key'i Kaydet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.localStorage.removeItem(CLIENT_AGENT_PACKS_API_KEY);
+                    setClientApiKey("");
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/10"
+                >
+                  Temizle
+                </button>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Sunucuda <code>PROMPTC_SERVER_API_KEY</code> yoksa bu anahtar istek header'ına eklenir ve Agent Packs çağrılarında kullanılabilir.
+              </p>
+            </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-2">

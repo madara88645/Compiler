@@ -12,6 +12,12 @@ vi.mock("@/config", () => ({
   apiJson,
   apiFetch,
   buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
+  describeRequestError: (error: unknown) =>
+    error instanceof Error && error.message === "Failed to fetch"
+      ? "Could not reach the backend. Check the API URL or make sure the server is running."
+      : error instanceof Error
+        ? error.message
+        : "Connection failed.",
 }));
 
 vi.mock("../lib/showError", () => ({
@@ -103,5 +109,20 @@ describe("Agent Packs page", () => {
     expect(path).toBe("/agent-packs/claude/download");
     expect(JSON.parse(options.body).goal).toBe("Create a full project pack.");
     expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("shows a normalized network error when generation fails to fetch", async () => {
+    apiJson.mockRejectedValueOnce(new Error("Failed to fetch"));
+
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Create a full project pack." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /generate claude pack/i }));
+
+    expect(
+      await screen.findByText("Could not reach the backend. Check the API URL or make sure the server is running."),
+    ).toBeTruthy();
   });
 });
