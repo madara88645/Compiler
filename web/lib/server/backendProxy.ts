@@ -1,6 +1,9 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const CONFIG_ERROR_DETAIL = "PROMPTC_SERVER_API_KEY is not configured on the web server.";
-const NETWORK_ERROR_DETAIL = "Could not reach the backend from the web server.";
+const NETWORK_ERROR_DETAIL =
+  "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
+const PROXY_ATTEMPTS_HEADER = "x-promptc-proxy-attempts";
+const PROXY_DURATION_HEADER = "x-promptc-proxy-duration-ms";
 
 if (!process.env.PROMPTC_SERVER_API_KEY?.trim()) {
   console.warn("PROMPTC_SERVER_API_KEY not set - protected proxy routes will forward no API key");
@@ -19,7 +22,10 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 type ProxyOptions = {
+  networkRetryAttempts?: number;
+  networkRetryDelayMs?: number;
   requireServerApiKey?: boolean;
+  retryNetworkErrors?: boolean;
 };
 
 function resolveServerApiKey(): string {
@@ -42,14 +48,25 @@ function copyProxyHeaders(request: Request): Headers {
   return headers;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function shouldBufferProxyResponse(response: Response): boolean {
   const contentType = response.headers.get("content-type")?.toLowerCase() || "";
   return contentType.includes("application/json") || contentType.startsWith("text/");
 }
 
-async function cloneProxyResponse(response: Response): Promise<Response> {
+function addProxyDiagnostics(headers: Headers, attempts: number, durationMs: number): Headers {
+  headers.set(PROXY_ATTEMPTS_HEADER, String(attempts));
+  headers.set(PROXY_DURATION_HEADER, String(durationMs));
+  return headers;
+}
+
+async function cloneProxyResponse(response: Response, attempts: number, durationMs: number): Promise<Response> {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
+  addProxyDiagnostics(headers, attempts, durationMs);
   if (shouldBufferProxyResponse(response)) {
     headers.delete("content-encoding");
     return new Response(await response.arrayBuffer(), {
@@ -58,10 +75,8 @@ async function cloneProxyResponse(response: Response): Promise<Response> {
       headers,
     });
   }
-  // ⚡ Bolt Performance Optimization
-  // We forward the response.body ReadableStream directly instead of buffering the whole payload
-  // via await response.arrayBuffer(). This prevents OOM kills on machines with low memory
-  // (like Fly.io 512MB VMs) when passing through large RAG payloads.
+  // Stream large binary responses directly so download-style routes keep the
+  // lower-memory behavior from the original optimization.
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -78,6 +93,7 @@ export async function proxyBackendRequest(
   backendPath: string,
   options: ProxyOptions = {},
 ): Promise<Response> {
+  const requestStartedAt = Date.now();
   const serverApiKey = resolveServerApiKey();
   const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
 
@@ -90,28 +106,61 @@ export async function proxyBackendRequest(
     headers.set("x-api-key", serverApiKey);
   }
 
-  const base = resolveBackendApiBase().replace(/\/+$/, '');
-  const path = backendPath.startsWith('/') ? backendPath : '/' + backendPath;
+  const base = resolveBackendApiBase().replace(/\/+$/, "");
+  const path = backendPath.startsWith("/") ? backendPath : "/" + backendPath;
   const targetUrl = base + path;
+  const retryAttempts = options.retryNetworkErrors ? Math.max(1, options.networkRetryAttempts ?? 3) : 1;
+  const retryDelayMs = options.networkRetryDelayMs ?? 1000;
+  const bufferedBody =
+    !isBodylessMethod(request.method) && options.retryNetworkErrors ? await request.arrayBuffer() : null;
 
-  try {
-    // ⚡ Bolt Performance Optimization
-    // We forward the request.body ReadableStream directly instead of buffering it into memory
-    // using await request.arrayBuffer(). Streaming large requests directly to the backend
-    // reduces memory spikes and prevents OOM crashes on constrained environments.
-    const init: RequestInit & { duplex?: "half" } = {
-      method: request.method,
-      headers,
-      body: isBodylessMethod(request.method) ? undefined : request.body,
-      cache: "no-store",
-      redirect: "manual",
-    };
-    if (init.body) init.duplex = "half";
+  for (let attempt = 0; attempt < retryAttempts; attempt += 1) {
+    try {
+      const init: RequestInit & { duplex?: "half" } = {
+        method: request.method,
+        headers,
+        body: isBodylessMethod(request.method) ? undefined : bufferedBody ?? request.body,
+        cache: "no-store",
+        redirect: "manual",
+      };
+      if (init.body && !bufferedBody) init.duplex = "half";
 
-    const upstreamResponse = await fetch(targetUrl, init as RequestInit);
+      const upstreamResponse = await fetch(targetUrl, init as RequestInit);
+      const attemptsUsed = attempt + 1;
+      const durationMs = Date.now() - requestStartedAt;
 
-    return await cloneProxyResponse(upstreamResponse);
-  } catch {
-    return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
+      if (attempt > 0) {
+        console.info("[backendProxy] upstream recovered after retry", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+        });
+      }
+
+      return await cloneProxyResponse(upstreamResponse, attemptsUsed, durationMs);
+    } catch (error) {
+      if (attempt === retryAttempts - 1) {
+        const attemptsUsed = attempt + 1;
+        const durationMs = Date.now() - requestStartedAt;
+        console.error("[backendProxy] upstream unavailable", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
+        return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502, headers: diagnosticHeaders });
+      }
+
+      console.warn("[backendProxy] retrying upstream request", {
+        attempt: attempt + 1,
+        backendPath: path,
+        retryDelayMs: retryDelayMs * (attempt + 1),
+      });
+      await sleep(retryDelayMs * (attempt + 1));
+    }
   }
+
+  const diagnosticHeaders = addProxyDiagnostics(new Headers(), retryAttempts, Date.now() - requestStartedAt);
+  return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502, headers: diagnosticHeaders });
 }

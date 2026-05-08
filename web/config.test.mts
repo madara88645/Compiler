@@ -89,7 +89,7 @@ test("describeRequestError rewrites raw browser fetch failures into helpful copy
 
   assert.equal(
     describeRequestError(new Error("Failed to fetch")),
-    "Could not reach the backend. Check the API URL or make sure the server is running.",
+    "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
   );
 });
 

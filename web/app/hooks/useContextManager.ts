@@ -23,8 +23,24 @@ type FileWithRelativePath = File & {
 
 function toUserMessage(error: unknown): string {
   return describeRequestError(error, {
-    network: "Could not reach the backend. Check the API URL or make sure the server is running.",
+    network: "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
   });
+}
+
+async function readResponseDetail(response: Response): Promise<string> {
+  try {
+    const payload = await response.json();
+    if (payload && typeof payload === "object") {
+      const detail = (payload as { detail?: unknown }).detail;
+      if (typeof detail === "string" && detail.trim()) {
+        return detail.trim();
+      }
+    }
+  } catch {
+    // Ignore body parsing failures and fall back to generic copy.
+  }
+
+  return "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
 }
 
 function getUploadRelativePath(file: File): string {
@@ -57,7 +73,7 @@ export function useContextManager() {
 
       if (!response.ok) {
         setIsConnected(false);
-        setStatus("Backend health check failed. Verify the API URL and server status.");
+        setStatus(await readResponseDetail(response));
         return;
       }
 
@@ -76,10 +92,6 @@ export function useContextManager() {
   }, [refreshStats]);
 
   useEffect(() => {
-    // We intentionally ignore the rule here because `checkConnection` initializes our
-    // app connection status explicitly on mount, and we rely on `checkConnection`
-    // handling state cleanly based on async results.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void checkConnection();
   }, [checkConnection]);
 

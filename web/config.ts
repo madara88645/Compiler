@@ -1,4 +1,6 @@
 const DEFAULT_LOCAL_API_BASE = "http://127.0.0.1:8080";
+const BACKEND_WAKING_UP_MESSAGE =
+  "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
 
 type LocationLike = {
   hostname: string;
@@ -102,10 +104,7 @@ export function describeRequestError(
       normalizedMessage.includes("networkerror") ||
       normalizedMessage.includes("load failed")
     ) {
-      return (
-        copy.network ||
-        "Could not reach the backend. Check the API URL or make sure the server is running."
-      );
+      return copy.network || BACKEND_WAKING_UP_MESSAGE;
     }
 
     return error.message;
