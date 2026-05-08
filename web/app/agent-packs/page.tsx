@@ -67,7 +67,6 @@ function getDownloadFilename(response: Response, fallback: string): string {
   const match = disposition.match(/filename=\"?([^"]+)\"?/i);
   return match?.[1] || fallback;
 }
-
 function bundleFiles(files: AgentPackFile[]): string {
   return files
     .map((file) => `# ${file.path}\n\n${file.content.trim()}`)
@@ -208,14 +207,19 @@ export default function AgentPacksPage() {
               <FolderArchive size={18} aria-hidden="true" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">Agent Packs</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold tracking-tight text-white">Agent Packs</h1>
+                <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200">
+                  Beta
+                </span>
+              </div>
               <div className="font-mono text-xs uppercase tracking-wider text-zinc-400 opacity-70">
                 One-Click Repo Assets
               </div>
             </div>
             <InfoButton
               title="Agent Packs"
-              description="Turn one short brief into runnable repo-ready assets. V1 focuses on Claude, while the architecture stays open for future providers."
+              description="Turn one short brief into runnable, repo-ready assets. This beta focuses on Claude first, and every generated file should be reviewed before production use."
             />
           </div>
 
@@ -233,7 +237,7 @@ export default function AgentPacksPage() {
                   <div className="mb-1 text-[11px] font-mono uppercase tracking-[0.25em] text-cyan-300/80">
                     {provider.name}
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Generate runnable agent assets for your repo</h2>
+                  <h2 className="text-xl font-semibold text-white">Generate beta-stage agent assets for your repo</h2>
                 </div>
                 <div className={`h-12 w-12 rounded-2xl ${provider.glowClass} flex items-center justify-center`}>
                   <Bot size={22} className="text-cyan-200" aria-hidden="true" />
@@ -249,23 +253,32 @@ export default function AgentPacksPage() {
             >
               <div>
                 <div className="mb-1 text-sm font-semibold text-white">{provider.name}</div>
-                <div className="text-xs text-zinc-500">V1 provider. More ecosystems can slot into this registry later.</div>
+                <div className="text-xs text-zinc-500">
+                  Beta preview. Good for fast bootstrapping, but you should still review prompts, permissions,
+                  workflows, and generated files before shipping.
+                </div>
               </div>
               <div className={`rounded-xl bg-gradient-to-br ${provider.accentClass} px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-cyan-500/10`}>
-                Ready
+                Beta
               </div>
             </button>
 
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-relaxed text-amber-100/90">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Beta Notice</div>
+              Agent Packs is a strong starting point, not a finished autopilot. Expect useful scaffolding, then
+              review the output carefully for repo-specific policies, CI assumptions, and tool permissions.
+            </div>
+
             <label className="flex flex-col gap-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
               <span className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
-                Agent Packs API Key (Opsiyonel)
+                Agent Packs API Key (Optional)
               </span>
               <input
                 type="password"
                 value={clientApiKey}
                 onChange={(event) => setClientApiKey(event.target.value)}
                 className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
-                placeholder="x-api-key değeri"
+                placeholder="Paste an x-api-key value"
               />
               <div className="flex items-center gap-2">
                 <button
@@ -273,7 +286,7 @@ export default function AgentPacksPage() {
                   onClick={() => window.localStorage.setItem(CLIENT_AGENT_PACKS_API_KEY, clientApiKey.trim())}
                   className="rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-500/25"
                 >
-                  Key&apos;i Kaydet
+                  Save Key
                 </button>
                 <button
                   type="button"
@@ -283,11 +296,11 @@ export default function AgentPacksPage() {
                   }}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/10"
                 >
-                  Temizle
+                  Clear
                 </button>
               </div>
               <p className="text-xs text-zinc-400">
-                Sunucuda <code>PROMPTC_SERVER_API_KEY</code> yoksa bu anahtar istek header&apos;ına eklenir ve Agent Packs çağrılarında kullanılabilir.
+                Use this only when the web server does not already provide <code>PROMPTC_SERVER_API_KEY</code> for protected Agent Packs requests. If the server key exists, it takes precedence and your typed key is ignored before the request leaves the proxy. This field is mainly for local debugging or fallback calls when the proxy is intentionally running without a server-side key.
               </p>
             </label>
 
