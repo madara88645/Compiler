@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.46] - 2026-05-08
+### Added
+- **🤖 Claude Agent Packs**: A new first-class export surface that turns a project brief into a runnable, repo-ready Claude assets bundle.
+  - **New `Agent Packs` sidebar section** in the web app with a Claude-first one-click flow, preview tabs, copy actions, and one-shot pack download as a `.zip`.
+  - **Four pack types** under a single endpoint:
+    - **Project Pack** — emits `CLAUDE.md`, `.claude/settings.json`, and `.github/workflows/claude.yml` so a repo can adopt Claude Code with policy, deny rules, and a CI workflow on day one.
+    - **Subagent Bundle** — emits one or more `.claude/agents/<role>.md` files with frontmatter (`name`, `description`, `tools`) ready to be picked up by Claude Code's subagent dispatcher.
+    - **PR Reviewer Pack** — emits a reviewer subagent plus a `.github/workflows/claude.yml` that wires Claude into pull request review automation.
+    - **MCP Tool Stub** — emits a runnable `server.py` and `README.md` for an MCP server scaffolded from a skill definition (FastMCP-based, ready to register with Claude Code, Cursor, or Claude Desktop).
+  - **Risk-aware generation**: each request accepts `risk_mode: "balanced" | "strict"`. Strict mode tightens deny lists, narrows allowed tools, and removes optimistic defaults.
+  - **Provider-agnostic core**: a new `AgentPackAdapter` Protocol keeps Claude-specific logic (`ClaudeAgentPackAdapter` in `app/adapters/claude_code.py`) at the edge while the IR layer (`app/adapters/agent_packs.py`) stays neutral, so future Cursor/Codex/etc. adapters can plug in without touching the core.
+- **New API endpoints** (both protected by `verify_api_key`):
+  - `POST /agent-packs/claude` → returns an `AgentPackManifest` with file paths, contents, kinds, and a stable `preview_order` for the UI.
+  - `POST /agent-packs/claude/download` → streams the same manifest as a deflate-compressed `.zip` with a content-disposition filename derived from the pack type and slugified project type.
+- **New skill export format `claude-mcp-tool-stub`**: `POST /skills-generator/export` now accepts this format and returns a multi-file payload (`server.py` + `README.md`) suitable for cloning into a fresh MCP server repo.
+- **Repo-native Claude assets** committed as part of this work so the Compiler repo itself adopts the same flow it generates:
+  - `CLAUDE.md` with project summary, runbook, domain concepts, and security notes.
+  - `.claude/settings.json` with `defaultMode: acceptEdits`, deny rules for `.env*`, `secrets/**`, `users.db`, and `web/.env.local`, and ask gates for `git push`, `fly:`, and `railway:` shell commands.
+  - `.claude/agents/compiler-architect.md`, `.claude/agents/frontend-polisher.md`, `.claude/agents/mcp-integrator.md`, and `.claude/agents/prompt-safety-reviewer.md` covering the four core review/build personas the project routinely needs.
+  - `.github/workflows/claude.yml` for hosted Claude Code review on PRs.
+- **MCP bridge tool surface** updated in `integrations/mcp-server/server.py` so Claude Code, Cursor, and other MCP clients can call agent pack generation directly through the bridge alongside compile/skill/agent flows.
+- **Frontend test coverage** added for the new flows: `web/app/agent-packs/page.test.tsx`, `web/app/agent-generator/components/ExportPanel.test.tsx`, `web/app/skills-generator/components/ExportPanel.test.tsx`, and `web/app/components/Sidebar.test.tsx`.
+- **Backend test coverage** added in `tests/test_export_adapters.py` for `claude-agent-sdk-py`, `claude-agent-sdk-ts`, `claude-subagent`, `claude-project-pack`, and `claude-mcp-tool-stub` paths.
+
+### Changed
+- `app/adapters/__init__.py` now exports the new Claude Code adapters (`to_claude_mcp_tool_stub`, `to_claude_pr_reviewer_pack`, `to_claude_project_pack`, `to_claude_subagent_bundle`) alongside the existing skill adapters.
+- `api/main.py` mounts the new `agent_packs` router and the existing `export` router accepts the additional `claude-mcp-tool-stub` skill format.
+- The Skills Generator export panel now also surfaces the multi-file `files` payload (path + content) when a format returns more than a single artifact, instead of only `python_code` / `json_config`.
+- The Sidebar gains an `Agent Packs` entry pointing to `/agent-packs`, slotted next to `Agent Generator` and `Skills Generator`.
+- `agents.md` and `Makefile` updated to document the new pack flows alongside the existing compile/skill/agent recipes.
+
+### Security
+- Repo-shipped `.claude/settings.json` denies reads of `.env`, `.env.*`, `secrets/**`, `users.db`, and `web/.env.local` so an in-repo Claude Code session cannot exfiltrate local credentials, and gates `git push`, `fly:`, and `railway:` behind explicit confirmation prompts.
+- Generated `Project Pack` deny rules and ask gates mirror the same posture, so any repo that adopts the pack inherits the safe defaults rather than starting from an empty allowlist.
+
+### Notes
+- The `agent-skill` UI surface in the Skills Generator export panel will be re-added in a follow-up; the `agent-skill` format already works end-to-end through the API and remains covered by `test_export_api_endpoint_skill_agent_skill_format`.
+
 ## [2.0.45] - 2025-11-12
 ### Added
 - **⌨️ Keyboard Shortcuts Panel**: Comprehensive shortcuts reference dialog
