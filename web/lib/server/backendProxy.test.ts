@@ -63,6 +63,62 @@ describe("backend proxy", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
+  it("buffers JSON responses before returning them to the browser", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const upstreamResponse = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+    const arrayBufferSpy = vi.spyOn(upstreamResponse, "arrayBuffer");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(upstreamResponse);
+
+    const request = new Request("http://localhost:3000/agent-packs/claude", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": "caller-key",
+      },
+      body: JSON.stringify({ goal: "review code" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/agent-packs/claude", {
+      requireServerApiKey: true,
+    });
+
+    expect(arrayBufferSpy).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("keeps binary responses streaming", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const upstreamResponse = new Response("zip-bytes", {
+      status: 200,
+      headers: { "content-type": "application/zip" },
+    });
+    const arrayBufferSpy = vi.spyOn(upstreamResponse, "arrayBuffer");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(upstreamResponse);
+
+    const request = new Request("http://localhost:3000/agent-packs/claude/download", {
+      method: "POST",
+      headers: {
+        Accept: "application/octet-stream",
+        "Content-Type": "application/json",
+        "x-api-key": "caller-key",
+      },
+      body: JSON.stringify({ goal: "download code" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/agent-packs/claude/download", {
+      requireServerApiKey: true,
+    });
+
+    expect(arrayBufferSpy).not.toHaveBeenCalled();
+    await expect(response.text()).resolves.toBe("zip-bytes");
+  });
+
   it("returns a config error when a protected route has no server API key", async () => {
     const request = new Request("http://localhost:3000/agent-generator/generate", {
       method: "POST",
@@ -78,6 +134,35 @@ describe("backend proxy", () => {
     await expect(response.json()).resolves.toEqual({
       detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
     });
+  });
+
+  it("allows protected routes with a caller-supplied x-api-key when server key is missing", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const request = new Request("http://localhost:3000/agent-generator/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "caller-key",
+      },
+      body: JSON.stringify({ description: "review code" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/agent-generator/generate", {
+      requireServerApiKey: true,
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0]!;
+    const proxiedHeaders = new Headers(init?.headers);
+    expect(proxiedHeaders.get("x-api-key")).toBe("caller-key");
   });
 
   it("overrides caller-supplied x-api-key with the server API key", async () => {
