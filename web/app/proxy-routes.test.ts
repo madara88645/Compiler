@@ -20,7 +20,6 @@ describe("Next backend proxy route wiring", () => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
     delete process.env.PROMPTC_SERVER_API_KEY;
-    delete process.env.ADMIN_API_KEY;
   });
 
   afterEach(() => {
