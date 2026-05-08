@@ -121,3 +121,91 @@ def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
         assert response.status_code == 200
         assert response.headers["content-disposition"] == 'attachment; filename="review-agent.md"'
         assert response.text == "hello"
+
+
+def test_agent_packs_endpoint_validation_errors():
+    client = TestClient(app)
+
+    # Missing required fields
+    response = client.post("/agent-packs/claude", json={})
+    assert response.status_code == 422
+
+    # Invalid pack_type
+    response = client.post(
+        "/agent-packs/claude",
+        json={**_request_payload("invalid-pack-type"), "pack_type": "invalid-pack-type"},
+    )
+    assert response.status_code == 422
+
+
+def test_agent_packs_compiler_exception_returns_500():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.side_effect = Exception("Simulated compiler error")
+
+        client = TestClient(app)
+        response = client.post("/agent-packs/claude", json=_request_payload("subagent"))
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "An internal error occurred."}
+
+
+def test_agent_packs_download_exception_returns_500():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.side_effect = Exception("Simulated compiler error")
+
+        client = TestClient(app)
+        response = client.post("/agent-packs/claude/download", json=_request_payload("subagent"))
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "An internal error occurred."}
+
+
+def test_agent_packs_risk_mode_balanced_vs_strict():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Agent"
+        client = TestClient(app)
+
+        # Test strict mode
+        strict_payload = _request_payload("subagent")
+        strict_payload["risk_mode"] = "strict"
+        client.post("/agent-packs/claude", json=strict_payload)
+
+        call_args = mock_compiler.generate_agent.call_args[0]
+        assert "strict security defaults" in call_args[0]
+
+        # Test balanced mode
+        balanced_payload = _request_payload("subagent")
+        balanced_payload["risk_mode"] = "balanced"
+        client.post("/agent-packs/claude", json=balanced_payload)
+
+        call_args = mock_compiler.generate_agent.call_args[0]
+        assert "Balance usability" in call_args[0]
+
+
+def test_agent_packs_download_media_types():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Agent"
+
+        with patch("app.adapters.agent_packs.to_claude_subagent_bundle") as mock_bundle:
+            # Test json
+            mock_bundle.return_value = [
+                {"path": ".claude/settings.json", "content": "{}"},
+            ]
+            client = TestClient(app)
+            response = client.post(
+                "/agent-packs/claude/download", json=_request_payload("subagent")
+            )
+
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "application/json"
+
+            # Test python
+            mock_bundle.return_value = [
+                {"path": "script.py", "content": "print('hi')"},
+            ]
+            response = client.post(
+                "/agent-packs/claude/download", json=_request_payload("subagent")
+            )
+
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "text/x-python; charset=utf-8"
