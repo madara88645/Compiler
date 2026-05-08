@@ -146,6 +146,8 @@ describe("backend proxy", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("2");
+    expect(response.headers.get("x-promptc-proxy-duration-ms")).toBeTruthy();
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
@@ -265,8 +267,9 @@ describe("backend proxy", () => {
     const response = await proxyBackendRequest(request, "/health", {});
 
     expect(response.status).toBe(502);
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("1");
     await expect(response.json()).resolves.toEqual({
-      detail: "Could not reach the backend from the web server.",
+      detail: "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
     });
   });
 });

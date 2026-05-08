@@ -1,6 +1,9 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const CONFIG_ERROR_DETAIL = "PROMPTC_SERVER_API_KEY is not configured on the web server.";
-const NETWORK_ERROR_DETAIL = "Could not reach the backend from the web server.";
+const NETWORK_ERROR_DETAIL =
+  "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
+const PROXY_ATTEMPTS_HEADER = "x-promptc-proxy-attempts";
+const PROXY_DURATION_HEADER = "x-promptc-proxy-duration-ms";
 
 if (!process.env.PROMPTC_SERVER_API_KEY?.trim()) {
   console.warn("PROMPTC_SERVER_API_KEY not set - protected proxy routes will forward no API key");
@@ -54,9 +57,16 @@ function shouldBufferProxyResponse(response: Response): boolean {
   return contentType.includes("application/json") || contentType.startsWith("text/");
 }
 
-async function cloneProxyResponse(response: Response): Promise<Response> {
+function addProxyDiagnostics(headers: Headers, attempts: number, durationMs: number): Headers {
+  headers.set(PROXY_ATTEMPTS_HEADER, String(attempts));
+  headers.set(PROXY_DURATION_HEADER, String(durationMs));
+  return headers;
+}
+
+async function cloneProxyResponse(response: Response, attempts: number, durationMs: number): Promise<Response> {
   const headers = new Headers(response.headers);
   headers.delete("content-length");
+  addProxyDiagnostics(headers, attempts, durationMs);
   if (shouldBufferProxyResponse(response)) {
     headers.delete("content-encoding");
     return new Response(await response.arrayBuffer(), {
@@ -83,6 +93,7 @@ export async function proxyBackendRequest(
   backendPath: string,
   options: ProxyOptions = {},
 ): Promise<Response> {
+  const requestStartedAt = Date.now();
   const serverApiKey = resolveServerApiKey();
   const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
 
@@ -115,14 +126,41 @@ export async function proxyBackendRequest(
       if (init.body && !bufferedBody) init.duplex = "half";
 
       const upstreamResponse = await fetch(targetUrl, init as RequestInit);
-      return await cloneProxyResponse(upstreamResponse);
-    } catch {
-      if (attempt === retryAttempts - 1) {
-        return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
+      const attemptsUsed = attempt + 1;
+      const durationMs = Date.now() - requestStartedAt;
+
+      if (attempt > 0) {
+        console.info("[backendProxy] upstream recovered after retry", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+        });
       }
+
+      return await cloneProxyResponse(upstreamResponse, attemptsUsed, durationMs);
+    } catch (error) {
+      if (attempt === retryAttempts - 1) {
+        const attemptsUsed = attempt + 1;
+        const durationMs = Date.now() - requestStartedAt;
+        console.error("[backendProxy] upstream unavailable", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
+        return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502, headers: diagnosticHeaders });
+      }
+
+      console.warn("[backendProxy] retrying upstream request", {
+        attempt: attempt + 1,
+        backendPath: path,
+        retryDelayMs: retryDelayMs * (attempt + 1),
+      });
       await sleep(retryDelayMs * (attempt + 1));
     }
   }
 
-  return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
+  const diagnosticHeaders = addProxyDiagnostics(new Headers(), retryAttempts, Date.now() - requestStartedAt);
+  return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502, headers: diagnosticHeaders });
 }

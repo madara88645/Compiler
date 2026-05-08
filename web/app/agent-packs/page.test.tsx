@@ -14,7 +14,7 @@ vi.mock("@/config", () => ({
   buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
   describeRequestError: (error: unknown) =>
     error instanceof Error && error.message === "Failed to fetch"
-      ? "Could not reach the backend. Check the API URL or make sure the server is running."
+      ? "The service is temporarily unavailable or still waking up. Please retry in a few seconds."
       : error instanceof Error
         ? error.message
         : "Connection failed.",
@@ -122,7 +122,7 @@ describe("Agent Packs page", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate claude pack/i }));
 
     expect(
-      await screen.findByText("Could not reach the backend. Check the API URL or make sure the server is running."),
+      await screen.findByText("The service is temporarily unavailable or still waking up. Please retry in a few seconds."),
     ).toBeTruthy();
   });
 });

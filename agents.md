@@ -96,6 +96,7 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 ### Fly.io operational note
 
 - `mycompiler-api` has proven too tight at `256mb` on Fly Machines for generator/RAG-backed requests. Treat `512mb` as the minimum practical production memory size unless profiling proves otherwise.
+- Keep `min_machines_running = 1` for `mycompiler-api` in production. Letting the only machine scale down to zero causes cold-start races where Next proxy routes can return a fast 502 before Uvicorn is reachable, especially on `/compile` and `/agent-packs/claude`.
 - When Fly emails an `OOM: uvicorn killed` alert, check the current machine and recent logs first:
 
 ```bash
