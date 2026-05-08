@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, Sparkles, WifiOff, Swords, Bot, Zap, type LucideIcon } from "lucide-react";
+import { Code2, Sparkles, WifiOff, Swords, Bot, Zap, FolderArchive, type LucideIcon } from "lucide-react";
 
 const navItems: { name: string; path: string; Icon: LucideIcon }[] = [
     { name: "Compiler",          path: "/",                 Icon: Code2    },
     { name: "Optimizer",         path: "/optimizer",        Icon: Sparkles },
     { name: "Offline",           path: "/offline",          Icon: WifiOff  },
     { name: "Benchmark",         path: "/benchmark",        Icon: Swords   },
+    { name: "Agent Packs",       path: "/agent-packs",      Icon: FolderArchive },
     { name: "Agent Generator",   path: "/agent-generator",  Icon: Bot      },
     { name: "Skills Generator",  path: "/skills-generator", Icon: Zap      },
 ];
@@ -18,6 +19,7 @@ const accentBarMap: Record<string, string> = {
     "/optimizer":         "bg-emerald-500",
     "/offline":           "bg-zinc-500",
     "/benchmark":         "bg-amber-500",
+    "/agent-packs":       "bg-cyan-500",
     "/agent-generator":   "bg-green-500",
     "/skills-generator":  "bg-yellow-500",
 };
@@ -27,6 +29,7 @@ const accentRingMap: Record<string, string> = {
     "/optimizer":         "ring-emerald-500/30",
     "/offline":           "ring-zinc-500/30",
     "/benchmark":         "ring-amber-500/30",
+    "/agent-packs":       "ring-cyan-500/30",
     "/agent-generator":   "ring-green-500/30",
     "/skills-generator":  "ring-yellow-500/30",
 };

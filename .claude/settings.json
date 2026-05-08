@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./users.db)",
+      "Read(./web/.env.local)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(fly:*)",
+      "Bash(railway:*)"
+    ]
+  }
+}

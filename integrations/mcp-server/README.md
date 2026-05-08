@@ -1,7 +1,7 @@
 # myCompiler MCP Server
 
 This directory contains a Model Context Protocol (MCP) server integration for `myCompiler`.
-It exposes `myCompiler` tools (like `optimize_prompt`) to MCP clients such as Claude Desktop and Cursor.
+It exposes Prompt Compiler tools to MCP clients such as Claude Code, Claude Desktop, and Cursor.
 
 ## Setup
 
@@ -57,9 +57,22 @@ Add the following to your `claude_desktop_config.json` (usually in `%APPDATA%\Cl
 4.  **Type**: `stdio`
 5.  **Command**: `python C:\Users\User\Desktop\myCompiler\integrations\mcp-server\server.py`
 
+## Exposed Tools
+
+- `optimize_prompt(text)` — returns the compiled prompt string
+- `compile_prompt(text)` — returns the full `/compile` payload
+- `generate_agent(description, multi_agent=false)` — returns generated agent markdown
+- `generate_skill(description)` — returns generated skill markdown
+- `export_claude_pack(system_prompt)` — returns a Claude Code project-pack manifest
+- `benchmark_prompt(text, model?)` — returns the benchmark comparison payload
+
 ## Usage
 
 Once configured, you can ask Claude or Cursor:
 > "Optimize this prompt for me: 'write a snake game in python'"
 
-The tool `optimize_prompt` will be called, and the optimized system prompt from `myCompiler` will be returned.
+Or:
+
+> "Generate an agent for reviewing React performance and export it as a Claude project pack."
+
+The MCP server will call the corresponding Prompt Compiler backend route and return the result in the same session.

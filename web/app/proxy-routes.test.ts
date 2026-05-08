@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
+import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
+import { POST as agentPacksClaudeDownloadRoute } from "./agent-packs/claude/download/route";
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
 import { POST as agentExportRoute } from "./agent-generator/export/route";
 import { POST as benchmarkRunRoute } from "./benchmark/run/route";
@@ -81,6 +83,20 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
+    {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "https://api.memo.dev/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "https://api.memo.dev/agent-packs/claude/download",
+    },
     {
       name: "agent generation",
       handler: agentGenerateRoute,
@@ -170,6 +186,20 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
+    {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "https://api.memo.dev/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "https://api.memo.dev/agent-packs/claude/download",
+    },
     {
       name: "agent generation",
       handler: agentGenerateRoute,
