@@ -273,7 +273,7 @@ export default function AgentPacksPage() {
                   onClick={() => window.localStorage.setItem(CLIENT_AGENT_PACKS_API_KEY, clientApiKey.trim())}
                   className="rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-500/25"
                 >
-                  Key'i Kaydet
+                  Key&apos;i Kaydet
                 </button>
                 <button
                   type="button"
@@ -287,7 +287,7 @@ export default function AgentPacksPage() {
                 </button>
               </div>
               <p className="text-xs text-zinc-400">
-                Sunucuda <code>PROMPTC_SERVER_API_KEY</code> yoksa bu anahtar istek header'ına eklenir ve Agent Packs çağrılarında kullanılabilir.
+                Sunucuda <code>PROMPTC_SERVER_API_KEY</code> yoksa bu anahtar istek header&apos;ına eklenir ve Agent Packs çağrılarında kullanılabilir.
               </p>
             </label>
 
