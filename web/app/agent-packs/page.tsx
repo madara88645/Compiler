@@ -264,21 +264,22 @@ export default function AgentPacksPage() {
             </button>
 
             <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-relaxed text-amber-100/90">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Beta Notice</div>
-              Agent Packs is a strong starting point, not a finished autopilot. Expect useful scaffolding, then
-              review the output carefully for repo-specific policies, CI assumptions, and tool permissions.
+              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Experimental Feature</div>
+              Agent Packs is in active development and may produce incomplete or incorrect output for your specific project.
+              The generated files — Claude settings, agent definitions, and CI workflows — are a useful starting point,
+              but review and adjust each file carefully before committing. Some features may not work as expected in your repo.
             </div>
 
             <label className="flex flex-col gap-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
               <span className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
-                Agent Packs API Key (Optional)
+                API Key (Optional)
               </span>
               <input
                 type="password"
                 value={clientApiKey}
                 onChange={(event) => setClientApiKey(event.target.value)}
                 className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
-                placeholder="Paste an x-api-key value"
+                placeholder="Enter your API key"
               />
               <div className="flex items-center gap-2">
                 <button
@@ -300,7 +301,9 @@ export default function AgentPacksPage() {
                 </button>
               </div>
               <p className="text-xs text-zinc-400">
-                Use this only when the web server does not already provide <code>PROMPTC_SERVER_API_KEY</code> for protected Agent Packs requests. If the server key exists, it takes precedence and your typed key is ignored before the request leaves the proxy. This field is mainly for local debugging or fallback calls when the proxy is intentionally running without a server-side key.
+                An API key is required by some deployments of this server to authenticate Agent Packs requests.
+                If your server is already configured with a key, you do not need to enter anything here — the server-side key is used automatically and takes precedence.
+                Only enter a key here if you were given one for direct client access, such as during local development or when connecting to a backend that has no server-side key configured.
               </p>
             </label>
 
