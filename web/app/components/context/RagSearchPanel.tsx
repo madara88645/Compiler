@@ -57,8 +57,17 @@ export default function RagSearchPanel({
 
             <div className="custom-scrollbar flex max-h-32 flex-col gap-2 overflow-y-auto pr-1 sm:max-h-40">
                 {!searching && query && results.length === 0 && (
-                    <div className="text-[10px] text-zinc-500 text-center py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
-                        No results found for &quot;{query}&quot;
+                    <div className="flex flex-col items-center gap-2 py-4 bg-white/[0.02] rounded-lg border border-dashed border-white/5">
+                        <span className="text-[10px] text-zinc-500 text-center">
+                            No results found for &quot;{query}&quot;
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setQuery("")}
+                            className="px-3 py-1 text-[10px] font-medium text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md hover:bg-blue-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+                        >
+                            Clear search
+                        </button>
                     </div>
                 )}
 
