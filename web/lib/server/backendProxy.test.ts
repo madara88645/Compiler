@@ -119,6 +119,59 @@ describe("backend proxy", () => {
     await expect(response.text()).resolves.toBe("zip-bytes");
   });
 
+  it("retries retryable JSON requests when the first backend fetch throws", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("fetch failed"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    const request = new Request("http://localhost:3000/compile", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: "summarize this" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/compile", {
+      retryNetworkErrors: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("does not retry non-retryable requests when the backend fetch throws", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fetch failed"));
+
+    const request = new Request("http://localhost:3000/rag/upload", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": "caller-key",
+      },
+      body: JSON.stringify({ filename: "README.md", content: "hello" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/rag/upload", {
+      requireServerApiKey: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(502);
+  });
+
   it("returns a config error when a protected route has no server API key", async () => {
     const request = new Request("http://localhost:3000/agent-generator/generate", {
       method: "POST",

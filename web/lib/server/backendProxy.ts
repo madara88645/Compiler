@@ -19,7 +19,10 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 type ProxyOptions = {
+  networkRetryAttempts?: number;
+  networkRetryDelayMs?: number;
   requireServerApiKey?: boolean;
+  retryNetworkErrors?: boolean;
 };
 
 function resolveServerApiKey(): string {
@@ -42,6 +45,10 @@ function copyProxyHeaders(request: Request): Headers {
   return headers;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function shouldBufferProxyResponse(response: Response): boolean {
   const contentType = response.headers.get("content-type")?.toLowerCase() || "";
   return contentType.includes("application/json") || contentType.startsWith("text/");
@@ -58,10 +65,8 @@ async function cloneProxyResponse(response: Response): Promise<Response> {
       headers,
     });
   }
-  // ⚡ Bolt Performance Optimization
-  // We forward the response.body ReadableStream directly instead of buffering the whole payload
-  // via await response.arrayBuffer(). This prevents OOM kills on machines with low memory
-  // (like Fly.io 512MB VMs) when passing through large RAG payloads.
+  // Stream large binary responses directly so download-style routes keep the
+  // lower-memory behavior from the original optimization.
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -90,28 +95,34 @@ export async function proxyBackendRequest(
     headers.set("x-api-key", serverApiKey);
   }
 
-  const base = resolveBackendApiBase().replace(/\/+$/, '');
-  const path = backendPath.startsWith('/') ? backendPath : '/' + backendPath;
+  const base = resolveBackendApiBase().replace(/\/+$/, "");
+  const path = backendPath.startsWith("/") ? backendPath : "/" + backendPath;
   const targetUrl = base + path;
+  const retryAttempts = options.retryNetworkErrors ? Math.max(1, options.networkRetryAttempts ?? 3) : 1;
+  const retryDelayMs = options.networkRetryDelayMs ?? 1000;
+  const bufferedBody =
+    !isBodylessMethod(request.method) && options.retryNetworkErrors ? await request.arrayBuffer() : null;
 
-  try {
-    // ⚡ Bolt Performance Optimization
-    // We forward the request.body ReadableStream directly instead of buffering it into memory
-    // using await request.arrayBuffer(). Streaming large requests directly to the backend
-    // reduces memory spikes and prevents OOM crashes on constrained environments.
-    const init: RequestInit & { duplex?: "half" } = {
-      method: request.method,
-      headers,
-      body: isBodylessMethod(request.method) ? undefined : request.body,
-      cache: "no-store",
-      redirect: "manual",
-    };
-    if (init.body) init.duplex = "half";
+  for (let attempt = 0; attempt < retryAttempts; attempt += 1) {
+    try {
+      const init: RequestInit & { duplex?: "half" } = {
+        method: request.method,
+        headers,
+        body: isBodylessMethod(request.method) ? undefined : bufferedBody ?? request.body,
+        cache: "no-store",
+        redirect: "manual",
+      };
+      if (init.body && !bufferedBody) init.duplex = "half";
 
-    const upstreamResponse = await fetch(targetUrl, init as RequestInit);
-
-    return await cloneProxyResponse(upstreamResponse);
-  } catch {
-    return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
+      const upstreamResponse = await fetch(targetUrl, init as RequestInit);
+      return await cloneProxyResponse(upstreamResponse);
+    } catch {
+      if (attempt === retryAttempts - 1) {
+        return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
+      }
+      await sleep(retryDelayMs * (attempt + 1));
+    }
   }
+
+  return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502 });
 }

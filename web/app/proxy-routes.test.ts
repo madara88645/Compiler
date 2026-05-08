@@ -82,6 +82,29 @@ describe("Next backend proxy route wiring", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
+  it("retries compile requests after a transient backend connection failure", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("fetch failed"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ system_prompt: "safe" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    const response = await compileRoute(
+      new Request("http://localhost:3000/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "summarize this" }),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
+  });
+
   it.each<RouteCase>([
     {
       name: "agent packs",
