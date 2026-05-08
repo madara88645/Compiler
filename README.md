@@ -113,10 +113,60 @@ After generating a skill, the **Export** section can wrap the output in framewor
 |---|---|
 | **LangChain Tool** | Python `@tool` function plus JSON schema |
 | **Claude tool_use** | JSON config compatible with Anthropic's `tools` parameter |
+| **Claude MCP Tool Stub** | Runnable FastMCP `server.py` + `README.md`, ready to register with Claude Code, Cursor, or Claude Desktop |
 
 <p align="center">
   <img src="docs/images/skills_generator.png" alt="Skills Generator Interface" width="80%">
 </p>
+
+---
+
+### Claude Agent Packs
+
+The **Agent Packs** sidebar turns a short project brief (project type, stack, goal) into a **runnable, repo-ready bundle of Claude assets** — not just a prompt. Pick a pack type, preview the files, copy individual snippets, or download the whole thing as a `.zip`.
+
+Four pack types are available out of the box, all served from a single Claude-first endpoint:
+
+| Pack Type | What It Emits | Use It For |
+|---|---|---|
+| **Project Pack** | `CLAUDE.md`, `.claude/settings.json`, `.github/workflows/claude.yml` | Bootstrapping Claude Code in a new repo with policy, deny rules, and CI on day one |
+| **Subagent Bundle** | One or more `.claude/agents/<role>.md` files with `name`, `description`, and `tools` frontmatter | Giving Claude Code a team of specialized reviewers / builders that it can dispatch to |
+| **PR Reviewer Pack** | A reviewer subagent + `.github/workflows/claude.yml` | Wiring Claude into pull request review automation |
+| **MCP Tool Stub** | A FastMCP `server.py` + `README.md` scaffolded from a skill definition | Standing up an MCP server that exposes a custom tool to any MCP client |
+
+**Risk-aware generation.** Each request takes a `risk_mode`:
+
+| Mode | Behavior |
+|---|---|
+| `balanced` (default) | Sensible defaults: typical deny list, common allowed tools, gentle ask gates for destructive commands |
+| `strict` | Tightens deny lists, narrows allowed tools, drops optimistic defaults — pick this when adopting Claude Code into a repo with sensitive data or untrusted contributors |
+
+**Provider-agnostic core.** The pack generator is built around an `AgentPackAdapter` Protocol. Claude-specific logic lives in `app/adapters/claude_code.py`; the IR layer in `app/adapters/agent_packs.py` stays neutral. Cursor / Codex / other-provider adapters can plug in later without touching the core.
+
+**API surface** (both endpoints require an API key):
+
+```bash
+# Generate the manifest (preview-friendly: file paths, contents, kinds, preview order)
+curl -X POST https://api.example.com/agent-packs/claude \
+  -H "x-api-key: $PROMPTC_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "project_type": "FastAPI service",
+    "stack": "Python 3.12, FastAPI, PostgreSQL",
+    "goal": "Add a Claude-reviewed PR workflow with deny rules for .env",
+    "pack_type": "project-pack",
+    "risk_mode": "strict"
+  }'
+
+# Same payload, returns a deflate-compressed .zip ready to drop into a repo
+curl -X POST https://api.example.com/agent-packs/claude/download \
+  -H "x-api-key: $PROMPTC_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{...same body...}' \
+  --output claude-project-pack.zip
+```
+
+**Repo-native adoption.** This repo eats its own dog food: the Compiler itself ships a `CLAUDE.md`, a hardened `.claude/settings.json` (denies `.env*`, `secrets/**`, `users.db`, `web/.env.local`; gates `git push`, `fly:`, `railway:` behind explicit confirmation), four ready-to-dispatch subagents in `.claude/agents/` (`compiler-architect`, `frontend-polisher`, `mcp-integrator`, `prompt-safety-reviewer`), and a `claude.yml` workflow for hosted Claude Code review on PRs.
 
 ---
 
