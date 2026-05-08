@@ -34,6 +34,7 @@ npm run test:contracts
 
 - Browser calls stay same-origin and hit the Next proxy layer first. Server-side proxy handlers forward to `NEXT_PUBLIC_API_URL` (or `http://127.0.0.1:8080` locally).
 - Protected proxy routes use `PROMPTC_SERVER_API_KEY` on the web server. `NEXT_PUBLIC_API_KEY` should not be used in the browser.
+- The Agent Packs page exposes an optional client-side `x-api-key` field for local debugging and fallback use. If `PROMPTC_SERVER_API_KEY` is configured, the proxy uses that server key and ignores the typed client key.
 - `/rag/search` returns canonical items shaped like `{ path, snippet, score }`.
 - `/rag/upload` returns canonical ingest metadata and may also include compatibility fields.
 - Some routes can now return `403` when API key protection is enabled on the backend.

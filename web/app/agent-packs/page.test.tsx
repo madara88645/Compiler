@@ -61,6 +61,22 @@ describe("Agent Packs page", () => {
     });
   });
 
+  test("surfaces beta messaging and detailed API key guidance in English", () => {
+    render(<AgentPacksPage />);
+
+    const apiKeyCard = screen.getByText("Agent Packs API Key (Optional)").closest("label");
+
+    expect(screen.getAllByText("Beta").length).toBeGreaterThan(0);
+    expect(screen.getByText("Beta Notice")).toBeTruthy();
+    expect(apiKeyCard).toBeTruthy();
+    expect(apiKeyCard?.textContent).toContain(
+      "Use this only when the web server does not already provide PROMPTC_SERVER_API_KEY for protected Agent Packs requests.",
+    );
+    expect(apiKeyCard?.textContent).toContain(
+      "If the server key exists, it takes precedence and your typed key is ignored before the request leaves the proxy.",
+    );
+  });
+
   test("submits the selected pack type and renders grouped preview output", async () => {
     render(<AgentPacksPage />);
 

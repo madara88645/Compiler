@@ -121,9 +121,18 @@ After generating a skill, the **Export** section can wrap the output in framewor
 
 ---
 
-### Claude Agent Packs
+### Claude Agent Packs Beta
 
 The **Agent Packs** sidebar turns a short project brief (project type, stack, goal) into a **runnable, repo-ready bundle of Claude assets** — not just a prompt. Pick a pack type, preview the files, copy individual snippets, or download the whole thing as a `.zip`.
+
+This feature is currently in **beta**: it is designed to give you a strong starting point quickly, but you should still review every generated file before using it in production.
+
+What the beta means in practice:
+
+- **Fast scaffolding, not blind automation** - expect useful repo memory, settings, agents, and workflow files, then adjust them for your own policies and edge cases.
+- **Best for early repo setup and internal experimentation** - especially when you want to bootstrap Claude Code conventions without hand-writing every asset.
+- **Human review is required** - check prompts, permissions, deny rules, CI assumptions, and generated documentation before shipping.
+- **Optional client API key fallback in the web UI** - if `PROMPTC_SERVER_API_KEY` is already configured on the web server, that server-side key wins. The UI field is mainly for local debugging or fallback calls when the proxy intentionally has no server key.
 
 Four pack types are available out of the box, all served from a single Claude-first endpoint:
 

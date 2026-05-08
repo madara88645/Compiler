@@ -27,6 +27,8 @@ All notable changes to this project will be documented in this file.
 - **Backend test coverage** added in `tests/test_export_adapters.py` for `claude-agent-sdk-py`, `claude-agent-sdk-ts`, `claude-subagent`, `claude-project-pack`, and `claude-mcp-tool-stub` paths.
 
 ### Changed
+- Agent Packs is now presented explicitly as a **beta** across the product docs and web UI, with clearer expectations around human review, production-readiness, and early-stage limitations.
+- The Agent Packs API key helper copy in the web app is now fully English and explains the proxy behavior in detail: when the typed `x-api-key` is used, when `PROMPTC_SERVER_API_KEY` overrides it, and why the field mainly exists for local debugging or fallback calls.
 - `app/adapters/__init__.py` now exports the new Claude Code adapters (`to_claude_mcp_tool_stub`, `to_claude_pr_reviewer_pack`, `to_claude_project_pack`, `to_claude_subagent_bundle`) alongside the existing skill adapters.
 - `api/main.py` mounts the new `agent_packs` router and the existing `export` router accepts the additional `claude-mcp-tool-stub` skill format.
 - The Skills Generator export panel now also surfaces the multi-file `files` payload (path + content) when a format returns more than a single artifact, instead of only `python_code` / `json_config`.
