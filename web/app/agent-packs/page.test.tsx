@@ -65,8 +65,8 @@ describe("Agent Packs page", () => {
     render(<AgentPacksPage />);
 
     expect(screen.getAllByText("Beta").length).toBeGreaterThan(0);
-    expect(screen.getByText("Beta Notice")).toBeTruthy();
-    expect(screen.queryByText("Agent Packs API Key (Optional)")).toBeNull();
+    expect(screen.getByText("Experimental Feature")).toBeTruthy();
+    expect(screen.queryByText("API Key (Optional)")).toBeNull();
   });
 
   test("submits the selected pack type and renders grouped preview output", async () => {

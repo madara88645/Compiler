@@ -252,9 +252,10 @@ export default function AgentPacksPage() {
             </button>
 
             <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-relaxed text-amber-100/90">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Beta Notice</div>
-              Agent Packs is a strong starting point, not a finished autopilot. Expect useful scaffolding, then
-              review the output carefully for repo-specific policies, CI assumptions, and tool permissions.
+              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Experimental Feature</div>
+              Agent Packs is in active development and may produce incomplete or incorrect output for your specific project.
+              The generated files — Claude settings, agent definitions, and CI workflows — are a useful starting point,
+              but review and adjust each file carefully before committing. Some features may not work as expected in your repo.
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
