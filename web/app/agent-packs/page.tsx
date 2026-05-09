@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles } from "lucide-react";
 
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
@@ -74,7 +74,6 @@ function bundleFiles(files: AgentPackFile[]): string {
 }
 
 export default function AgentPacksPage() {
-  const CLIENT_AGENT_PACKS_API_KEY = "promptc_agentpacks_api_key";
   const provider = agentPackProviders[0];
   const [request, setRequest] = useState<AgentPackRequest>(DEFAULT_REQUEST);
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
@@ -84,22 +83,11 @@ export default function AgentPacksPage() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
-  const [clientApiKey, setClientApiKey] = useState("");
 
-  useEffect(() => {
-    const storedKey = window.localStorage.getItem(CLIENT_AGENT_PACKS_API_KEY);
-    if (storedKey) {
-      setClientApiKey(storedKey);
-    }
-  }, []);
-
-  const requestHeaders = useMemo(() => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (clientApiKey.trim()) {
-      headers["x-api-key"] = clientApiKey.trim();
-    }
-    return buildGeneratorApiHeaders(headers);
-  }, [clientApiKey]);
+  const requestHeaders = useMemo(
+    () => buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
+    [],
+  );
 
   const previewGroups = useMemo(() => {
     if (!manifest) return [];
@@ -268,41 +256,6 @@ export default function AgentPacksPage() {
               Agent Packs is a strong starting point, not a finished autopilot. Expect useful scaffolding, then
               review the output carefully for repo-specific policies, CI assumptions, and tool permissions.
             </div>
-
-            <label className="flex flex-col gap-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-              <span className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
-                Agent Packs API Key (Optional)
-              </span>
-              <input
-                type="password"
-                value={clientApiKey}
-                onChange={(event) => setClientApiKey(event.target.value)}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
-                placeholder="Paste an x-api-key value"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.localStorage.setItem(CLIENT_AGENT_PACKS_API_KEY, clientApiKey.trim())}
-                  className="rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-500/25"
-                >
-                  Save Key
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.localStorage.removeItem(CLIENT_AGENT_PACKS_API_KEY);
-                    setClientApiKey("");
-                  }}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/10"
-                >
-                  Clear
-                </button>
-              </div>
-              <p className="text-xs text-zinc-400">
-                Use this only when the web server does not already provide <code>PROMPTC_SERVER_API_KEY</code> for protected Agent Packs requests. If the server key exists, it takes precedence and your typed key is ignored before the request leaves the proxy. This field is mainly for local debugging or fallback calls when the proxy is intentionally running without a server-side key.
-              </p>
-            </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-2">
