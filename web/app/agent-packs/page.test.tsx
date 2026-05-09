@@ -61,20 +61,12 @@ describe("Agent Packs page", () => {
     });
   });
 
-  test("surfaces beta messaging and detailed API key guidance in English", () => {
+  test("surfaces beta messaging", () => {
     render(<AgentPacksPage />);
-
-    const apiKeyCard = screen.getByText("API Key (Optional)").closest("label");
 
     expect(screen.getAllByText("Beta").length).toBeGreaterThan(0);
     expect(screen.getByText("Experimental Feature")).toBeTruthy();
-    expect(apiKeyCard).toBeTruthy();
-    expect(apiKeyCard?.textContent).toContain(
-      "An API key is required by some deployments of this server to authenticate Agent Packs requests.",
-    );
-    expect(apiKeyCard?.textContent).toContain(
-      "Only enter a key here if you were given one for direct client access",
-    );
+    expect(screen.queryByText("API Key (Optional)")).toBeNull();
   });
 
   test("submits the selected pack type and renders grouped preview output", async () => {
