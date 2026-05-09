@@ -5,8 +5,11 @@ import zipfile
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import pytest
+from pydantic import ValidationError
 
 from api.main import app
+from app.adapters.agent_packs import AgentPackManifest
 
 
 def _request_payload(pack_type: str) -> dict[str, str]:
@@ -121,3 +124,63 @@ def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
         assert response.status_code == 200
         assert response.headers["content-disposition"] == 'attachment; filename="review-agent.md"'
         assert response.text == "hello"
+
+
+def test_agent_pack_manifest_rejects_unknown_provider():
+    with patch("api.main.hybrid_compiler"):
+        with pytest.raises(ValidationError):
+            AgentPackManifest.model_validate(
+                {
+                    "provider": "cursor",
+                    "pack_type": "subagent",
+                    "download_name": "demo-pack",
+                    "preview_order": ["agents"],
+                    "files": [
+                        {
+                            "path": ".claude/agents/review-agent.md",
+                            "content": "hello",
+                            "kind": "agents",
+                        }
+                    ],
+                }
+            )
+
+
+def test_agent_pack_manifest_rejects_unknown_kind_and_preview_order():
+    with patch("api.main.hybrid_compiler"):
+        with pytest.raises(ValidationError):
+            AgentPackManifest.model_validate(
+                {
+                    "provider": "claude",
+                    "pack_type": "subagent",
+                    "download_name": "demo-pack",
+                    "preview_order": ["ghost-kind"],
+                    "files": [
+                        {
+                            "path": ".claude/agents/review-agent.md",
+                            "content": "hello",
+                            "kind": "ghost-kind",
+                        }
+                    ],
+                }
+            )
+
+
+def test_agent_pack_manifest_rejects_preview_order_kinds_not_present_in_files():
+    with patch("api.main.hybrid_compiler"):
+        with pytest.raises(ValidationError):
+            AgentPackManifest.model_validate(
+                {
+                    "provider": "claude",
+                    "pack_type": "subagent",
+                    "download_name": "demo-pack",
+                    "preview_order": ["agents", "workflow"],
+                    "files": [
+                        {
+                            "path": ".claude/agents/review-agent.md",
+                            "content": "hello",
+                            "kind": "agents",
+                        }
+                    ],
+                }
+            )
