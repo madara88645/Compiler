@@ -16,7 +16,7 @@ export function formatRelativeTime(timestamp, now = Date.now()) {
 }
 
 export function escapeHtml(value) {
-  return value
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
