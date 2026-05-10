@@ -285,7 +285,10 @@ class TemplatesManager:
             }
 
         # Return overall stats
-        total_uses = sum(s.use_count for s in self._stats.values())
+        # Bolt Optimization: Replace sum() generator expression with explicit loop to avoid overhead
+        total_uses = 0
+        for s in self._stats.values():
+            total_uses += s.use_count
         templates_used = len(self._stats)
 
         most_used = []
