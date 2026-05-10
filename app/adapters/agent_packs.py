@@ -83,9 +83,12 @@ class ClaudeAgentPackAdapter:
             )
             for file in raw_files
         ]
-        preview_order = [
-            kind for kind in _preview_order() if any(file.kind == kind for file in files)
-        ]
+
+        # Bolt Optimization: Replaced O(N*M) generator expression any(file.kind == kind)
+        # with an O(N) set lookup. This bypasses generator frame initialization overhead
+        # and converts nested iterations into a fast O(1) hash map lookup.
+        file_kinds_set = {f.kind for f in files}
+        preview_order = [kind for kind in _preview_order() if kind in file_kinds_set]
         download_name = _build_download_name(req)
 
         return AgentPackManifest(

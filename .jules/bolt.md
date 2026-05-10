@@ -164,3 +164,9 @@
 ## 2024-05-31 - Replacing small generator expressions with explicit loops does not improve readability
 **Learning:** While replacing `any(x in list)` with a standard unrolled `for` loop avoids generator setup overhead and is technically faster at the CPython level, replacing concise and idiomatic generator expressions (like `any()` or `sum()`) often harms code readability and maintainability for negligible gain. The time saved per iteration is measured in nanoseconds, which doesn't resolve actual system bottlenecks (I/O, database fetching, large matrix math). Code reviewers consider this an unhelpful micro-optimization that violates clean code principles.
 **Action:** Do not sacrifice the concise readability of built-in generators (`any()`, `all()`, `sum()`) by replacing them with verbose 5-6 line `for` loops unless the loop runs millions of times on the hot path (like tokenizer parsers) where overhead actually becomes a measurable bottleneck.
+## 2026-06-01 - O(N*M) generator expression optimization
+**Learning:** Replacing generator expressions like `any(file.kind == kind for file in files)` inside a loop with an O(1) set lookup () eliminates generator frame setup overhead and massively speeds up nested lookups.
+**Action:** Use set intersections or lookups when computing properties over nested iterations in performance-critical paths.
+## 2026-06-01 - O(N*M) generator expression optimization
+**Learning:** Replacing generator expressions like `any(file.kind == kind for file in files)` inside a loop with an O(1) set lookup (`kind in file_kinds_set`) eliminates generator frame setup overhead and massively speeds up nested lookups.
+**Action:** Use set intersections or lookups when computing properties over nested iterations in performance-critical paths.
