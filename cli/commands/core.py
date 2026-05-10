@@ -664,7 +664,9 @@ def compare_command(
     if out:
         output_data = result.to_dict()
         # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
-        out.write_text(orjson.dumps(output_data, option=orjson.OPT_INDENT_2).decode("utf-8"), encoding="utf-8")
+        out.write_text(
+            orjson.dumps(output_data, option=orjson.OPT_INDENT_2).decode("utf-8"), encoding="utf-8"
+        )
         typer.echo(f"\n✓ Comparison saved to {out}")
 
 
@@ -1097,12 +1099,8 @@ def json_diff(
     if sort_keys:
         opt |= orjson.OPT_SORT_KEYS
 
-    sa = orjson.dumps(ja, option=opt).decode("utf-8").splitlines(
-        keepends=False
-    )
-    sb = orjson.dumps(jb, option=opt).decode("utf-8").splitlines(
-        keepends=False
-    )
+    sa = orjson.dumps(ja, option=opt).decode("utf-8").splitlines(keepends=False)
+    sb = orjson.dumps(jb, option=opt).decode("utf-8").splitlines(keepends=False)
 
     diff = difflib.unified_diff(sa, sb, fromfile=str(a), tofile=str(b), n=context)
 

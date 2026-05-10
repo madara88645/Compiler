@@ -520,7 +520,9 @@ def history_list(
 
     if json_output:
         # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
-        print(orjson.dumps([e.to_dict() for e in entries], option=orjson.OPT_INDENT_2).decode("utf-8"))
+        print(
+            orjson.dumps([e.to_dict() for e in entries], option=orjson.OPT_INDENT_2).decode("utf-8")
+        )
         return
 
     # Display table

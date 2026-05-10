@@ -89,7 +89,11 @@ def profile_list(json_output: bool = typer.Option(False, "--json", help="Output 
 
     if json_output:
         # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
-        print(orjson.dumps({"active": snap.active, "profiles": names}, option=orjson.OPT_INDENT_2).decode("utf-8"))
+        print(
+            orjson.dumps(
+                {"active": snap.active, "profiles": names}, option=orjson.OPT_INDENT_2
+            ).decode("utf-8")
+        )
         return
 
     from rich.console import Console
