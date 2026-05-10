@@ -73,7 +73,7 @@ def test_rag_upload_indexes_and_searches_content(test_key, monkeypatch):
         assert payload["total_chunks"] >= 1
         assert payload["filename"] == "calculator.py"
 
-        search = client.post("/rag/search", json={"query": "multiply", "limit": 3})
+        search = client.post("/rag/search", json={"query": "multiply", "limit": 3}, headers={"x-api-key": test_key})
         assert search.status_code == 200, search.text
         results = search.json()
         assert results

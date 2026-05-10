@@ -356,14 +356,14 @@ def test_matches_admin_api_key_compares_provided_key_when_lengths_match(monkeypa
 
 def test_compile_no_key():
     resp = client.post("/compile", json={"text": "hello", "v2": False})
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_compile_invalid_key():
     resp = client.post(
         "/compile", json={"text": "hello", "v2": False}, headers={"x-api-key": "invalid"}
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_validate_no_key():
@@ -379,7 +379,7 @@ def test_validate_no_key():
 
         resp = client.post("/validate", json={"text": "hello"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_optimize_no_key():
@@ -388,15 +388,15 @@ def test_optimize_no_key():
 
         resp = client.post("/optimize", json={"text": "a much longer prompt"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_rag_stats_no_key():
     resp = client.get("/rag/stats")
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
-def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path, monkeypatch):
+def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(test_key, tmp_path, monkeypatch):
     primary_db = tmp_path / "blocked" / "rag.db"
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -413,7 +413,7 @@ def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path
         return real_connect(path, *args, **kwargs)
 
     with patch("app.rag.simple_index.sqlite3.connect", side_effect=flaky_connect):
-        resp = client.get("/rag/stats")
+        resp = client.get("/rag/stats", headers={"x-api-key": test_key})
 
     assert resp.status_code == 200
     assert resp.json()["docs"] == 0

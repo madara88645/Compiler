@@ -7,7 +7,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key, verify_api_key_if_required
+from api.auth import APIKey, verify_api_key
 from api.shared import logger
 from app.rag.simple_index import (
     ingest_text,
@@ -143,7 +143,7 @@ async def rag_ingest(
 @router.post("/rag/query", response_model=RagQueryResponse)
 def rag_query(
     req: RagQueryRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
     if req.method == "embed":
@@ -163,7 +163,7 @@ def rag_query(
 @router.post("/rag/pack")
 def rag_pack(
     req: RagPackRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
 
@@ -226,7 +226,7 @@ async def rag_upload(
 
 @router.get("/rag/stats")
 def rag_stats_endpoint(
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async
@@ -239,7 +239,7 @@ def rag_stats_endpoint(
 @router.post("/rag/search", response_model=List[RagSearchResult])
 def rag_search_endpoint(
     req: RagSearchRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async.
