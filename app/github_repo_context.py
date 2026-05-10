@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from cachetools import TTLCache
 
 
 GITHUB_API_BASE = "https://api.github.com"
@@ -24,6 +26,31 @@ MAX_HIGHLIGHTS = 6
 MAX_FILES_USED = 6
 MAX_STACK_ITEMS = 6
 SUMMARY_MAX_CHARS = 1200
+SUMMARY_COMPACT_MAX_CHARS = 280
+_REPO_CACHE_MAXSIZE = 128
+_REPO_CACHE_DEFAULT_TTL_SECONDS = 600
+
+
+def _resolve_repo_cache_ttl() -> int:
+    raw = os.environ.get("PROMPTC_REPO_CONTEXT_CACHE_TTL")
+    if raw is None or raw.strip() == "":
+        return _REPO_CACHE_DEFAULT_TTL_SECONDS
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return _REPO_CACHE_DEFAULT_TTL_SECONDS
+
+
+_REPO_CACHE: TTLCache[str, dict[str, Any]] | None = None
+_repo_cache_ttl = _resolve_repo_cache_ttl()
+if _repo_cache_ttl > 0:
+    _REPO_CACHE = TTLCache(maxsize=_REPO_CACHE_MAXSIZE, ttl=_repo_cache_ttl)
+
+
+def reset_repo_cache_for_tests() -> None:
+    global _REPO_CACHE
+    if _REPO_CACHE is not None:
+        _REPO_CACHE.clear()
 
 
 class InvalidGitHubRepoUrl(ValueError):
@@ -67,6 +94,20 @@ def analyze_public_github_repo(repo_url: str) -> dict[str, Any]:
     normalized_url = normalize_public_github_repo_url(repo_url)
     repo_full_name = normalized_url.replace("https://github.com/", "", 1)
 
+    if _REPO_CACHE is not None:
+        cached = _REPO_CACHE.get(repo_full_name)
+        if cached is not None:
+            return dict(cached)
+
+    payload = _fetch_public_github_repo_payload(normalized_url, repo_full_name)
+
+    if _REPO_CACHE is not None:
+        _REPO_CACHE[repo_full_name] = dict(payload)
+
+    return payload
+
+
+def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) -> dict[str, Any]:
     with httpx.Client(
         base_url=GITHUB_API_BASE,
         headers={
@@ -129,12 +170,18 @@ def analyze_public_github_repo(repo_url: str) -> dict[str, Any]:
             manifest_paths=list(manifests.keys()),
             readme_text=readme_text,
         )
+        summary_compact = _build_summary_compact(
+            repo_meta=repo_meta,
+            detected_stack=detected_stack,
+            top_level_dirs=top_level_dirs,
+        )
 
     return {
         "normalized_repo_url": normalized_url,
         "repo_full_name": repo_full_name,
         "default_branch": default_branch,
         "summary": summary,
+        "summary_compact": summary_compact,
         "highlights": highlights,
         "files_used": files_used,
         "detected_stack": detected_stack[:MAX_STACK_ITEMS],
@@ -327,6 +374,34 @@ def _build_summary(
     if len(summary) > SUMMARY_MAX_CHARS:
         summary = summary[: SUMMARY_MAX_CHARS - 3].rstrip() + "..."
     return summary
+
+
+def _build_summary_compact(
+    *,
+    repo_meta: dict[str, Any],
+    detected_stack: list[str],
+    top_level_dirs: list[str],
+) -> str:
+    repo_name = repo_meta.get("full_name") or "This repository"
+    description = (repo_meta.get("description") or "").strip()
+    stack_phrase = ", ".join(detected_stack[:3]) if detected_stack else "no detected stack signals"
+    shape = (
+        "multi-surface (frontend + backend dirs)"
+        if any(
+            name in {"web", "frontend", "backend", "api", "client", "server"}
+            for name in top_level_dirs
+        )
+        else "single-surface"
+    )
+    parts = [
+        f"{repo_name}: {description}" if description else f"{repo_name}.",
+        f"Stack: {stack_phrase}.",
+        f"Shape: {shape}.",
+    ]
+    compact = " ".join(part.strip() for part in parts if part.strip())
+    if len(compact) > SUMMARY_COMPACT_MAX_CHARS:
+        compact = compact[: SUMMARY_COMPACT_MAX_CHARS - 3].rstrip() + "..."
+    return compact
 
 
 def _extract_readme_signal(readme_text: str) -> str:

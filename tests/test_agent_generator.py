@@ -106,7 +106,11 @@ def test_api_generate_agent_endpoint():
         assert response.status_code == 200
         assert response.json() == {"system_prompt": "# Mock API Agent"}
         mock_compiler.generate_agent.assert_called_with(
-            "Test Agent Request", multi_agent=False, include_example_code=False
+            "Test Agent Request",
+            multi_agent=False,
+            include_example_code=False,
+            repo_context=None,
+            repo_context_mode="full",
         )
 
 
@@ -123,7 +127,11 @@ def test_api_generate_agent_endpoint_with_example_code_enabled():
         assert response.status_code == 200
         assert response.json() == {"system_prompt": "# Mock API Agent"}
         mock_compiler.generate_agent.assert_called_with(
-            "Test Agent Request", multi_agent=False, include_example_code=True
+            "Test Agent Request",
+            multi_agent=False,
+            include_example_code=True,
+            repo_context=None,
+            repo_context_mode="full",
         )
 
 
