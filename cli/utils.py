@@ -1,5 +1,5 @@
 import sys
-import json
+import orjson
 import time
 from pathlib import Path
 import typer
@@ -156,13 +156,15 @@ def _run_compile(
         if fmt_l in {"yaml", "yml"}:
             if yaml is None:
                 typer.secho("PyYAML not installed; falling back to JSON", fg=typer.colors.YELLOW)
-                payload = json.dumps(data, ensure_ascii=False, indent=2)
+                # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+                payload = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
                 default_name = "ir.json"
             else:
                 payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)  # type: ignore
                 default_name = "ir.yaml"
         else:
-            payload = json.dumps(data, ensure_ascii=False, indent=2)
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+            payload = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
             default_name = "ir.json"
 
         if out or out_dir:
@@ -178,7 +180,7 @@ def _run_compile(
                     md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
                 md_parts.append(
                     "\n\n# IR JSON\n\n```json\n"
-                    + json.dumps(data, ensure_ascii=False, indent=2)
+                    + orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
                     + "\n```"
                 )
                 payload = "".join(md_parts)

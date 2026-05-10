@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json
+import orjson
 import typer
 import time
 from typing import List, Optional
@@ -154,7 +154,8 @@ def analytics_summary(
     if json_output:
         from dataclasses import asdict
 
-        print(json.dumps(asdict(summary), ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        print(orjson.dumps(asdict(summary), option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
 
     # Display rich formatted summary
@@ -258,7 +259,8 @@ def analytics_trends(
         return
 
     if json_output:
-        print(json.dumps(trends, ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        print(orjson.dumps(trends, option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
 
     # Display table
@@ -332,7 +334,8 @@ def analytics_domains(
         return
 
     if json_output:
-        print(json.dumps(domain_stats, ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        print(orjson.dumps(domain_stats, option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
 
     # Display table
@@ -516,7 +519,8 @@ def history_list(
         return
 
     if json_output:
-        print(json.dumps([e.to_dict() for e in entries], ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        print(orjson.dumps([e.to_dict() for e in entries], option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
 
     # Display table

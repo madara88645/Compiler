@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json
+import orjson
 import typer
 from rich import print
 from typing import Optional
@@ -56,7 +56,8 @@ def plugins_list(
 
     info = describe_plugins(refresh=refresh)
     if json_out:
-        typer.echo(json.dumps(info, ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        typer.echo(orjson.dumps(info, option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
     if not info:
         typer.echo(
@@ -87,7 +88,8 @@ def profile_list(json_output: bool = typer.Option(False, "--json", help="Output 
     names = sorted(snap.profiles.keys(), key=lambda s: s.lower())
 
     if json_output:
-        print(json.dumps({"active": snap.active, "profiles": names}, ensure_ascii=False, indent=2))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        print(orjson.dumps({"active": snap.active, "profiles": names}, option=orjson.OPT_INDENT_2).decode("utf-8"))
         return
 
     from rich.console import Console
@@ -114,7 +116,8 @@ def profile_show(
     profile = get_settings_profile(name)
     if not profile:
         raise typer.Exit(code=1)
-    print(json.dumps(profile, ensure_ascii=False, indent=2))
+    # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+    print(orjson.dumps(profile, option=orjson.OPT_INDENT_2).decode("utf-8"))
 
 
 @profiles_app.command("save")

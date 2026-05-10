@@ -1,6 +1,7 @@
 from __future__ import annotations
 import sys
 import json
+import orjson
 import yaml
 import time
 import typer
@@ -192,13 +193,15 @@ def _run_compile(
         if fmt_l in {"yaml", "yml"}:
             if yaml is None:
                 typer.secho("PyYAML not installed; falling back to JSON", fg=typer.colors.YELLOW)
-                payload = json.dumps(data, ensure_ascii=False, indent=2)
+                # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+                payload = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
                 default_name = "ir.json"
             else:
                 payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)  # type: ignore
                 default_name = "ir.yaml"
         else:
-            payload = json.dumps(data, ensure_ascii=False, indent=2)
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+            payload = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
             default_name = "ir.json"
         if out or out_dir:
             if fmt_l == "md" and (ir or (ir2 and render_v2)):
@@ -214,7 +217,7 @@ def _run_compile(
                     md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
                 md_parts.append(
                     "\n\n# IR JSON\n\n```json\n"
-                    + json.dumps(data, ensure_ascii=False, indent=2)
+                    + orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
                     + "\n```"
                 )
                 _write_output("\n".join(md_parts), out, out_dir, default_name="promptc.md")
@@ -237,7 +240,7 @@ def _run_compile(
                 md_parts.append("\n\n# Expanded Prompt\n\n" + expanded)
             md_parts.append(
                 "\n\n# IR JSON\n\n```json\n"
-                + json.dumps(data, ensure_ascii=False, indent=2)
+                + orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
                 + "\n```"
             )
             typer.echo("\n".join(md_parts))
@@ -251,7 +254,8 @@ def _run_compile(
         print(f"[bold white]IR v2[/bold white] (heuristics v{HEURISTIC2_VERSION})")
     print("\n[bold blue]IR JSON:[/bold blue]")
     ir_json = ir_json
-    rendered = json.dumps(ir_json, ensure_ascii=False, indent=2)
+    # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+    rendered = orjson.dumps(ir_json, option=orjson.OPT_INDENT_2).decode("utf-8")
     if out or out_dir:
         fmt_l = (fmt or "json").lower()
         # Support --format md to save prompts as Markdown (v1 or v2 rendering)
@@ -516,7 +520,8 @@ def fix_prompt_command(
             ],
             "remaining_issues": result.remaining_issues,
         }
-        output = json.dumps(output_data, ensure_ascii=False, indent=2)
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        output = orjson.dumps(output_data, option=orjson.OPT_INDENT_2).decode("utf-8")
         typer.echo(output)
     else:
         # Rich formatted output
@@ -591,7 +596,8 @@ def compare_command(
 
     # JSON output
     if json_output:
-        output = json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        output = orjson.dumps(result.to_dict(), option=orjson.OPT_INDENT_2).decode("utf-8")
         if out:
             out.write_text(output, encoding="utf-8")
             typer.echo(f"✓ Comparison saved to {out}")
@@ -657,7 +663,8 @@ def compare_command(
     # Save to file
     if out:
         output_data = result.to_dict()
-        out.write_text(json.dumps(output_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        out.write_text(orjson.dumps(output_data, option=orjson.OPT_INDENT_2).decode("utf-8"), encoding="utf-8")
         typer.echo(f"\n✓ Comparison saved to {out}")
 
 
@@ -764,7 +771,8 @@ def batch(
                 if fmt == "json" and (jsonl_file or stdout):
                     try:
                         obj = json.loads(target_path.read_text(encoding="utf-8"))
-                        line = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+                        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+                        line = orjson.dumps(obj).decode("utf-8")
                         if jsonl_file:
                             jsonl_file.write(line + "\n")
                         if stdout:
@@ -823,8 +831,9 @@ def batch(
                 "errors": [{"path": str(p), "error": msg} for p, msg in errors],
             }
             summary_json.parent.mkdir(parents=True, exist_ok=True)
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
             summary_json.write_text(
-                json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+                orjson.dumps(summary, option=orjson.OPT_INDENT_2).decode("utf-8"), encoding="utf-8"
             )
 
         if stdout and stdout_chunks:
@@ -930,7 +939,8 @@ def pack_command(
         payload = _render_prompt_pack_txt(system_prompt, user_prompt, plan, expanded)
         default_name = "prompt_pack.txt"
     elif fmt_l == "json":
-        payload = json.dumps(
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        payload = orjson.dumps(
             {
                 "ir_version": ir_ver,
                 "heuristic_version": heur,
@@ -939,9 +949,8 @@ def pack_command(
                 "plan": plan,
                 "expanded_prompt": expanded,
             },
-            ensure_ascii=False,
-            indent=2,
-        )
+            option=orjson.OPT_INDENT_2,
+        ).decode("utf-8")
         default_name = "prompt_pack.json"
     else:
         raise typer.BadParameter("Unknown --format. Use md|json|txt")
@@ -1040,7 +1049,8 @@ def json_path(
     elif raw and isinstance(cur, str):
         typer.echo(cur)
     else:
-        typer.echo(json.dumps(cur, ensure_ascii=False))
+        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+        typer.echo(orjson.dumps(cur).decode("utf-8"))
 
 
 @app.command("diff")
@@ -1082,10 +1092,15 @@ def json_diff(
             return
         raise typer.Exit(code=1)
 
-    sa = json.dumps(ja, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+    # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+    opt = orjson.OPT_INDENT_2
+    if sort_keys:
+        opt |= orjson.OPT_SORT_KEYS
+
+    sa = orjson.dumps(ja, option=opt).decode("utf-8").splitlines(
         keepends=False
     )
-    sb = json.dumps(jb, ensure_ascii=False, indent=2, sort_keys=sort_keys).splitlines(
+    sb = orjson.dumps(jb, option=opt).decode("utf-8").splitlines(
         keepends=False
     )
 
