@@ -160,3 +160,6 @@
 ## 2026-05-31 - Removing any() generator overhead in short-circuit evaluations
 **Learning:** In highly recurrent loops (like PII detection or scanning windows), using an inline `any(hint in ctx for hint in hints)` expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `in` operation, especially for small sequences.
 **Action:** Replace `any()` generator expressions used for substring matching in hot paths with explicit `for` loops to bypass generator overhead and achieve a 30-40% speedup.
+## 2026-05-10 - Regex Precompilation in LLM Engine Client
+**Learning:** In hot paths generating system prompts, inline `re.sub()` calls dynamically recompile the regex object every time the function is called.
+**Action:** Extract static regex patterns into pre-compiled module-level constants using `re.compile()` to avoid repetitive compilation overhead.
