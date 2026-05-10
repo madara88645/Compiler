@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import time
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -12,6 +14,43 @@ from app.github_repo_context import (
     InvalidGitHubRepoUrl,
     analyze_public_github_repo,
 )
+
+
+def _safe_repo_full_name(repo_url: str) -> str | None:
+    try:
+        parsed = urlparse((repo_url or "").strip())
+        if parsed.netloc.lower() != "github.com":
+            return None
+        segments = [seg for seg in parsed.path.split("/") if seg]
+        if len(segments) < 2:
+            return None
+        return f"{segments[0]}/{segments[1]}"
+    except Exception:
+        return None
+
+
+def _log_repo_analyze_outcome(
+    *,
+    outcome: str,
+    repo_url: str,
+    started_at: float,
+    repo_full_name: str | None = None,
+    status_code: int | None = None,
+    error_message: str | None = None,
+) -> None:
+    duration_ms = round((time.monotonic() - started_at) * 1000, 2)
+    extra = {
+        "event": "repo_analyze",
+        "outcome": outcome,
+        "repo_full_name": repo_full_name or _safe_repo_full_name(repo_url),
+        "duration_ms": duration_ms,
+    }
+    if status_code is not None:
+        extra["status_code"] = status_code
+    if error_message:
+        extra["error_message"] = error_message
+    logger.info("repo_analyze outcome=%s", outcome, extra=extra)
+
 
 router = APIRouter(tags=["generators"])
 
@@ -80,16 +119,48 @@ async def analyze_github_repo_endpoint(
     api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
+    started_at = time.monotonic()
 
     try:
-        return GitHubRepoContextPayload.model_validate(analyze_public_github_repo(req.repo_url))
+        payload = analyze_public_github_repo(req.repo_url)
     except InvalidGitHubRepoUrl as exc:
+        _log_repo_analyze_outcome(
+            outcome="invalid_url",
+            repo_url=req.repo_url,
+            started_at=started_at,
+            status_code=400,
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except GitHubRepoAnalysisError as exc:
+        outcome = "not_found" if exc.status_code == 404 else "upstream_error"
+        _log_repo_analyze_outcome(
+            outcome=outcome,
+            repo_url=req.repo_url,
+            started_at=started_at,
+            status_code=exc.status_code,
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("github repo analysis failed")
+        _log_repo_analyze_outcome(
+            outcome="internal_error",
+            repo_url=req.repo_url,
+            started_at=started_at,
+            status_code=500,
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
+
+    _log_repo_analyze_outcome(
+        outcome="ok",
+        repo_url=req.repo_url,
+        started_at=started_at,
+        repo_full_name=payload.get("repo_full_name") if isinstance(payload, dict) else None,
+        status_code=200,
+    )
+    return GitHubRepoContextPayload.model_validate(payload)
 
 
 @router.post("/skills-generator/generate", response_model=SkillGenResponse)

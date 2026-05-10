@@ -25,6 +25,16 @@ Prompt Compiler is a FastAPI + Next.js product that turns vague requests into st
 - Frontend tests: `cd web && npm run test`
 - Frontend build: `cd web && npm run build`
 
+## Server-side environment variables
+The Next-side proxy and the backend each need their own keys; keep them out of the bundled JS.
+
+| Env var | Side | Purpose |
+| --- | --- | --- |
+| `PROMPTC_SERVER_API_KEY` | Next.js | Forwarded as `x-api-key` to protected backend routes (generators, analyze). Without it, protected proxy routes return 500. |
+| `PROMPTC_PROXY_UPSTREAM_TIMEOUT_MS` | Next.js | Hard upstream-fetch timeout for the proxy (default 25000). Aborts a stuck backend connection with a 504 instead of hanging the route forever. |
+| `PROMPTC_GITHUB_TOKEN` (or `GITHUB_TOKEN`) | Backend | Optional. When set, the public-repo analyzer adds `Authorization: Bearer <token>` to GitHub requests, raising the rate limit from 60 req/h (anonymous) to 5000 req/h. |
+| `PROMPTC_REPO_CONTEXT_CACHE_TTL` | Backend | Repo-brief cache TTL in seconds (default 600). Set to `0` to disable the in-memory cache. |
+
 ## Domain Concepts
 - Conservative mode should avoid hallucinated requirements and fake APIs.
 - Export surfaces should feel executable, not just prompt-pretty.

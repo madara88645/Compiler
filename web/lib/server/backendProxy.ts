@@ -1,9 +1,25 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 25_000;
 const CONFIG_ERROR_DETAIL = "PROMPTC_SERVER_API_KEY is not configured on the web server.";
 const NETWORK_ERROR_DETAIL =
   "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
+const TIMEOUT_ERROR_DETAIL =
+  "The backend did not respond within the upstream timeout. Please retry shortly.";
 const PROXY_ATTEMPTS_HEADER = "x-promptc-proxy-attempts";
 const PROXY_DURATION_HEADER = "x-promptc-proxy-duration-ms";
+const PROXY_TIMED_OUT_HEADER = "x-promptc-proxy-timed-out";
+
+function resolveUpstreamTimeoutMs(): number {
+  const raw = process.env.PROMPTC_PROXY_UPSTREAM_TIMEOUT_MS?.trim();
+  if (!raw) return DEFAULT_UPSTREAM_TIMEOUT_MS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_UPSTREAM_TIMEOUT_MS;
+  return parsed;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+}
 
 if (!process.env.PROMPTC_SERVER_API_KEY?.trim()) {
   console.warn("PROMPTC_SERVER_API_KEY not set - protected proxy routes will forward no API key");
@@ -26,6 +42,7 @@ type ProxyOptions = {
   networkRetryDelayMs?: number;
   requireServerApiKey?: boolean;
   retryNetworkErrors?: boolean;
+  upstreamTimeoutMs?: number;
 };
 
 function resolveServerApiKey(): string {
@@ -121,10 +138,13 @@ export async function proxyBackendRequest(
   const targetUrl = base + path;
   const retryAttempts = options.retryNetworkErrors ? Math.max(1, options.networkRetryAttempts ?? 3) : 1;
   const retryDelayMs = options.networkRetryDelayMs ?? 1000;
+  const upstreamTimeoutMs = options.upstreamTimeoutMs ?? resolveUpstreamTimeoutMs();
   const bufferedBody =
     !isBodylessMethod(request.method) && options.retryNetworkErrors ? await request.arrayBuffer() : null;
 
   for (let attempt = 0; attempt < retryAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), upstreamTimeoutMs);
     try {
       const init: RequestInit & { duplex?: "half" } = {
         method: request.method,
@@ -132,6 +152,7 @@ export async function proxyBackendRequest(
         body: isBodylessMethod(request.method) ? undefined : bufferedBody ?? request.body,
         cache: "no-store",
         redirect: "manual",
+        signal: controller.signal,
       };
       if (init.body && !bufferedBody) init.duplex = "half";
 
@@ -149,25 +170,42 @@ export async function proxyBackendRequest(
 
       return await cloneProxyResponse(upstreamResponse, attemptsUsed, durationMs);
     } catch (error) {
+      const timedOut = isAbortError(error);
       if (attempt === retryAttempts - 1) {
         const attemptsUsed = attempt + 1;
         const durationMs = Date.now() - requestStartedAt;
-        console.error("[backendProxy] upstream unavailable", {
+        const logLabel = timedOut ? "[backendProxy] upstream timed out" : "[backendProxy] upstream unavailable";
+        console.error(logLabel, {
           attempts: attemptsUsed,
           backendPath: path,
           durationMs,
+          upstreamTimeoutMs,
+          timedOut,
           error: error instanceof Error ? error.message : String(error),
         });
         const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
-        return Response.json({ detail: NETWORK_ERROR_DETAIL }, { status: 502, headers: diagnosticHeaders });
+        if (timedOut) {
+          diagnosticHeaders.set(PROXY_TIMED_OUT_HEADER, "1");
+          return Response.json(
+            { detail: TIMEOUT_ERROR_DETAIL },
+            { status: 504, headers: diagnosticHeaders },
+          );
+        }
+        return Response.json(
+          { detail: NETWORK_ERROR_DETAIL },
+          { status: 502, headers: diagnosticHeaders },
+        );
       }
 
       console.warn("[backendProxy] retrying upstream request", {
         attempt: attempt + 1,
         backendPath: path,
         retryDelayMs: retryDelayMs * (attempt + 1),
+        timedOut,
       });
       await sleep(retryDelayMs * (attempt + 1));
+    } finally {
+      clearTimeout(timeoutHandle);
     }
   }
 

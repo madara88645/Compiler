@@ -107,13 +107,31 @@ def analyze_public_github_repo(repo_url: str) -> dict[str, Any]:
     return payload
 
 
+def _resolve_github_token() -> str | None:
+    for env_name in ("PROMPTC_GITHUB_TOKEN", "GITHUB_TOKEN"):
+        raw = os.environ.get(env_name)
+        if raw:
+            stripped = raw.strip()
+            if stripped:
+                return stripped
+    return None
+
+
+def _build_github_request_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "promptc-repo-context/1.0",
+    }
+    token = _resolve_github_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) -> dict[str, Any]:
     with httpx.Client(
         base_url=GITHUB_API_BASE,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "promptc-repo-context/1.0",
-        },
+        headers=_build_github_request_headers(),
         timeout=10.0,
         follow_redirects=True,
     ) as client:
