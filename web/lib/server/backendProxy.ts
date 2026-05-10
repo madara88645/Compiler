@@ -36,6 +36,15 @@ function isBodylessMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
 }
 
+async function drainRequestBody(request: Request): Promise<void> {
+  if (isBodylessMethod(request.method)) return;
+  try {
+    await request.arrayBuffer();
+  } catch {
+    // Best effort only; the response path should still complete even if draining fails.
+  }
+}
+
 function copyProxyHeaders(request: Request): Headers {
   const headers = new Headers();
 
@@ -98,6 +107,7 @@ export async function proxyBackendRequest(
   const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
 
   if (options.requireServerApiKey && !serverApiKey && !callerApiKey) {
+    await drainRequestBody(request);
     return Response.json({ detail: CONFIG_ERROR_DETAIL }, { status: 500 });
   }
 

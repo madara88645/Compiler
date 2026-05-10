@@ -41,26 +41,47 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
     # Mock context strategist
     compiler.context_strategist = MagicMock()
     compiler.context_strategist.process.return_value = {"file1.py": "content"}
+    repo_context = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repository.",
+        "highlights": ["README present"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
 
     # Manually inject the mock worker
     compiler.worker = mock_worker_client
 
     # Test generate_agent with context
-    compiler.generate_agent("Test Agent")
+    compiler.generate_agent("Test Agent", repo_context=repo_context)
     compiler.context_strategist.process.assert_called_with("Test Agent")
     mock_worker_client.generate_agent.assert_called_with(
         "Test Agent",
-        context={"file1.py": "content"},
+        context={
+            "file1.py": "content",
+            "repo_context": {
+                "source": "github_public_repo",
+                **repo_context,
+            },
+        },
         multi_agent=False,
         include_example_code=False,
     )
 
     # Test generate_skill with context
-    compiler.generate_skill("Test Skill")
+    compiler.generate_skill("Test Skill", repo_context=repo_context)
     compiler.context_strategist.process.assert_called_with("Test Skill")
     mock_worker_client.generate_skill.assert_called_with(
         "Test Skill",
-        context={"file1.py": "content"},
+        context={
+            "file1.py": "content",
+            "repo_context": {
+                "source": "github_public_repo",
+                **repo_context,
+            },
+        },
         include_example_code=False,
     )
 
@@ -70,15 +91,42 @@ def test_api_endpoints_integration():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = "# Mock API Agent"
         mock_compiler.generate_skill.return_value = "# Mock API Skill"
+        mock_compiler.analyze_public_github_repo.return_value = None
 
         client = TestClient(app)
+        repo_context = {
+            "normalized_repo_url": "https://github.com/openai/openai-python",
+            "repo_full_name": "openai/openai-python",
+            "default_branch": "main",
+            "summary": "Python SDK repository.",
+            "highlights": ["README present"],
+            "files_used": ["README.md"],
+            "detected_stack": ["Python"],
+        }
 
         # Test Agent Generator Endpoint
-        resp_agent = client.post("/agent-generator/generate", json={"description": "Test Agent"})
+        resp_agent = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent", "repo_context": repo_context},
+        )
         assert resp_agent.status_code == 200
         assert resp_agent.json() == {"system_prompt": "# Mock API Agent"}
+        mock_compiler.generate_agent.assert_called_with(
+            "Test Agent",
+            multi_agent=False,
+            include_example_code=False,
+            repo_context=repo_context,
+        )
 
         # Test Skills Generator Endpoint
-        resp_skill = client.post("/skills-generator/generate", json={"description": "Test Skill"})
+        resp_skill = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill", "repo_context": repo_context},
+        )
         assert resp_skill.status_code == 200
         assert resp_skill.json() == {"skill_definition": "# Mock API Skill"}
+        mock_compiler.generate_skill.assert_called_with(
+            "Test Skill",
+            include_example_code=False,
+            repo_context=repo_context,
+        )

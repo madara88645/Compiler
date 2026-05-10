@@ -138,3 +138,13 @@ export type RagStats = {
   avg_bytes?: number;
   largest?: Array<{ path: string; size: number }>;
 };
+
+export type GitHubRepoContextPayload = {
+  normalized_repo_url: string;
+  repo_full_name: string;
+  default_branch: string | null;
+  summary: string;
+  highlights: string[];
+  files_used: string[];
+  detected_stack: string[];
+};
