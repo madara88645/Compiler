@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
@@ -34,6 +34,24 @@ class RagIngestRequest(BaseModel):
     embed: bool = Field(default=False)
     embed_dim: int = Field(default=64, ge=8, le=1024)
     chunking_strategy: str = Field(default="paragraph", pattern="^(fixed|paragraph|semantic)$")
+
+    @field_validator("paths")
+    @classmethod
+    def validate_paths_length(cls, paths: List[str]) -> List[str]:
+        for path in paths:
+            if len(path) > 1024:
+                raise ValueError("path exceeds maximum length of 1024 characters")
+        return paths
+
+    @field_validator("exts")
+    @classmethod
+    def validate_exts_length(cls, exts: Optional[List[str]]) -> Optional[List[str]]:
+        if exts is None:
+            return None
+        for ext in exts:
+            if len(ext) > 50:
+                raise ValueError("extension exceeds maximum length of 50 characters")
+        return exts
 
 
 class RagIngestResponse(BaseModel):
