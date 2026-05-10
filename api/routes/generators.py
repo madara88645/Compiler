@@ -69,6 +69,8 @@ RepoContextMode = Literal["full", "compact"]
 class GitHubRepoContextPayload(BaseModel):
     normalized_repo_url: str = Field(..., min_length=1, max_length=500)
     repo_full_name: str = Field(..., min_length=1, max_length=255)
+    requested_ref: str | None = Field(default=None, max_length=255)
+    requested_subdir: str | None = Field(default=None, max_length=500)
     default_branch: str | None = Field(default=None, max_length=255)
     summary: str = Field(..., min_length=1, max_length=1_500)
     summary_compact: str | None = Field(default=None, max_length=400)

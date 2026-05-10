@@ -4,7 +4,7 @@ import json
 import os
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 from cachetools import TTLCache
@@ -41,7 +41,8 @@ def _resolve_repo_cache_ttl() -> int:
         return _REPO_CACHE_DEFAULT_TTL_SECONDS
 
 
-_REPO_CACHE: TTLCache[str, dict[str, Any]] | None = None
+RepoCacheKey = tuple[str, str, str]
+_REPO_CACHE: TTLCache[RepoCacheKey, dict[str, Any]] | None = None
 _repo_cache_ttl = _resolve_repo_cache_ttl()
 if _repo_cache_ttl > 0:
     _REPO_CACHE = TTLCache(maxsize=_REPO_CACHE_MAXSIZE, ttl=_repo_cache_ttl)
@@ -63,7 +64,7 @@ class GitHubRepoAnalysisError(RuntimeError):
         self.status_code = status_code
 
 
-def normalize_public_github_repo_url(repo_url: str) -> str:
+def normalize_public_github_repo_url(repo_url: str) -> tuple[str, str | None, str | None]:
     raw = (repo_url or "").strip()
     if not raw:
         raise InvalidGitHubRepoUrl("GitHub repo URL is required.")
@@ -76,10 +77,10 @@ def normalize_public_github_repo_url(repo_url: str) -> str:
 
     path = parsed.path.rstrip("/")
     segments = [segment for segment in path.split("/") if segment]
-    if len(segments) != 2:
+    if len(segments) < 2:
         raise InvalidGitHubRepoUrl("Only root repository URLs are supported.")
 
-    owner, repo = segments
+    owner, repo = segments[0], segments[1]
     if repo.endswith(".git"):
         raise InvalidGitHubRepoUrl("Remove the .git suffix and use the root repository URL.")
 
@@ -87,22 +88,43 @@ def normalize_public_github_repo_url(repo_url: str) -> str:
     if not allowed.match(owner) or not allowed.match(repo):
         raise InvalidGitHubRepoUrl("Repository URL contains unsupported characters.")
 
-    return f"https://github.com/{owner}/{repo}"
+    normalized_url = f"https://github.com/{owner}/{repo}"
+    if len(segments) == 2:
+        return normalized_url, None, None
+
+    if len(segments) >= 4 and segments[2] == "tree":
+        requested_ref = segments[3]
+        if not requested_ref:
+            raise InvalidGitHubRepoUrl("Only root repository URLs are supported.")
+        requested_subdir = "/".join(segments[4:]) or None
+        return normalized_url, requested_ref, requested_subdir
+
+    raise InvalidGitHubRepoUrl("Only root repository URLs are supported.")
 
 
 def analyze_public_github_repo(repo_url: str) -> dict[str, Any]:
-    normalized_url = normalize_public_github_repo_url(repo_url)
+    normalized_url, requested_ref, requested_subdir = normalize_public_github_repo_url(repo_url)
     repo_full_name = normalized_url.replace("https://github.com/", "", 1)
+    cache_key: RepoCacheKey = (
+        repo_full_name,
+        requested_ref or "",
+        requested_subdir or "",
+    )
 
     if _REPO_CACHE is not None:
-        cached = _REPO_CACHE.get(repo_full_name)
+        cached = _REPO_CACHE.get(cache_key)
         if cached is not None:
             return dict(cached)
 
-    payload = _fetch_public_github_repo_payload(normalized_url, repo_full_name)
+    payload = _fetch_public_github_repo_payload(
+        normalized_url,
+        repo_full_name,
+        requested_ref=requested_ref,
+        requested_subdir=requested_subdir,
+    )
 
     if _REPO_CACHE is not None:
-        _REPO_CACHE[repo_full_name] = dict(payload)
+        _REPO_CACHE[cache_key] = dict(payload)
 
     return payload
 
@@ -128,7 +150,28 @@ def _build_github_request_headers() -> dict[str, str]:
     return headers
 
 
-def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) -> dict[str, Any]:
+def _contents_api_path(
+    repo_full_name: str,
+    *,
+    requested_path: str | None = None,
+    requested_ref: str | None = None,
+) -> str:
+    path = f"/repos/{repo_full_name}/contents"
+    if requested_path:
+        normalized_path = quote(requested_path.strip("/"), safe="/")
+        path = f"{path}/{normalized_path}"
+    if requested_ref:
+        path = f"{path}?{urlencode({'ref': requested_ref})}"
+    return path
+
+
+def _fetch_public_github_repo_payload(
+    normalized_url: str,
+    repo_full_name: str,
+    *,
+    requested_ref: str | None,
+    requested_subdir: str | None,
+) -> dict[str, Any]:
     with httpx.Client(
         base_url=GITHUB_API_BASE,
         headers=_build_github_request_headers(),
@@ -136,12 +179,19 @@ def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) 
         follow_redirects=True,
     ) as client:
         repo_meta = _get_json(client, f"/repos/{repo_full_name}")
-        root_entries = _get_json(client, f"/repos/{repo_full_name}/contents")
-        if not isinstance(root_entries, list):
+        listing_entries = _get_json(
+            client,
+            _contents_api_path(
+                repo_full_name,
+                requested_path=requested_subdir,
+                requested_ref=requested_ref,
+            ),
+        )
+        if not isinstance(listing_entries, list):
             raise GitHubRepoAnalysisError("Unable to read the repository root directory.")
 
         default_branch = repo_meta.get("default_branch")
-        readme_entry = _find_readme(root_entries)
+        readme_entry = _find_readme(listing_entries)
         readme_text = _read_text_file(client, readme_entry) if readme_entry else ""
         files_used: list[str] = []
         if readme_entry:
@@ -149,18 +199,28 @@ def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) 
 
         manifests: dict[str, str] = {}
         for manifest_name in MANIFEST_FILES:
-            entry = _find_entry(root_entries, manifest_name)
+            entry = _find_entry(listing_entries, manifest_name)
             if entry:
                 content = _read_text_file(client, entry)
                 if content:
                     manifests[entry["path"]] = content
                     files_used.append(entry["path"])
 
-        top_level_dirs = [entry["name"] for entry in root_entries if entry.get("type") == "dir"]
+        top_level_dirs = [entry["name"] for entry in listing_entries if entry.get("type") == "dir"]
         candidate_dirs = [name for name in top_level_dirs if name in SCANNED_APP_DIRS][:2]
 
         for directory in candidate_dirs:
-            nested_entries = _get_json(client, f"/repos/{repo_full_name}/contents/{directory}")
+            nested_path = (
+                f"{requested_subdir.strip('/')}/{directory}" if requested_subdir else directory
+            )
+            nested_entries = _get_json(
+                client,
+                _contents_api_path(
+                    repo_full_name,
+                    requested_path=nested_path,
+                    requested_ref=requested_ref,
+                ),
+            )
             if not isinstance(nested_entries, list):
                 continue
             for manifest_name in MANIFEST_FILES:
@@ -170,6 +230,12 @@ def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) 
                     if content:
                         manifests[entry["path"]] = content
                         files_used.append(entry["path"])
+            if len(_dedupe(files_used)) < MAX_FILES_USED:
+                nested_readme = _find_readme(nested_entries)
+                if nested_readme and nested_readme["path"] not in files_used:
+                    nested_readme_text = _read_text_file(client, nested_readme)
+                    if nested_readme_text:
+                        files_used.append(nested_readme["path"])
 
         detected_stack = _detect_stack(repo_meta, manifests)
         files_used = _dedupe(files_used)[:MAX_FILES_USED]
@@ -197,6 +263,8 @@ def _fetch_public_github_repo_payload(normalized_url: str, repo_full_name: str) 
     return {
         "normalized_repo_url": normalized_url,
         "repo_full_name": repo_full_name,
+        "requested_ref": requested_ref,
+        "requested_subdir": requested_subdir,
         "default_branch": default_branch,
         "summary": summary,
         "summary_compact": summary_compact,

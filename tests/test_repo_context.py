@@ -19,16 +19,48 @@ client = TestClient(app)
 
 
 def test_normalize_public_github_repo_url_accepts_root_url():
-    normalized = normalize_public_github_repo_url("https://github.com/openai/openai-python/")
+    normalized, requested_ref, requested_subdir = normalize_public_github_repo_url(
+        "https://github.com/openai/openai-python/"
+    )
 
     assert normalized == "https://github.com/openai/openai-python"
+    assert requested_ref is None
+    assert requested_subdir is None
+
+
+@pytest.mark.parametrize(
+    ("repo_url", "expected_root", "expected_ref", "expected_subdir"),
+    [
+        (
+            "https://github.com/openai/openai-python/tree/main",
+            "https://github.com/openai/openai-python",
+            "main",
+            None,
+        ),
+        (
+            "https://github.com/vercel/next.js/tree/canary/packages/next",
+            "https://github.com/vercel/next.js",
+            "canary",
+            "packages/next",
+        ),
+    ],
+)
+def test_normalize_public_github_repo_url_accepts_tree_variants(
+    repo_url: str,
+    expected_root: str,
+    expected_ref: str,
+    expected_subdir: str | None,
+):
+    normalized, requested_ref, requested_subdir = normalize_public_github_repo_url(repo_url)
+    assert normalized == expected_root
+    assert requested_ref == expected_ref
+    assert requested_subdir == expected_subdir
 
 
 @pytest.mark.parametrize(
     "repo_url",
     [
         "https://github.com/openai/openai-python.git",
-        "https://github.com/openai/openai-python/tree/main",
         "https://github.com/openai/openai-python/blob/main/README.md",
         "https://github.com/openai/openai-python?tab=readme-ov-file",
         "https://github.com/openai/openai-python#readme",
@@ -65,7 +97,7 @@ def test_build_summary_compact_handles_missing_metadata():
     assert "single-surface" in compact
 
 
-def test_analyze_public_github_repo_uses_in_memory_cache(monkeypatch):
+def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
     reset_repo_cache_for_tests()
 
     repo_meta = {
@@ -107,7 +139,10 @@ def test_analyze_public_github_repo_uses_in_memory_cache(monkeypatch):
             call_log.append(path)
             if path.endswith("/repos/openai/openai-python"):
                 return FakeResponse(repo_meta)
-            if path.endswith("/repos/openai/openai-python/contents"):
+            if path in (
+                "/repos/openai/openai-python/contents?ref=main",
+                "/repos/openai/openai-python/contents?ref=v4",
+            ):
                 return FakeResponse(root_entries)
             if path == "rd":
                 return FakeResponse(None, text="# OpenAI Python\n\nOfficial SDK.")
@@ -117,15 +152,195 @@ def test_analyze_public_github_repo_uses_in_memory_cache(monkeypatch):
 
     monkeypatch.setattr("app.github_repo_context.httpx.Client", FakeClient)
 
+    first = analyze_public_github_repo("https://github.com/openai/openai-python/tree/main")
+    second = analyze_public_github_repo("https://github.com/openai/openai-python/tree/main")
+    third = analyze_public_github_repo("https://github.com/openai/openai-python/tree/v4")
+
+    assert first == second
+    assert third["requested_ref"] == "v4"
+    assert "summary_compact" in first and first["summary_compact"]
+    assert (
+        call_log.count("/repos/openai/openai-python") == 2
+    ), f"expected GitHub API to be hit twice for two refs, got call log: {call_log}"
+    assert call_log.count("/repos/openai/openai-python/contents?ref=main") == 1
+    assert call_log.count("/repos/openai/openai-python/contents?ref=v4") == 1
+
+    reset_repo_cache_for_tests()
+
+
+def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatch):
+    reset_repo_cache_for_tests()
+
+    repo_meta = {
+        "full_name": "openai/openai-python",
+        "description": "Python SDK for OpenAI.",
+        "default_branch": "main",
+        "language": "Python",
+    }
+    root_entries = [
+        {"name": "README.md", "path": "README.md", "type": "file", "download_url": "rd"},
+    ]
+    call_log: list[str] = []
+
+    class FakeResponse:
+        def __init__(self, payload, *, text=""):
+            self._payload = payload
+            self.text = text
+            self.status_code = 200
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, path):
+            call_log.append(path)
+            if path.endswith("/repos/openai/openai-python"):
+                return FakeResponse(repo_meta)
+            if path == "/repos/openai/openai-python/contents":
+                return FakeResponse(root_entries)
+            if path == "rd":
+                return FakeResponse(None, text="# OpenAI Python\n\nOfficial SDK.")
+            return FakeResponse([])
+
+    monkeypatch.setattr("app.github_repo_context.httpx.Client", FakeClient)
+
     first = analyze_public_github_repo("https://github.com/openai/openai-python")
     second = analyze_public_github_repo("https://github.com/openai/openai-python")
 
     assert first == second
-    assert "summary_compact" in first and first["summary_compact"]
+    assert first["requested_ref"] is None
+    assert first["requested_subdir"] is None
     assert (
         call_log.count("/repos/openai/openai-python") == 1
-    ), f"expected GitHub API to be hit once, got call log: {call_log}"
+    ), f"expected GitHub API to be hit once for root URL, got call log: {call_log}"
 
+    reset_repo_cache_for_tests()
+
+
+def test_analyze_public_github_repo_forwards_ref_to_contents_api(monkeypatch):
+    reset_repo_cache_for_tests()
+    call_log: list[str] = []
+
+    repo_meta = {
+        "full_name": "openai/openai-python",
+        "description": "Python SDK for OpenAI.",
+        "default_branch": "main",
+        "language": "Python",
+    }
+    root_entries = [
+        {"name": "README.md", "path": "README.md", "type": "file", "download_url": "rd"}
+    ]
+
+    class FakeResponse:
+        def __init__(self, payload, *, text=""):
+            self._payload = payload
+            self.text = text
+            self.status_code = 200
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, path):
+            call_log.append(path)
+            if path.endswith("/repos/openai/openai-python"):
+                return FakeResponse(repo_meta)
+            if path == "/repos/openai/openai-python/contents?ref=my-branch":
+                return FakeResponse(root_entries)
+            if path == "rd":
+                return FakeResponse(None, text="# README")
+            return FakeResponse([])
+
+    monkeypatch.setattr("app.github_repo_context.httpx.Client", FakeClient)
+    payload = analyze_public_github_repo("https://github.com/openai/openai-python/tree/my-branch")
+    assert payload["requested_ref"] == "my-branch"
+    assert "/repos/openai/openai-python/contents?ref=my-branch" in call_log
+    reset_repo_cache_for_tests()
+
+
+def test_analyze_public_github_repo_walks_requested_subdir(monkeypatch):
+    reset_repo_cache_for_tests()
+    call_log: list[str] = []
+
+    repo_meta = {
+        "full_name": "vercel/next.js",
+        "description": "Next.js repo",
+        "default_branch": "canary",
+        "language": "TypeScript",
+    }
+    subdir_entries = [
+        {
+            "name": "README.md",
+            "path": "packages/next/README.md",
+            "type": "file",
+            "download_url": "rd",
+        }
+    ]
+
+    class FakeResponse:
+        def __init__(self, payload, *, text=""):
+            self._payload = payload
+            self.text = text
+            self.status_code = 200
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, path):
+            call_log.append(path)
+            if path.endswith("/repos/vercel/next.js"):
+                return FakeResponse(repo_meta)
+            if path == "/repos/vercel/next.js/contents/packages/next?ref=canary":
+                return FakeResponse(subdir_entries)
+            if path == "rd":
+                return FakeResponse(None, text="# Next package")
+            return FakeResponse([])
+
+    monkeypatch.setattr("app.github_repo_context.httpx.Client", FakeClient)
+    payload = analyze_public_github_repo(
+        "https://github.com/vercel/next.js/tree/canary/packages/next"
+    )
+    assert payload["requested_ref"] == "canary"
+    assert payload["requested_subdir"] == "packages/next"
+    assert "/repos/vercel/next.js/contents/packages/next?ref=canary" in call_log
+    assert "/repos/vercel/next.js/contents?ref=canary" not in call_log
     reset_repo_cache_for_tests()
 
 
@@ -275,5 +490,10 @@ def test_repo_context_endpoint_returns_analyzed_repo_summary():
 
     assert response.status_code == 200
     # Response model adds summary_compact (defaults to None when analyzer omits it).
-    assert response.json() == {**mock_payload, "summary_compact": None}
+    assert response.json() == {
+        **mock_payload,
+        "summary_compact": None,
+        "requested_ref": None,
+        "requested_subdir": None,
+    }
     mock_analyze.assert_called_once_with("https://github.com/openai/openai-python")
