@@ -33,14 +33,9 @@ def test_generator_endpoints_require_api_key():
 
     agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
     skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
-    repo_resp = client.post(
-        "/repo-context/github",
-        json={"repo_url": "https://github.com/openai/openai-python"},
-    )
 
     assert agent_resp.status_code == 403
     assert skill_resp.status_code == 403
-    assert repo_resp.status_code == 403
 
 
 @pytest.mark.auth_required

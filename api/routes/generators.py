@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key
+from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
 from app.github_repo_context import (
     GitHubRepoAnalysisError,
@@ -118,7 +118,7 @@ class AgentGenResponse(BaseModel):
 @router.post("/repo-context/github", response_model=GitHubRepoContextPayload)
 async def analyze_github_repo_endpoint(
     req: GitHubRepoContextRequest,
-    api_key: APIKey = Depends(verify_api_key),
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     del api_key
     started_at = time.monotonic()
