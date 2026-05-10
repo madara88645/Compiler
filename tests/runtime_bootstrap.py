@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,19 @@ def _candidate_roots(preferred_root: Path, fallback_roots: Iterable[Path]) -> li
     return unique_roots
 
 
+def _create_session_dir(root: Path) -> Path:
+    session_dir = Path(tempfile.mkdtemp(prefix="pytest-", dir=str(root))).resolve()
+    probe_dir = session_dir / ".write-probe"
+
+    try:
+        probe_dir.mkdir(parents=True, exist_ok=False)
+    finally:
+        if probe_dir.exists():
+            probe_dir.rmdir()
+
+    return session_dir
+
+
 def prepare_test_runtime(
     *,
     preferred_root: Path,
@@ -36,7 +50,7 @@ def prepare_test_runtime(
     for root in _candidate_roots(preferred_root, fallback_roots):
         try:
             root.mkdir(parents=True, exist_ok=True)
-            session_dir = Path(tempfile.mkdtemp(prefix="pytest-", dir=str(root))).resolve()
+            session_dir = _create_session_dir(root)
             db_dir = (session_dir / "db").resolve()
             db_dir.mkdir(parents=True, exist_ok=True)
 
@@ -48,6 +62,8 @@ def prepare_test_runtime(
             }
             return TestRuntime(session_dir=session_dir, db_dir=db_dir, env_updates=env_updates)
         except PermissionError as exc:
+            if "session_dir" in locals():
+                shutil.rmtree(session_dir, ignore_errors=True)
             errors.append(f"{root}: {exc}")
 
     joined_errors = "; ".join(errors) if errors else "no candidate roots were provided"
