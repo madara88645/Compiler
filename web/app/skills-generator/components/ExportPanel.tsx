@@ -173,7 +173,7 @@ export default function SkillExportPanel({
                 onClick={handleToggle}
                 aria-expanded={isOpen}
                 aria-controls={panelId}
-                className="w-full flex items-center justify-between px-2 py-1 group"
+                className="w-full flex items-center justify-between px-2 py-1 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
             >
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200 transition-colors">
@@ -211,7 +211,7 @@ export default function SkillExportPanel({
                                 type="button"
                                 key={f.id}
                                 onClick={() => handleFormatClick(f.id)}
-                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                                     format === f.id ? f.activeColor : f.color
                                 }`}
                             >
@@ -227,7 +227,7 @@ export default function SkillExportPanel({
                                 type="button"
                                 key={tab.id}
                                 onClick={() => setOutputTab(tab.id)}
-                                className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
+                                className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                                     outputTab === tab.id
                                         ? "bg-white/10 text-zinc-100"
                                         : "text-zinc-500 hover:text-zinc-300"
