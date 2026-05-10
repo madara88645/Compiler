@@ -160,8 +160,13 @@ def test_api_endpoints_integration():
             "detected_stack": ["Python"],
         }
 
-        # Pydantic adds the optional summary_compact field on round-trip
-        normalized_repo_context = {**repo_context, "summary_compact": None}
+        # Pydantic adds the optional fields on round-trip (summary_compact, requested_ref, requested_subdir)
+        normalized_repo_context = {
+            **repo_context,
+            "summary_compact": None,
+            "requested_ref": None,
+            "requested_subdir": None,
+        }
 
         # Test Agent Generator Endpoint
         resp_agent = client.post(

@@ -81,7 +81,12 @@ def test_api_generate_skill_endpoint():
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill Request",
             include_example_code=False,
-            repo_context={**repo_context, "summary_compact": None},
+            repo_context={
+                **repo_context,
+                "summary_compact": None,
+                "requested_ref": None,
+                "requested_subdir": None,
+            },
             repo_context_mode="full",
         )
 
