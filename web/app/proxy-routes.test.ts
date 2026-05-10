@@ -14,6 +14,7 @@ import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
 import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
+import { POST as repoContextGithubRoute } from "./repo-context/github/route";
 
 type RouteCase = {
   name: string;
@@ -236,6 +237,13 @@ describe("Next backend proxy route wiring", () => {
       requestUrl: "http://localhost:3000/skills-generator/generate",
       requestBody: { description: "search docs" },
       expectedUrl: "https://api.memo.dev/skills-generator/generate",
+    },
+    {
+      name: "repo context analysis",
+      handler: repoContextGithubRoute,
+      requestUrl: "http://localhost:3000/repo-context/github",
+      requestBody: { repo_url: "https://github.com/openai/openai-python" },
+      expectedUrl: "https://api.memo.dev/repo-context/github",
     },
     {
       name: "RAG upload",
