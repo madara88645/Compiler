@@ -211,6 +211,7 @@ class HybridCompiler:
         multi_agent: bool = False,
         include_example_code: bool = False,
         repo_context: dict[str, Any] | None = None,
+        repo_context_mode: str = "full",
     ) -> str:
         """
         Generate a comprehensive AI Agent system prompt, aware of RAG context.
@@ -220,6 +221,7 @@ class HybridCompiler:
             rag_context = self._merge_generator_context(
                 self.context_strategist.process(text),
                 repo_context,
+                repo_context_mode,
             )
             return self.worker.generate_agent(
                 text,
@@ -236,6 +238,7 @@ class HybridCompiler:
         text: str,
         include_example_code: bool = False,
         repo_context: dict[str, Any] | None = None,
+        repo_context_mode: str = "full",
     ) -> str:
         """
         Generate a comprehensive AI Skill definition, aware of RAG context.
@@ -245,6 +248,7 @@ class HybridCompiler:
             rag_context = self._merge_generator_context(
                 self.context_strategist.process(text),
                 repo_context,
+                repo_context_mode,
             )
             return self.worker.generate_skill(
                 text,
@@ -257,13 +261,28 @@ class HybridCompiler:
 
     def _merge_generator_context(
         self,
-        rag_context: dict[str, Any] | None,
+        rag_context: Any,
         repo_context: dict[str, Any] | None,
-    ) -> dict[str, Any] | None:
-        merged: dict[str, Any] = dict(rag_context or {})
-        if repo_context:
-            merged["repo_context"] = {
-                "source": "github_public_repo",
-                **repo_context,
-            }
-        return merged or None
+        repo_context_mode: str = "full",
+    ) -> Any:
+        """
+        Merge an optional repo_context payload into the existing RAG context.
+
+        rag_context is whatever ``ContextStrategist.process`` returned and may be a
+        dict, a string, or None depending on configuration. When no repo_context
+        is supplied this method passes rag_context through unchanged so existing
+        non-dict callers keep working; only when wrapping repo_context do we coerce
+        rag_context into a dict.
+        """
+        if not repo_context:
+            return rag_context
+        merged: dict[str, Any] = dict(rag_context) if isinstance(rag_context, dict) else {}
+        mode = (repo_context_mode or "full").strip().lower()
+        if mode not in {"full", "compact"}:
+            mode = "full"
+        merged["repo_context"] = {
+            "source": "github_public_repo",
+            "mode": mode,
+            **repo_context,
+        }
+        return merged

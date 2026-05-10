@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -22,11 +24,15 @@ def _get_compiler():
     return api_main.get_compiler()
 
 
+RepoContextMode = Literal["full", "compact"]
+
+
 class GitHubRepoContextPayload(BaseModel):
     normalized_repo_url: str = Field(..., min_length=1, max_length=500)
     repo_full_name: str = Field(..., min_length=1, max_length=255)
     default_branch: str | None = Field(default=None, max_length=255)
     summary: str = Field(..., min_length=1, max_length=1_500)
+    summary_compact: str | None = Field(default=None, max_length=400)
     highlights: list[str] = Field(default_factory=list, max_length=6)
     files_used: list[str] = Field(default_factory=list, max_length=6)
     detected_stack: list[str] = Field(default_factory=list, max_length=6)
@@ -43,6 +49,10 @@ class SkillGenRequest(BaseModel):
         description="Whether generated skill definition should include implementation example code",
     )
     repo_context: GitHubRepoContextPayload | None = None
+    repo_context_mode: RepoContextMode = Field(
+        default="full",
+        description="Whether to use the full or the compact repo brief in the generator prompt.",
+    )
 
 
 class SkillGenResponse(BaseModel):
@@ -54,6 +64,10 @@ class AgentGenRequest(BaseModel):
     multi_agent: bool = Field(default=False, description="Generate a multi-agent swarm if true")
     include_example_code: bool = Field(default=False, description="Include pseudo-code example")
     repo_context: GitHubRepoContextPayload | None = None
+    repo_context_mode: RepoContextMode = Field(
+        default="full",
+        description="Whether to use the full or the compact repo brief in the generator prompt.",
+    )
 
 
 class AgentGenResponse(BaseModel):
@@ -91,6 +105,7 @@ async def generate_skill_endpoint(
             req.description,
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
+            repo_context_mode=req.repo_context_mode,
         )
         return SkillGenResponse(skill_definition=result)
     except Exception as exc:
@@ -112,6 +127,7 @@ async def generate_agent_endpoint(
             multi_agent=req.multi_agent,
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
+            repo_context_mode=req.repo_context_mode,
         )
         return AgentGenResponse(system_prompt=result)
     except Exception as exc:

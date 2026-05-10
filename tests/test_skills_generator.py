@@ -51,6 +51,7 @@ def test_hybrid_compiler_generate_skill(mock_worker_client):
     assert kwargs["include_example_code"] is False
     assert kwargs["context"]["repo_context"] == {
         "source": "github_public_repo",
+        "mode": "full",
         **repo_context,
     }
 
@@ -80,7 +81,8 @@ def test_api_generate_skill_endpoint():
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill Request",
             include_example_code=False,
-            repo_context=repo_context,
+            repo_context={**repo_context, "summary_compact": None},
+            repo_context_mode="full",
         )
 
 
@@ -100,6 +102,7 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
             "Test Skill Request",
             include_example_code=True,
             repo_context=None,
+            repo_context_mode="full",
         )
 
 
