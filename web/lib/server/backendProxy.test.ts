@@ -7,6 +7,7 @@ describe("backend proxy", () => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
     delete process.env.PROMPTC_SERVER_API_KEY;
+    delete process.env.PROMPTC_PROXY_UPSTREAM_TIMEOUT_MS;
   });
 
   afterEach(() => {
@@ -191,6 +192,25 @@ describe("backend proxy", () => {
     });
   });
 
+  it("drains request bodies before returning a protected-route config error", async () => {
+    const request = new Request("http://localhost:3000/repo-context/github", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_url: "https://github.com/openai/openai-python" }),
+    });
+    const arrayBufferSpy = vi.spyOn(request, "arrayBuffer");
+
+    const response = await proxyBackendRequest(request, "/repo-context/github", {
+      requireServerApiKey: true,
+    });
+
+    expect(response.status).toBe(500);
+    expect(arrayBufferSpy).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
+    });
+  });
+
   it("allows protected routes with a caller-supplied x-api-key when server key is missing", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -252,6 +272,45 @@ describe("backend proxy", () => {
 
     expect(url).toBe("https://api.memo.dev/agent-generator/generate");
     expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+  });
+
+  it("returns a 504 with a timed-out diagnostic header when the upstream fetch hangs past the budget", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+        // Never resolve — only the AbortSignal can end this promise.
+      });
+    });
+
+    const request = new Request("http://localhost:3000/repo-context/github", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_url: "https://github.com/openai/openai-python" }),
+    });
+
+    const startedAt = Date.now();
+    const response = await proxyBackendRequest(request, "/repo-context/github", {
+      upstreamTimeoutMs: 100,
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(504);
+    expect(response.headers.get("x-promptc-proxy-timed-out")).toBe("1");
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("1");
+    expect(elapsedMs).toBeLessThan(2000);
+    await expect(response.json()).resolves.toEqual({
+      detail: "The backend did not respond within the upstream timeout. Please retry shortly.",
+    });
   });
 
   it("returns a 502 bad gateway when the upstream fetch throws a network error", async () => {

@@ -4,13 +4,27 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
+import type { GitHubRepoContextPayload } from "@/lib/api/types";
+import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
+import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
+
+const REPO_ANALYSIS_TIMEOUT_MS = 15000;
+
+function isSupportedGitHubRepoRootUrl(value: string): boolean {
+  return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value.trim());
+}
 
 export default function AgentGenerator() {
   const [description, setDescription] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repoContext, setRepoContext] = useState<GitHubRepoContextPayload | null>(null);
+  const [repoAnalysisLoading, setRepoAnalysisLoading] = useState(false);
+  const [repoAnalysisWarning, setRepoAnalysisWarning] = useState<string | null>(null);
+  const [repoContextDirty, setRepoContextDirty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +34,36 @@ export default function AgentGenerator() {
   const [copied, setCopied] = useState(false);
 
   const isGeneratingRef = useRef(false);
+  const isValidRepoUrl = isSupportedGitHubRepoRootUrl(repoUrl);
+
+  const handleAnalyzeRepo = async () => {
+    if (!isValidRepoUrl || repoAnalysisLoading) return;
+
+    setRepoAnalysisLoading(true);
+    setRepoAnalysisWarning(null);
+    setError(null);
+
+    try {
+      const data = await withTimeout(
+        apiJson<GitHubRepoContextPayload>("/repo-context/github", {
+          method: "POST",
+          headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ repo_url: repoUrl.trim() }),
+        }),
+        REPO_ANALYSIS_TIMEOUT_MS,
+        "Repository analysis is taking too long. Please try again.",
+      );
+      setRepoContext(data);
+      setRepoContextDirty(false);
+    } catch (e: unknown) {
+      showError(e);
+      setRepoContext(null);
+      setRepoContextDirty(false);
+      setRepoAnalysisWarning(e instanceof Error ? e.message : "Repository analysis failed");
+    } finally {
+      setRepoAnalysisLoading(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
@@ -38,6 +82,7 @@ export default function AgentGenerator() {
           description,
           multi_agent: multiAgent,
           include_example_code: includeExampleCode,
+          ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
         }),
       });
 
@@ -106,12 +151,65 @@ export default function AgentGenerator() {
               </p>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col relative group">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="agent-repo-url" className="text-sm font-medium text-zinc-300">GitHub Repo URL</label>
+              <p className="text-xs text-zinc-500">
+                Optional. Analyze a public root repo URL to give the generator a compact project-aware brief.
+              </p>
+              <input
+                id="agent-repo-url"
+                aria-label="GitHub Repo URL"
+                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-sm text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50"
+                placeholder="https://github.com/owner/repo"
+                value={repoUrl}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setRepoUrl(nextValue);
+                  setRepoAnalysisWarning(null);
+                  if (!repoContext) {
+                    return;
+                  }
+                  const normalizedNext = nextValue.trim().replace(/\/+$/, "");
+                  const normalizedCurrent = repoContext.normalized_repo_url.replace(/\/+$/, "");
+                  const isDirty = normalizedNext !== normalizedCurrent;
+                  setRepoContextDirty(isDirty);
+                  if (!isDirty) {
+                    setRepoAnalysisWarning(null);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAnalyzeRepo}
+                disabled={!isValidRepoUrl || repoAnalysisLoading}
+                className="w-full rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-sm font-semibold text-green-100 transition-all hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
+              </button>
+            </div>
+
+            {repoContext && !repoContextDirty ? (
+              <RepoContextPreviewCard repoContext={repoContext} accent="green" />
+            ) : null}
+
+            {repoContextDirty ? (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+                Repo URL changed. Re-analyze to attach fresh repo context.
+              </div>
+            ) : null}
+
+            {repoAnalysisWarning ? (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+                {repoAnalysisWarning}
+              </div>
+            ) : null}
+
+            <div className="relative shrink-0 group">
               <textarea
                 id="agent-description"
                 aria-label="Agent Description"
                 aria-describedby="agent-description-help"
-                className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-0"
+                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

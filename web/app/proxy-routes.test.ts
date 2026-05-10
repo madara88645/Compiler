@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
@@ -14,6 +14,7 @@ import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
 import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
+import { POST as repoContextGithubRoute } from "./repo-context/github/route";
 
 type RouteCase = {
   name: string;

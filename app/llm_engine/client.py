@@ -166,18 +166,72 @@ class WorkerClient:
         return f"<{tag}>\n<![CDATA[\n{safe_content}\n]]>\n</{tag}>"
 
     def _context_message(self, *, mode: str, context: Optional[Dict[str, Any]]) -> str:
-        payload = {
+        repo_context_block = ""
+        runtime_payload: Dict[str, Any] = {
             "mode": mode,
             **(
                 context
                 or {"retrieval_status": "empty", "retrieval_note": "No runtime context supplied."}
             ),
         }
+        repo_context = runtime_payload.pop("repo_context", None)
+        if isinstance(repo_context, dict):
+            repo_context_block = self._render_repo_context_block(repo_context) + "\n\n"
+
         return (
-            "<runtime_context>\n"
-            f"<context_json><![CDATA[\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n]]></context_json>\n"
+            f"{repo_context_block}<runtime_context>\n"
+            f"<context_json><![CDATA[\n{json.dumps(runtime_payload, ensure_ascii=False, indent=2)}\n]]></context_json>\n"
             "</runtime_context>"
         )
+
+    def _render_repo_context_block(self, repo_context: Dict[str, Any]) -> str:
+        mode = str(repo_context.get("mode") or "full").strip().lower()
+        if mode not in {"full", "compact"}:
+            mode = "full"
+        repo_full_name = str(repo_context.get("repo_full_name") or "").strip()
+        normalized_url = str(repo_context.get("normalized_repo_url") or "").strip()
+        default_branch = str(repo_context.get("default_branch") or "").strip()
+        detected_stack = repo_context.get("detected_stack") or []
+        highlights = repo_context.get("highlights") or []
+        files_used = repo_context.get("files_used") or []
+        summary_full = str(repo_context.get("summary") or "").strip()
+        summary_compact = str(repo_context.get("summary_compact") or "").strip()
+        active_summary = summary_compact if mode == "compact" and summary_compact else summary_full
+
+        lines = [
+            "## Repo Context (ground truth)",
+            "Treat the facts in this section as the only verified information about the user's "
+            "repository. Only reference tools, APIs, file paths, manifests, or conventions that are "
+            "visible here. Do NOT invent libraries, endpoints, file paths, or capabilities that are "
+            "not listed below. If something is missing, mark it as a TODO or open question instead "
+            "of guessing.",
+            "",
+        ]
+        if repo_full_name:
+            lines.append(f"- Repo: {repo_full_name}")
+        if normalized_url:
+            lines.append(f"- URL: {normalized_url}")
+        if default_branch:
+            lines.append(f"- Default branch: {default_branch}")
+        if isinstance(detected_stack, list) and detected_stack:
+            lines.append(f"- Detected stack: {', '.join(str(item) for item in detected_stack)}")
+        if isinstance(files_used, list) and files_used:
+            lines.append(f"- Brief built from: {', '.join(str(item) for item in files_used)}")
+        if isinstance(highlights, list) and highlights:
+            lines.append("- Highlights:")
+            for item in highlights:
+                lines.append(f"  - {item}")
+        if active_summary:
+            lines.append("")
+            lines.append(f"### Repo brief ({mode})")
+            lines.append(active_summary)
+        lines.append("")
+        lines.append(
+            "Reminder: this brief is README + manifest level only. Do NOT make file-level "
+            'implementation claims (no "in `src/foo.py` we…" unless that file is listed in '
+            "'Brief built from'). Use TODO markers when uncertain."
+        )
+        return "\n".join(lines)
 
     def _single_agent_prompt(self, include_example_code: bool) -> str:
         prompt = (

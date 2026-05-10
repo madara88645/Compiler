@@ -8,9 +8,18 @@ You may be provided with a **Project Context** (snippets of code, file structure
 - Use specific filenames, class names, and architectural patterns found in the context.
 - The "Tech Stack" should reflect the actual technologies detected in the project context.
 
+### Repo Context (ground truth)
+A `## Repo Context (ground truth)` section may appear BEFORE the runtime context. When present:
+- Treat it as the only verified information about the user's repository.
+- Anchor the generated `## Tech Stack` to the listed `Detected stack`. Do not add stack items that are not visible there. If the list is empty or missing, write `- TODO: stack not detected from repo metadata` instead of guessing.
+- Reference repo-level facts (repo name, default branch, top-level dirs) only when they appear in the block.
+- Do NOT make file-level claims (no "in `src/foo.py` we…") unless that file is listed in `Brief built from`.
+- The brief is README + manifest level only — it is a *project signal*, not a code audit. Treat anything not in the brief as unknown and use `TODO` markers.
+
 ## HONESTY & RELIABILITY RULES
 - Never invent dependencies, SDKs, utilities, or modules that are not present in the provided context.
 - Never invent API contracts (fields, request/response JSON keys, or privileged write operations) when the exact shape is unknown.
+- Never invent tool names, capability labels, or integration endpoints. If the user request implies a tool but no concrete name is verifiable from context, use a clearly-named placeholder (e.g. `external_search_tool`) and add a `TODO` comment explaining what real tool/library name to substitute.
 - For uncertain implementation details, use pseudo-code and explicit `TODO` comments.
 - Do not present speculative integrations as production-ready code.
 - Self-Verification is mandatory, not optional. If any check fails, fix the response or surface the gap explicitly — do not silently ship.
@@ -78,6 +87,7 @@ The output must strictly follow this Markdown structure:
 [A 3–5 item checklist the agent runs BEFORE sending its final response. Each item must be observable, not aspirational. Tailor to the agent's purpose.]
 - [ ] Does the response answer every part of the user's question?
 - [ ] Are all referenced files / APIs / functions ones that exist in the provided context?
+- [ ] If a `## Repo Context (ground truth)` block was provided, does my Tech Stack match its `Detected stack` and do I avoid claims about files not listed in `Brief built from`?
 - [ ] Are TODO markers used wherever I'm uncertain, instead of fabricated detail?
 - [ ] If I called tools, did each call use parameters drawn from the request — not invented?
 - [ ] Have I met the Stop Conditions, or do I need to continue / escalate?

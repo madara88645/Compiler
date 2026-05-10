@@ -8,6 +8,19 @@ You may be provided with a **Project Context** (snippets of code, file structure
 - Use specific types, classes, and helper functions found in the context for the "Input Schema" and "Implementation".
 - Align the "Dependencies" with the project's existing dependencies (e.g., if they use `httpx`, don't suggest `requests` unless necessary).
 
+### Repo Context (ground truth)
+A `## Repo Context (ground truth)` section may appear BEFORE the runtime context. When present:
+- Treat it as the only verified information about the user's repository.
+- Anchor `## Dependencies` to the listed `Detected stack`. Do not introduce libraries that contradict that stack. If the brief says Python, do not suggest Node-only tools, and vice versa. If the stack is empty, write `- TODO: dependencies not detected from repo metadata` rather than guessing.
+- Do NOT make file-level claims (no "use `src/foo.py`'s helper") unless that file is listed in `Brief built from`.
+- The brief is README + manifest level only. Treat anything not visible in the brief as unknown — use `TODO` markers, never invent class names, function names, or module paths.
+
+## HONESTY & RELIABILITY RULES
+- Never invent libraries, modules, or APIs that are not present in the provided context.
+- Never invent function or class names from the user's project; if you need to reference one, mark it as `TODO` with a placeholder name.
+- For uncertain details, prefer pseudo-code and explicit `TODO` comments over confident-looking guesses.
+- The skill must be idempotent and the Examples section must use inputs/outputs you can defend from the schema you defined — no decorative made-up payload values that imply data the schema does not allow.
+
 ## INSTRUCTIONS
 1. Analyze the user's request (the "Capability" or "Task") and any provided Project Context.
 2. Design a specialized AI Skill to fulfill this request, compatible with the project's codebase.

@@ -33,28 +33,47 @@ def test_hybrid_compiler_generate_skill(mock_worker_client):
     compiler = HybridCompiler()
     # Manually inject the mock worker because HybridCompiler creates its own instance
     compiler.worker = mock_worker_client
+    repo_context = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repository.",
+        "highlights": ["README present"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
 
-    result = compiler.generate_skill("Test Skill")
+    result = compiler.generate_skill("Test Skill", repo_context=repo_context)
     assert result == "# Mock Skill Definition"
-    # HybridCompiler now injects context, so we expect the context argument
-    # We can use ANY for the context content since it depends on the mock vector db
-    from unittest.mock import ANY
-
-    mock_worker_client.generate_skill.assert_called_with(
-        "Test Skill",
-        context=ANY,
-        include_example_code=False,
-    )
+    mock_worker_client.generate_skill.assert_called_once()
+    args, kwargs = mock_worker_client.generate_skill.call_args
+    assert args == ("Test Skill",)
+    assert kwargs["include_example_code"] is False
+    assert kwargs["context"]["repo_context"] == {
+        "source": "github_public_repo",
+        "mode": "full",
+        **repo_context,
+    }
 
 
 def test_api_generate_skill_endpoint():
     # Mock the global hybrid_compiler in api.main
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_skill.return_value = "# Mock API Skill"
+        repo_context = {
+            "normalized_repo_url": "https://github.com/openai/openai-python",
+            "repo_full_name": "openai/openai-python",
+            "default_branch": "main",
+            "summary": "Python SDK repository.",
+            "highlights": ["README present"],
+            "files_used": ["README.md"],
+            "detected_stack": ["Python"],
+        }
 
         client = TestClient(app)
         response = client.post(
-            "/skills-generator/generate", json={"description": "Test Skill Request"}
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request", "repo_context": repo_context},
         )
 
         assert response.status_code == 200
@@ -62,6 +81,13 @@ def test_api_generate_skill_endpoint():
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill Request",
             include_example_code=False,
+            repo_context={
+                **repo_context,
+                "summary_compact": None,
+                "requested_ref": None,
+                "requested_subdir": None,
+            },
+            repo_context_mode="full",
         )
 
 
@@ -80,6 +106,8 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill Request",
             include_example_code=True,
+            repo_context=None,
+            repo_context_mode="full",
         )
 
 

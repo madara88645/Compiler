@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Optional
 from .client import WorkerClient, WorkerResponse, DEFAULT_MODEL
 from .schemas import DiagnosticItem
 from app.compiler import compile_text_v2
@@ -210,13 +210,19 @@ class HybridCompiler:
         text: str,
         multi_agent: bool = False,
         include_example_code: bool = False,
+        repo_context: dict[str, Any] | None = None,
+        repo_context_mode: str = "full",
     ) -> str:
         """
         Generate a comprehensive AI Agent system prompt, aware of RAG context.
         """
         try:
             # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            rag_context = self._merge_generator_context(
+                self.context_strategist.process(text),
+                repo_context,
+                repo_context_mode,
+            )
             return self.worker.generate_agent(
                 text,
                 context=rag_context,
@@ -227,13 +233,23 @@ class HybridCompiler:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"
 
-    def generate_skill(self, text: str, include_example_code: bool = False) -> str:
+    def generate_skill(
+        self,
+        text: str,
+        include_example_code: bool = False,
+        repo_context: dict[str, Any] | None = None,
+        repo_context_mode: str = "full",
+    ) -> str:
         """
         Generate a comprehensive AI Skill definition, aware of RAG context.
         """
         try:
             # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            rag_context = self._merge_generator_context(
+                self.context_strategist.process(text),
+                repo_context,
+                repo_context_mode,
+            )
             return self.worker.generate_skill(
                 text,
                 context=rag_context,
@@ -242,3 +258,31 @@ class HybridCompiler:
         except Exception as e:
             # Fallback for skill generation
             return f"# Error\n\nFailed to generate skill: {e}"
+
+    def _merge_generator_context(
+        self,
+        rag_context: Any,
+        repo_context: dict[str, Any] | None,
+        repo_context_mode: str = "full",
+    ) -> Any:
+        """
+        Merge an optional repo_context payload into the existing RAG context.
+
+        rag_context is whatever ``ContextStrategist.process`` returned and may be a
+        dict, a string, or None depending on configuration. When no repo_context
+        is supplied this method passes rag_context through unchanged so existing
+        non-dict callers keep working; only when wrapping repo_context do we coerce
+        rag_context into a dict.
+        """
+        if not repo_context:
+            return rag_context
+        merged: dict[str, Any] = dict(rag_context) if isinstance(rag_context, dict) else {}
+        mode = (repo_context_mode or "full").strip().lower()
+        if mode not in {"full", "compact"}:
+            mode = "full"
+        merged["repo_context"] = {
+            "source": "github_public_repo",
+            "mode": mode,
+            **repo_context,
+        }
+        return merged
