@@ -13,6 +13,7 @@ import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import SkillExportPanel from "./components/ExportPanel";
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
+const REPO_CONTEXT_ENABLED = process.env.NEXT_PUBLIC_REPO_CONTEXT_ENABLED === "true";
 
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
   return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value.trim());
@@ -149,57 +150,61 @@ export default function SkillsGenerator() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label htmlFor="skill-repo-url" className="text-sm font-medium text-zinc-300">GitHub Repo URL</label>
-              <p className="text-xs text-zinc-500">
-                Optional. Analyze a public root repo URL to add a compact, deterministic project brief.
-              </p>
-              <input
-                id="skill-repo-url"
-                aria-label="GitHub Repo URL"
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-sm text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
-                placeholder="https://github.com/owner/repo"
-                value={repoUrl}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  setRepoUrl(nextValue);
-                  setRepoAnalysisWarning(null);
-                  if (!repoContext) {
-                    return;
-                  }
-                  const normalizedNext = nextValue.trim().replace(/\/+$/, "");
-                  const normalizedCurrent = repoContext.normalized_repo_url.replace(/\/+$/, "");
-                  const isDirty = normalizedNext !== normalizedCurrent;
-                  setRepoContextDirty(isDirty);
-                  if (!isDirty) {
-                    setRepoAnalysisWarning(null);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAnalyzeRepo}
-                disabled={!isValidRepoUrl || repoAnalysisLoading}
-                className="w-full rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-2.5 text-sm font-semibold text-yellow-100 transition-all hover:bg-yellow-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
-              </button>
-            </div>
+            {REPO_CONTEXT_ENABLED ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="skill-repo-url" className="text-sm font-medium text-zinc-300">GitHub Repo URL</label>
+                  <p className="text-xs text-zinc-500">
+                    Optional. Analyze a public root repo URL to add a compact, deterministic project brief.
+                  </p>
+                  <input
+                    id="skill-repo-url"
+                    aria-label="GitHub Repo URL"
+                    className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-sm text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+                    placeholder="https://github.com/owner/repo"
+                    value={repoUrl}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setRepoUrl(nextValue);
+                      setRepoAnalysisWarning(null);
+                      if (!repoContext) {
+                        return;
+                      }
+                      const normalizedNext = nextValue.trim().replace(/\/+$/, "");
+                      const normalizedCurrent = repoContext.normalized_repo_url.replace(/\/+$/, "");
+                      const isDirty = normalizedNext !== normalizedCurrent;
+                      setRepoContextDirty(isDirty);
+                      if (!isDirty) {
+                        setRepoAnalysisWarning(null);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeRepo}
+                    disabled={!isValidRepoUrl || repoAnalysisLoading}
+                    className="w-full rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-2.5 text-sm font-semibold text-yellow-100 transition-all hover:bg-yellow-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
+                  </button>
+                </div>
 
-            {repoContext && !repoContextDirty ? (
-              <RepoContextPreviewCard repoContext={repoContext} accent="yellow" />
-            ) : null}
+                {repoContext && !repoContextDirty ? (
+                  <RepoContextPreviewCard repoContext={repoContext} accent="yellow" />
+                ) : null}
 
-            {repoContextDirty ? (
-              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-                Repo URL changed. Re-analyze to attach fresh repo context.
-              </div>
-            ) : null}
+                {repoContextDirty ? (
+                  <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+                    Repo URL changed. Re-analyze to attach fresh repo context.
+                  </div>
+                ) : null}
 
-            {repoAnalysisWarning ? (
-              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-                {repoAnalysisWarning}
-              </div>
+                {repoAnalysisWarning ? (
+                  <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+                    {repoAnalysisWarning}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             <div className="relative shrink-0 group">
