@@ -29,6 +29,10 @@ const apiJsonMock = vi.mocked(apiJson);
 
 describe("Agent Generator page", () => {
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_REPO_CONTEXT_ENABLED", "true");
+  });
+
+  beforeEach(() => {
     apiJsonMock.mockReset();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
