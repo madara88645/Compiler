@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { WifiOff } from "lucide-react";
+import { toast } from "sonner";
 import ContextManager from "../components/ContextManager";
 import { describeRequestError } from "@/config";
 import { compilePrompt } from "../../lib/api/promptc";
@@ -223,7 +224,10 @@ export default function OfflinePage() {
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => navigator.clipboard.writeText(getOfflineTabContent(result, activeTab))}
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(getOfflineTabContent(result, activeTab));
+                                                    toast.success("Copied to clipboard");
+                                                }}
                                                 className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
                                                 title="Copy"
                                                 aria-label="Copy to Clipboard"

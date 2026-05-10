@@ -7,6 +7,7 @@ import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
+import { toast } from "sonner";
 import ExportPanel from "./components/ExportPanel";
 
 export default function AgentGenerator() {
@@ -63,6 +64,7 @@ export default function AgentGenerator() {
       navigator.clipboard.writeText(result);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast.success("Copied to clipboard");
     }
   };
 

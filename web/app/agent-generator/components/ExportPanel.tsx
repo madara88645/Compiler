@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useId } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/config";
 
 type Framework = "claude-sdk" | "langchain" | "langgraph";
@@ -125,6 +126,7 @@ export default function ExportPanel({
             navigator.clipboard.writeText(text).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
+                toast.success("Copied to clipboard");
             });
         }
     };

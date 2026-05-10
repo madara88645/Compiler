@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
+import { toast } from "sonner";
 
 export type BenchmarkData = {
     raw_output: string;
@@ -131,6 +132,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                                 navigator.clipboard.writeText(data.raw_output);
                                 setCopiedRaw(true);
                                 setTimeout(() => setCopiedRaw(false), 2000);
+                                toast.success("Copied to clipboard");
                             }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title={copiedRaw ? "Copied!" : "Copy raw output"}
@@ -161,6 +163,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                                 navigator.clipboard.writeText(data.compiled_output);
                                 setCopiedCompiled(true);
                                 setTimeout(() => setCopiedCompiled(false), 2000);
+                                toast.success("Copied to clipboard");
                             }}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title={copiedCompiled ? "Copied!" : "Copy compiled output"}

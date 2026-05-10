@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useId } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/config";
 
 type SkillFormat = "langchain-tool" | "claude-tool-use" | "agent-skill";
@@ -144,6 +145,7 @@ export default function SkillExportPanel({
             navigator.clipboard.writeText(text).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
+                toast.success("Copied to clipboard");
             });
         }
     };

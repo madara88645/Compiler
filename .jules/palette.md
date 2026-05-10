@@ -25,3 +25,6 @@
 ## 2024-05-15 - [Add aria-controls to ExportPanel buttons]
 **Learning:** For collapsible content, buttons with `aria-expanded` must also have an `aria-controls` attribute linking them to the content container's ID for screen readers.
 **Action:** When creating expanding/collapsing UI panels, generate a unique ID (e.g. via `useId`) to link the toggle control directly to its target content.
+## 2025-05-10 - Consistent Copy Feedback
+**Learning:** Copy to clipboard actions often lack visual feedback, leaving users uncertain if the action succeeded. The `toast.success` pattern used in other components (like `RagSearchPanel`) should be consistently applied to all copy actions across the app to provide a unified and reassuring UX.
+**Action:** When adding copy to clipboard functionality, always include a brief visual confirmation notification (like `toast.success("Copied to clipboard")`) to ensure the user knows the action was successful.
