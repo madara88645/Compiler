@@ -230,30 +230,12 @@ def _fetch_public_github_repo_payload(
                     if content:
                         manifests[entry["path"]] = content
                         files_used.append(entry["path"])
-
-        readme_scan_dirs = [name for name in top_level_dirs if name in SCANNED_APP_DIRS]
-        for directory in readme_scan_dirs:
-            if len(_dedupe(files_used)) >= MAX_FILES_USED:
-                break
-            nested_path = (
-                f"{requested_subdir.strip('/')}/{directory}" if requested_subdir else directory
-            )
-            nested_entries = _get_json(
-                client,
-                _contents_api_path(
-                    repo_full_name,
-                    requested_path=nested_path,
-                    requested_ref=requested_ref,
-                ),
-            )
-            if not isinstance(nested_entries, list):
-                continue
-            nested_readme = _find_readme(nested_entries)
-            if not nested_readme or nested_readme["path"] in files_used:
-                continue
-            nested_readme_text = _read_text_file(client, nested_readme)
-            if nested_readme_text:
-                files_used.append(nested_readme["path"])
+            if len(_dedupe(files_used)) < MAX_FILES_USED:
+                nested_readme = _find_readme(nested_entries)
+                if nested_readme and nested_readme["path"] not in files_used:
+                    nested_readme_text = _read_text_file(client, nested_readme)
+                    if nested_readme_text:
+                        files_used.append(nested_readme["path"])
 
         detected_stack = _detect_stack(repo_meta, manifests)
         files_used = _dedupe(files_used)[:MAX_FILES_USED]

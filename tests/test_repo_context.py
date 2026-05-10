@@ -139,7 +139,10 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
             call_log.append(path)
             if path.endswith("/repos/openai/openai-python"):
                 return FakeResponse(repo_meta)
-            if path.endswith("/repos/openai/openai-python/contents"):
+            if path in (
+                "/repos/openai/openai-python/contents?ref=main",
+                "/repos/openai/openai-python/contents?ref=v4",
+            ):
                 return FakeResponse(root_entries)
             if path == "rd":
                 return FakeResponse(None, text="# OpenAI Python\n\nOfficial SDK.")
@@ -161,6 +164,67 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
     ), f"expected GitHub API to be hit twice for two refs, got call log: {call_log}"
     assert call_log.count("/repos/openai/openai-python/contents?ref=main") == 1
     assert call_log.count("/repos/openai/openai-python/contents?ref=v4") == 1
+
+    reset_repo_cache_for_tests()
+
+
+def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatch):
+    reset_repo_cache_for_tests()
+
+    repo_meta = {
+        "full_name": "openai/openai-python",
+        "description": "Python SDK for OpenAI.",
+        "default_branch": "main",
+        "language": "Python",
+    }
+    root_entries = [
+        {"name": "README.md", "path": "README.md", "type": "file", "download_url": "rd"},
+    ]
+    call_log: list[str] = []
+
+    class FakeResponse:
+        def __init__(self, payload, *, text=""):
+            self._payload = payload
+            self.text = text
+            self.status_code = 200
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, path):
+            call_log.append(path)
+            if path.endswith("/repos/openai/openai-python"):
+                return FakeResponse(repo_meta)
+            if path == "/repos/openai/openai-python/contents":
+                return FakeResponse(root_entries)
+            if path == "rd":
+                return FakeResponse(None, text="# OpenAI Python\n\nOfficial SDK.")
+            return FakeResponse([])
+
+    monkeypatch.setattr("app.github_repo_context.httpx.Client", FakeClient)
+
+    first = analyze_public_github_repo("https://github.com/openai/openai-python")
+    second = analyze_public_github_repo("https://github.com/openai/openai-python")
+
+    assert first == second
+    assert first["requested_ref"] is None
+    assert first["requested_subdir"] is None
+    assert (
+        call_log.count("/repos/openai/openai-python") == 1
+    ), f"expected GitHub API to be hit once for root URL, got call log: {call_log}"
 
     reset_repo_cache_for_tests()
 
