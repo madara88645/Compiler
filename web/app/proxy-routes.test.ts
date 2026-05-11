@@ -14,7 +14,6 @@ import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
 import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
-import { POST as repoContextGithubRoute } from "./repo-context/github/route";
 
 type RouteCase = {
   name: string;
@@ -108,6 +107,50 @@ describe("Next backend proxy route wiring", () => {
 
   it.each<RouteCase>([
     {
+      name: "RAG search",
+      handler: ragSearchRoute,
+      requestUrl: "http://localhost:3000/rag/search",
+      requestBody: { query: "test" },
+      expectedUrl: "http://127.0.0.1:8080/rag/search",
+    },
+    {
+      name: "RAG stats",
+      handler: ragStatsRoute as (request: Request) => Promise<Response>,
+      requestUrl: "http://localhost:3000/rag/stats",
+      requestMethod: "GET",
+      expectedUrl: "http://127.0.0.1:8080/rag/stats",
+    },
+  ])("forwards optional-auth $name requests without requiring a server API key", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await handler(
+      new Request(requestUrl, {
+        method: requestMethod || "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const proxiedHeaders = new Headers(init?.headers);
+
+    expect(url).toBe(expectedUrl);
+    expect(proxiedHeaders.has("x-api-key")).toBe(false);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it.each<RouteCase>([
+    {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
@@ -169,20 +212,6 @@ describe("Next backend proxy route wiring", () => {
       requestUrl: "http://localhost:3000/optimize",
       requestBody: { system_prompt: "hello" },
       expectedUrl: "https://api.memo.dev/optimize",
-    },
-    {
-      name: "RAG search",
-      handler: ragSearchRoute,
-      requestUrl: "http://localhost:3000/rag/search",
-      requestBody: { query: "test" },
-      expectedUrl: "https://api.memo.dev/rag/search",
-    },
-    {
-      name: "RAG stats",
-      handler: ragStatsRoute as (request: Request) => Promise<Response>,
-      requestUrl: "http://localhost:3000/rag/stats",
-      requestMethod: "GET",
-      expectedUrl: "https://api.memo.dev/rag/stats",
     },
     {
       name: "skills export",
@@ -272,20 +301,6 @@ describe("Next backend proxy route wiring", () => {
       requestUrl: "http://localhost:3000/optimize",
       requestBody: { system_prompt: "hello" },
       expectedUrl: "https://api.memo.dev/optimize",
-    },
-    {
-      name: "RAG search",
-      handler: ragSearchRoute,
-      requestUrl: "http://localhost:3000/rag/search",
-      requestBody: { query: "test" },
-      expectedUrl: "https://api.memo.dev/rag/search",
-    },
-    {
-      name: "RAG stats",
-      handler: ragStatsRoute as (request: Request) => Promise<Response>,
-      requestUrl: "http://localhost:3000/rag/stats",
-      requestMethod: "GET",
-      expectedUrl: "https://api.memo.dev/rag/stats",
     },
     {
       name: "skills export",
