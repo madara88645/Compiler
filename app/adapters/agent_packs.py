@@ -5,7 +5,7 @@ from typing import Any, Literal, Protocol
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .agent_ir import parse_agent_markdown
 from .claude_code import (
@@ -18,6 +18,8 @@ from .skill_ir import parse_skill_markdown
 
 PackType = Literal["project-pack", "subagent", "pr-reviewer", "mcp-tool-stub"]
 RiskMode = Literal["balanced", "strict"]
+AgentPackProvider = Literal["claude"]
+AgentPackFileKind = Literal["claude_md", "settings", "agents", "workflow", "mcp", "readme", "files"]
 
 
 class AgentPackRequest(BaseModel):
@@ -31,15 +33,24 @@ class AgentPackRequest(BaseModel):
 class AgentPackFile(BaseModel):
     path: str
     content: str
-    kind: str
+    kind: AgentPackFileKind
 
 
 class AgentPackManifest(BaseModel):
-    provider: str
+    provider: AgentPackProvider
     pack_type: PackType
     files: list[AgentPackFile]
     download_name: str
-    preview_order: list[str]
+    preview_order: list[AgentPackFileKind]
+
+    @model_validator(mode="after")
+    def validate_preview_order(self) -> "AgentPackManifest":
+        file_kinds = {file.kind for file in self.files}
+        unknown_preview_kinds = [kind for kind in self.preview_order if kind not in file_kinds]
+        if unknown_preview_kinds:
+            joined = ", ".join(unknown_preview_kinds)
+            raise ValueError(f"preview_order includes kinds without matching files: {joined}")
+        return self
 
 
 class AgentPackAdapter(Protocol):
@@ -170,7 +181,7 @@ def _build_skill_brief(req: AgentPackRequest) -> str:
     )
 
 
-def _classify_kind(path: str) -> str:
+def _classify_kind(path: str) -> AgentPackFileKind:
     normalized = path.replace("\\", "/")
     if normalized == "CLAUDE.md":
         return "claude_md"
@@ -187,7 +198,7 @@ def _classify_kind(path: str) -> str:
     return "files"
 
 
-def _preview_order() -> list[str]:
+def _preview_order() -> list[AgentPackFileKind]:
     return ["claude_md", "settings", "agents", "workflow", "mcp", "readme", "files"]
 
 

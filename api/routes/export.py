@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key_if_required
+from api.auth import APIKey, verify_api_key
 
 router = APIRouter(tags=["export"])
 
@@ -21,7 +21,7 @@ class ExportRequest(BaseModel):
 @router.post("/agent-generator/export")
 async def export_agent(
     req: ExportRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
     if req.format not in [
@@ -100,7 +100,7 @@ _SKILL_EXPORT_FORMATS = frozenset(
 @router.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
     if req.format not in _SKILL_EXPORT_FORMATS:

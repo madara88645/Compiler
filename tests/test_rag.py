@@ -1,5 +1,9 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+from pydantic import ValidationError
+
+from api.routes.rag import RagIngestRequest
 from app.llm_engine.rag import ContextStrategist, Snippet, MockVectorDB, SQLiteVectorDB
 
 
@@ -106,6 +110,32 @@ def test_process_end_to_end(strategist):
 def test_mock_vector_db():
     db = MockVectorDB()
     assert db.search("anything") == []
+
+
+def test_rag_ingest_request_rejects_overlong_path_items():
+    with pytest.raises(ValidationError) as exc:
+        RagIngestRequest(paths=["a" * 1025])
+
+    assert "path exceeds maximum length of 1024 characters" in str(exc.value)
+
+
+def test_rag_ingest_request_accepts_max_length_path_item():
+    request = RagIngestRequest(paths=["a" * 1024])
+
+    assert request.paths == ["a" * 1024]
+
+
+def test_rag_ingest_request_rejects_overlong_extension_items():
+    with pytest.raises(ValidationError) as exc:
+        RagIngestRequest(paths=["valid"], exts=["a" * 51])
+
+    assert "extension exceeds maximum length of 50 characters" in str(exc.value)
+
+
+def test_rag_ingest_request_accepts_max_length_extension_item():
+    request = RagIngestRequest(paths=["valid"], exts=["a" * 50])
+
+    assert request.exts == ["a" * 50]
 
 
 @patch("app.llm_engine.rag.search_hybrid")
