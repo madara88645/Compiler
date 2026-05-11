@@ -13,8 +13,6 @@ import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
-const REPO_CONTEXT_ENABLED = process.env.NEXT_PUBLIC_REPO_CONTEXT_ENABLED === "true";
-
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
   return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value.trim());
 }
@@ -152,7 +150,7 @@ export default function AgentGenerator() {
               </p>
             </div>
 
-            {REPO_CONTEXT_ENABLED ? (
+            {process.env.NEXT_PUBLIC_REPO_CONTEXT_ENABLED === "true" ? (
               <>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="agent-repo-url" className="text-sm font-medium text-zinc-300">GitHub Repo URL</label>
