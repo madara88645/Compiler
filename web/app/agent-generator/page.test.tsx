@@ -1,6 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Enable the repo-context UI before the page module is evaluated. The flag is read
+// at module load (`process.env.NEXT_PUBLIC_REPO_CONTEXT_ENABLED === "true"`), so we
+// have to set it via vi.hoisted to run before the import below.
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_REPO_CONTEXT_ENABLED = "true";
+});
+
 import AgentGeneratorPage from "./page";
 import { apiJson } from "@/config";
 

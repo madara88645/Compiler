@@ -17,10 +17,11 @@ def test_count_tokens_approx_happy_path():
         import tiktoken
 
         expected_count = len(tiktoken.get_encoding("cl100k_base").encode(text))
-        count = count_tokens_approx(text)
-        assert count == expected_count
-    except ImportError:
-        pytest.skip("tiktoken not installed, skipping happy path test")
+    except Exception:
+        pytest.skip("tiktoken BPE data unavailable; skipping happy path test")
+
+    count = count_tokens_approx(text)
+    assert count == expected_count
 
 
 def test_count_tokens_approx_fallback():

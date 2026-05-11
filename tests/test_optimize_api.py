@@ -10,7 +10,9 @@ def test_api_optimize_basic_reduces_whitespace(mock_optimize):
     mock_optimize.return_value = ("hello world", None)
 
     client = TestClient(app)
-    text = "hello" + (" " * 120) + "world"
+    # Use a multi-word input so token estimates differ from the optimized 2-word result
+    # regardless of whether tiktoken or the char/word fallback is used.
+    text = "hello world " * 20
 
     r = client.post("/optimize", json={"text": text})
     assert r.status_code == 200, r.text
@@ -35,12 +37,7 @@ def test_api_optimize_basic_reduces_whitespace(mock_optimize):
 def test_api_optimize_preserves_fenced_code_block(mock_optimize):
     # Mock response: preserves code block
     code_block = (
-        "Intro with spaces\n\n"
-        "```python\n"
-        "def foo():\n"
-        "    return 1\n"
-        "```\n\n"
-        "Outro with spaces"
+        "Intro with spaces\n\n```python\ndef foo():\n    return 1\n```\n\nOutro with spaces"
     )
     mock_optimize.return_value = (code_block, None)
 

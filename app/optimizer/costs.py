@@ -6,6 +6,8 @@ from functools import lru_cache
 
 # Module-level cache to avoid repeated encoding lookups
 _ENCODER_CACHE = {}
+# Set to False after the first BPE download failure so tight loops skip tiktoken entirely.
+_TIKTOKEN_AVAILABLE = True
 
 
 class TokenCounter:
@@ -16,23 +18,34 @@ class TokenCounter:
         """
         Count tokens in the text for the specified model.
         Defaults to cl100k_base encoding if model is not found.
+        Falls back to a char-based estimate when tiktoken BPE data is unavailable.
         """
+        global _TIKTOKEN_AVAILABLE
+        if not _TIKTOKEN_AVAILABLE:
+            return max(1, len(text) // 4)
         try:
             # Fast path: check local cache first
             encoding = _ENCODER_CACHE.get(model)
             if encoding is None:
-                encoding = tiktoken.encoding_for_model(model)
-                _ENCODER_CACHE[model] = encoding
-        except KeyError:
-            # Default to GPT-4/3.5 encoding if model unknown
-            encoding = _ENCODER_CACHE.get("cl100k_base")
-            if encoding is None:
-                encoding = tiktoken.get_encoding("cl100k_base")
-                _ENCODER_CACHE["cl100k_base"] = encoding
-            # Note: we intentionally do not cache the fallback under the unknown
-            # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
-            # mappings for dynamically introduced model identifiers.
-        return len(encoding.encode(text))
+                try:
+                    encoding = tiktoken.encoding_for_model(model)
+                except KeyError:
+                    # Default to GPT-4/3.5 encoding if model unknown
+                    encoding = _ENCODER_CACHE.get("cl100k_base")
+                    if encoding is None:
+                        encoding = tiktoken.get_encoding("cl100k_base")
+                        _ENCODER_CACHE["cl100k_base"] = encoding
+                    # Note: we intentionally do not cache the fallback under the unknown
+                    # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
+                    # mappings for dynamically introduced model identifiers.
+                else:
+                    _ENCODER_CACHE[model] = encoding
+            return len(encoding.encode(text))
+        except (ImportError, OSError):
+            # BPE data unavailable (e.g. network-restricted CI); use char-based estimate.
+            # Disable tiktoken for the rest of the process to avoid repeated failed retries.
+            _TIKTOKEN_AVAILABLE = False
+            return max(1, len(text) // 4)
 
 
 class PricingModel:
