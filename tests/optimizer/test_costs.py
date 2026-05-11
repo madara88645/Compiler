@@ -23,9 +23,9 @@ class TestTokenCounter:
 
             encoding = tiktoken.get_encoding("cl100k_base")
             expected_count = len(encoding.encode(text))
-            assert count == expected_count
         except Exception:
             pytest.skip("tiktoken BPE data unavailable; fallback count verified")
+        assert count == expected_count
 
 
 class TestPricingModel:

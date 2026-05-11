@@ -35,18 +35,23 @@ RULES:
 TARGET: Approximately {max_tokens} tokens or less."""
 
 _tiktoken_enc = None
+# Sentinel stored in _tiktoken_enc when BPE load fails; avoids retrying on every call.
+_TIKTOKEN_LOAD_FAILED = object()
 
 
 def count_tokens_approx(text: str, ratio: float = 4.0) -> int:
     """Approximate token count (chars / ratio)."""
     global _tiktoken_enc
+    if _tiktoken_enc is _TIKTOKEN_LOAD_FAILED:
+        return int(len(text) / ratio)
     try:
         if _tiktoken_enc is None:
             import tiktoken
 
             _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
-    except Exception:
+    except (ImportError, OSError):
+        _tiktoken_enc = _TIKTOKEN_LOAD_FAILED
         return int(len(text) / ratio)
 
 
