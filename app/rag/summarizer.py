@@ -46,7 +46,7 @@ def count_tokens_approx(text: str, ratio: float = 4.0) -> int:
 
             _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
-    except ImportError:
+    except Exception:
         return int(len(text) / ratio)
 
 

@@ -21,18 +21,23 @@ class TokenCounter:
             # Fast path: check local cache first
             encoding = _ENCODER_CACHE.get(model)
             if encoding is None:
-                encoding = tiktoken.encoding_for_model(model)
-                _ENCODER_CACHE[model] = encoding
-        except KeyError:
-            # Default to GPT-4/3.5 encoding if model unknown
-            encoding = _ENCODER_CACHE.get("cl100k_base")
-            if encoding is None:
-                encoding = tiktoken.get_encoding("cl100k_base")
-                _ENCODER_CACHE["cl100k_base"] = encoding
-            # Note: we intentionally do not cache the fallback under the unknown
-            # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
-            # mappings for dynamically introduced model identifiers.
-        return len(encoding.encode(text))
+                try:
+                    encoding = tiktoken.encoding_for_model(model)
+                except KeyError:
+                    # Default to GPT-4/3.5 encoding if model unknown
+                    encoding = _ENCODER_CACHE.get("cl100k_base")
+                    if encoding is None:
+                        encoding = tiktoken.get_encoding("cl100k_base")
+                        _ENCODER_CACHE["cl100k_base"] = encoding
+                    # Note: we intentionally do not cache the fallback under the unknown
+                    # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
+                    # mappings for dynamically introduced model identifiers.
+                else:
+                    _ENCODER_CACHE[model] = encoding
+            return len(encoding.encode(text))
+        except Exception:
+            # BPE data unavailable (e.g. network-restricted CI); use char-based estimate
+            return max(1, len(text) // 4)
 
 
 class PricingModel:

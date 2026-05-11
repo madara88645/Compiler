@@ -10,7 +10,9 @@ def test_api_optimize_basic_reduces_whitespace(mock_optimize):
     mock_optimize.return_value = ("hello world", None)
 
     client = TestClient(app)
-    text = "hello" + (" " * 120) + "world"
+    # Use a multi-word input so token estimates differ from the optimized 2-word result
+    # regardless of whether tiktoken or the char/word fallback is used.
+    text = "hello world " * 20
 
     r = client.post("/optimize", json={"text": text})
     assert r.status_code == 200, r.text
