@@ -180,6 +180,13 @@ describe("Next backend proxy route wiring", () => {
       expectedUrl: "https://api.memo.dev/skills-generator/generate",
     },
     {
+      name: "repo context analysis",
+      handler: repoContextGithubRoute,
+      requestUrl: "http://localhost:3000/repo-context/github",
+      requestBody: { repo_url: "https://github.com/openai/openai-python" },
+      expectedUrl: "https://api.memo.dev/repo-context/github",
+    },
+    {
       name: "RAG upload",
       handler: ragUploadRoute,
       requestUrl: "http://localhost:3000/rag/upload",
