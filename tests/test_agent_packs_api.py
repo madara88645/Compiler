@@ -4,9 +4,12 @@ import io
 import zipfile
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from api.main import app
+from app.adapters.agent_packs import AgentPackManifest
 
 
 def _request_payload(pack_type: str) -> dict[str, str]:
@@ -209,3 +212,60 @@ def test_agent_packs_download_media_types():
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/x-python; charset=utf-8"
+
+
+def test_agent_pack_manifest_rejects_unknown_provider():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "cursor",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents"],
+                "files": [
+                    {
+                        "path": ".claude/agents/review-agent.md",
+                        "content": "hello",
+                        "kind": "agents",
+                    }
+                ],
+            }
+        )
+
+
+def test_agent_pack_manifest_rejects_unknown_kind():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["ghost-kind"],
+                "files": [
+                    {
+                        "path": ".claude/agents/review-agent.md",
+                        "content": "hello",
+                        "kind": "ghost-kind",
+                    }
+                ],
+            }
+        )
+
+
+def test_agent_pack_manifest_rejects_preview_order_kinds_not_present_in_files():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents", "workflow"],
+                "files": [
+                    {
+                        "path": ".claude/agents/review-agent.md",
+                        "content": "hello",
+                        "kind": "agents",
+                    }
+                ],
+            }
+        )

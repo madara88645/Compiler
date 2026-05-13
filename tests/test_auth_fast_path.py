@@ -525,10 +525,8 @@ def test_optional_auth_routes_accept_valid_key_when_global_enforcement_enabled(
         ),
     ],
 )
-def test_export_routes_follow_global_auth_enforcement(
-    path, payload, expected_key, test_key, monkeypatch
-):
-    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+def test_export_routes_always_require_api_key(path, payload, expected_key, test_key, monkeypatch):
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "false")
 
     unauthorized_response = client.post(path, json=payload)
     assert unauthorized_response.status_code == 403
