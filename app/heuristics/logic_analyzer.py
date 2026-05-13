@@ -294,15 +294,8 @@ class LogicAnalyzer:
 
     def _strip_negation(self, sentence: str, negation_word: str) -> str:
         """Remove negation word from sentence."""
-        # Create pattern that matches the negation word with surrounding context
-        patterns = [
-            rf"\b{re.escape(negation_word)}\s+",
-            rf"\s+{re.escape(negation_word)}\b",
-            rf"\b{re.escape(negation_word)}\b",
-        ]
-        result = sentence
-        for p in patterns:
-            result = re.sub(p, " ", result, flags=re.IGNORECASE)
+        # Bolt Optimization: Single regex substitution avoids multiple recompilations in loop
+        result = re.sub(rf"\b{re.escape(negation_word)}\b", " ", sentence, flags=re.IGNORECASE)
         return " ".join(result.split())  # Normalize whitespace
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:
