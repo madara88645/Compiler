@@ -1,9 +1,9 @@
-import pytest
 from typer.testing import CliRunner
 from cli.main import app
 import json
 
 runner = CliRunner()
+
 
 def test_json_path_output_formatting(tmp_path):
     test_file = tmp_path / "test.json"
@@ -15,6 +15,7 @@ def test_json_path_output_formatting(tmp_path):
     # Expected behavior: json.dumps will format it exactly with a space after colon
     assert '{"key": "value"}' in result.stdout
 
+
 def test_json_path_string_output(tmp_path):
     test_file = tmp_path / "test.json"
     data = {"greeting": "hello world"}
@@ -24,6 +25,7 @@ def test_json_path_string_output(tmp_path):
     assert result.exit_code == 0
     # json.dumps of string will be "hello world" with quotes
     assert '"hello world"' in result.stdout
+
 
 def test_diff_json_output(tmp_path):
     f1 = tmp_path / "1.json"
