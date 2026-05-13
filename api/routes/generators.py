@@ -5,7 +5,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
@@ -77,6 +77,17 @@ class GitHubRepoContextPayload(BaseModel):
     highlights: list[str] = Field(default_factory=list, max_length=6)
     files_used: list[str] = Field(default_factory=list, max_length=6)
     detected_stack: list[str] = Field(default_factory=list, max_length=6)
+
+    # Security: Enforce strict length limits on list elements to prevent DoS via massive strings
+    @field_validator("highlights", "files_used", "detected_stack", mode="after")
+    @classmethod
+    def validate_list_items_length(cls, items: list[str]) -> list[str]:
+        if not items:
+            return items
+        for item in items:
+            if len(item) > 1024:
+                raise ValueError("Item in list exceeds maximum length of 1024 characters")
+        return items
 
 
 class GitHubRepoContextRequest(BaseModel):
