@@ -1051,8 +1051,7 @@ def json_path(
     elif raw and isinstance(cur, str):
         typer.echo(cur)
     else:
-        # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
-        typer.echo(orjson.dumps(cur).decode("utf-8"))
+        typer.echo(json.dumps(cur, ensure_ascii=False))
 
 
 @app.command("diff")
