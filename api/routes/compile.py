@@ -459,7 +459,7 @@ def validate_endpoint(
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     del api_key
     compiler = _get_compiler()

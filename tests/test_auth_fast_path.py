@@ -388,7 +388,7 @@ def test_optimize_no_key():
 
         resp = client.post("/optimize", json={"text": "a much longer prompt"})
 
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_rag_stats_no_key():
