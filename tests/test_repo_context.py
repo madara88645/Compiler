@@ -8,7 +8,9 @@ from api.main import app
 from app.github_repo_context import (
     GitHubRepoAnalysisError,
     InvalidGitHubRepoUrl,
+    _build_summary,
     _build_summary_compact,
+    _detect_stack,
     analyze_public_github_repo,
     normalize_public_github_repo_url,
     reset_repo_cache_for_tests,
@@ -95,6 +97,40 @@ def test_build_summary_compact_handles_missing_metadata():
     )
     assert "no detected stack" in compact
     assert "single-surface" in compact
+
+
+def test_build_summary_truncates_long_readme_signal():
+    summary = _build_summary(
+        repo_meta={
+            "full_name": "openai/openai-python",
+            "description": "Official Python SDK for the OpenAI API.",
+        },
+        detected_stack=["Python", "FastAPI", "httpx"],
+        top_level_dirs=["web", "api", "tests"],
+        files_used=["README.md", "pyproject.toml"],
+        manifest_paths=["pyproject.toml"],
+        readme_text=("README " * 600).strip(),
+    )
+
+    assert len(summary) <= 1200
+    assert "README signal:" in summary
+    assert "README README README" in summary
+    assert "REA..." in summary
+
+
+def test_detect_stack_combines_manifest_and_language_signals():
+    detected = _detect_stack(
+        {"language": "TypeScript"},
+        {
+            "package.json": (
+                '{"dependencies":{"next":"15.0.0","react":"19.0.0"},'
+                '"devDependencies":{"typescript":"5.0.0"}}'
+            ),
+            "pyproject.toml": "[project]\ndependencies=['fastapi','httpx']\n",
+        },
+    )
+
+    assert detected == ["TypeScript", "Node.js", "Next.js", "React", "Python", "FastAPI"]
 
 
 def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
@@ -467,6 +503,56 @@ def test_repo_context_endpoint_emits_invalid_url_telemetry(caplog):
     record = analyze_records[-1]
     assert record.outcome == "invalid_url"
     assert record.status_code == 400
+
+
+def test_repo_context_endpoint_emits_not_found_telemetry(caplog):
+    previous_propagate = _enable_promptc_api_log_capture(caplog)
+    try:
+        with patch(
+            "api.routes.generators.analyze_public_github_repo",
+            side_effect=GitHubRepoAnalysisError("Repository not found.", status_code=404),
+        ):
+            response = client.post(
+                "/repo-context/github",
+                json={"repo_url": "https://github.com/openai/missing-repo"},
+            )
+    finally:
+        _restore_promptc_api_log_capture(previous_propagate)
+
+    assert response.status_code == 404
+
+    analyze_records = [r for r in caplog.records if getattr(r, "event", None) == "repo_analyze"]
+    assert analyze_records, "expected a not_found telemetry record"
+    record = analyze_records[-1]
+    assert record.outcome == "not_found"
+    assert record.repo_full_name == "openai/missing-repo"
+    assert record.status_code == 404
+
+
+def test_repo_context_endpoint_emits_upstream_error_telemetry(caplog):
+    previous_propagate = _enable_promptc_api_log_capture(caplog)
+    try:
+        with patch(
+            "api.routes.generators.analyze_public_github_repo",
+            side_effect=GitHubRepoAnalysisError(
+                "GitHub repository analysis failed.", status_code=502
+            ),
+        ):
+            response = client.post(
+                "/repo-context/github",
+                json={"repo_url": "https://github.com/openai/openai-python"},
+            )
+    finally:
+        _restore_promptc_api_log_capture(previous_propagate)
+
+    assert response.status_code == 502
+
+    analyze_records = [r for r in caplog.records if getattr(r, "event", None) == "repo_analyze"]
+    assert analyze_records, "expected an upstream_error telemetry record"
+    record = analyze_records[-1]
+    assert record.outcome == "upstream_error"
+    assert record.repo_full_name == "openai/openai-python"
+    assert record.status_code == 502
 
 
 def test_repo_context_endpoint_returns_analyzed_repo_summary():
