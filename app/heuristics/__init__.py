@@ -704,13 +704,13 @@ def detect_pii(text: str) -> list[str]:
         for m in pat.finditer(text):
             val = m.group(0)
             if kind == "credit_card":
-                # Bolt Optimization: map() is ~3x faster than generator sum for counting characters
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: len with list comprehension is faster than sum(map(...)) for counting
+                digits_count = len([c for c in val if c.isdigit()])
                 if digits_count < 13:
                     continue
             if kind == "phone":
-                # Bolt Optimization: map() is ~3x faster than generator sum for counting characters
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: len with list comprehension is faster than sum(map(...)) for counting
+                digits_count = len([c for c in val if c.isdigit()])
                 if digits_count < 7:
                     continue
             if kind in {"ssn", "passport"} and _has_fp_hint_around_match(text, m.start(), m.end()):
