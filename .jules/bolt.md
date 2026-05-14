@@ -167,3 +167,7 @@
 ## 2024-06-25 - Removing any() generator overhead in short-circuit evaluations
 **Learning:** In highly recurrent loops (like PII detection or scanning windows), using an inline `any(hint in ctx for hint in hints)` expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `in` operation, especially for small sequences.
 **Action:** Replace `any()` generator expressions used for substring matching in hot paths with explicit `or` conditions to bypass generator overhead and achieve a 30-40% speedup.
+
+## 2026-06-03 - List Comprehensions vs Explicit Loops in CPython
+**Learning:** In CPython, simple list comprehensions (`[x for x in iterable if condition]`) are implemented efficiently at the C level and avoid the continuous method lookup overhead of `.append()`. Replacing a list comprehension with an explicit `for` loop under the false premise of avoiding "generator overhead" is an anti-optimization that results in slower and more verbose code.
+**Action:** Do not replace list comprehensions with explicit loops. The previous advice to avoid generator overhead applies to generator expressions (e.g. `(x for x in ...)` or `any(...)`), not eagerly evaluated list comprehensions (`[...]`).
