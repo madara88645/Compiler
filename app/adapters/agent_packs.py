@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 from typing import Any, Literal, Protocol
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -50,6 +51,12 @@ class AgentPackManifest(BaseModel):
         if unknown_preview_kinds:
             joined = ", ".join(unknown_preview_kinds)
             raise ValueError(f"preview_order includes kinds without matching files: {joined}")
+        normalized_paths: set[str] = set()
+        for file in self.files:
+            normalized_path = _normalize_pack_path(file.path)
+            if normalized_path in normalized_paths:
+                raise ValueError(f"duplicate file path in manifest: {file.path}")
+            normalized_paths.add(normalized_path)
         return self
 
 
@@ -223,3 +230,19 @@ def _media_type_for_path(path: str) -> str:
     if path.endswith(".py"):
         return "text/x-python; charset=utf-8"
     return "text/plain; charset=utf-8"
+
+
+def _normalize_pack_path(path: str) -> str:
+    trimmed = path.strip()
+    if not trimmed:
+        raise ValueError("manifest file paths must not be empty")
+
+    normalized = trimmed.replace("\\", "/")
+    if normalized.startswith("/") or re.match(r"^[A-Za-z]:/", normalized):
+        raise ValueError(f"manifest file path must be relative: {path}")
+
+    parts = normalized.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ValueError(f"manifest file path contains unsafe segments: {path}")
+
+    return normalized
