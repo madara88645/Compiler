@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Optional
 from .client import WorkerClient, WorkerResponse, DEFAULT_MODEL
 from .schemas import DiagnosticItem
 from app.compiler import compile_text_v2
@@ -210,13 +210,17 @@ class HybridCompiler:
         text: str,
         multi_agent: bool = False,
         include_example_code: bool = False,
+        repo_context: dict[str, Any] | None = None,
     ) -> str:
         """
         Generate a comprehensive AI Agent system prompt, aware of RAG context.
         """
         try:
             # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            rag_context = self._merge_generator_context(
+                self.context_strategist.process(text),
+                repo_context,
+            )
             return self.worker.generate_agent(
                 text,
                 context=rag_context,
@@ -227,13 +231,21 @@ class HybridCompiler:
             # Fallback for agent generation
             return f"# Error\n\nFailed to generate agent: {e}"
 
-    def generate_skill(self, text: str, include_example_code: bool = False) -> str:
+    def generate_skill(
+        self,
+        text: str,
+        include_example_code: bool = False,
+        repo_context: dict[str, Any] | None = None,
+    ) -> str:
         """
         Generate a comprehensive AI Skill definition, aware of RAG context.
         """
         try:
             # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            rag_context = self._merge_generator_context(
+                self.context_strategist.process(text),
+                repo_context,
+            )
             return self.worker.generate_skill(
                 text,
                 context=rag_context,
@@ -242,3 +254,16 @@ class HybridCompiler:
         except Exception as e:
             # Fallback for skill generation
             return f"# Error\n\nFailed to generate skill: {e}"
+
+    def _merge_generator_context(
+        self,
+        rag_context: dict[str, Any] | None,
+        repo_context: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        merged: dict[str, Any] = dict(rag_context or {})
+        if repo_context:
+            merged["repo_context"] = {
+                "source": "github_public_repo",
+                **repo_context,
+            }
+        return merged or None
