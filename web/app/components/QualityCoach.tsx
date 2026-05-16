@@ -19,6 +19,36 @@ type QualityCoachProps = {
     onUpdatePrompt: (newPrompt: string) => void;
 };
 
+const SCORE_LABELS: Record<string, { title: string; help: string }> = {
+    clarity: {
+        title: "Clarity",
+        help: "Is the prompt easy to understand? Short, clear sentences score higher.",
+    },
+    specificity: {
+        title: "Specificity",
+        help: "Does it spell out what you want? Vague asks score lower.",
+    },
+    completeness: {
+        title: "Completeness",
+        help: "Did you include everything the AI needs (inputs, format, constraints)?",
+    },
+    consistency: {
+        title: "Consistency",
+        help: "Do the instructions agree with each other (no conflicting rules)?",
+    },
+};
+
+function prettyLabel(key: string): string {
+    return (
+        SCORE_LABELS[key]?.title ??
+        key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
+}
+
+function labelHelp(key: string): string {
+    return SCORE_LABELS[key]?.help ?? "";
+}
+
 export default function QualityCoach({ prompt }: QualityCoachProps) {
     const [analyzing, setAnalyzing] = useState(false);
     const [report, setReport] = useState<ValidationResponse | null>(null);
@@ -97,10 +127,17 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
             {report && (
                 <div className="space-y-8 animate-fade-in pb-10">
                     {/* Category Scores */}
+                    <p className="text-xs text-zinc-400">
+                        Your prompt was scored in {Object.keys(report.category_scores).length} areas. Hover any card to see what it measures.
+                    </p>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {Object.entries(report.category_scores).map(([cat, score]) => (
-                            <div key={cat} className="glass-panel p-4 rounded-xl relative overflow-hidden group hover:bg-white/5 transition-colors">
-                                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">{cat}</div>
+                            <div
+                                key={cat}
+                                title={labelHelp(cat)}
+                                className="glass-panel p-4 rounded-xl relative overflow-hidden group hover:bg-white/5 transition-colors"
+                            >
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">{prettyLabel(cat)}</div>
                                 <div className="flex items-end gap-2 mb-3">
                                     <div className="text-2xl font-bold text-white tracking-tight">
                                         {typeof score === 'number' ? score.toFixed(0) : score}
