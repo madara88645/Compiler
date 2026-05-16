@@ -34,6 +34,8 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `OPENAI_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for LLM paths |
 | `OPENAI_BASE_URL` | LLM provider URL | `https://api.openai.com` |
 | `GROQ_API_KEY` | Groq-backed LLM paths | Optional; LLM routes fall back to OpenAI |
+| `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
+| `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
 | `ADMIN_API_KEY` | Master API key (skip DB lookup) | Optional; leave blank for local dev |
 | `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Force API keys everywhere | `false` for local dev, `true` for hardened deploys |
@@ -67,6 +69,8 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
 
 The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENAI_API_KEY` / `GROQ_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
 
+If agent-pack or skill exports are getting truncated, adjust `LLM_AGENT_MAX_TOKENS` or `LLM_SKILL_MAX_TOKENS` in `.env` before retrying.
+
 ---
 
 ## 3. Starting the Application
@@ -83,7 +87,7 @@ cd web && npm run dev
 
 Open http://localhost:3000 in a browser.
 
-Protected frontend routes now use same-origin Next proxy handlers. For local generator/RAG upload testing through the web UI, set `PROMPTC_SERVER_API_KEY` to a valid backend API key (or the same value as `ADMIN_API_KEY`) in the Next.js environment if backend auth is enabled.
+Protected frontend routes now use same-origin Next proxy handlers. For local generator/RAG upload testing through the web UI, set `PROMPTC_SERVER_API_KEY` to a valid backend API key (or the same value as `ADMIN_API_KEY`) in the Next.js environment if backend auth is enabled. The Agent Packs page no longer exposes a browser-side API-key input, so authenticated generator requests must come through that server-side proxy key.
 
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
