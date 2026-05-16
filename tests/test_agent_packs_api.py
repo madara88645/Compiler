@@ -269,3 +269,58 @@ def test_agent_pack_manifest_rejects_preview_order_kinds_not_present_in_files():
                 ],
             }
         )
+
+
+@pytest.mark.parametrize(
+    "bad_path",
+    [
+        "",
+        "   ",
+        "../secrets.txt",
+        "..\\secrets.txt",
+        "/etc/passwd",
+        "C:/windows/system32/config",
+        ".claude/../secrets.txt",
+    ],
+)
+def test_agent_pack_manifest_rejects_unsafe_file_paths(bad_path: str):
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents"],
+                "files": [
+                    {
+                        "path": bad_path,
+                        "content": "hello",
+                        "kind": "agents",
+                    }
+                ],
+            }
+        )
+
+
+def test_agent_pack_manifest_rejects_duplicate_file_paths():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents"],
+                "files": [
+                    {
+                        "path": ".claude/agents/review-agent.md",
+                        "content": "hello",
+                        "kind": "agents",
+                    },
+                    {
+                        "path": ".claude\\agents\\review-agent.md",
+                        "content": "world",
+                        "kind": "agents",
+                    },
+                ],
+            }
+        )
