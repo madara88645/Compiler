@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
@@ -158,7 +159,9 @@ export default function OptimizerPage() {
 
     const copyText = (text: string) => {
         if (!text) return;
-        void navigator.clipboard?.writeText(text).catch(() => {});
+        void navigator.clipboard?.writeText(text).then(() => {
+            toast.success("Copied to clipboard");
+        }).catch(() => {});
     };
 
     return (

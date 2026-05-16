@@ -32,3 +32,6 @@
 ## 2024-05-18 - Visual feedback for successful inline actions
 **Learning:** When a user executes a localized, inline action (like clicking "Insert into Prompt" on a context suggestion), they expect immediate confirmation. Without it, they might click multiple times or check the resulting state manually, breaking their flow.
 **Action:** Always ensure interactive elements that don't have obvious immediate visual state changes trigger a brief visual confirmation (like a toast notification) indicating success.
+## 2025-05-16 - Add copy feedback to Optimizer panel
+**Learning:** Certain specific areas like the Token Optimizer result panel had custom `copyText` utility functions without attaching the global `toast.success` notification. It's easy to miss global patterns when building custom, localized helper functions instead of using a unified copy hook.
+**Action:** When creating local `copyText` or `copyToClipboard` helpers, always ensure they import and trigger the global success toast to maintain consistency with the rest of the application's UX.
