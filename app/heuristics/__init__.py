@@ -128,6 +128,7 @@ TEACHING_KEYWORDS = [
     r"ders",
     r"öğrenmek istiyorum",
 ]
+_TEACHING_RE = re.compile("|".join(TEACHING_KEYWORDS))
 
 # Bolt Optimization: Pre-compile regexes for fast evaluation
 
@@ -1087,10 +1088,7 @@ def detect_conflicts(constraints: List[str]) -> List[str]:
 
 def detect_teaching_intent(text: str) -> bool:
     lower = text.lower()
-    for p in TEACHING_KEYWORDS:
-        if p in lower:
-            return True
-    return False
+    return bool(_TEACHING_RE.search(lower))
 
 
 def _normalize_currency(val: str) -> str:
