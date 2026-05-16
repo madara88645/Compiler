@@ -1,7 +1,7 @@
 import typer
 from typing import List, Optional
 from pathlib import Path
-import json
+import orjson
 import yaml
 from app.rag.simple_index import (
     ingest_paths,
@@ -129,11 +129,11 @@ def rag_query(
             ext = "md"
         else:
             use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-            payload = (
-                yaml.safe_dump(res, sort_keys=False, allow_unicode=True)  # type: ignore
-                if use_yaml
-                else json.dumps(res, ensure_ascii=False, indent=2)
-            )
+            if use_yaml:
+                payload = yaml.safe_dump(res, sort_keys=False, allow_unicode=True)  # type: ignore
+            else:
+                # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+                payload = orjson.dumps(res, option=orjson.OPT_INDENT_2).decode("utf-8")
             ext = "yaml" if use_yaml else "json"
         if out or out_dir:
             _write_output(payload, out, out_dir, default_name=f"rag_query.{ext}")
@@ -186,11 +186,11 @@ def rag_pack(
             ext = "md"
         else:
             use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-            payload = (
-                yaml.safe_dump(packed, sort_keys=False, allow_unicode=True)  # type: ignore
-                if use_yaml
-                else json.dumps(packed, ensure_ascii=False, indent=2)
-            )
+            if use_yaml:
+                payload = yaml.safe_dump(packed, sort_keys=False, allow_unicode=True)  # type: ignore
+            else:
+                # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+                payload = orjson.dumps(packed, option=orjson.OPT_INDENT_2).decode("utf-8")
             ext = "yaml" if use_yaml else "json"
 
         if out or out_dir:
@@ -215,11 +215,11 @@ def rag_stats(
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
         use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-        payload = (
-            yaml.safe_dump(s, sort_keys=False, allow_unicode=True)  # type: ignore
-            if use_yaml
-            else json.dumps(s, ensure_ascii=False, indent=2)
-        )
+        if use_yaml:
+            payload = yaml.safe_dump(s, sort_keys=False, allow_unicode=True)  # type: ignore
+        else:
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+            payload = orjson.dumps(s, option=orjson.OPT_INDENT_2).decode("utf-8")
         if out or out_dir:
             ext = "yaml" if use_yaml else "json"
             _write_output(payload, out, out_dir, default_name=f"rag_stats.{ext}")
@@ -253,11 +253,11 @@ def rag_prune(
     fmt_l = (format or "json").lower() if format else None
     if json_out or fmt_l or out or out_dir:
         use_yaml = fmt_l in {"yaml", "yml"} and yaml is not None  # type: ignore
-        payload = (
-            yaml.safe_dump(r, sort_keys=False, allow_unicode=True)  # type: ignore
-            if use_yaml
-            else json.dumps(r, ensure_ascii=False, indent=2)
-        )
+        if use_yaml:
+            payload = yaml.safe_dump(r, sort_keys=False, allow_unicode=True)  # type: ignore
+        else:
+            # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
+            payload = orjson.dumps(r, option=orjson.OPT_INDENT_2).decode("utf-8")
         if out or out_dir:
             ext = "yaml" if use_yaml else "json"
             _write_output(payload, out, out_dir, default_name=f"rag_prune.{ext}")
