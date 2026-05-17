@@ -175,3 +175,6 @@
 ## 2024-06-25 - Faster counting with list comprehensions and len()
 **Learning:** In CPython, while `sum(map(...))` is generally faster than an explicit `for` loop because `map()` pushes the loop iteration to the C level, when the goal is to count elements matching a boolean condition, using a list comprehension with `len()` (e.g., `len([x for x in iterable if condition])`) is typically faster than `sum(map(condition, iterable))`. The list comprehension avoids the overhead of numeric addition over a generator, yielding a measurable speedup (e.g., 50-60% faster for character checks like `str.isdigit`).
 **Action:** When counting elements in an iterable that match a simple condition in performance-critical paths, prefer `len([x for x in iterable if condition])` over `sum(map(condition, iterable))` or explicit loops.
+## 2024-05-19 - Missing Index on Foreign Keys
+**Learning:** SQLite does not automatically index foreign keys or referenced columns like `doc_id` in the `chunks` table. This led to a hidden O(N) full table scan whenever documents were deleted or updated. Even simple relation tables in RAG setups need explicit indices on reference columns to scale.
+**Action:** Always verify that frequently queried non-primary key relationship columns (like `doc_id`, `chunk_id`) have explicit indices created during schema initialization.

@@ -181,6 +181,8 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             chunk_index INTEGER,
             content TEXT
         );
+        -- Bolt Optimization: Index on doc_id prevents full table scans during document updates/deletions
+        CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id);
         CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(content, tokenize="unicode61 tokenchars '_'");
         CREATE TABLE IF NOT EXISTS embeddings (
             chunk_id INTEGER PRIMARY KEY,
