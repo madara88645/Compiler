@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
+import { toast } from "sonner";
 
 export type BenchmarkData = {
     raw_output: string;
@@ -129,6 +130,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                             type="button"
                             onClick={() => {
                                 navigator.clipboard.writeText(data.raw_output);
+                                toast.success("Copied to clipboard");
                                 setCopiedRaw(true);
                                 setTimeout(() => setCopiedRaw(false), 2000);
                             }}
@@ -159,6 +161,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                             type="button"
                             onClick={() => {
                                 navigator.clipboard.writeText(data.compiled_output);
+                                toast.success("Copied to clipboard");
                                 setCopiedCompiled(true);
                                 setTimeout(() => setCopiedCompiled(false), 2000);
                             }}

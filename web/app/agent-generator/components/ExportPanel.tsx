@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/config";
 
 type ExportTarget =
@@ -190,6 +191,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
   const handleCopy = () => {
     if (!currentContent) return;
     navigator.clipboard.writeText(currentContent).then(() => {
+      toast.success("Copied to clipboard");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

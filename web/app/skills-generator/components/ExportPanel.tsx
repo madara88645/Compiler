@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/config";
 
 type SkillTarget = "claude-tool" | "claude-mcp-tool" | "langchain-tool";
@@ -162,6 +163,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
   const handleCopy = () => {
     if (!currentContent) return;
     navigator.clipboard.writeText(currentContent).then(() => {
+      toast.success("Copied to clipboard");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
