@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { toast } from "sonner";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -419,6 +420,7 @@ export default function Home() {
                           type="button"
                           onClick={() => {
                             navigator.clipboard.writeText(getTabContent(result, tab));
+                            toast.success("Copied to clipboard");
                             setCopied(true);
                             setTimeout(() => setCopied(false), 2000);
                           }}
