@@ -32,3 +32,6 @@
 ## 2024-05-18 - Visual feedback for successful inline actions
 **Learning:** When a user executes a localized, inline action (like clicking "Insert into Prompt" on a context suggestion), they expect immediate confirmation. Without it, they might click multiple times or check the resulting state manually, breaking their flow.
 **Action:** Always ensure interactive elements that don't have obvious immediate visual state changes trigger a brief visual confirmation (like a toast notification) indicating success.
+## 2026-05-18 - Added Toast Notifications for Copy Actions
+**Learning:** Users need visual feedback when copying text to the clipboard so they aren't left guessing if the action was successful.
+**Action:** Add `toast.success("Copied to clipboard")` to all `navigator.clipboard.writeText` operations.

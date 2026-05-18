@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
@@ -104,6 +105,7 @@ export default function SkillsGenerator() {
     if (result) {
       navigator.clipboard.writeText(result);
       setCopied(true);
+      toast.success("Copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     }
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { toast } from "sonner";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -420,6 +421,7 @@ export default function Home() {
                           onClick={() => {
                             navigator.clipboard.writeText(getTabContent(result, tab));
                             setCopied(true);
+                            toast.success("Copied to clipboard");
                             setTimeout(() => setCopied(false), 2000);
                           }}
                           className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
