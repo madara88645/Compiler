@@ -94,8 +94,9 @@ class ClaudeAgentPackAdapter:
             )
             for file in raw_files
         ]
+        file_kinds = {file.kind for file in files}
         preview_order = [
-            kind for kind in _preview_order() if any(file.kind == kind for file in files)
+            kind for kind in _preview_order() if kind in file_kinds
         ]
         download_name = _build_download_name(req)
 
