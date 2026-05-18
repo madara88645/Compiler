@@ -984,23 +984,25 @@ def _search_embed_with_conn(
         return []
 
     chunk_ids = [c for _, _, c in scores]
-    placeholders = ",".join("?" for _ in chunk_ids)
 
     # Step 2: Fetch full metadata only for the matching chunks
-    cur = conn.execute(
-        f"""
-        SELECT c.id, c.doc_id, d.path, c.chunk_index, c.content
-        FROM chunks c
-        JOIN docs d ON d.id = c.doc_id
-        WHERE c.id IN ({placeholders})
-        """,
-        chunk_ids,
-    )
-
     metadata = {}
-    for row in cur.fetchall():
-        c_id, doc_id, path, chunk_index, content = row
-        metadata[c_id] = {
+    # SQLite parameter limit (often 999), batch to prevent DoS crashes
+    for i in range(0, len(chunk_ids), 999):
+        batch = chunk_ids[i:i+999]
+        placeholders = ",".join("?" for _ in batch)
+        cur = conn.execute(
+            f"""
+            SELECT c.id, c.doc_id, d.path, c.chunk_index, c.content
+            FROM chunks c
+            JOIN docs d ON d.id = c.doc_id
+            WHERE c.id IN ({placeholders})
+            """,
+            batch,
+        )
+        for row in cur.fetchall():
+            c_id, doc_id, path, chunk_index, content = row
+            metadata[c_id] = {
             "doc_id": doc_id,
             "path": path,
             "chunk_index": chunk_index,
