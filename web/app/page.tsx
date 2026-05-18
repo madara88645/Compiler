@@ -7,6 +7,7 @@ import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
+import PolicyBadge from "./components/PolicyBadge";
 import { useCompiler } from "./hooks/useCompiler";
 import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
@@ -319,6 +320,7 @@ export default function Home() {
                       onSelect={setActiveTab}
                     />
                   ))}
+                  <PolicyBadge result={result} />
                 </div>
 
                 {/* Content — one stable tabpanel per tab, hidden when inactive */}
