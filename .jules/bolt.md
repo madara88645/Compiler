@@ -176,6 +176,6 @@
 **Learning:** In CPython, while `sum(map(...))` is generally faster than an explicit `for` loop because `map()` pushes the loop iteration to the C level, when the goal is to count elements matching a boolean condition, using a list comprehension with `len()` (e.g., `len([x for x in iterable if condition])`) is typically faster than `sum(map(condition, iterable))`. The list comprehension avoids the overhead of numeric addition over a generator, yielding a measurable speedup (e.g., 50-60% faster for character checks like `str.isdigit`).
 **Action:** When counting elements in an iterable that match a simple condition in performance-critical paths, prefer `len([x for x in iterable if condition])` over `sum(map(condition, iterable))` or explicit loops.
 
-## 2024-06-25 - Offloading Periodic Dictionary Cleanup
-**Learning:** In highly concurrent synchronous endpoints (like rate limiting checks), periodically performing blocking O(N) operations inside a shared lock (e.g., iterating a large dictionary to filter stale keys) punishes the specific request that triggers the cleanup, causing random latency spikes.
-**Action:** When a global state must be periodically cleaned in a synchronous path, offload the work to a background thread. Use a `_cleanup_in_progress` boolean flag to ensure only one cleanup thread runs at a time, avoiding redundant overlapping threads during high traffic bursts.
+## 2024-06-25 - SQLite Host Parameter Limits in Bulk Queries
+**Learning:** SQLite enforces a maximum number of host parameters per statement (`SQLITE_MAX_VARIABLE_NUMBER`), which defaults to 999 or 32766 depending on the compilation options. If a bulk query like `WHERE id IN (...)` passes a list of IDs exceeding this limit (common in large vector similarity search retrievals), SQLite will throw an `OperationalError`.
+**Action:** Always batch the items in an `IN (...)` clause. A batch size of 999 is safe across almost all SQLite versions and deployments.

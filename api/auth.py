@@ -2,7 +2,7 @@ import logging
 import time
 import secrets
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Lock
 from typing import Dict
 import os
 
@@ -132,27 +132,15 @@ def verify_api_key(
         # Periodically clean up stale rate limit entries to prevent memory leaks
         if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
             verify_api_key._cleanup_counter = 0
-            # Bolt Optimization: Offload expensive store cleanup to a background thread to avoid blocking requests
-            if not getattr(verify_api_key, "_cleanup_in_progress", False):
-                verify_api_key._cleanup_in_progress = True
-
-                def cleanup_task():
-                    try:
-                        cleanup_now = time.time()
-                        with RATE_LIMIT_LOCK:
-                            stale_keys = []
-                            for k, v in list(RATE_LIMIT_STORE.items()):
-                                valid_ts = [t for t in v if t > cleanup_now - RATE_LIMIT_WINDOW]
-                                if not valid_ts:
-                                    stale_keys.append(k)
-                                else:
-                                    RATE_LIMIT_STORE[k] = valid_ts
-                            for k in stale_keys:
-                                RATE_LIMIT_STORE.pop(k, None)
-                    finally:
-                        verify_api_key._cleanup_in_progress = False
-
-                Thread(target=cleanup_task, daemon=True).start()
+            stale_keys = []
+            for k, v in list(RATE_LIMIT_STORE.items()):
+                valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
+                if not valid_ts:
+                    stale_keys.append(k)
+                else:
+                    RATE_LIMIT_STORE[k] = valid_ts
+            for k in stale_keys:
+                RATE_LIMIT_STORE.pop(k, None)
         else:
             verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
 
