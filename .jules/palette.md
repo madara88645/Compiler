@@ -1,3 +1,5 @@
+> **Read first:** [instructions.md](./instructions.md). Past learnings only — do not apply repo-wide without a task-specific reason.
+
 ## 2024-04-09 - Polish RAG Search Panel UX
 **Learning:** When users click an action like 'Insert into Prompt', visual feedback (such as a success toast) is critical so they aren't left wondering if it worked. Also, clearable inputs (with an 'X' button) significantly speed up the iterative search workflow compared to forcing the user to manually backspace long queries.
 **Action:** Add clearable (X) buttons inside text inputs intended for frequent querying/searching, and always include brief visual confirmation notifications (like toasts) when an action completes without an obvious immediate visual state change.

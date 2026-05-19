@@ -158,11 +158,15 @@ export default function BenchmarkPage() {
                 <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
                   Compare raw vs compiled output
                 </div>
+                <div className="mt-1 text-xs text-zinc-400">
+                  <span className="font-semibold text-amber-300">Raw</span> = your prompt as-is &nbsp;·&nbsp;{" "}
+                  <span className="font-semibold text-emerald-300">Compiled</span> = Prompt Compiler&apos;s polished version
+                </div>
               </div>
             </div>
             <InfoButton
-              title="Benchmark Suite"
-              description="Run automated tests across multiple LLM models to evaluate the effectiveness and token efficiency of your compiled prompts."
+              title="What this page does"
+              description="We send your prompt to a real AI model twice: once exactly as you wrote it (the Raw version) and once after Prompt Compiler rewrites it (the Compiled version). The radar chart and winner banner show whose answer was clearer, safer, and more concise."
             />
           </div>
 
@@ -207,6 +211,11 @@ export default function BenchmarkPage() {
                 {selectedModel === "mock"
                   ? "No model is called. Numbers below are randomized for UI preview only — pick a real model to run an actual benchmark."
                   : selectedModelMeta?.helperText}
+              </p>
+              <p className="px-2 pb-2 text-[10px] leading-relaxed text-zinc-600">
+                <span className="font-mono text-zinc-500">[cheap]</span> runs fast and costs little.{" "}
+                <span className="font-mono text-zinc-500">[balanced]</span> is smarter but slower.{" "}
+                <span className="font-mono text-zinc-500">[preview]</span> is a newer model still being tested.
               </p>
             </div>
 
@@ -275,6 +284,9 @@ export default function BenchmarkPage() {
                     <h3 className="absolute left-4 top-4 text-xs font-semibold uppercase text-zinc-500">
                       Performance Radar
                     </h3>
+                    <p className="absolute left-4 top-9 text-[10px] text-zinc-500">
+                      Higher = better. The bigger shape wins.
+                    </p>
                     <div className="h-full w-full max-w-[400px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart outerRadius="70%" data={chartData}>
