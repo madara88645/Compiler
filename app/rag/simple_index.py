@@ -380,16 +380,14 @@ def _chunk_text_semantic(
         if not v1 or not v2:
             return 0.0
 
-        # Bolt Optimization: Iterating over the smaller dictionary is faster than set intersection for sparse vectors
+        # Bolt Optimization: Iterating over the smaller dictionary and using 'in' is faster than get() for sparse vectors
         if len(v1) > len(v2):
             v1, v2 = v2, v1
 
-        missing = object()
         dot = 0.0
         for k, v in v1.items():
-            v2_val = v2.get(k, missing)
-            if v2_val is not missing:
-                dot += v * v2_val
+            if k in v2:
+                dot += v * v2[k]
 
         # Bolt Optimization: math.hypot is ~5x faster than math.hypot(*v1.values()) in Python < 3.8
         # Since we use 3.10+, math.hypot(*v1.values()) is fine.

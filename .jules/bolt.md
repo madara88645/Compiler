@@ -175,3 +175,7 @@
 ## 2024-06-25 - Faster counting with list comprehensions and len()
 **Learning:** In CPython, while `sum(map(...))` is generally faster than an explicit `for` loop because `map()` pushes the loop iteration to the C level, when the goal is to count elements matching a boolean condition, using a list comprehension with `len()` (e.g., `len([x for x in iterable if condition])`) is typically faster than `sum(map(condition, iterable))`. The list comprehension avoids the overhead of numeric addition over a generator, yielding a measurable speedup (e.g., 50-60% faster for character checks like `str.isdigit`).
 **Action:** When counting elements in an iterable that match a simple condition in performance-critical paths, prefer `len([x for x in iterable if condition])` over `sum(map(condition, iterable))` or explicit loops.
+
+## 2024-11-20 - Fast dot product checking for sparse vectors
+**Learning:** For sparse vector dot products represented as dictionaries in Python, iterating over the smaller dictionary and checking keys with the native `in` operator (`if k in v2: dot += v * v2[k]`) is faster than using `v2.get(k, missing)` and checking for `missing`. This avoids the function call overhead of `.get()`.
+**Action:** When computing dot products of sparse dictionary vectors, iterate over the smaller one and use the `in` keyword to match keys on the larger one.
