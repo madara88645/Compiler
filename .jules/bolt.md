@@ -1,3 +1,5 @@
+> **Read first:** [instructions.md](./instructions.md). Past learnings only — do not apply repo-wide without a task-specific reason.
+
 ## 2024-05-24 - Pre-calculate constraints to avoid repeated getattr in logic handler
 **Learning:** In nested loops where `getattr(obj, "attr", default)` or type checks like `isinstance(obj, dict)` are executed heavily (e.g., matching constraints against multiple Regex patterns), it is significantly faster to hoist the attributes into a pre-calculated parallel list. This transforms $O(M \times N)$ lookups into $O(N)$ lookups. However, when the original list might be modified mid-loop, use slice assignment (`c_texts[:] = ...`) to keep the parallel lists strictly synced with the underlying objects.
 **Action:** Before optimizing nested loops, identify properties fetched via `getattr` and hoist them into parallel lists or dictionaries prior to loop entry, ensuring to keep them synchronized if the source data structure undergoes deletion. Always maintain the same fallback access pattern (e.g., `getattr(obj, 'attr', default)`) to prevent `AttributeError` on missing attributes during optimization.
@@ -164,9 +166,6 @@
 ## 2024-05-31 - Replacing small generator expressions with explicit loops does not improve readability
 **Learning:** While replacing `any(x in list)` with a standard unrolled `for` loop avoids generator setup overhead and is technically faster at the CPython level, replacing concise and idiomatic generator expressions (like `any()` or `sum()`) often harms code readability and maintainability for negligible gain. The time saved per iteration is measured in nanoseconds, which doesn't resolve actual system bottlenecks (I/O, database fetching, large matrix math). Code reviewers consider this an unhelpful micro-optimization that violates clean code principles.
 **Action:** Do not sacrifice the concise readability of built-in generators (`any()`, `all()`, `sum()`) by replacing them with verbose 5-6 line `for` loops unless the loop runs millions of times on the hot path (like tokenizer parsers) where overhead actually becomes a measurable bottleneck.
-## 2024-06-25 - Removing any() generator overhead in short-circuit evaluations
-**Learning:** In highly recurrent loops (like PII detection or scanning windows), using an inline `any(hint in ctx for hint in hints)` expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `in` operation, especially for small sequences.
-**Action:** Replace `any()` generator expressions used for substring matching in hot paths with explicit `or` conditions to bypass generator overhead and achieve a 30-40% speedup.
 
 ## 2024-08-20 - Fast L2 Norm Calculations with math.sumprod
 **Learning:** In Python 3.12+, computing the L2 norm (magnitude) of a sparse vector represented as dictionary values via `math.sqrt(math.sumprod(v.values(), v.values()))` is about 30-40% faster than `math.hypot(*v.values())`. The performance gain primarily comes from avoiding the `*` unpacking operator over iterables, which introduces significant bytecode overhead in CPython.

@@ -128,6 +128,7 @@ TEACHING_KEYWORDS = [
     r"ders",
     r"öğrenmek istiyorum",
 ]
+_TEACHING_RE = re.compile("|".join(TEACHING_KEYWORDS))
 
 # Bolt Optimization: Pre-compile regexes for fast evaluation
 
@@ -703,13 +704,13 @@ def detect_pii(text: str) -> list[str]:
         for m in pat.finditer(text):
             val = m.group(0)
             if kind == "credit_card":
-                # Bolt Optimization: map() is ~3x faster than generator sum for counting characters
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: len with list comprehension is faster than sum(map(...)) for counting
+                digits_count = len([c for c in val if c.isdigit()])
                 if digits_count < 13:
                     continue
             if kind == "phone":
-                # Bolt Optimization: map() is ~3x faster than generator sum for counting characters
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: len with list comprehension is faster than sum(map(...)) for counting
+                digits_count = len([c for c in val if c.isdigit()])
                 if digits_count < 7:
                     continue
             if kind in {"ssn", "passport"} and _has_fp_hint_around_match(text, m.start(), m.end()):
@@ -1087,10 +1088,7 @@ def detect_conflicts(constraints: List[str]) -> List[str]:
 
 def detect_teaching_intent(text: str) -> bool:
     lower = text.lower()
-    for p in TEACHING_KEYWORDS:
-        if p in lower:
-            return True
-    return False
+    return bool(_TEACHING_RE.search(lower))
 
 
 def _normalize_currency(val: str) -> str:

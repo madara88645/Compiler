@@ -1,3 +1,5 @@
+> **Read first:** [instructions.md](./instructions.md). Past learnings only — do not apply repo-wide without a task-specific reason.
+
 ## 2024-05-24 - Fix XSS vulnerability in DiffViewer
 
 **Vulnerability:** Found a Cross-Site Scripting (XSS) vulnerability in `web/app/components/DiffViewer.tsx`. The component used `dangerouslySetInnerHTML` to render an HTML string generated from diff text replacements without any HTML sanitization.
@@ -56,8 +58,3 @@
 **Vulnerability:** Found a potential crash/XSS vulnerability in `extension/popup.js`. The `escapeHtml` function did not explicitly cast its argument to a string and handle null/undefined values before calling string methods (`.replaceAll()`).
 **Learning:** When dynamically constructing HTML using template literals and injecting it into `innerHTML` (e.g., in vanilla JS browser extensions), it is critical to ensure all external or derived variables are sanitized. If a function like `escapeHtml` does not explicitly cast to a string (e.g., using `String(value ?? "")`), it may crash if `null` or `undefined` is passed, or it could potentially be bypassed if an object with a crafted `toString` is passed.
 **Prevention:** A robust `escapeHtml` implementation must explicitly cast values to strings (e.g., `String(value ?? "")`) to prevent crashes or bypasses from null/undefined inputs, and replace `&`, `<`, `>`, `"`, and `'`.
-## 2025-06-25 - Prevent Unauthorized LLM Prompt Optimization
-
-**Vulnerability:** The `/optimize` endpoint used `verify_api_key_if_required` instead of `verify_api_key`, allowing unauthenticated users to trigger cost-incurring LLM generation when global key requirements were disabled.
-**Learning:** Endpoints that trigger cost-incurring actions (like LLM calls) must strictly enforce standard authentication and avoid relying on fallback or optional dependencies, preventing unauthorized resource exhaustion.
-**Prevention:** Always verify that endpoints triggering cost-incurring actions explicitly include standard authentication dependencies (e.g., `Depends(verify_api_key)`) in their signature.
