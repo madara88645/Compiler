@@ -7,6 +7,7 @@ import QualityCoach from "./components/QualityCoach";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
+import PolicyBadge from "./components/PolicyBadge";
 import { useCompiler } from "./hooks/useCompiler";
 import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
@@ -296,29 +297,32 @@ export default function Home() {
               <OutputSkeleton />
             ) : result ? (
               <>
-                {/* Tabs */}
-                <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
-                  {(
-                    [
-                      { key: "user", label: "User Prompt", hint: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
-                      { key: "system", label: "System Prompt", hint: "Role and behavior rules for the model — paste this into a system message.", primary: false },
-                      { key: "plan", label: "Execution Plan", hint: "Step-by-step plan the compiler suggests for carrying out the request.", primary: false },
-                      { key: "expanded", label: "Long-form", hint: "Verbose, fully expanded version of the prompt with all context inlined.", primary: false },
-                      { key: "intent", label: "Intent", hint: "Detected intent and safety policy for this request.", primary: false },
-                      { key: "json", label: "JSON", hint: "Raw machine-readable compile output — useful for piping into other tools.", primary: false },
-                      { key: "quality", label: "Quality Scores", hint: "Quality, clarity, and safety scores the compiler assigned to the result.", primary: false },
-                    ] satisfies ReadonlyArray<{ key: OutputTab; label: string; hint: string; primary: boolean }>
-                  ).map(({ key, label, hint, primary }) => (
-                    <TabButton
-                      key={key}
-                      tabKey={key}
-                      label={label}
-                      hint={hint}
-                      isActive={activeTab === key}
-                      primary={primary}
-                      onSelect={setActiveTab}
-                    />
-                  ))}
+                {/* Tabs + policy verdict */}
+                <div className="flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
+                  <div role="tablist" aria-label="Output views" className="flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                    {(
+                      [
+                        { key: "user", label: "User Prompt", hint: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
+                        { key: "system", label: "System Prompt", hint: "Role and behavior rules for the model — paste this into a system message.", primary: false },
+                        { key: "plan", label: "Execution Plan", hint: "Step-by-step plan the compiler suggests for carrying out the request.", primary: false },
+                        { key: "expanded", label: "Long-form", hint: "Verbose, fully expanded version of the prompt with all context inlined.", primary: false },
+                        { key: "intent", label: "Intent", hint: "Detected intent and safety policy for this request.", primary: false },
+                        { key: "json", label: "JSON", hint: "Raw machine-readable compile output — useful for piping into other tools.", primary: false },
+                        { key: "quality", label: "Quality Scores", hint: "Quality, clarity, and safety scores the compiler assigned to the result.", primary: false },
+                      ] satisfies ReadonlyArray<{ key: OutputTab; label: string; hint: string; primary: boolean }>
+                    ).map(({ key, label, hint, primary }) => (
+                      <TabButton
+                        key={key}
+                        tabKey={key}
+                        label={label}
+                        hint={hint}
+                        isActive={activeTab === key}
+                        primary={primary}
+                        onSelect={setActiveTab}
+                      />
+                    ))}
+                  </div>
+                  <PolicyBadge result={result} />
                 </div>
 
                 {/* Content — one stable tabpanel per tab, hidden when inactive */}
