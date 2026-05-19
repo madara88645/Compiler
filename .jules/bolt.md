@@ -1,3 +1,5 @@
+> **Read first:** [instructions.md](./instructions.md). Past learnings only — do not apply repo-wide without a task-specific reason.
+
 ## 2024-05-24 - Pre-calculate constraints to avoid repeated getattr in logic handler
 **Learning:** In nested loops where `getattr(obj, "attr", default)` or type checks like `isinstance(obj, dict)` are executed heavily (e.g., matching constraints against multiple Regex patterns), it is significantly faster to hoist the attributes into a pre-calculated parallel list. This transforms $O(M \times N)$ lookups into $O(N)$ lookups. However, when the original list might be modified mid-loop, use slice assignment (`c_texts[:] = ...`) to keep the parallel lists strictly synced with the underlying objects.
 **Action:** Before optimizing nested loops, identify properties fetched via `getattr` and hoist them into parallel lists or dictionaries prior to loop entry, ensuring to keep them synchronized if the source data structure undergoes deletion. Always maintain the same fallback access pattern (e.g., `getattr(obj, 'attr', default)`) to prevent `AttributeError` on missing attributes during optimization.
