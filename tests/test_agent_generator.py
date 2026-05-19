@@ -93,6 +93,47 @@ def test_worker_client_requests_example_code_section_when_enabled():
         )
 
 
+def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+        captured = {}
+        repo_context = {
+            "source": "github_public_repo",
+            "mode": "full",
+            "normalized_repo_url": "https://github.com/openai/openai-python",
+            "repo_full_name": "openai/openai-python",
+            "default_branch": "main",
+            "summary": "Python SDK repository.",
+            "highlights": ["README present"],
+            "files_used": ["README.md"],
+            "detected_stack": ["Python"],
+        }
+
+        def fake_call_api(messages, max_tokens, json_mode):
+            captured["messages"] = messages
+            return "# Agent System Prompt"
+
+        with patch.object(client, "_call_api", side_effect=fake_call_api):
+            result = client.generate_agent(
+                "Test Agent",
+                context={"repo_context": repo_context},
+                include_example_code=False,
+            )
+
+        assert result == "# Agent System Prompt"
+        system_messages = [
+            msg["content"] for msg in captured["messages"] if msg["role"] == "system"
+        ]
+        assert "## Example Code (Pseudo-code Skeleton)" not in system_messages[0]
+        assert any("## Repo Context (ground truth)" in message for message in system_messages)
+        assert any("openai/openai-python" in message for message in system_messages)
+        assert any(
+            "Omit the entire `## Example Code (Pseudo-code Skeleton)` section" in message
+            for message in system_messages
+        )
+
+
 def test_api_generate_agent_endpoint():
     # Mock the global hybrid_compiler in api.main
     with patch("api.main.hybrid_compiler") as mock_compiler:

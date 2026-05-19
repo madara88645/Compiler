@@ -54,6 +54,18 @@ def test_context_message_compact_mode_uses_compact_summary():
     assert "### Repo brief (compact)" in message
 
 
+def test_context_message_does_not_emit_mojibake():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    message = client._context_message(
+        mode="generator",
+        context={"repo_context": REPO_CONTEXT_FOR_RENDER},
+    )
+
+    assert "â" not in message
+
+
 # Mock WorkerClient to avoid API calls
 @pytest.fixture
 def mock_worker_client():
