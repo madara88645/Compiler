@@ -36,7 +36,6 @@ const HOP_BY_HOP_HEADERS = new Set([
 type ProxyOptions = {
   networkRetryAttempts?: number;
   networkRetryDelayMs?: number;
-  requireServerApiKey?: boolean;
   retryNetworkErrors?: boolean;
   upstreamTimeoutMs?: number;
 };

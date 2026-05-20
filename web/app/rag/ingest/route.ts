@@ -1,5 +1,5 @@
 import { proxyBackendRequest } from "@/lib/server/backendProxy";
 
 export async function POST(request: Request): Promise<Response> {
-  return proxyBackendRequest(request, "/rag/ingest", { requireServerApiKey: true });
+  return proxyBackendRequest(request, "/rag/ingest");
 }

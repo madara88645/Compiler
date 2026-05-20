@@ -39,15 +39,23 @@ def test_generator_endpoints_require_api_key():
 
 
 @pytest.mark.auth_required
-def test_rag_upload_requires_api_key():
+def test_rag_upload_works_without_api_key(monkeypatch):
+    """RAG upload uses optional auth — requests without a key should succeed."""
+    import os
+    import tempfile
+
     client = TestClient(app)
 
-    response = client.post(
-        "/rag/upload",
-        json={"filename": "auth.py", "content": "def login():\n    return True"},
-    )
+    with tempfile.TemporaryDirectory() as td:
+        monkeypatch.setattr("app.rag.simple_index.DEFAULT_DB_PATH", os.path.join(td, "index.db"))
+        monkeypatch.setenv("PROMPTC_UPLOAD_DIR", os.path.join(td, "uploads"))
 
-    assert response.status_code == 403
+        response = client.post(
+            "/rag/upload",
+            json={"filename": "auth.py", "content": "def login():\n    return True"},
+        )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.auth_required

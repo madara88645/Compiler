@@ -430,6 +430,8 @@ def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path
         ("post", "/rag/search", {"query": "compiler", "limit": 3}),
         ("post", "/rag/query", {"query": "compiler", "k": 3, "method": "keyword"}),
         ("post", "/rag/pack", {"query": "compiler", "k": 3, "method": "keyword"}),
+        ("post", "/rag/upload", {"filename": "test.txt", "content": "hello"}),
+        ("post", "/rag/ingest", {"paths": ["."], "exts": [".txt"]}),
     ],
 )
 def test_optional_auth_routes_require_key_when_global_enforcement_enabled(
