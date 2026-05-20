@@ -408,6 +408,21 @@ def test_validate_no_key():
     assert resp.status_code == 200
 
 
+def test_validate_no_key_falls_back_when_worker_analysis_is_unavailable():
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_get_compiler.return_value.worker.analyze_prompt.side_effect = RuntimeError(
+            "API Key is missing. Please set OPENAI_API_KEY."
+        )
+
+        resp = client.post("/validate", json={"text": "hello"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data["score"], int)
+    assert "category_scores" in data
+    assert "summary" in data
+
+
 def test_optimize_no_key():
     with patch("api.main.get_compiler") as mock_get_compiler:
         mock_get_compiler.return_value.worker.optimize_prompt.return_value = ("short prompt", None)

@@ -118,12 +118,12 @@ describe("Benchmark page", () => {
     });
     fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
 
-    expect(await screen.findByText("API Key Required")).toBeTruthy();
+    expect(await screen.findByText("Cloud Benchmark Unavailable")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to Mock Engine (Demo Trial)" }));
 
     expect(screen.getByText("Ready")).toBeTruthy();
-    expect(screen.queryByText("API Key Required")).toBeNull();
+    expect(screen.queryByText("Cloud Benchmark Unavailable")).toBeNull();
     expect((screen.getByLabelText("Model") as HTMLSelectElement).value).toBe("mock");
   });
 });
