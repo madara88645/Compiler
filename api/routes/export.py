@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from api.auth import APIKey, verify_api_key
+from api.shared import logger
 
 router = APIRouter(tags=["export"])
 
@@ -46,37 +47,41 @@ async def export_agent(
     from app.adapters.claude_sdk import to_python, to_yaml
     from app.adapters.langchain import to_langchain_python, to_langgraph_python
 
-    ir = parse_agent_markdown(req.system_prompt or "")
+    try:
+        ir = parse_agent_markdown(req.system_prompt or "")
 
-    python_code = None
-    yaml_config = None
-    code = None
-    files = []
-
-    if req.format == "claude-sdk":
-        python_code = to_python(ir)
-        code = python_code
-        if req.output_type != "python":
-            yaml_config = to_yaml(ir)
-    elif req.format == "claude-agent-sdk-py":
-        python_code = to_agent_sdk_python(ir)
-        code = python_code
-    elif req.format == "claude-agent-sdk-ts":
-        code = to_agent_sdk_typescript(ir)
-    elif req.format == "claude-subagent":
-        files = [to_claude_subagent(ir)]
-        code = files[0]["content"]
-    elif req.format == "claude-project-pack":
-        files = to_claude_project_pack(ir)
-    elif req.format in {"langchain", "langchain-yaml"}:
-        python_code = to_langchain_python(ir)
-        code = python_code
-    elif req.format == "langgraph":
-        python_code = to_langgraph_python(ir)
-        code = python_code
-
-    if req.output_type == "python":
+        python_code = None
         yaml_config = None
+        code = None
+        files = []
+
+        if req.format == "claude-sdk":
+            python_code = to_python(ir)
+            code = python_code
+            if req.output_type != "python":
+                yaml_config = to_yaml(ir)
+        elif req.format == "claude-agent-sdk-py":
+            python_code = to_agent_sdk_python(ir)
+            code = python_code
+        elif req.format == "claude-agent-sdk-ts":
+            code = to_agent_sdk_typescript(ir)
+        elif req.format == "claude-subagent":
+            files = [to_claude_subagent(ir)]
+            code = files[0]["content"]
+        elif req.format == "claude-project-pack":
+            files = to_claude_project_pack(ir)
+        elif req.format in {"langchain", "langchain-yaml"}:
+            python_code = to_langchain_python(ir)
+            code = python_code
+        elif req.format == "langgraph":
+            python_code = to_langgraph_python(ir)
+            code = python_code
+
+        if req.output_type == "python":
+            yaml_config = None
+    except Exception as exc:
+        logger.exception("agent export failed")
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
 
     return {
         "python_code": python_code,
@@ -114,17 +119,21 @@ async def export_skill(
     )
     from app.adapters.skill_ir import parse_skill_markdown
 
-    ir = parse_skill_markdown(req.skill_definition or "")
+    try:
+        ir = parse_skill_markdown(req.skill_definition or "")
 
-    is_agent_skill = req.format == "agent-skill"
-    python_code = None if is_agent_skill else to_langchain_tool(ir)
-    json_config = None if is_agent_skill else to_claude_tool_use(ir)
-    markdown = to_agent_skill(ir) if is_agent_skill else None
-    files: list[dict] = []
+        is_agent_skill = req.format == "agent-skill"
+        python_code = None if is_agent_skill else to_langchain_tool(ir)
+        json_config = None if is_agent_skill else to_claude_tool_use(ir)
+        markdown = to_agent_skill(ir) if is_agent_skill else None
+        files: list[dict] = []
 
-    if req.format == "claude-mcp-tool-stub":
-        files = to_claude_mcp_tool_stub(ir)
-        python_code = files[0]["content"]
+        if req.format == "claude-mcp-tool-stub":
+            files = to_claude_mcp_tool_stub(ir)
+            python_code = files[0]["content"]
+    except Exception as exc:
+        logger.exception("skill export failed")
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
 
     return {
         "python_code": python_code,

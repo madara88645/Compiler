@@ -12,13 +12,10 @@ import {
 } from "recharts";
 
 import { apiJson } from "@/config";
-import { showError } from "../lib/showError";
 import DiffViewer from "../components/DiffViewer";
 import InfoButton from "../components/InfoButton";
-import {
-  BENCHMARK_MODEL_GROUPS,
-  getBenchmarkModelById,
-} from "./modelCatalog";
+import { showError } from "../lib/showError";
+import { BENCHMARK_MODEL_GROUPS, getBenchmarkModelById } from "./modelCatalog";
 
 type BenchmarkPayload = {
   raw_output: string;
@@ -32,6 +29,21 @@ type BenchmarkPayload = {
   winner: "compiled" | "raw";
   improvement_score: number;
 };
+
+function isAuthErrorMessage(message: string | null): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api key") ||
+    normalized.includes("401") ||
+    normalized.includes("403") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden")
+  );
+}
 
 function buildBenchmarkErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -93,9 +105,7 @@ export default function BenchmarkPage() {
     setErrorMessage(null);
 
     const modelLabel =
-      selectedModel === "mock"
-        ? "Mock Engine (demo)"
-        : selectedModelMeta?.label ?? "Mock Engine (demo)";
+      selectedModel === "mock" ? "Mock Engine (demo)" : selectedModelMeta?.label ?? "Mock Engine (demo)";
     setStatus(`Benchmarking with ${modelLabel}...`);
 
     try {
@@ -130,8 +140,18 @@ export default function BenchmarkPage() {
     }
 
     return [
-      { subject: "Safety", A: benchmarkResult.metrics.safety.raw, B: benchmarkResult.metrics.safety.compiled, fullMark: 10 },
-      { subject: "Clarity", A: benchmarkResult.metrics.clarity.raw, B: benchmarkResult.metrics.clarity.compiled, fullMark: 10 },
+      {
+        subject: "Safety",
+        A: benchmarkResult.metrics.safety.raw,
+        B: benchmarkResult.metrics.safety.compiled,
+        fullMark: 10,
+      },
+      {
+        subject: "Clarity",
+        A: benchmarkResult.metrics.clarity.raw,
+        B: benchmarkResult.metrics.clarity.compiled,
+        fullMark: 10,
+      },
       {
         subject: "Conciseness",
         A: benchmarkResult.metrics.conciseness.raw,
@@ -160,7 +180,8 @@ export default function BenchmarkPage() {
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">
                   <span className="font-semibold text-amber-300">Raw</span> = your prompt as-is &nbsp;·&nbsp;{" "}
-                  <span className="font-semibold text-emerald-300">Compiled</span> = Prompt Compiler&apos;s polished version
+                  <span className="font-semibold text-emerald-300">Compiled</span> = Prompt Compiler&apos;s polished
+                  version
                 </div>
               </div>
             </div>
@@ -194,11 +215,7 @@ export default function BenchmarkPage() {
                     className="bg-[#1a1a1a] text-zinc-500"
                   >
                     {group.options.map((model) => (
-                      <option
-                        key={model.id}
-                        value={model.id}
-                        className="bg-[#1a1a1a] text-zinc-200"
-                      >
+                      <option key={model.id} value={model.id} className="bg-[#1a1a1a] text-zinc-200">
                         {`${model.label} [${model.badge}]`}
                       </option>
                     ))}
@@ -242,14 +259,14 @@ export default function BenchmarkPage() {
                 placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  if (!loading && prompt.trim()) {
-                    void handleBenchmark();
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                    event.preventDefault();
+                    if (!loading && prompt.trim()) {
+                      void handleBenchmark();
+                    }
                   }
-                }
-              }}
+                }}
               />
             </div>
 
@@ -260,12 +277,43 @@ export default function BenchmarkPage() {
               title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             >
-            {loading ? <span className="animate-pulse">Running...</span> : <>Run Benchmark <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>}
+              {loading ? (
+                <span className="animate-pulse">Running...</span>
+              ) : (
+                <>
+                  Run Benchmark{" "}
+                  <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">
+                    Ctrl/Cmd Enter
+                  </kbd>
+                </>
+              )}
             </button>
 
             {errorMessage && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
-                {errorMessage}
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3.5 text-xs leading-relaxed text-red-200">
+                <div className="space-y-2">
+                  <div className="font-semibold text-red-300">
+                    {isAuthErrorMessage(errorMessage) ? "API Key Required" : "Benchmark Issue"}
+                  </div>
+                  <p className="opacity-90">
+                    {isAuthErrorMessage(errorMessage)
+                      ? "A valid API key is required to run a real benchmark with this model. Configure your keys in the backend environment."
+                      : errorMessage}
+                  </p>
+                  {isAuthErrorMessage(errorMessage) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel("mock");
+                        setErrorMessage(null);
+                        setStatus("Ready");
+                      }}
+                      className="w-full rounded-lg border border-amber-500/40 bg-amber-600/20 px-3 py-1.5 text-[11px] font-bold text-amber-200 transition-all hover:bg-amber-600/30 active:scale-95"
+                    >
+                      Switch to Mock Engine (Demo Trial)
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -276,7 +324,8 @@ export default function BenchmarkPage() {
                 {resultIsMock && (
                   <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
                     <strong className="font-bold text-amber-50">Demo data — not a real benchmark.</strong>{" "}
-                    These scores are randomized to show what a real run looks like. Pick a real model above and re-run to measure your prompt.
+                    These scores are randomized to show what a real run looks like. Pick a real model above and re-run
+                    to measure your prompt.
                   </div>
                 )}
                 <div className="flex h-[40%] min-h-[300px] border-b border-white/5">
@@ -339,7 +388,7 @@ export default function BenchmarkPage() {
                   <h3 className="font-medium tracking-wide text-zinc-200">
                     {errorMessage ? "Benchmark unavailable" : "No benchmark yet"}
                   </h3>
-                  <p className="text-sm text-zinc-400 mb-4">
+                  <p className="mb-4 text-sm text-zinc-400">
                     {errorMessage
                       ? errorMessage
                       : "Paste a prompt on the left, pick a real model (the default Mock Engine returns demo numbers), then run a benchmark."}
@@ -350,7 +399,7 @@ export default function BenchmarkPage() {
                       onClick={handleBenchmark}
                       disabled={loading || !prompt.trim()}
                       title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
-                      className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+                      className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Run Benchmark
                     </button>
