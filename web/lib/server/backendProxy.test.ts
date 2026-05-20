@@ -6,7 +6,6 @@ describe("backend proxy", () => {
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
-    delete process.env.PROMPTC_SERVER_API_KEY;
     delete process.env.PROMPTC_PROXY_UPSTREAM_TIMEOUT_MS;
   });
 
@@ -25,44 +24,6 @@ describe("backend proxy", () => {
     expect(resolveBackendApiBase()).toBe("http://backend:8080");
   });
 
-  it("injects the server API key when proxying protected routes", async () => {
-    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
-    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
-
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ system_prompt: "safe" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    const request = new Request("http://localhost:3000/agent-generator/generate", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ description: "review code" }),
-    });
-
-    const response = await proxyBackendRequest(request, "/agent-generator/generate", {
-      requireServerApiKey: true,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const [url, init] = fetchMock.mock.calls[0]!;
-    const proxiedHeaders = new Headers(init?.headers);
-
-    expect(url).toBe("https://api.memo.dev/agent-generator/generate");
-    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
-    expect(proxiedHeaders.get("content-type")).toBe("application/json");
-
-    expect(init?.duplex).toBe("half");
-    expect(init?.body).toBeInstanceOf(ReadableStream);
-
-    await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
-  });
 
   it("buffers JSON responses before returning them to the browser", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
@@ -84,9 +45,7 @@ describe("backend proxy", () => {
       body: JSON.stringify({ goal: "review code" }),
     });
 
-    const response = await proxyBackendRequest(request, "/agent-packs/claude", {
-      requireServerApiKey: true,
-    });
+    const response = await proxyBackendRequest(request, "/agent-packs/claude");
 
     expect(arrayBufferSpy).toHaveBeenCalledTimes(1);
     await expect(response.json()).resolves.toEqual({ ok: true });
@@ -112,9 +71,7 @@ describe("backend proxy", () => {
       body: JSON.stringify({ goal: "download code" }),
     });
 
-    const response = await proxyBackendRequest(request, "/agent-packs/claude/download", {
-      requireServerApiKey: true,
-    });
+    const response = await proxyBackendRequest(request, "/agent-packs/claude/download");
 
     expect(arrayBufferSpy).not.toHaveBeenCalled();
     await expect(response.text()).resolves.toBe("zip-bytes");
@@ -167,9 +124,7 @@ describe("backend proxy", () => {
       body: JSON.stringify({ filename: "README.md", content: "hello" }),
     });
 
-    const response = await proxyBackendRequest(request, "/rag/upload", {
-      requireServerApiKey: true,
-    });
+    const response = await proxyBackendRequest(request, "/rag/upload");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(502);
@@ -177,7 +132,7 @@ describe("backend proxy", () => {
 
 
 
-  it("allows protected routes with a caller-supplied x-api-key when server key is missing", async () => {
+  it("allows proxying with a caller-supplied x-api-key", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -195,9 +150,7 @@ describe("backend proxy", () => {
       body: JSON.stringify({ description: "review code" }),
     });
 
-    const response = await proxyBackendRequest(request, "/agent-generator/generate", {
-      requireServerApiKey: true,
-    });
+    const response = await proxyBackendRequest(request, "/agent-generator/generate");
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -206,39 +159,6 @@ describe("backend proxy", () => {
     expect(proxiedHeaders.get("x-api-key")).toBe("caller-key");
   });
 
-  it("overrides caller-supplied x-api-key with the server API key", async () => {
-    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
-    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
-
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    const request = new Request("http://localhost:3000/agent-generator/generate", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "x-api-key": "caller-key",
-      },
-      body: JSON.stringify({ description: "review code" }),
-    });
-
-    await proxyBackendRequest(request, "/agent-generator/generate", {
-      requireServerApiKey: true,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const [url, init] = fetchMock.mock.calls[0]!;
-    const proxiedHeaders = new Headers(init?.headers);
-
-    expect(url).toBe("https://api.memo.dev/agent-generator/generate");
-    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
-  });
 
   it("returns a 504 with a timed-out diagnostic header when the upstream fetch hangs past the budget", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";

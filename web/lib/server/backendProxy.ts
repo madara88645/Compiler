@@ -41,9 +41,6 @@ type ProxyOptions = {
   upstreamTimeoutMs?: number;
 };
 
-function resolveServerApiKey(): string {
-  return process.env.PROMPTC_SERVER_API_KEY?.trim() || "";
-}
 
 function isBodylessMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
@@ -116,15 +113,7 @@ export async function proxyBackendRequest(
   options: ProxyOptions = {},
 ): Promise<Response> {
   const requestStartedAt = Date.now();
-  const serverApiKey = resolveServerApiKey();
-  const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
-
-
-
   const headers = copyProxyHeaders(request);
-  if (serverApiKey) {
-    headers.set("x-api-key", serverApiKey);
-  }
 
   const base = resolveBackendApiBase().replace(/\/+$/, "");
   const path = backendPath.startsWith("/") ? backendPath : "/" + backendPath;

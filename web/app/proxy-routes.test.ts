@@ -29,7 +29,6 @@ describe("Next backend proxy route wiring", () => {
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
-    delete process.env.PROMPTC_SERVER_API_KEY;
   });
 
   afterEach(() => {
@@ -230,9 +229,8 @@ describe("Next backend proxy route wiring", () => {
     },
 
 
-  ])("injects the server API key and proxies $name to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
+  ])("proxies $name requests to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
-    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
 
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -247,6 +245,7 @@ describe("Next backend proxy route wiring", () => {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          "x-api-key": "caller-key",
         },
         body: requestBody ? JSON.stringify(requestBody) : undefined,
       }),
@@ -258,7 +257,7 @@ describe("Next backend proxy route wiring", () => {
     const proxiedHeaders = new Headers(init?.headers);
 
     expect(url).toBe(expectedUrl);
-    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+    expect(proxiedHeaders.get("x-api-key")).toBe("caller-key");
     expect(proxiedHeaders.get("content-type")).toBe("application/json");
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
