@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.auth import rate_limit_by_ip
 
 from api.shared import logger
 from app.adapters.agent_packs import (
@@ -22,6 +24,7 @@ def _get_compiler():
 @router.post("/agent-packs/claude", response_model=AgentPackManifest)
 async def build_claude_agent_pack(
     req: AgentPackRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()
     adapter = AGENT_PACK_ADAPTERS["claude"]
@@ -38,6 +41,7 @@ async def build_claude_agent_pack(
 @router.post("/agent-packs/claude/download")
 async def download_claude_agent_pack(
     req: AgentPackRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()
     adapter = AGENT_PACK_ADAPTERS["claude"]

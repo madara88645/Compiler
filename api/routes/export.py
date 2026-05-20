@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field
 
 from api.shared import logger
@@ -21,6 +23,7 @@ class ExportRequest(BaseModel):
 @router.post("/agent-generator/export")
 async def export_agent(
     req: ExportRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     if req.format not in [
         "claude-sdk",
@@ -102,6 +105,7 @@ _SKILL_EXPORT_FORMATS = frozenset(
 @router.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     if req.format not in _SKILL_EXPORT_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")

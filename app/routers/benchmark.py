@@ -18,7 +18,9 @@ import re
 import time
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -273,6 +275,7 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 @router.post("/run", response_model=BenchmarkResponse)
 async def benchmark_run(
     req: BenchmarkRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.

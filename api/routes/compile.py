@@ -6,7 +6,9 @@ import uuid
 import anyio
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
@@ -335,6 +337,7 @@ def _build_offline_quality_report(req: ValidateRequest) -> QualityReport:
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
+    _: None = Depends(rate_limit_by_ip),
 ):
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
@@ -428,6 +431,7 @@ def compile_endpoint(
 async def compile_fast(
     req: CompileRequest,
     request: Request,
+    _: None = Depends(rate_limit_by_ip),
 ):
     start = time.time()
     compiler = _get_compiler()
@@ -456,6 +460,7 @@ async def compile_fast(
 @router.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     try:
         try:
@@ -499,6 +504,7 @@ def validate_endpoint(
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()
 

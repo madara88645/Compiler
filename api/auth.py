@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 import time
 import secrets
@@ -70,15 +71,89 @@ RATE_LIMIT_LOCK = Lock()
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS = 10
 HEAVY_RATE_LIMIT_MAX_REQUESTS = 2
+PUBLIC_HEAVY_RATE_LIMIT = 20
+PUBLIC_DEFAULT_RATE_LIMIT = 60
+
+_rate_limit_cleanup_counter = 0
+
+
+def _get_route_group(path: str) -> str:
+    heavy_routes = ["/compile", "/optimize", "/run", "/agent-generator", "/skills-generator"]
+    for r in heavy_routes:
+        if path.startswith(r):
+            return "heavy"
+    return "default"
 
 
 def _get_route_group_and_limit(path: str) -> tuple[str, int]:
-    heavy_routes = ["/compile", "/optimize", "/run", "/agent-generator", "/skills-generator"]
-    # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    for r in heavy_routes:
-        if path.startswith(r):
-            return "heavy", HEAVY_RATE_LIMIT_MAX_REQUESTS
-    return "default", RATE_LIMIT_MAX_REQUESTS
+    group = _get_route_group(path)
+    if group == "heavy":
+        return group, HEAVY_RATE_LIMIT_MAX_REQUESTS
+    return group, RATE_LIMIT_MAX_REQUESTS
+
+
+def _is_plausible_ip(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _resolve_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        candidate = forwarded.split(",")[0].strip()
+        if _is_plausible_ip(candidate):
+            return candidate
+    if request.client and request.client.host:
+        host = request.client.host.strip()
+        if _is_plausible_ip(host):
+            return host
+    return "anon"
+
+
+def _maybe_cleanup_rate_limit_store(now: float) -> None:
+    stale_keys = []
+    for k, v in list(RATE_LIMIT_STORE.items()):
+        valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
+        if not valid_ts:
+            stale_keys.append(k)
+        else:
+            RATE_LIMIT_STORE[k] = valid_ts
+    for k in stale_keys:
+        RATE_LIMIT_STORE.pop(k, None)
+
+
+def _enforce_rate_limit(store_key: str, max_requests: int, now: float) -> None:
+    global _rate_limit_cleanup_counter
+
+    with RATE_LIMIT_LOCK:
+        _rate_limit_cleanup_counter += 1
+        if _rate_limit_cleanup_counter > 1000:
+            _rate_limit_cleanup_counter = 0
+            _maybe_cleanup_rate_limit_store(now)
+
+        history = RATE_LIMIT_STORE.get(store_key, [])
+        history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
+
+        if len(history) >= max_requests:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
+            )
+
+        history.append(now)
+        RATE_LIMIT_STORE[store_key] = history
+
+
+def rate_limit_by_ip(request: Request) -> None:
+    """Public-route rate limiter keyed by (client_ip, route_group)."""
+    now = time.time()
+    route_group = _get_route_group(request.url.path)
+    max_requests = PUBLIC_HEAVY_RATE_LIMIT if route_group == "heavy" else PUBLIC_DEFAULT_RATE_LIMIT
+    client_ip = _resolve_client_ip(request)
+    store_key = f"ip:{client_ip}:{route_group}"
+    _enforce_rate_limit(store_key, max_requests, now)
 
 
 def _matches_admin_api_key(provided_key: str, admin_key: str) -> bool:
@@ -127,34 +202,7 @@ def verify_api_key(
     now = time.time()
     route_group, max_requests = _get_route_group_and_limit(request.url.path)
     store_key = f"{api_key}:{route_group}"
-
-    with RATE_LIMIT_LOCK:
-        # Periodically clean up stale rate limit entries to prevent memory leaks
-        if getattr(verify_api_key, "_cleanup_counter", 0) > 1000:
-            verify_api_key._cleanup_counter = 0
-            stale_keys = []
-            for k, v in list(RATE_LIMIT_STORE.items()):
-                valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
-                if not valid_ts:
-                    stale_keys.append(k)
-                else:
-                    RATE_LIMIT_STORE[k] = valid_ts
-            for k in stale_keys:
-                RATE_LIMIT_STORE.pop(k, None)
-        else:
-            verify_api_key._cleanup_counter = getattr(verify_api_key, "_cleanup_counter", 0) + 1
-
-        history = RATE_LIMIT_STORE.get(store_key, [])
-        # Filter out timestamps older than window
-        history = [t for t in history if t > now - RATE_LIMIT_WINDOW]
-
-        if len(history) >= max_requests:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
-            )
-
-        history.append(now)
-        RATE_LIMIT_STORE[store_key] = history
+    _enforce_rate_limit(store_key, max_requests, now)
 
     request.state.api_key_owner = key_record.owner
     return key_record
