@@ -53,8 +53,28 @@ function buildBenchmarkErrorMessage(error: unknown): string {
   return "Benchmark failed. Try another model or re-run with the mock engine.";
 }
 
+function isBackendConfigIssue(message: string | null): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api key") ||
+    normalized.includes("401") ||
+    normalized.includes("403") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("provider") ||
+    normalized.includes("temporarily unavailable")
+  );
+}
+
 export default function BenchmarkPage() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem("promptc_last_prompt") || "";
+  });
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
   const [resultIsMock, setResultIsMock] = useState(false);
@@ -174,8 +194,16 @@ export default function BenchmarkPage() {
                 B
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white/90">Prompt Benchmark</h1>
-                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold tracking-tight text-white/90">Prompt Benchmark</h1>
+                  {selectedModel === "mock" && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.08)] animate-pulse shrink-0">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+                      Demo Mode Active: Fake Scores
+                    </div>
+                  )}
+                </div>
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500 mt-0.5">
                   Compare raw vs compiled output
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">
@@ -293,14 +321,16 @@ export default function BenchmarkPage() {
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3.5 text-xs leading-relaxed text-red-200">
                 <div className="space-y-2">
                   <div className="font-semibold text-red-300">
-                    {isAuthErrorMessage(errorMessage) ? "API Key Required" : "Benchmark Issue"}
+                    {isBackendConfigIssue(errorMessage)
+                      ? "Cloud Benchmark Unavailable"
+                      : "Benchmark Issue"}
                   </div>
                   <p className="opacity-90">
-                    {isAuthErrorMessage(errorMessage)
-                      ? "A valid API key is required to run a real benchmark with this model. Configure your keys in the backend environment."
+                    {isBackendConfigIssue(errorMessage)
+                      ? "The selected cloud model could not run right now. If you are hosting this yourself, check the server's provider configuration. Otherwise switch to Mock Engine and keep exploring."
                       : errorMessage}
                   </p>
-                  {isAuthErrorMessage(errorMessage) && (
+                  {isBackendConfigIssue(errorMessage) && (
                     <button
                       type="button"
                       onClick={() => {

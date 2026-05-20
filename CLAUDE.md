@@ -15,6 +15,7 @@ Prompt Compiler is a FastAPI + Next.js product that turns vague requests into st
 - Prefer focused tests before broad suites.
 - Keep Claude-native integrations adapter-scoped; preserve provider-agnostic core behavior.
 - Never expose secrets, `.env` contents, or database credentials in outputs.
+- Public product rule: do not add end-user Prompt Compiler API key requirements, browser API-key prompts, or proxy-only secret setup steps for public web flows. If cloud features need credentials, they belong on the server as provider keys (`OPENAI_API_KEY`, `GROQ_API_KEY`), not in the hands of visitors.
 
 ## Runbook
 - Backend dev server: `python -m uvicorn api.main:app --reload --port 8080`

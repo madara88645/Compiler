@@ -1,6 +1,5 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 25_000;
-const CONFIG_ERROR_DETAIL = "PROMPTC_SERVER_API_KEY is not configured on the web server.";
 const NETWORK_ERROR_DETAIL =
   "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
 const TIMEOUT_ERROR_DETAIL =
@@ -21,9 +20,6 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
-if (!process.env.PROMPTC_SERVER_API_KEY?.trim()) {
-  console.warn("PROMPTC_SERVER_API_KEY not set - protected proxy routes will forward no API key");
-}
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "content-length",
@@ -40,26 +36,13 @@ const HOP_BY_HOP_HEADERS = new Set([
 type ProxyOptions = {
   networkRetryAttempts?: number;
   networkRetryDelayMs?: number;
-  requireServerApiKey?: boolean;
   retryNetworkErrors?: boolean;
   upstreamTimeoutMs?: number;
 };
 
-function resolveServerApiKey(): string {
-  return process.env.PROMPTC_SERVER_API_KEY?.trim() || "";
-}
 
 function isBodylessMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
-}
-
-async function drainRequestBody(request: Request): Promise<void> {
-  if (isBodylessMethod(request.method)) return;
-  try {
-    await request.arrayBuffer();
-  } catch {
-    // Best effort only; the response path should still complete even if draining fails.
-  }
 }
 
 function copyProxyHeaders(request: Request): Headers {
@@ -120,18 +103,7 @@ export async function proxyBackendRequest(
   options: ProxyOptions = {},
 ): Promise<Response> {
   const requestStartedAt = Date.now();
-  const serverApiKey = resolveServerApiKey();
-  const callerApiKey = request.headers.get("x-api-key")?.trim() || "";
-
-  if (options.requireServerApiKey && !serverApiKey && !callerApiKey) {
-    await drainRequestBody(request);
-    return Response.json({ detail: CONFIG_ERROR_DETAIL }, { status: 500 });
-  }
-
   const headers = copyProxyHeaders(request);
-  if (serverApiKey) {
-    headers.set("x-api-key", serverApiKey);
-  }
 
   const base = resolveBackendApiBase().replace(/\/+$/, "");
   const path = backendPath.startsWith("/") ? backendPath : "/" + backendPath;

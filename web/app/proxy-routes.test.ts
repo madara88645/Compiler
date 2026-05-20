@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
@@ -29,7 +29,6 @@ describe("Next backend proxy route wiring", () => {
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
-    delete process.env.PROMPTC_SERVER_API_KEY;
   });
 
   afterEach(() => {
@@ -228,105 +227,10 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { type: "code" },
       expectedUrl: "https://api.memo.dev/skills-generator/export",
     },
-  ])("returns a config error when $name route is missing a server API key", async ({ handler, requestUrl, requestMethod, requestBody }) => {
-    const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    const response = await handler(
-      new Request(requestUrl, {
-        method: requestMethod || "POST",
-        headers: { "Content-Type": "application/json" },
-        body: requestBody ? JSON.stringify(requestBody) : undefined,
-      }),
-    );
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
-    });
-  });
-
-  it.each<RouteCase>([
-    {
-      name: "agent packs",
-      handler: agentPacksClaudeRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
-      expectedUrl: "https://api.memo.dev/agent-packs/claude",
-    },
-    {
-      name: "agent pack download",
-      handler: agentPacksClaudeDownloadRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
-      expectedUrl: "https://api.memo.dev/agent-packs/claude/download",
-    },
-    {
-      name: "agent generation",
-      handler: agentGenerateRoute,
-      requestUrl: "http://localhost:3000/agent-generator/generate",
-      requestBody: { description: "review this PR" },
-      expectedUrl: "https://api.memo.dev/agent-generator/generate",
-    },
-    {
-      name: "skills generation",
-      handler: skillsGenerateRoute,
-      requestUrl: "http://localhost:3000/skills-generator/generate",
-      requestBody: { description: "search docs" },
-      expectedUrl: "https://api.memo.dev/skills-generator/generate",
-    },
-    {
-      name: "repo context analysis",
-      handler: repoContextGithubRoute,
-      requestUrl: "http://localhost:3000/repo-context/github",
-      requestBody: { repo_url: "https://github.com/openai/openai-python" },
-      expectedUrl: "https://api.memo.dev/repo-context/github",
-    },
-    {
-      name: "RAG upload",
-      handler: ragUploadRoute,
-      requestUrl: "http://localhost:3000/rag/upload",
-      requestBody: { filename: "README.md", content: "hello" },
-      expectedUrl: "https://api.memo.dev/rag/upload",
-    },
-    {
-      name: "RAG ingest",
-      handler: ragIngestRoute,
-      requestUrl: "http://localhost:3000/rag/ingest",
-      requestBody: { path: "docs/README.md" },
-      expectedUrl: "https://api.memo.dev/rag/ingest",
-    },
-    {
-      name: "agent export",
-      handler: agentExportRoute,
-      requestUrl: "http://localhost:3000/agent-generator/export",
-      requestBody: { type: "code" },
-      expectedUrl: "https://api.memo.dev/agent-generator/export",
-    },
-    {
-      name: "benchmark run",
-      handler: benchmarkRunRoute,
-      requestUrl: "http://localhost:3000/benchmark/run",
-      requestBody: { model: "gpt-4" },
-      expectedUrl: "https://api.memo.dev/benchmark/run",
-    },
-    {
-      name: "optimize",
-      handler: optimizeRoute,
-      requestUrl: "http://localhost:3000/optimize",
-      requestBody: { system_prompt: "hello" },
-      expectedUrl: "https://api.memo.dev/optimize",
-    },
-    {
-      name: "skills export",
-      handler: skillsExportRoute,
-      requestUrl: "http://localhost:3000/skills-generator/export",
-      requestBody: { type: "code" },
-      expectedUrl: "https://api.memo.dev/skills-generator/export",
-    },
-  ])("injects the server API key and proxies $name to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
+  ])("proxies $name requests to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
-    process.env.PROMPTC_SERVER_API_KEY = "server-secret";
 
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -341,6 +245,7 @@ describe("Next backend proxy route wiring", () => {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          "x-api-key": "caller-key",
         },
         body: requestBody ? JSON.stringify(requestBody) : undefined,
       }),
@@ -352,7 +257,7 @@ describe("Next backend proxy route wiring", () => {
     const proxiedHeaders = new Headers(init?.headers);
 
     expect(url).toBe(expectedUrl);
-    expect(proxiedHeaders.get("x-api-key")).toBe("server-secret");
+    expect(proxiedHeaders.get("x-api-key")).toBe("caller-key");
     expect(proxiedHeaders.get("content-type")).toBe("application/json");
     await expect(response.json()).resolves.toEqual({ ok: true });
   });

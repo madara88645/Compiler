@@ -1,7 +1,5 @@
 import { proxyBackendRequest } from "@/lib/server/backendProxy";
 
 export async function POST(request: Request): Promise<Response> {
-  return proxyBackendRequest(request, "/repo-context/github", {
-    requireServerApiKey: true,
-  });
+  return proxyBackendRequest(request, "/repo-context/github");
 }

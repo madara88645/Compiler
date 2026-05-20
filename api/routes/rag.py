@@ -4,10 +4,9 @@ import functools
 from typing import List, Optional
 
 import anyio
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
 from app.rag.simple_index import (
     ingest_text,
@@ -136,9 +135,7 @@ def _secure_ingest_paths(paths: list[str]) -> list[str]:
 @router.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(
     req: RagIngestRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     try:
         secure_paths = _secure_ingest_paths(req.paths)
     except PathSecurityError as exc:
@@ -161,9 +158,7 @@ async def rag_ingest(
 @router.post("/rag/query", response_model=RagQueryResponse)
 def rag_query(
     req: RagQueryRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     if req.method == "embed":
         results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
     elif req.method == "hybrid":
@@ -181,10 +176,7 @@ def rag_query(
 @router.post("/rag/pack")
 def rag_pack(
     req: RagPackRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
-
     if req.method == "embed":
         results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
     elif req.method == "hybrid":
@@ -211,10 +203,7 @@ def rag_pack(
 @router.post("/rag/upload", response_model=RagUploadResponse)
 async def rag_upload(
     req: RagUploadRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
-
     try:
         display_name = normalize_display_name(req.filename)
         _, chunks, secs = await anyio.to_thread.run_sync(
@@ -243,25 +232,20 @@ async def rag_upload(
 
 
 @router.get("/rag/stats")
-def rag_stats_endpoint(
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
-):
+def rag_stats_endpoint():
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async
     FastAPI handles sync endpoints in a threadpool automatically.
     """
-    del api_key
     return rag_stats()
 
 
 @router.post("/rag/search", response_model=List[RagSearchResult])
 def rag_search_endpoint(
     req: RagSearchRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async.
     FastAPI handles sync endpoints in a threadpool automatically.
     """
-    del api_key
     return [_canonical_search_result(item) for item in rag_search(req.query, k=req.limit)]

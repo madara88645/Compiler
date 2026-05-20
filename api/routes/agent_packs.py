@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
-from api.auth import APIKey, verify_api_key
 from api.shared import logger
 from app.adapters.agent_packs import (
     AGENT_PACK_ADAPTERS,
@@ -23,9 +22,7 @@ def _get_compiler():
 @router.post("/agent-packs/claude", response_model=AgentPackManifest)
 async def build_claude_agent_pack(
     req: AgentPackRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
     adapter = AGENT_PACK_ADAPTERS["claude"]
 
@@ -41,9 +38,7 @@ async def build_claude_agent_pack(
 @router.post("/agent-packs/claude/download")
 async def download_claude_agent_pack(
     req: AgentPackRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
     adapter = AGENT_PACK_ADAPTERS["claude"]
 

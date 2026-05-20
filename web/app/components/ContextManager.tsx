@@ -92,8 +92,25 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             <FileUploadZone ingesting={ingesting} uploadProgress={uploadProgress} onUploadFiles={uploadFiles} />
 
             {status && (
-                <div aria-live="polite" className={`rounded-lg px-2 py-1 text-[10px] ${getStatusTone(status)}`}>
-                    {status}
+                <div aria-live="polite" className={`rounded-lg px-2.5 py-2 text-[10px] leading-relaxed border ${getStatusTone(status)}`}>
+                    <div className="font-semibold mb-0.5 flex items-center gap-1.5">
+                        {status.toLowerCase().includes("error") || status.toLowerCase().includes("failed") ? (
+                            <><span>⚠️</span> Ingestion Alert</>
+                        ) : (
+                            <><span>ℹ️</span> Status</>
+                        )}
+                    </div>
+                    <div>{status}</div>
+                    {(status.includes("Permission") || status.includes("denied") || status.includes("ACL")) && (
+                        <div className="mt-1.5 pt-1.5 border-t border-red-500/10 text-[9px] text-zinc-400">
+                            Tip: Check Windows file permissions or try dragging & dropping the file into the upload zone above instead.
+                        </div>
+                    )}
+                    {(status.includes("not allowed") || status.includes("security") || status.includes("root")) && (
+                        <div className="mt-1.5 pt-1.5 border-t border-amber-500/10 text-[9px] text-zinc-400 font-mono">
+                            Allowed roots: CWD & promptc_uploads. Use absolute paths inside the workspace.
+                        </div>
+                    )}
                 </div>
             )}
 

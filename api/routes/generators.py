@@ -4,10 +4,9 @@ import time
 from typing import Literal
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import logger
 from app.github_repo_context import (
     GitHubRepoAnalysisError,
@@ -129,9 +128,7 @@ class AgentGenResponse(BaseModel):
 @router.post("/repo-context/github", response_model=GitHubRepoContextPayload)
 async def analyze_github_repo_endpoint(
     req: GitHubRepoContextRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     started_at = time.monotonic()
 
     try:
@@ -179,9 +176,7 @@ async def analyze_github_repo_endpoint(
 @router.post("/skills-generator/generate", response_model=SkillGenResponse)
 async def generate_skill_endpoint(
     req: SkillGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
 
     try:
@@ -200,9 +195,7 @@ async def generate_skill_endpoint(
 @router.post("/agent-generator/generate", response_model=AgentGenResponse)
 async def generate_agent_endpoint(
     req: AgentGenRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
 
     try:

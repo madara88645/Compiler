@@ -37,13 +37,11 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
 | `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
-| `ADMIN_API_KEY` | Master API key (skip DB lookup) | Optional; leave blank for local dev |
-| `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Force API keys everywhere | `false` for local dev, `true` for hardened deploys |
+| `ADMIN_API_KEY` | Legacy/internal master API key (skip DB lookup where auth helpers are still used) | Optional; not required for the public app |
+| `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Legacy/internal auth toggle | Public app routes should not depend on this |
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
 | `PROMPTC_UPLOAD_DIR` | RAG file upload directory | `~/.promptc_uploads` |
 | `PROMPTC_RAG_DB_PATH` | RAG SQLite index path | Empty = `~/.promptc_index_v3.db`; if that path is not writable, runtime falls back to `./.promptc/<db-name>` |
-| `PROMPTC_SERVER_API_KEY` | Next.js server-side proxy API key | Optional locally; required in deploys if proxied routes must authenticate to backend |
-| `NEXT_PUBLIC_API_KEY` | Deprecated browser API key | Do not use in deploys; protected frontend routes now go through same-origin Next proxy handlers |
 | `PROMPTC_RAG_ALLOWED_ROOTS` | Path allowlist for RAG ingest | Empty = restricted to CWD + upload dir |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend URL | `http://127.0.0.1:8080` |
 | `ALLOWED_ORIGINS` | CORS origin list (comma-separated) | Defaults to localhost:3000/3001 |
@@ -60,10 +58,10 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
 
 ### Auth / API key notes
 
-- Most routes accept any request locally when `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false`.
-- Routes that **always** require an API key: `/compile/fast`, all `/agent-generator/*`, `/skills-generator/*`, and `/rag/upload`, `/rag/ingest`. Other RAG endpoints (`/rag/query`, `/rag/pack`, `/rag/search`, `/rag/stats`) use `verify_api_key_if_required` and are optional unless `PROMPTC_REQUIRE_API_KEY_FOR_ALL=true`.
-- To make an authenticated request, add header `x-api-key: <key>`.
-- In tests, authentication is **automatically bypassed** by `conftest.py` — no key needed unless the test is marked `@pytest.mark.auth_required`.
+- Public app routes are intended to work **without** asking visitors for a Prompt Compiler API key.
+- Cloud-backed features may still need server-side provider credentials such as `OPENAI_API_KEY` or `GROQ_API_KEY`, but those stay on the server and are never typed by end users.
+- `x-api-key`, `PROMPTC_SERVER_API_KEY`, and similar custom backend keys are legacy/internal mechanisms and should not be introduced into public web flows.
+- In tests, authentication is **automatically bypassed** by `conftest.py` unless the test is marked `@pytest.mark.auth_required`.
 
 ### Mocking / disabling LLM calls
 
@@ -87,7 +85,7 @@ cd web && npm run dev
 
 Open http://localhost:3000 in a browser.
 
-Protected frontend routes now use same-origin Next proxy handlers. For local generator/RAG upload testing through the web UI, set `PROMPTC_SERVER_API_KEY` to a valid backend API key (or the same value as `ADMIN_API_KEY`) in the Next.js environment if backend auth is enabled. The Agent Packs page no longer exposes a browser-side API-key input, so authenticated generator requests must come through that server-side proxy key.
+Frontend routes use same-origin Next proxy handlers so the browser never needs a backend secret. Do not add browser API-key inputs or server-proxy key requirements for public usage.
 
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
@@ -127,7 +125,7 @@ There is no runtime feature-flag system (no LaunchDarkly, no flag DB). All toggl
 |---|---|---|
 | Conservative mode | `PROMPT_COMPILER_MODE=conservative` (env), `"mode": "conservative"` in request body, or `X-Prompt-Mode: conservative` header | Compiler stays grounded; no hallucinated context |
 | Default / aggressive mode | `PROMPT_COMPILER_MODE=default` | Compiler fills gaps and expands more aggressively |
-| Global API key enforcement | `PROMPTC_REQUIRE_API_KEY_FOR_ALL=true` | Every route requires `x-api-key` |
+| Legacy/internal auth toggle | `PROMPTC_REQUIRE_API_KEY_FOR_ALL=true` | Only affects routes that still opt into auth helpers; public app routes should not rely on it |
 | CORS restriction | Set `ALLOWED_ORIGINS=https://yourdomain.com` | Restricts which origins the backend accepts |
 
 **UI toggle**: the web app has a "Conservative" toggle stored in `localStorage` (key `promptc_conservative_mode`). The browser extension has its own local state. For automated tests, control the mode through the API request body directly.
@@ -210,15 +208,14 @@ curl http://127.0.0.1:8080/health
 # Root info
 curl http://127.0.0.1:8080/
 
-# Compile (no API key needed with PROMPTC_REQUIRE_API_KEY_FOR_ALL=false)
+# Compile
 curl -s -X POST http://127.0.0.1:8080/compile \
   -H "Content-Type: application/json" \
   -d '{"text": "summarize a PDF and write a report", "mode": "conservative"}' | python -m json.tool
 
-# Compile fast (requires API key)
+# Compile fast
 curl -s -X POST http://127.0.0.1:8080/compile/fast \
   -H "Content-Type: application/json" \
-  -H "x-api-key: test-key" \
   -d '{"text": "create a marketing email", "mode": "default"}' | python -m json.tool
 ```
 
@@ -228,8 +225,8 @@ curl -s -X POST http://127.0.0.1:8080/compile/fast \
 # Test without override (real auth check)
 pytest tests/test_auth_fast_path.py -v
 
-# See what happens with PROMPTC_REQUIRE_API_KEY_FOR_ALL=true
-PROMPTC_REQUIRE_API_KEY_FOR_ALL=true pytest tests/test_api_hardening.py -v
+# Public routes should remain callable even if legacy/internal auth flags are present
+PROMPTC_REQUIRE_API_KEY_FOR_ALL=true pytest tests/test_auth_fast_path.py -v
 ```
 
 **Adding a new route:** follow `api/routes/compile.py` as the template. Always add a Pydantic request model, apply `Depends(verify_api_key)` or `Depends(verify_api_key_if_required)`, and cover it in a new test file.
@@ -248,13 +245,12 @@ pytest tests/test_rag.py tests/test_rag_upload.py tests/test_rag_pipeline.py tes
 
 **Windows temp-dir note:** `tests/conftest.py` now prefers a repo-local `.\.tmp-test-run` session dir and falls back to a user temp folder automatically if that repo-local runtime root is not writable. `tests/runtime_bootstrap.py` creates the pytest session directory directly under the candidate root and probes it before use, which avoids Windows environments where `mkdtemp()` succeeds but the returned directory still rejects child file or folder creation. If you still hit a `PermissionError`, inspect stale directories under `.\.tmp-test-run` first, then override `TMP`, `TEMP`, and `DB_DIR` manually only as a last resort.
 
-**RAG upload smoke (requires running backend and an API key):**
+**RAG upload smoke (requires running backend):**
 
 ```bash
 # Upload a file (JSON body: filename, content, optional relative_path)
 curl -s -X POST http://127.0.0.1:8080/rag/upload \
   -H "Content-Type: application/json" \
-  -H "x-api-key: test-key" \
   -d '{"filename": "README.md", "content": "your file content here"}' | python -m json.tool
 
 # Search (POST with JSON body: query, limit)

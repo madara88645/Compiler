@@ -6,10 +6,9 @@ import uuid
 import anyio
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
-from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
@@ -27,6 +26,7 @@ from app.llm_engine.schemas import QualityReport
 from app.models_v2 import DiagnosticItem, IRv2
 from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
 from app.optimizer.postprocess import strip_wrapper_labels
+from app.validator import validate_prompt
 
 router = APIRouter(tags=["compile"])
 
@@ -294,13 +294,48 @@ def _fast_compile_payload(
     )
 
 
+def _build_offline_quality_report(req: ValidateRequest) -> QualityReport:
+    ir2 = compile_text_v2(req.text, offline_only=True)
+    validation = validate_prompt(ir2, original_text=req.text)
+
+    suggestions = [issue.suggestion for issue in validation.issues if issue.suggestion]
+    weaknesses = [issue.message for issue in validation.issues if issue.message]
+    category_scores = {
+        "clarity": int(round(validation.score.clarity)),
+        "specificity": int(round(validation.score.specificity)),
+        "completeness": int(round(validation.score.completeness)),
+        "consistency": int(round(validation.score.consistency)),
+    }
+    strengths = validation.strengths if req.include_strengths else []
+
+    if not strengths and validation.score.total >= 80:
+        strengths = ["Prompt is already reasonably clear and usable."]
+
+    if not req.include_suggestions:
+        suggestions = []
+
+    if not suggestions and validation.score.total < 80:
+        suggestions = ["Add a bit more context, goal detail, and output format guidance."]
+
+    summary = (
+        f"Offline validation completed with a score of {int(round(validation.score.total))}/100."
+    )
+
+    return QualityReport(
+        score=int(round(validation.score.total)),
+        category_scores=category_scores,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        suggestions=suggestions,
+        summary=summary,
+    )
+
+
 @router.post("/compile", response_model=CompileResponse)
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
 
@@ -393,9 +428,7 @@ def compile_endpoint(
 async def compile_fast(
     req: CompileRequest,
     request: Request,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     start = time.time()
     compiler = _get_compiler()
 
@@ -423,12 +456,14 @@ async def compile_fast(
 @router.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     try:
-        compiler = _get_compiler()
-        report = compiler.worker.analyze_prompt(req.text)
+        try:
+            compiler = _get_compiler()
+            report = compiler.worker.analyze_prompt(req.text)
+        except Exception as exc:
+            logger.warning("validate endpoint falling back to offline analysis: %s", exc)
+            report = _build_offline_quality_report(req)
 
         from app.heuristics.handlers.safety import SafetyHandler
 
@@ -450,6 +485,11 @@ def validate_endpoint(
             report.score = max(0, report.score - (len(safety_issues) * 10))
             report.category_scores["safety"] = max(0, 100 - (len(safety_issues) * 30))
 
+        if not req.include_strengths:
+            report.strengths = []
+        if not req.include_suggestions:
+            report.suggestions = []
+
         return report
     except Exception as exc:
         logger.exception("validate endpoint failed")
@@ -459,9 +499,7 @@ def validate_endpoint(
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
 
     try:
