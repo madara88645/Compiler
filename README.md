@@ -132,7 +132,7 @@ What the beta means in practice:
 - **Fast scaffolding, not blind automation** - expect useful repo memory, settings, agents, and workflow files, then adjust them for your own policies and edge cases.
 - **Best for early repo setup and internal experimentation** - especially when you want to bootstrap Claude Code conventions without hand-writing every asset.
 - **Human review is required** - check prompts, permissions, deny rules, CI assumptions, and generated documentation before shipping.
-- **Optional client API key fallback in the web UI** - if `PROMPTC_SERVER_API_KEY` is already configured on the web server, that server-side key wins. The UI field is mainly for local debugging or fallback calls when the proxy intentionally has no server key.
+- **Server-side proxy auth for protected requests** - the web app sends Agent Packs requests through the same-origin proxy. When backend auth is enabled, configure `PROMPTC_SERVER_API_KEY` on the web server so protected Agent Packs calls succeed without exposing API keys in the browser UI.
 
 Four pack types are available out of the box, all served from a single Claude-first endpoint:
 

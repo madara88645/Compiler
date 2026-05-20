@@ -415,6 +415,27 @@ def _policy_check_lines_v2(ir: IRv2) -> List[str]:
     return lines
 
 
+def _is_benign_policy_v2(ir: IRv2) -> bool:
+    policy = ir.policy
+    return (
+        policy.execution_mode == "auto_ok"
+        and policy.risk_level == "low"
+        and policy.data_sensitivity == "public"
+        and not policy.risk_domains
+        and not policy.forbidden_tools
+        and not policy.sanitization_rules
+    )
+
+
+def _emit_policy_header_v2(ir: IRv2) -> List[str]:
+    if _is_benign_policy_v2(ir):
+        return []
+    summary = _policy_summary_text_v2(ir)
+    if not summary:
+        return []
+    return ["Policy: " + summary]
+
+
 def _clean_domain_suggestion_text(text: str) -> str:
     value = " ".join((text or "").strip().split())
     for marker in ("Include ", "Add ", "Review ", "Use ", "Follow ", "Consider ", "Handle "):
@@ -603,9 +624,6 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + c_line
         )
-    policy_line = _policy_summary_text_v2(ir)
-    if policy_line:
-        ctx_lines.append("Policy: " + policy_line)
     policy_checks = _policy_check_lines_v2(ir)
     if policy_checks:
         ctx_lines.append("Policy Checks:")
@@ -677,10 +695,12 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         )
     )
     orig = (ir.metadata or {}).get("original_text") or ""
+    policy_header = _emit_policy_header_v2(ir)
     prompt: List[str] = [
         f"{title}",
         intro,
         "",
+        *([*policy_header, ""] if policy_header else []),
         ("Girdi" if lang == "tr" else ("Entrada" if lang == "es" else "Input")) + f": {orig}",
         "",
         ("Bağlam" if lang == "tr" else ("Contexto" if lang == "es" else "Context")) + ":",

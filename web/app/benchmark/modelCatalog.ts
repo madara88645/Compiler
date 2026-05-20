@@ -16,7 +16,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "Llama 3.1 8B Instant",
     badge: "cheap",
     availability: "production",
-    helperText: "Lowest-cost baseline on Groq for fast A/B checks.",
+    helperText: "Cheapest model. Use this for a quick sanity check — runs in a second or two.",
     group: "Cheap",
   },
   {
@@ -24,7 +24,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "GPT-OSS 20B",
     badge: "cheap",
     availability: "production",
-    helperText: "Cheap open model with a strong quality-to-cost ratio.",
+    helperText: "Cheap and surprisingly capable. Good default for everyday tests.",
     group: "Cheap",
   },
   {
@@ -32,7 +32,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "Mistral Saba 24B",
     badge: "cheap",
     availability: "production",
-    helperText: "Affordable multilingual option for broader prompt coverage.",
+    helperText: "Affordable and works well in multiple languages — handy if your prompt isn't in English.",
     group: "Cheap",
   },
   {
@@ -40,7 +40,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "Llama 3.3 70B Versatile",
     badge: "balanced",
     availability: "production",
-    helperText: "Balanced quality model for richer benchmark comparisons.",
+    helperText: "Smarter model. Slower and pricier, but answers are more thoughtful.",
     group: "Balanced",
   },
   {
@@ -48,7 +48,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "GPT-OSS 120B",
     badge: "balanced",
     availability: "production",
-    helperText: "Stronger reference model when you want a higher-quality comparison.",
+    helperText: "Bigger and stronger. Use this when you want the most polished comparison.",
     group: "Balanced",
   },
   {
@@ -56,7 +56,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "Llama 4 Scout 17B 16E",
     badge: "preview",
     availability: "preview",
-    helperText: "Preview Meta model with modern context handling and multimodal lineage.",
+    helperText: "Newer model. Still being evaluated — try it if you want to compare cutting-edge results.",
     group: "Preview",
   },
   {
@@ -64,7 +64,7 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     label: "Qwen 3 32B",
     badge: "preview",
     availability: "preview",
-    helperText: "Preview Qwen model for alternative reasoning and response style checks.",
+    helperText: "Newer model with a different reasoning style. Useful for a second opinion on your prompt.",
     group: "Preview",
   },
 ];

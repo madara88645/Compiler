@@ -82,6 +82,63 @@ def test_expanded_prompt_v2_includes_policy_summary_without_inventing_requiremen
     assert "Missing details will be filled" not in ep
 
 
+def _split_above_input(ep: str) -> str:
+    head, _, _ = ep.partition("\nInput:")
+    return head
+
+
+def test_expanded_prompt_v2_emits_policy_header_for_high_risk_financial():
+    ir2 = compile_text_v2(
+        "Analyze my stock portfolio allocation and recommend rebalancing trades.",
+        offline_only=True,
+    )
+
+    ep = emit_expanded_prompt_v2(ir2, diagnostics=False)
+
+    head = _split_above_input(ep)
+    assert "Policy:" in head
+    assert "human_approval_required" in head
+    assert "domains=financial" in head
+
+
+def test_expanded_prompt_v2_omits_policy_header_for_benign_educational(monkeypatch):
+    monkeypatch.setenv("PROMPT_COMPILER_MODE", "default")
+    ir2 = compile_text_v2(
+        "Explain how photosynthesis works to a curious ten year old.",
+        offline_only=True,
+    )
+
+    ep = emit_expanded_prompt_v2(ir2, diagnostics=False)
+
+    assert ir2.policy.execution_mode == "auto_ok"
+    assert ir2.policy.risk_level == "low"
+    head = _split_above_input(ep)
+    assert "Policy:" not in head
+
+
+def test_expanded_prompt_v2_omits_policy_header_on_trivial_greeting(monkeypatch):
+    monkeypatch.setenv("PROMPT_COMPILER_MODE", "conservative")
+    ir2 = compile_text_v2("hi", offline_only=True)
+
+    ep = emit_expanded_prompt_v2(ir2, diagnostics=False)
+
+    assert "Policy:" not in ep
+    assert "Expanded Prompt" not in ep
+
+
+def test_expanded_prompt_v2_emits_policy_header_for_medium_risk_debug():
+    ir2 = compile_text_v2(
+        "Help me debug this Python stack trace from production logs.",
+        offline_only=True,
+    )
+
+    ep = emit_expanded_prompt_v2(ir2, diagnostics=False)
+
+    head = _split_above_input(ep)
+    assert "Policy:" in head
+    assert "execution=human_approval_required" in head
+
+
 def test_prompt_templates_discourage_invented_project_details():
     prompts_dir = Path("app/llm_engine/prompts")
     query_expansion = (prompts_dir / "query_expansion.md").read_text(encoding="utf-8").lower()

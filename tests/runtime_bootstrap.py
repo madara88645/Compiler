@@ -4,6 +4,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,8 @@ def _candidate_roots(preferred_root: Path, fallback_roots: Iterable[Path]) -> li
 
 
 def _create_session_dir(root: Path) -> Path:
-    session_dir = Path(tempfile.mkdtemp(prefix="pytest-", dir=str(root))).resolve()
+    session_dir = (root / f"pytest-{uuid4().hex[:8]}").resolve()
+    session_dir.mkdir(parents=False, exist_ok=False)
     probe_dir = session_dir / ".write-probe"
 
     try:

@@ -289,6 +289,7 @@ export default function AgentPacksPage() {
               </label>
               <textarea
                 id="agent-pack-goal"
+                aria-label="Agent Pack Goal"
                 value={request.goal}
                 onChange={(event) => handleFieldChange("goal", event.target.value)}
                 className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
@@ -378,7 +379,7 @@ export default function AgentPacksPage() {
                     <button
                       type="button"
                       onClick={handleCopyCurrent}
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                     >
                       <Copy size={14} aria-hidden="true" />
                       {copiedState === "single" ? "Copied" : "Copy"}
@@ -386,7 +387,7 @@ export default function AgentPacksPage() {
                     <button
                       type="button"
                       onClick={handleCopyAll}
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                     >
                       <FileCode2 size={14} aria-hidden="true" />
                       {copiedState === "all" ? "Copied All" : "Copy All"}
@@ -395,7 +396,7 @@ export default function AgentPacksPage() {
                       type="button"
                       onClick={handleDownload}
                       disabled={downloading}
-                      className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                     >
                       <Download size={14} aria-hidden="true" />
                       {downloading ? "Preparing..." : "Download Pack"}
@@ -412,7 +413,7 @@ export default function AgentPacksPage() {
                         setActiveKind(group.kind);
                         setSelectedPath(group.files[0]?.path ?? null);
                       }}
-                      className={`rounded-full border px-3 py-1.5 text-[11px] font-mono uppercase tracking-wide transition-all ${
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-mono uppercase tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${
                         activeGroup?.kind === group.kind
                           ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-100"
                           : "border-transparent bg-white/[0.03] text-zinc-500 hover:bg-white/[0.07] hover:text-zinc-300"
