@@ -8,6 +8,12 @@ vi.mock("@/config", () => ({
   apiJson: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 vi.mock("../components/InfoButton", () => ({
   default: ({ title }: { title: string }) => <button type="button">{title}</button>,
 }));

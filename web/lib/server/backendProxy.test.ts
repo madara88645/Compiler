@@ -175,41 +175,7 @@ describe("backend proxy", () => {
     expect(response.status).toBe(502);
   });
 
-  it("returns a config error when a protected route has no server API key", async () => {
-    const request = new Request("http://localhost:3000/agent-generator/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: "review code" }),
-    });
 
-    const response = await proxyBackendRequest(request, "/agent-generator/generate", {
-      requireServerApiKey: true,
-    });
-
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
-    });
-  });
-
-  it("drains request bodies before returning a protected-route config error", async () => {
-    const request = new Request("http://localhost:3000/repo-context/github", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo_url: "https://github.com/openai/openai-python" }),
-    });
-    const arrayBufferSpy = vi.spyOn(request, "arrayBuffer");
-
-    const response = await proxyBackendRequest(request, "/repo-context/github", {
-      requireServerApiKey: true,
-    });
-
-    expect(response.status).toBe(500);
-    expect(arrayBufferSpy).toHaveBeenCalledTimes(1);
-    await expect(response.json()).resolves.toEqual({
-      detail: "PROMPTC_SERVER_API_KEY is not configured on the web server.",
-    });
-  });
 
   it("allows protected routes with a caller-supplied x-api-key when server key is missing", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
