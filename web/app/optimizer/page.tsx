@@ -102,6 +102,30 @@ function charsPerToken(chars: number, tokens: number): string {
     return (chars / tokens).toFixed(2);
 }
 
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim()) {
+        return error.message;
+    }
+    return String(error);
+}
+
+function isCloudOptimizerUnavailable(message: string | null): boolean {
+    if (!message) {
+        return false;
+    }
+
+    const normalized = message.toLowerCase();
+    return (
+        normalized.includes("api key") ||
+        normalized.includes("401") ||
+        normalized.includes("403") ||
+        normalized.includes("unauthorized") ||
+        normalized.includes("forbidden") ||
+        normalized.includes("provider") ||
+        normalized.includes("temporarily unavailable")
+    );
+}
+
 function MetricTile({
     label,
     value,
@@ -230,9 +254,9 @@ export default function OptimizerPage() {
                 }),
             });
             setResult(normalizeOptimizeResponse(data));
-        } catch (e: any) {
-            showError(e);
-            setOptimizationError(e instanceof Error ? e.message : String(e));
+        } catch (error: unknown) {
+            showError(error);
+            setOptimizationError(getErrorMessage(error));
         } finally {
             setLoading(false);
         }
@@ -338,8 +362,8 @@ export default function OptimizerPage() {
                         <div className="flex flex-col gap-1">
                             <h3 className="text-sm font-semibold text-red-200">Cloud Optimizer Alert</h3>
                             <p className="text-xs text-red-300 opacity-90 leading-relaxed">
-                                {optimizationError.includes("API Key") || optimizationError.includes("key") || optimizationError.includes("unauthorized") || optimizationError.includes("401") || optimizationError.includes("403")
-                                    ? "A valid Groq/OpenAI API key is required for cloud-based token optimization. You can either configure your keys in the backend environment, or switch to the Local Heuristics optimizer which works 100% offline."
+                                {isCloudOptimizerUnavailable(optimizationError)
+                                    ? "The cloud optimizer could not run right now. If you are self-hosting, check the server's provider setup. Otherwise switch to Local Heuristics and keep going offline."
                                     : optimizationError}
                             </p>
                         </div>

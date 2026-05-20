@@ -132,7 +132,7 @@ What the beta means in practice:
 - **Fast scaffolding, not blind automation** - expect useful repo memory, settings, agents, and workflow files, then adjust them for your own policies and edge cases.
 - **Best for early repo setup and internal experimentation** - especially when you want to bootstrap Claude Code conventions without hand-writing every asset.
 - **Human review is required** - check prompts, permissions, deny rules, CI assumptions, and generated documentation before shipping.
-- **Server-side proxy auth for protected requests** - the web app sends Agent Packs requests through the same-origin proxy. When backend auth is enabled, configure `PROMPTC_SERVER_API_KEY` on the web server so protected Agent Packs calls succeed without exposing API keys in the browser UI.
+- **No Prompt Compiler API key prompts for visitors** - public web flows are meant to work without asking end users for `x-api-key`, `PROMPTC_SERVER_API_KEY`, or similar internal knobs.
 
 Four pack types are available out of the box, all served from a single Claude-first endpoint:
 
@@ -152,12 +152,11 @@ Four pack types are available out of the box, all served from a single Claude-fi
 
 **Provider-agnostic core.** The pack generator is built around an `AgentPackAdapter` Protocol. Claude-specific logic lives in `app/adapters/claude_code.py`; the IR layer in `app/adapters/agent_packs.py` stays neutral. Cursor / Codex / other-provider adapters can plug in later without touching the core.
 
-**API surface** (both endpoints require an API key):
+**API surface**:
 
 ```bash
 # Generate the manifest (preview-friendly: file paths, contents, kinds, preview order)
 curl -X POST https://api.example.com/agent-packs/claude \
-  -H "x-api-key: $PROMPTC_API_KEY" \
   -H "content-type: application/json" \
   -d '{
     "project_type": "FastAPI service",
@@ -169,7 +168,6 @@ curl -X POST https://api.example.com/agent-packs/claude \
 
 # Same payload, returns a deflate-compressed .zip ready to drop into a repo
 curl -X POST https://api.example.com/agent-packs/claude/download \
-  -H "x-api-key: $PROMPTC_API_KEY" \
   -H "content-type: application/json" \
   -d '{...same body...}' \
   --output claude-project-pack.zip
@@ -281,7 +279,7 @@ GROQ_API_KEY=gsk_your_groq_key
 # Prompt compiler mode: conservative (default) or default
 PROMPT_COMPILER_MODE=conservative
 
-# Optional auth hardening
+# Optional internal auth hardening (public app routes do not ask visitors for Prompt Compiler API keys)
 ADMIN_API_KEY=replace-me
 PROMPTC_REQUIRE_API_KEY_FOR_ALL=false
 
@@ -292,8 +290,8 @@ PROMPTC_RAG_ALLOWED_ROOTS=
 
 Notes:
 
-- Leave `PROMPTC_REQUIRE_API_KEY_FOR_ALL=false` for backwards-compatible local development.
-- `/compile/fast`, generator routes, and RAG mutation routes require an API key.
+- Public app routes are intended to work without custom Prompt Compiler API keys.
+- `OPENAI_API_KEY` / `GROQ_API_KEY` are server-side provider credentials, not values that visitors should type into the app.
 - If you set `PROMPTC_RAG_ALLOWED_ROOTS`, only files inside those roots can be ingested by path.
 
 ---

@@ -18,10 +18,9 @@ import re
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from api.auth import APIKey, verify_api_key
 from api.shared import logger
 from app.compiler import compile_text_v2
 from app.emitters import emit_expanded_prompt_v2
@@ -274,12 +273,10 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 @router.post("/run", response_model=BenchmarkResponse)
 async def benchmark_run(
     req: BenchmarkRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.
     """
-    del api_key
     t0 = time.time()
 
     # --- Step A: Generate with raw prompt ---------------------------------

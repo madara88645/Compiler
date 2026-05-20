@@ -53,6 +53,23 @@ function buildBenchmarkErrorMessage(error: unknown): string {
   return "Benchmark failed. Try another model or re-run with the mock engine.";
 }
 
+function isBackendConfigIssue(message: string | null): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api key") ||
+    normalized.includes("401") ||
+    normalized.includes("403") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("provider") ||
+    normalized.includes("temporarily unavailable")
+  );
+}
+
 export default function BenchmarkPage() {
   const [prompt, setPrompt] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -304,14 +321,16 @@ export default function BenchmarkPage() {
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3.5 text-xs leading-relaxed text-red-200">
                 <div className="space-y-2">
                   <div className="font-semibold text-red-300">
-                    {isAuthErrorMessage(errorMessage) ? "API Key Required" : "Benchmark Issue"}
+                    {isBackendConfigIssue(errorMessage)
+                      ? "Cloud Benchmark Unavailable"
+                      : "Benchmark Issue"}
                   </div>
                   <p className="opacity-90">
-                    {isAuthErrorMessage(errorMessage)
-                      ? "A valid API key is required to run a real benchmark with this model. Configure your keys in the backend environment."
+                    {isBackendConfigIssue(errorMessage)
+                      ? "The selected cloud model could not run right now. If you are hosting this yourself, check the server's provider configuration. Otherwise switch to Mock Engine and keep exploring."
                       : errorMessage}
                   </p>
-                  {isAuthErrorMessage(errorMessage) && (
+                  {isBackendConfigIssue(errorMessage) && (
                     <button
                       type="button"
                       onClick={() => {

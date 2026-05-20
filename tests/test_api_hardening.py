@@ -28,14 +28,20 @@ def test_key():
 
 
 @pytest.mark.auth_required
-def test_generator_endpoints_require_api_key():
+def test_generator_endpoints_work_without_api_key():
     client = TestClient(app)
 
-    agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
-    skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Mock API Agent"
+        mock_compiler.generate_skill.return_value = "# Mock API Skill"
 
-    assert agent_resp.status_code == 403
-    assert skill_resp.status_code == 403
+        agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
+        skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
+
+    assert agent_resp.status_code == 200
+    assert agent_resp.json() == {"system_prompt": "# Mock API Agent"}
+    assert skill_resp.status_code == 200
+    assert skill_resp.json() == {"skill_definition": "# Mock API Skill"}
 
 
 @pytest.mark.auth_required
@@ -53,6 +59,34 @@ def test_rag_upload_works_without_api_key(monkeypatch):
         response = client.post(
             "/rag/upload",
             json={"filename": "auth.py", "content": "def login():\n    return True"},
+        )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.auth_required
+def test_optimize_works_without_api_key():
+    client = TestClient(app)
+
+    with patch("api.main.get_compiler") as mock_get_compiler:
+        mock_get_compiler.return_value.worker.optimize_prompt.return_value = ("short prompt", None)
+
+        response = client.post("/optimize", json={"text": "a much longer prompt"})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.auth_required
+def test_benchmark_works_without_api_key():
+    client = TestClient(app)
+
+    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
+        "app.routers.benchmark._judge_with_llm", return_value=None
+    ):
+        mock_llm.side_effect = ["raw output", "compiled output"]
+        response = client.post(
+            "/benchmark/run",
+            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
         )
 
     assert response.status_code == 200

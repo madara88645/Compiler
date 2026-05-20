@@ -37,13 +37,39 @@ def test_key():
 
 
 def test_compile_fast_no_key():
-    resp = client.post("/compile/fast", json={"text": "hello"})
-    assert resp.status_code == 403
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir.model_dump.return_value = {}
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        resp = client.post("/compile/fast", json={"text": "hello"})
+
+    assert resp.status_code == 200
 
 
 def test_compile_fast_invalid_key():
-    resp = client.post("/compile/fast", json={"text": "hello"}, headers={"x-api-key": "invalid"})
-    assert resp.status_code == 403
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir.model_dump.return_value = {}
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        resp = client.post(
+            "/compile/fast", json={"text": "hello"}, headers={"x-api-key": "invalid"}
+        )
+
+    assert resp.status_code == 200
 
 
 def test_compile_fast_success(test_key):
@@ -237,7 +263,7 @@ def test_compile_fast_falls_back_after_two_worker_failures(test_key):
         )
 
 
-def test_rate_limit(test_key):
+def test_compile_fast_is_not_gated_by_api_key_rate_limit_anymore(test_key):
     # Depending on how the rate limiter is implemented (in-memory global),
     # we might need to reset it or just spam enough requests.
     from api.auth import RATE_LIMIT_STORE
@@ -260,11 +286,11 @@ def test_rate_limit(test_key):
             resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
             assert resp.status_code == 200
 
-    # Next request should fail
+    # Public compile_fast should remain callable; auth-driven rate limiting no longer gates it
     with patch("api.main.hybrid_compiler") as mock:
         mock.cache = {}
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
-        assert resp.status_code == 429
+        assert resp.status_code == 200
 
 
 def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
@@ -388,7 +414,7 @@ def test_optimize_no_key():
 
         resp = client.post("/optimize", json={"text": "a much longer prompt"})
 
-    assert resp.status_code == 403
+    assert resp.status_code == 200
 
 
 def test_rag_stats_no_key():
@@ -425,29 +451,24 @@ def test_rag_stats_no_key_falls_back_when_default_db_path_is_unwritable(tmp_path
     [
         ("post", "/compile", {"text": "hello", "v2": False}),
         ("post", "/validate", {"text": "hello"}),
-        ("post", "/optimize", {"text": "a much longer prompt"}),
         ("get", "/rag/stats", None),
         ("post", "/rag/search", {"query": "compiler", "limit": 3}),
-        ("post", "/rag/query", {"query": "compiler", "k": 3, "method": "keyword"}),
-        ("post", "/rag/pack", {"query": "compiler", "k": 3, "method": "keyword"}),
+        ("post", "/rag/query", {"query": "compiler", "k": 3, "method": "fts"}),
+        ("post", "/rag/pack", {"query": "compiler", "k": 3, "method": "fts"}),
         ("post", "/rag/upload", {"filename": "test.txt", "content": "hello"}),
         ("post", "/rag/ingest", {"paths": ["."], "exts": [".txt"]}),
     ],
 )
-def test_optional_auth_routes_require_key_when_global_enforcement_enabled(
-    method, path, payload, monkeypatch
-):
+def test_public_routes_ignore_global_enforcement_flag(method, path, payload, monkeypatch):
     monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
 
     kwargs = {"json": payload} if payload is not None else {}
     response = getattr(client, method)(path, **kwargs)
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
-def test_optional_auth_routes_accept_valid_key_when_global_enforcement_enabled(
-    test_key, monkeypatch
-):
+def test_public_routes_still_accept_requests_when_global_enforcement_enabled(test_key, monkeypatch):
     monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
     headers = {"x-api-key": test_key}
 
@@ -527,24 +548,25 @@ def test_optional_auth_routes_accept_valid_key_when_global_enforcement_enabled(
         ),
     ],
 )
-def test_export_routes_always_require_api_key(path, payload, expected_key, test_key, monkeypatch):
+def test_export_routes_are_public(path, payload, expected_key, test_key, monkeypatch):
     monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "false")
 
     unauthorized_response = client.post(path, json=payload)
-    assert unauthorized_response.status_code == 403
+    assert unauthorized_response.status_code == 200
+    assert expected_key in unauthorized_response.json()
 
     authorized_response = client.post(path, json=payload, headers={"x-api-key": test_key})
     assert authorized_response.status_code == 200
     assert expected_key in authorized_response.json()
 
 
-def test_optional_auth_routes_reject_invalid_and_oversized_keys_when_global_enforcement_enabled(
+def test_public_routes_ignore_invalid_keys_even_when_global_enforcement_enabled(
     monkeypatch,
 ):
     monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
 
     invalid_response = client.get("/rag/stats", headers={"x-api-key": "invalid"})
-    assert invalid_response.status_code == 403
+    assert invalid_response.status_code == 200
 
     oversized_response = client.get("/rag/stats", headers={"x-api-key": "x" * 257})
-    assert oversized_response.status_code == 400
+    assert oversized_response.status_code == 200

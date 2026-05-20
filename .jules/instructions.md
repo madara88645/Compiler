@@ -19,7 +19,8 @@ Treat journal entries as **context**, not tasks. Do not refactor unrelated modul
 2. **Secrets:** Never expose `.env`, credentials, or database URLs in code, logs, or PR text.
 3. **Generated artifacts:** Treat emitted agent packs, skills, and MCP stubs as **untrusted until reviewed** (see CLAUDE.md Security).
 4. **Conservative mode:** Do not invent APIs or requirements when conservative / policy-aware paths apply.
-5. **Scope:** Focused tests before full suites (`python -m pytest tests/ -q` or targeted files per CLAUDE.md).
+5. **Public product auth:** Do not introduce end-user Prompt Compiler API key requirements, browser API-key inputs, or hidden proxy-secret assumptions for public web/app routes. Open-source users should be able to use the product without learning `x-api-key`, `PROMPTC_SERVER_API_KEY`, or similar internal knobs.
+6. **Scope:** Focused tests before full suites (`python -m pytest tests/ -q` or targeted files per CLAUDE.md).
 
 ## Performance (Bolt)
 

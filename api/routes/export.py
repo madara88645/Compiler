@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import APIKey, verify_api_key
 from api.shared import logger
 
 router = APIRouter(tags=["export"])
@@ -22,9 +21,7 @@ class ExportRequest(BaseModel):
 @router.post("/agent-generator/export")
 async def export_agent(
     req: ExportRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     if req.format not in [
         "claude-sdk",
         "claude-agent-sdk-py",
@@ -105,9 +102,7 @@ _SKILL_EXPORT_FORMATS = frozenset(
 @router.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     if req.format not in _SKILL_EXPORT_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
 

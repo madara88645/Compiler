@@ -45,15 +45,6 @@ function isBodylessMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
 }
 
-async function drainRequestBody(request: Request): Promise<void> {
-  if (isBodylessMethod(request.method)) return;
-  try {
-    await request.arrayBuffer();
-  } catch {
-    // Best effort only; the response path should still complete even if draining fails.
-  }
-}
-
 function copyProxyHeaders(request: Request): Headers {
   const headers = new Headers();
 

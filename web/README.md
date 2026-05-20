@@ -33,9 +33,8 @@ npm run test:contracts
 ## Backend Assumptions
 
 - Browser calls stay same-origin and hit the Next proxy layer first. Server-side proxy handlers forward to `NEXT_PUBLIC_API_URL` (or `http://127.0.0.1:8080` locally).
-- Protected proxy routes use `PROMPTC_SERVER_API_KEY` on the web server. `NEXT_PUBLIC_API_KEY` should not be used in the browser.
-- Routes backed by optional backend auth, such as `/rag/search` and `/rag/stats`, should stay callable without `PROMPTC_SERVER_API_KEY` unless backend-wide auth enforcement is enabled.
-- The Agent Packs page now relies on the same-origin proxy flow and does not expose a browser API-key input. Configure `PROMPTC_SERVER_API_KEY` on the web server when the backend requires authenticated generator requests.
+- Public web flows should never ask visitors for a Prompt Compiler API key or rely on proxy-only secret setup in the browser.
+- If a cloud feature needs credentials, that configuration belongs on the backend via provider keys such as `OPENAI_API_KEY` or `GROQ_API_KEY`.
 - `/rag/search` returns canonical items shaped like `{ path, snippet, score }`.
 - `/rag/upload` returns canonical ingest metadata and may also include compatibility fields.
-- Some routes can now return `403` when API key protection is enabled on the backend.
+- Public app routes should not return `403` just because a Prompt Compiler-specific API key is missing.

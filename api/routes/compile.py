@@ -6,10 +6,9 @@ import uuid
 import anyio
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
-from api.auth import APIKey, verify_api_key, verify_api_key_if_required
 from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
@@ -298,9 +297,7 @@ def _fast_compile_payload(
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
 
@@ -393,9 +390,7 @@ def compile_endpoint(
 async def compile_fast(
     req: CompileRequest,
     request: Request,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     start = time.time()
     compiler = _get_compiler()
 
@@ -423,9 +418,7 @@ async def compile_fast(
 @router.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
-    api_key: APIKey | None = Depends(verify_api_key_if_required),
 ):
-    del api_key
     try:
         compiler = _get_compiler()
         report = compiler.worker.analyze_prompt(req.text)
@@ -459,9 +452,7 @@ def validate_endpoint(
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
-    api_key: APIKey = Depends(verify_api_key),
 ):
-    del api_key
     compiler = _get_compiler()
 
     try:
