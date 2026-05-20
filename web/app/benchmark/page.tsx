@@ -54,7 +54,10 @@ function buildBenchmarkErrorMessage(error: unknown): string {
 }
 
 export default function BenchmarkPage() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem("promptc_last_prompt") || "";
+  });
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
   const [resultIsMock, setResultIsMock] = useState(false);
@@ -174,8 +177,16 @@ export default function BenchmarkPage() {
                 B
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white/90">Prompt Benchmark</h1>
-                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold tracking-tight text-white/90">Prompt Benchmark</h1>
+                  {selectedModel === "mock" && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.08)] animate-pulse shrink-0">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+                      Demo Mode Active: Fake Scores
+                    </div>
+                  )}
+                </div>
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500 mt-0.5">
                   Compare raw vs compiled output
                 </div>
                 <div className="mt-1 text-xs text-zinc-400">

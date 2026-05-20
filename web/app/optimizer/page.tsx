@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
@@ -119,11 +120,46 @@ function MetricTile({
     );
 }
 
+const runLocalOfflineCompression = (text: string): string => {
+    let result = text;
+    // Remove HTML/Markdown comments
+    result = result.replace(/<!--[\s\S]*?-->/g, "");
+    // Remove polite/verbose filler phrases to save tokens
+    const fillers = [
+        /\bplease\b/gi,
+        /\bcan you\b/gi,
+        /\bcould you\b/gi,
+        /\bkindly\b/gi,
+        /\bwould you be so kind as to\b/gi,
+        /\bi want you to\b/gi,
+        /\bi would like you to\b/gi,
+        /\bthank you\b/gi,
+        /\bthanks\b/gi,
+        /\bas an AI\b/gi,
+        /\bas a helpful assistant\b/gi,
+    ];
+    for (const rx of fillers) {
+        result = result.replace(rx, "");
+    }
+    // Remove duplicate spacing
+    result = result.replace(/[ \t]+/g, " ");
+    // Remove duplicate newlines
+    result = result.replace(/\n\s*\n/g, "\n\n");
+    return result.trim();
+};
+
 export default function OptimizerPage() {
-    const [input, setInput] = useState("");
+    const router = useRouter();
+    const [input, setInput] = useState(() => {
+        if (typeof window === "undefined") return "";
+        return window.localStorage.getItem("promptc_last_prompt") || "";
+    });
     const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
+    const [provider, setProvider] = useState("groq");
+    const [model, setModel] = useState("llama-3.1-8b-instant");
+    const [optimizationError, setOptimizationError] = useState<string | null>(null);
 
     const output = result?.text ?? "";
     const englishVariant = result?.english_variant ?? "";
@@ -137,6 +173,51 @@ export default function OptimizerPage() {
     const handleOptimize = async () => {
         if (!input.trim()) return;
         setLoading(true);
+        setOptimizationError(null);
+        setResult(null);
+
+        if (provider === "local") {
+            // Simulate premium calculation time
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            const compressed = runLocalOfflineCompression(input);
+            const beforeLen = input.length;
+            const afterLen = compressed.length;
+
+            // Simple rule of thumb character to token ratio approximation
+            const beforeTokens = Math.max(1, Math.ceil(beforeLen / 4.1));
+            const afterTokens = Math.max(1, Math.ceil(afterLen / 4.1));
+            const savedPercent = beforeTokens > 0
+                ? Number((((beforeTokens - afterTokens) / beforeTokens) * 100).toFixed(1))
+                : 0;
+
+            setResult({
+                text: compressed,
+                before_chars: beforeLen,
+                after_chars: afterLen,
+                before_tokens: beforeTokens,
+                after_tokens: afterTokens,
+                saved_percent: savedPercent,
+                changed: compressed !== input,
+                provider: "local",
+                model: "offline",
+                source_language: "unknown",
+                tokenizer_method: "local:chars_to_tokens_ratio",
+                estimated_input_cost_usd: 0,
+                estimated_output_cost_usd: 0,
+                estimated_savings_usd: 0,
+                english_variant: "",
+                english_variant_tokens: 0,
+                english_variant_cost_usd: 0,
+                warnings: [
+                    "Offline Local Heuristic compression active.",
+                    "No cloud API key required for this mode.",
+                    "Character and token metrics are approximations."
+                ]
+            });
+            setLoading(false);
+            return;
+        }
+
         try {
             const data = await apiJson<Partial<OptimizeResponse>>("/optimize", {
                 method: "POST",
@@ -144,16 +225,23 @@ export default function OptimizerPage() {
                 body: JSON.stringify({
                     text: input,
                     max_tokens: maxTokens,
-                    provider: DEFAULT_OPTIMIZER_PROVIDER,
-                    model: DEFAULT_OPTIMIZER_MODEL,
+                    provider: provider,
+                    model: model,
                 }),
             });
             setResult(normalizeOptimizeResponse(data));
-        } catch (e) {
+        } catch (e: any) {
             showError(e);
+            setOptimizationError(e instanceof Error ? e.message : String(e));
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSendToCompiler = () => {
+        if (!output) return;
+        window.localStorage.setItem("promptc_last_prompt", output);
+        router.push("/");
     };
 
     const copyText = (text: string) => {
@@ -187,6 +275,26 @@ export default function OptimizerPage() {
                 </div>
 
                 <div className="flex w-full flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/50 p-3 sm:flex-row sm:items-center lg:w-auto">
+                    <div className="flex min-w-[160px] flex-col gap-1">
+                        <label htmlFor="optimizer-engine" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                            Optimizer Engine
+                        </label>
+                        <select
+                            id="optimizer-engine"
+                            value={`${provider}:${model}`}
+                            onChange={(e) => {
+                                const [p, m] = e.target.value.split(":");
+                                setProvider(p);
+                                setModel(m);
+                                setOptimizationError(null);
+                            }}
+                            className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                        >
+                            <option value="groq:llama-3.1-8b-instant">Groq Llama 3 (Cloud)</option>
+                            <option value="local:offline">Local Heuristics (Offline)</option>
+                        </select>
+                    </div>
+
                     <div className="flex min-w-40 flex-col gap-1">
                         <label htmlFor="max-tokens" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                             Max Tokens
@@ -224,6 +332,35 @@ export default function OptimizerPage() {
             </header>
 
             <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 md:min-h-0 md:p-6">
+            {optimizationError && (
+                <div className="rounded-xl border border-red-500/25 bg-red-950/25 p-4 backdrop-blur-md animate-fade-in">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-sm font-semibold text-red-200">Cloud Optimizer Alert</h3>
+                            <p className="text-xs text-red-300 opacity-90 leading-relaxed">
+                                {optimizationError.includes("API Key") || optimizationError.includes("key") || optimizationError.includes("unauthorized") || optimizationError.includes("401") || optimizationError.includes("403")
+                                    ? "A valid Groq/OpenAI API key is required for cloud-based token optimization. You can either configure your keys in the backend environment, or switch to the Local Heuristics optimizer which works 100% offline."
+                                    : optimizationError}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setProvider("local");
+                                setModel("offline");
+                                setOptimizationError(null);
+                                // Queue the optimize operation instantly
+                                setTimeout(() => {
+                                    void handleOptimize();
+                                }, 50);
+                            }}
+                            className="w-full sm:w-auto shrink-0 rounded-lg bg-emerald-600/20 border border-emerald-500/40 px-4 py-2 text-xs font-bold text-emerald-200 transition-all hover:bg-emerald-600/30 active:scale-95"
+                        >
+                            Switch to Local Heuristics (Offline)
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="grid min-h-[50vh] grid-cols-1 gap-5 lg:grid-cols-2">
                 <section className="flex min-h-80 flex-col gap-2">
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
@@ -255,14 +392,24 @@ export default function OptimizerPage() {
                             Optimized Result
                         </label>
                         {!!output && (
-                            <button
-                                type="button"
-                                onClick={() => copyText(output)}
-                                className="rounded-lg border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-                                aria-label="Copy optimized result"
-                            >
-                                Copy
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleSendToCompiler}
+                                    className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-md shadow-emerald-950/30 transition-all hover:bg-emerald-500 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                    aria-label="Send optimized result to compiler"
+                                >
+                                    Send to Compiler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => copyText(output)}
+                                    className="rounded-lg border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                    aria-label="Copy optimized result"
+                                >
+                                    Copy
+                                </button>
+                            </div>
                         )}
                     </div>
                     <div className="min-h-0 flex-1 rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-4">

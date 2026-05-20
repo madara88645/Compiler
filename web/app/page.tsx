@@ -9,6 +9,7 @@ import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
 import PolicyBadge from "./components/PolicyBadge";
 import { useCompiler } from "./hooks/useCompiler";
+import { useContextManager } from "./hooks/useContextManager";
 import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
@@ -118,7 +119,12 @@ function CompilerErrorState({
 }
 
 export default function Home() {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    return window.localStorage.getItem("promptc_last_prompt") || "";
+  });
   const [activeTab, setActiveTab] = useState<OutputTab>("user");
   const [copied, setCopied] = useState(false);
   const [conservativeMode, setConservativeMode] = useState(() => {
@@ -141,6 +147,12 @@ export default function Home() {
     resolveSecurityDecision,
     cancelSecurityReview,
   } = useCompiler();
+
+  const { indexStats } = useContextManager();
+
+  useEffect(() => {
+    window.localStorage.setItem("promptc_last_prompt", prompt);
+  }, [prompt]);
 
   useEffect(() => {
     window.localStorage.setItem("promptc_conservative_mode", String(conservativeMode));
@@ -265,6 +277,20 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-4">
+              {indexStats && indexStats.docs > 0 && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 animate-fade-in shadow-lg shadow-emerald-950/20">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="font-semibold tracking-wide uppercase text-[10px]">RAG Context Active</span>
+                  </div>
+                  <span className="font-mono text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-md text-emerald-200">
+                    {indexStats.docs} {indexStats.docs === 1 ? 'doc' : 'docs'} attached
+                  </span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => handleGenerate()}
