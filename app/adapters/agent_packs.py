@@ -103,9 +103,7 @@ class ClaudeAgentPackAdapter:
         ]
         # Bolt Optimization: pre-compute a set of file kinds for O(1) lookups rather than a nested any() loop
         file_kinds = {file.kind for file in files}
-        preview_order = [
-            kind for kind in _preview_order() if kind in file_kinds
-        ]
+        preview_order = [kind for kind in _preview_order() if kind in file_kinds]
         download_name = _build_download_name(req)
 
         return AgentPackManifest(
