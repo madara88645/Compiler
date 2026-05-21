@@ -78,7 +78,14 @@ _rate_limit_cleanup_counter = 0
 
 
 def _get_route_group(path: str) -> str:
-    heavy_routes = ["/compile", "/optimize", "/run", "/agent-generator", "/skills-generator"]
+    heavy_routes = [
+        "/compile",
+        "/optimize",
+        "/run",
+        "/agent-generator",
+        "/skills-generator",
+        "/repo-context",
+    ]
     for r in heavy_routes:
         if path.startswith(r):
             return "heavy"

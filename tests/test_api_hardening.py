@@ -140,6 +140,72 @@ def test_per_ip_buckets_isolated(monkeypatch):
 
 
 @pytest.mark.auth_required
+def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    client = TestClient(app)
+    payload = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repo summary.",
+        "highlights": ["Python package"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
+
+    with patch("api.routes.generators.analyze_public_github_repo", return_value=payload):
+        first = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        second = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+@pytest.mark.auth_required
+def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    client = TestClient(app)
+    payload = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repo summary.",
+        "highlights": ["Python package"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
+
+    with patch("api.routes.generators.analyze_public_github_repo", return_value=payload):
+        first = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        second = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        third = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "2.2.2.2"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert third.status_code == 200
+
+
+@pytest.mark.auth_required
 def test_benchmark_works_without_api_key():
     client = TestClient(app)
 
