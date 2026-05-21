@@ -4,7 +4,9 @@ import time
 from typing import Literal
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -128,6 +130,7 @@ class AgentGenResponse(BaseModel):
 @router.post("/repo-context/github", response_model=GitHubRepoContextPayload)
 async def analyze_github_repo_endpoint(
     req: GitHubRepoContextRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     started_at = time.monotonic()
 
@@ -176,6 +179,7 @@ async def analyze_github_repo_endpoint(
 @router.post("/skills-generator/generate", response_model=SkillGenResponse)
 async def generate_skill_endpoint(
     req: SkillGenRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()
 
@@ -195,6 +199,7 @@ async def generate_skill_endpoint(
 @router.post("/agent-generator/generate", response_model=AgentGenResponse)
 async def generate_agent_endpoint(
     req: AgentGenRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()
 

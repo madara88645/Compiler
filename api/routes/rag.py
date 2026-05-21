@@ -4,7 +4,9 @@ import functools
 from typing import List, Optional
 
 import anyio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -135,6 +137,7 @@ def _secure_ingest_paths(paths: list[str]) -> list[str]:
 @router.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(
     req: RagIngestRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     try:
         secure_paths = _secure_ingest_paths(req.paths)
@@ -158,6 +161,7 @@ async def rag_ingest(
 @router.post("/rag/query", response_model=RagQueryResponse)
 def rag_query(
     req: RagQueryRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     if req.method == "embed":
         results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
@@ -176,6 +180,7 @@ def rag_query(
 @router.post("/rag/pack")
 def rag_pack(
     req: RagPackRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     if req.method == "embed":
         results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
@@ -203,6 +208,7 @@ def rag_pack(
 @router.post("/rag/upload", response_model=RagUploadResponse)
 async def rag_upload(
     req: RagUploadRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     try:
         display_name = normalize_display_name(req.filename)
@@ -232,7 +238,7 @@ async def rag_upload(
 
 
 @router.get("/rag/stats")
-def rag_stats_endpoint():
+def rag_stats_endpoint(_: None = Depends(rate_limit_by_ip)):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async
     FastAPI handles sync endpoints in a threadpool automatically.
@@ -243,6 +249,7 @@ def rag_stats_endpoint():
 @router.post("/rag/search", response_model=List[RagSearchResult])
 def rag_search_endpoint(
     req: RagSearchRequest,
+    _: None = Depends(rate_limit_by_ip),
 ):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async.

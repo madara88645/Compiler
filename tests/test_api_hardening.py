@@ -1,6 +1,6 @@
 import os
 import tempfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,6 +74,135 @@ def test_optimize_works_without_api_key():
         response = client.post("/optimize", json={"text": "a much longer prompt"})
 
     assert response.status_code == 200
+
+
+@pytest.mark.auth_required
+def test_public_routes_rate_limited_by_ip(monkeypatch):
+    """A burst from a single IP hits 429 after 20 heavy requests in 60s."""
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 3)
+    client = TestClient(app)
+
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir.model_dump.return_value = {}
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        for _ in range(3):
+            assert client.post("/compile/fast", json={"text": "h"}).status_code == 200
+        assert client.post("/compile/fast", json={"text": "h"}).status_code == 429
+
+
+@pytest.mark.auth_required
+def test_per_ip_buckets_isolated(monkeypatch):
+    """Two different X-Forwarded-For headers get separate buckets."""
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    client = TestClient(app)
+
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_res = MagicMock()
+        mock_res.ir.model_dump.return_value = {}
+        mock_res.system_prompt = "sys"
+        mock_res.user_prompt = "user"
+        mock_res.plan = "plan"
+        mock_res.optimized_content = "opt"
+        mock_compiler.worker.process.return_value = mock_res
+        mock_compiler.cache = {}
+
+        assert (
+            client.post(
+                "/compile/fast",
+                json={"text": "h"},
+                headers={"X-Forwarded-For": "1.1.1.1"},
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/compile/fast",
+                json={"text": "h"},
+                headers={"X-Forwarded-For": "1.1.1.1"},
+            ).status_code
+            == 429
+        )
+        assert (
+            client.post(
+                "/compile/fast",
+                json={"text": "h"},
+                headers={"X-Forwarded-For": "2.2.2.2"},
+            ).status_code
+            == 200
+        )
+
+
+@pytest.mark.auth_required
+def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    client = TestClient(app)
+    payload = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repo summary.",
+        "highlights": ["Python package"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
+
+    with patch("api.routes.generators.analyze_public_github_repo", return_value=payload):
+        first = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        second = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+@pytest.mark.auth_required
+def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
+    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    client = TestClient(app)
+    payload = {
+        "normalized_repo_url": "https://github.com/openai/openai-python",
+        "repo_full_name": "openai/openai-python",
+        "default_branch": "main",
+        "summary": "Python SDK repo summary.",
+        "highlights": ["Python package"],
+        "files_used": ["README.md"],
+        "detected_stack": ["Python"],
+    }
+
+    with patch("api.routes.generators.analyze_public_github_repo", return_value=payload):
+        first = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        second = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "1.1.1.1"},
+        )
+        third = client.post(
+            "/repo-context/github",
+            json={"repo_url": "https://github.com/openai/openai-python"},
+            headers={"X-Forwarded-For": "2.2.2.2"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert third.status_code == 200
 
 
 @pytest.mark.auth_required

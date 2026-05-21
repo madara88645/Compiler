@@ -325,7 +325,7 @@ def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
     monkeypatch.setattr("api.auth.RATE_LIMIT_STORE", rate_limit_store)
     monkeypatch.setattr("api.auth.RATE_LIMIT_MAX_REQUESTS", 1)
     monkeypatch.setattr("api.auth.RATE_LIMIT_WINDOW", 60)
-    monkeypatch.setattr(verify_api_key, "_cleanup_counter", 0, raising=False)
+    monkeypatch.setattr("api.auth._rate_limit_cleanup_counter", 0)
 
     def run_check():
         mock_request = MagicMock(spec=Request)
