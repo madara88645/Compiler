@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Dict, List, Tuple
 
@@ -300,8 +301,6 @@ class StructureHandler(BaseHandler):
             return ""
 
         schema = {"type": "object", "properties": properties, "required": list(properties.keys())}
-
-        import json
 
         return json.dumps(schema, indent=2)
 
