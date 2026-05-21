@@ -13,6 +13,17 @@ from app.heuristics import _contains_any_keyword
 
 
 @dataclass
+class StrategyInput:
+    """Input configuration for strategy injection."""
+
+    prompt_text: str
+    complexity_score: float = 0.0
+    task_type: Optional[str] = None
+    persona: Optional[str] = None
+    output_format: Optional[str] = None
+
+
+@dataclass
 class StrategyResult:
     """Result of strategy injection."""
 
@@ -103,23 +114,12 @@ class StrategyHandler:
         "simplify",
     ]
 
-    def process(
-        self,
-        prompt_text: str,
-        complexity_score: float = 0.0,
-        task_type: Optional[str] = None,
-        persona: Optional[str] = None,
-        output_format: Optional[str] = None,
-    ) -> StrategyResult:
+    def process(self, input_data: StrategyInput) -> StrategyResult:
         """
         Analyze the prompt and inject appropriate strategies.
 
         Args:
-            prompt_text: The raw prompt text
-            complexity_score: 0-100 score (from existing heuristics)
-            task_type: Optional explicit task type (classification, transformation, etc.)
-            persona: Optional persona identifier (teacher, auditor, etc.)
-            output_format: Optional output format (JSON, XML, CSV)
+            input_data: Configuration input (StrategyInput) containing prompt text and metadata.
 
         Returns:
             StrategyResult with additions and suggestions
@@ -131,19 +131,19 @@ class StrategyHandler:
         traits = []
 
         # 1. Complexity-Based CoT
-        cot_result = self._inject_cot(complexity_score, prompt_text)
+        cot_result = self._inject_cot(input_data.complexity_score, input_data.prompt_text)
         if cot_result:
             system_additions.append(cot_result)
-            strategy_notes.append(f"CoT injected (complexity: {complexity_score:.0f})")
+            strategy_notes.append(f"CoT injected (complexity: {input_data.complexity_score:.0f})")
 
         # 2. Few-Shot Generator
-        detected_task = task_type or self._detect_task_type(prompt_text)
+        detected_task = input_data.task_type or self._detect_task_type(input_data.prompt_text)
         if detected_task in ("classification", "transformation"):
-            few_shot = self._generate_few_shot_suggestion(detected_task, output_format)
+            few_shot = self._generate_few_shot_suggestion(detected_task, input_data.output_format)
             strategy_notes.append(f"Few-shot suggested for {detected_task}")
 
         # 3. Persona Deepener
-        detected_persona = persona or self._detect_persona(prompt_text)
+        detected_persona = input_data.persona or self._detect_persona(input_data.prompt_text)
         if detected_persona:
             traits = self._get_persona_traits(detected_persona)
             if traits:
