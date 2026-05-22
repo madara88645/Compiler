@@ -30,21 +30,6 @@ type BenchmarkPayload = {
   improvement_score: number;
 };
 
-function isAuthErrorMessage(message: string | null): boolean {
-  if (!message) {
-    return false;
-  }
-
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("api key") ||
-    normalized.includes("401") ||
-    normalized.includes("403") ||
-    normalized.includes("unauthorized") ||
-    normalized.includes("forbidden")
-  );
-}
-
 function buildBenchmarkErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
