@@ -130,6 +130,36 @@ describe("backend proxy", () => {
     expect(response.status).toBe(502);
   });
 
+  it("returns a 502 after exhausting retryable network attempts", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fetch failed"));
+
+    const response = await proxyBackendRequest(
+      new Request("http://localhost:3000/agent-generator/generate", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ description: "review code" }),
+      }),
+      "/agent-generator/generate",
+      {
+        retryNetworkErrors: true,
+        networkRetryAttempts: 2,
+        networkRetryDelayMs: 1,
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(502);
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("2");
+    await expect(response.json()).resolves.toEqual({
+      detail: "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
+    });
+  });
+
 
 
   it("allows proxying with a caller-supplied x-api-key", async () => {

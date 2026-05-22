@@ -107,6 +107,89 @@ describe("Next backend proxy route wiring", () => {
 
   it.each<RouteCase>([
     {
+      name: "repo context analysis",
+      handler: repoContextGithubRoute,
+      requestUrl: "http://localhost:3000/repo-context/github",
+      requestBody: { repo_url: "https://github.com/openai/openai-python" },
+      expectedUrl: "http://127.0.0.1:8080/repo-context/github",
+    },
+    {
+      name: "agent generation",
+      handler: agentGenerateRoute,
+      requestUrl: "http://localhost:3000/agent-generator/generate",
+      requestBody: { description: "review this PR" },
+      expectedUrl: "http://127.0.0.1:8080/agent-generator/generate",
+    },
+    {
+      name: "skills generation",
+      handler: skillsGenerateRoute,
+      requestUrl: "http://localhost:3000/skills-generator/generate",
+      requestBody: { description: "search docs" },
+      expectedUrl: "http://127.0.0.1:8080/skills-generator/generate",
+    },
+    {
+      name: "benchmark run",
+      handler: benchmarkRunRoute,
+      requestUrl: "http://localhost:3000/benchmark/run",
+      requestBody: { model: "gpt-4" },
+      expectedUrl: "http://127.0.0.1:8080/benchmark/run",
+    },
+    {
+      name: "optimize",
+      handler: optimizeRoute,
+      requestUrl: "http://localhost:3000/optimize",
+      requestBody: { system_prompt: "hello" },
+      expectedUrl: "http://127.0.0.1:8080/optimize",
+    },
+    {
+      name: "agent export",
+      handler: agentExportRoute,
+      requestUrl: "http://localhost:3000/agent-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "http://127.0.0.1:8080/agent-generator/export",
+    },
+    {
+      name: "skills export",
+      handler: skillsExportRoute,
+      requestUrl: "http://localhost:3000/skills-generator/export",
+      requestBody: { type: "code" },
+      expectedUrl: "http://127.0.0.1:8080/skills-generator/export",
+    },
+  ])("retries $name requests after a transient backend connection failure", async ({
+    handler,
+    requestUrl,
+    requestMethod,
+    requestBody,
+    expectedUrl,
+  }) => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("fetch failed"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    const response = await handler(
+      new Request(requestUrl, {
+        method: requestMethod || "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it.each<RouteCase>([
+    {
       name: "RAG search",
       handler: ragSearchRoute,
       requestUrl: "http://localhost:3000/rag/search",
