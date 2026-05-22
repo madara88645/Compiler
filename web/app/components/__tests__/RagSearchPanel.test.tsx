@@ -47,7 +47,7 @@ describe("RagSearchPanel", () => {
     fireEvent.keyDown(screen.getByLabelText("Search context..."), { key: "Enter" });
     expect(onRunSearch).toHaveBeenCalledTimes(1);
 
-    const insertButton = screen.getByRole("button", { name: /insert into prompt/i });
+    const insertButton = screen.getByRole("button", { name: /insert snippet from src\/auth\.ts into prompt/i });
     fireEvent.click(insertButton);
 
     expect(insertButton.getAttribute("type")).toBe("button");
