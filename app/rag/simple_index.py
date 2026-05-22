@@ -232,6 +232,7 @@ _SENTENCE_SPLIT_PATTERN = re.compile(
     r"(?<=\.|\?|!)\s+"  # Positive lookbehind for sentence-ending punctuation
 )
 
+
 def _split_sentences(text: str) -> List[str]:
     """Split text into sentences using regex.
 
