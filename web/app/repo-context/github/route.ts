@@ -1,5 +1,7 @@
 import { proxyBackendRequest } from "@/lib/server/backendProxy";
 
 export async function POST(request: Request): Promise<Response> {
-  return proxyBackendRequest(request, "/repo-context/github");
+  return proxyBackendRequest(request, "/repo-context/github", {
+    retryNetworkErrors: true,
+  });
 }
