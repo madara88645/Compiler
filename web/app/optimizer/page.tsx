@@ -510,7 +510,7 @@ export default function OptimizerPage() {
                         <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
-                                    <h2 className="text-sm font-semibold text-white">English compact suggestion</h2>
+                                    <label htmlFor="english-variant-output" className="text-sm font-semibold text-white">English compact suggestion</label>
                                     <p className="mt-1 text-xs text-zinc-500">
                                         Groq / {result.model}
                                     </p>
@@ -524,6 +524,7 @@ export default function OptimizerPage() {
                                 <textarea
                                     readOnly
                                     value={englishVariant}
+                                    id="english-variant-output"
                                     aria-label="English compact suggestion"
                                     className="min-h-24 w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-sm text-cyan-50 outline-none"
                                 />

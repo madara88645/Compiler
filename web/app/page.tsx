@@ -260,7 +260,9 @@ export default function Home() {
 
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+              <label htmlFor="prompt-input" className="sr-only">Describe what you want compiled</label>
               <textarea
+                id="prompt-input"
                 aria-label="Describe what you want compiled"
                 className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
                 placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
@@ -531,7 +533,7 @@ export default function Home() {
                         onClick={() => {
                           setPrompt("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.");
                           setTimeout(() => {
-                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]');
+                            const textarea = document.querySelector<HTMLTextAreaElement>('#prompt-input');
                             if (textarea) textarea.focus();
                           }, 0);
                         }}
