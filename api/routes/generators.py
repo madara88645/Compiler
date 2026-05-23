@@ -144,7 +144,7 @@ async def analyze_github_repo_endpoint(
             status_code=400,
             error_message=str(exc),
         )
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid GitHub repository URL.") from exc
     except GitHubRepoAnalysisError as exc:
         outcome = "not_found" if exc.status_code == 404 else "upstream_error"
         _log_repo_analyze_outcome(
