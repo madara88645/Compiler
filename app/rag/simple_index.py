@@ -230,9 +230,10 @@ def _needs_ingest(conn: sqlite3.Connection, path: Path) -> bool:
 # Bolt Optimization: Pre-compile regex at module level to avoid repeated compilation and string concatenation overhead
 _SENTENCE_SPLIT_PATTERN = re.compile(
     r"(?<![A-Z][a-z]\.)"  # Negative lookbehind for abbreviations like "Dr."
-    r"(?<![A-Z]\.)"       # Negative lookbehind for initials like "J."
-    r"(?<=\.|\?|!)\s+"    # Positive lookbehind for sentence-ending punctuation
+    r"(?<![A-Z]\.)"  # Negative lookbehind for initials like "J."
+    r"(?<=\.|\?|!)\s+"  # Positive lookbehind for sentence-ending punctuation
 )
+
 
 def _split_sentences(text: str) -> List[str]:
     """Split text into sentences using regex.
