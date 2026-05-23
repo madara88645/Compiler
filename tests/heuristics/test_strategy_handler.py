@@ -1,5 +1,5 @@
 import pytest
-from app.heuristics.handlers.strategy import StrategyHandler
+from app.heuristics.handlers.strategy import StrategyHandler, StrategyInput
 
 
 @pytest.fixture
@@ -15,8 +15,10 @@ def handler():
 def test_cot_injection_high_complexity(handler):
     """CoT should be injected when complexity > 70."""
     result = handler.process(
-        prompt_text="Explain quantum entanglement",
-        complexity_score=85,
+        StrategyInput(
+            prompt_text="Explain quantum entanglement",
+            complexity_score=85,
+        )
     )
 
     assert len(result.system_prompt_additions) >= 1
@@ -28,8 +30,10 @@ def test_cot_injection_high_complexity(handler):
 def test_cot_not_injected_low_complexity(handler):
     """CoT should NOT be injected when complexity <= 70."""
     result = handler.process(
-        prompt_text="What is 2 + 2?",
-        complexity_score=30,
+        StrategyInput(
+            prompt_text="What is 2 + 2?",
+            complexity_score=30,
+        )
     )
 
     # Should not have CoT note
@@ -39,8 +43,10 @@ def test_cot_not_injected_low_complexity(handler):
 def test_cot_skipped_if_already_present(handler):
     """CoT should not duplicate if already in prompt."""
     result = handler.process(
-        prompt_text="Think step by step about this problem",
-        complexity_score=90,
+        StrategyInput(
+            prompt_text="Think step by step about this problem",
+            complexity_score=90,
+        )
     )
 
     # Should skip CoT injection
@@ -56,8 +62,10 @@ def test_cot_skipped_if_already_present(handler):
 def test_few_shot_classification_task(handler):
     """Few-shot should be suggested for classification tasks."""
     result = handler.process(
-        prompt_text="Classify these emails as spam or not spam",
-        complexity_score=50,
+        StrategyInput(
+            prompt_text="Classify these emails as spam or not spam",
+            complexity_score=50,
+        )
     )
 
     assert result.few_shot_suggestion is not None
@@ -68,8 +76,10 @@ def test_few_shot_classification_task(handler):
 def test_few_shot_transformation_task(handler):
     """Few-shot should be suggested for transformation tasks."""
     result = handler.process(
-        prompt_text="Convert these sentences to passive voice",
-        complexity_score=50,
+        StrategyInput(
+            prompt_text="Convert these sentences to passive voice",
+            complexity_score=50,
+        )
     )
 
     assert result.few_shot_suggestion is not None
@@ -80,9 +90,11 @@ def test_few_shot_transformation_task(handler):
 def test_few_shot_with_json_format(handler):
     """Few-shot should mention JSON format if specified."""
     result = handler.process(
-        prompt_text="Classify the data",
-        task_type="classification",
-        output_format="JSON",
+        StrategyInput(
+            prompt_text="Classify the data",
+            task_type="classification",
+            output_format="JSON",
+        )
     )
 
     assert "JSON" in result.few_shot_suggestion
@@ -96,8 +108,10 @@ def test_few_shot_with_json_format(handler):
 def test_persona_teacher(handler):
     """Teacher persona should add educational traits."""
     result = handler.process(
-        prompt_text="Act as a teacher and explain calculus",
-        complexity_score=50,
+        StrategyInput(
+            prompt_text="Act as a teacher and explain calculus",
+            complexity_score=50,
+        )
     )
 
     assert len(result.persona_traits) > 0
@@ -107,8 +121,10 @@ def test_persona_teacher(handler):
 def test_persona_auditor(handler):
     """Auditor persona should add analytical traits."""
     result = handler.process(
-        prompt_text="You are an auditor reviewing this code",
-        complexity_score=50,
+        StrategyInput(
+            prompt_text="You are an auditor reviewing this code",
+            complexity_score=50,
+        )
     )
 
     assert len(result.persona_traits) > 0
@@ -118,9 +134,11 @@ def test_persona_auditor(handler):
 def test_explicit_persona_override(handler):
     """Explicit persona parameter should override detection."""
     result = handler.process(
-        prompt_text="Help me with this task",  # No persona in text
-        persona="mentor",
-        complexity_score=50,
+        StrategyInput(
+            prompt_text="Help me with this task",  # No persona in text
+            persona="mentor",
+            complexity_score=50,
+        )
     )
 
     assert len(result.persona_traits) > 0
@@ -135,8 +153,10 @@ def test_explicit_persona_override(handler):
 def test_apply_to_prompt(handler):
     """Test applying strategy results to a prompt."""
     result = handler.process(
-        prompt_text="Act as a teacher and classify these items",
-        complexity_score=75,
+        StrategyInput(
+            prompt_text="Act as a teacher and classify these items",
+            complexity_score=75,
+        )
     )
 
     base_prompt = "You are a helpful assistant."
@@ -151,9 +171,11 @@ def test_apply_to_prompt(handler):
 def test_combined_strategies(handler):
     """Multiple strategies should combine correctly."""
     result = handler.process(
-        prompt_text="Act as an expert analyst to classify user feedback",
-        complexity_score=80,
-        output_format="JSON",
+        StrategyInput(
+            prompt_text="Act as an expert analyst to classify user feedback",
+            complexity_score=80,
+            output_format="JSON",
+        )
     )
 
     # Should have CoT + Few-shot + Persona
