@@ -20,7 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip
+from api.auth import APIKey, rate_limit_by_ip, verify_api_key
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -275,6 +275,7 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 @router.post("/run", response_model=BenchmarkResponse)
 async def benchmark_run(
     req: BenchmarkRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     """
