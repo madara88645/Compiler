@@ -58,3 +58,8 @@
 **Vulnerability:** Found a potential crash/XSS vulnerability in `extension/popup.js`. The `escapeHtml` function did not explicitly cast its argument to a string and handle null/undefined values before calling string methods (`.replaceAll()`).
 **Learning:** When dynamically constructing HTML using template literals and injecting it into `innerHTML` (e.g., in vanilla JS browser extensions), it is critical to ensure all external or derived variables are sanitized. If a function like `escapeHtml` does not explicitly cast to a string (e.g., using `String(value ?? "")`), it may crash if `null` or `undefined` is passed, or it could potentially be bypassed if an object with a crafted `toString` is passed.
 **Prevention:** A robust `escapeHtml` implementation must explicitly cast values to strings (e.g., `String(value ?? "")`) to prevent crashes or bypasses from null/undefined inputs, and replace `&`, `<`, `>`, `"`, and `'`.
+## 2025-06-25 - Prevent Unauthorized LLM Benchmark Usage
+
+**Vulnerability:** The `/benchmark/run` endpoint lacked the `verify_api_key` dependency entirely, allowing any unauthenticated user to trigger cost-incurring LLM generation via the benchmark route.
+**Learning:** Endpoints added later in the lifecycle (like benchmark routers) can sometimes be missed when applying global or required authentication patterns used in core routers.
+**Prevention:** Always verify that newly added routers or endpoints that trigger cost-incurring actions (like LLM calls) explicitly include standard authentication dependencies (e.g., `Depends(verify_api_key)`) in their signature, matching the pattern used in the rest of the application.
