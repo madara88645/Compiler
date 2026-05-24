@@ -66,6 +66,7 @@ RECENCY_CONSTRAINT_EN = "Requires up-to-date info; perform web research before a
 
 _SENTENCE_SPLIT_PATTERN = re.compile(r"[\n;.]+")
 
+
 def split_sentences(text: str) -> List[str]:
     parts = _SENTENCE_SPLIT_PATTERN.split(text)
     return [p.strip() for p in parts if p.strip()]
