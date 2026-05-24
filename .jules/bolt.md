@@ -172,3 +172,7 @@
 ## 2026-05-22 - Fast regex compilation in hot paths
 **Learning:** In heavily utilized text processing functions like RAG chunkers, precompiling regular expressions at the module level (`re.compile(pattern)`) and calling `pattern.split(text)` is significantly faster than dynamically invoking `re.split(pattern, text)` because it avoids the overhead of implicit string concatenation, `re.split`'s internal caching lookup, and potential cache misses on every single function call.
 **Action:** When a regular expression is executed thousands of times, such as when splitting large texts during document chunking, define the pattern as a module-level constant (e.g., `_SENTENCE_SPLIT_PATTERN = re.compile(...)`) instead of dynamically compiling or evaluating it inside the function.
+
+## 2024-10-24 - math.sumprod vs math.hypot for L2 norm
+**Learning:** In Python, calculating the L2 norm (magnitude) of a vector using `math.hypot(*v)` is generally faster than using `math.sqrt(math.sumprod(v, v))`, contrary to some assumptions. However, replacing `math.hypot` with `math.sumprod` is not an optimization and can be slower due to function call overhead.
+**Action:** Do not replace `math.hypot` with `math.sumprod` for norm calculations.
