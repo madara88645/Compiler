@@ -386,6 +386,8 @@ def _chunk_text_semantic(
             v1, v2 = v2, v1
 
         dot = 0.0
+        # Bolt Optimization: native 'in' operator check and direct lookup is faster
+        # than using .get() with a sentinel object due to lower bytecode overhead
         for k, v in v1.items():
             if k in v2:
                 dot += v * v2[k]

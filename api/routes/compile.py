@@ -6,7 +6,7 @@ import uuid
 import anyio
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
@@ -254,6 +254,7 @@ def _fast_compile_payload(
     mode: str,
     start: float,
     fallback_reason: str | None = None,
+    request_id: str | None = None,
 ) -> tuple[dict, bool]:
     ir2, used_fallback = _coerce_fast_ir(req.text, worker_res, fallback_reason)
 
@@ -286,7 +287,7 @@ def _fast_compile_payload(
             "plan_v2": plan,
             "expanded_prompt_v2": expanded_prompt,
             "processing_ms": int((time.time() - start) * 1000),
-            "request_id": "fast_" + uuid.uuid4().hex[:12],
+            "request_id": request_id or ("fast_" + uuid.uuid4().hex[:12]),
             "heuristic_version": "v2-fast",
             "heuristic2_version": "v2-fast",
             "trace": [],
@@ -364,8 +365,12 @@ def compile_endpoint(
             user_v2 = _safe_worker_text(worker_res, "user_prompt") or user_v2
             plan_v2 = _safe_worker_text(worker_res, "plan") or plan_v2
             exp_v2 = _safe_worker_text(worker_res, "optimized_content") or exp_v2
-        except Exception as exc:
-            logger.warning("LLM compile failed; falling back to local v2 heuristics: %s", exc)
+        except Exception:
+            logger.warning(
+                "LLM compile failed; falling back to local v2 heuristics",
+                exc_info=True,
+                extra={"request_id": rid, "mode": mode, "text_length": len(req.text)},
+            )
 
     if mode != "default":
         forced_expanded = forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
@@ -398,8 +403,12 @@ def compile_endpoint(
                 system_prompt=sys_v2,
                 context=context_str,
             ).model_dump()
-        except Exception as exc:
-            logger.debug("Critique generation skipped: %s", exc)
+        except Exception:
+            logger.warning(
+                "Critique generation skipped",
+                exc_info=True,
+                extra={"request_id": rid},
+            )
 
     elapsed = int((time.time() - t0) * 1000)
 
@@ -431,29 +440,42 @@ def compile_endpoint(
 async def compile_fast(
     req: CompileRequest,
     request: Request,
+    response: Response,
     _: None = Depends(rate_limit_by_ip),
 ):
     start = time.time()
+    rid = "fast_" + uuid.uuid4().hex[:12]
+    response.headers["X-Request-Id"] = rid
     compiler = _get_compiler()
+    phase = "init"
 
     try:
+        phase = "resolve_mode"
         mode = resolve_mode(req.mode, request)
         cache_key = (req.text, mode)
         cache_hit = cache_key in compiler.cache
         fallback_reason = None
-        if cache_key in compiler.cache:
+        if cache_hit:
+            phase = "cache_lookup"
             res = compiler.cache[cache_key]
         else:
+            phase = "worker_call"
             res, fallback_reason = await _run_fast_worker_with_retry(compiler, req.text, mode)
 
-        payload, used_fallback = _fast_compile_payload(req, res, mode, start, fallback_reason)
+        phase = "payload_build"
+        payload, used_fallback = _fast_compile_payload(
+            req, res, mode, start, fallback_reason, request_id=rid
+        )
         if not cache_hit and not used_fallback:
             compiler.cache[cache_key] = res
         elif cache_hit and used_fallback:
             compiler.cache.pop(cache_key, None)
         return payload
     except Exception as exc:
-        logger.exception("compile_fast failed")
+        logger.exception(
+            "compile_fast failed",
+            extra={"request_id": rid, "phase": phase, "text_length": len(req.text)},
+        )
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
 
 
@@ -466,8 +488,12 @@ def validate_endpoint(
         try:
             compiler = _get_compiler()
             report = compiler.worker.analyze_prompt(req.text)
-        except Exception as exc:
-            logger.warning("validate endpoint falling back to offline analysis: %s", exc)
+        except Exception:
+            logger.warning(
+                "validate endpoint falling back to offline analysis",
+                exc_info=True,
+                extra={"text_length": len(req.text)},
+            )
             report = _build_offline_quality_report(req)
 
         from app.heuristics.handlers.safety import SafetyHandler

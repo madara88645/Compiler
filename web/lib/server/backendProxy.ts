@@ -104,10 +104,12 @@ export async function proxyBackendRequest(
 ): Promise<Response> {
   const requestStartedAt = Date.now();
   const headers = copyProxyHeaders(request);
+  const incomingUrl = new URL(request.url);
 
   const base = resolveBackendApiBase().replace(/\/+$/, "");
   const path = backendPath.startsWith("/") ? backendPath : "/" + backendPath;
-  const targetUrl = base + path;
+  const targetUrl = new URL(base + path);
+  targetUrl.search = incomingUrl.search;
   const retryAttempts = options.retryNetworkErrors ? Math.max(1, options.networkRetryAttempts ?? 3) : 1;
   const retryDelayMs = options.networkRetryDelayMs ?? 1000;
   const upstreamTimeoutMs = options.upstreamTimeoutMs ?? resolveUpstreamTimeoutMs();
@@ -128,7 +130,7 @@ export async function proxyBackendRequest(
       };
       if (init.body && !bufferedBody) init.duplex = "half";
 
-      const upstreamResponse = await fetch(targetUrl, init as RequestInit);
+      const upstreamResponse = await fetch(targetUrl.toString(), init as RequestInit);
       const attemptsUsed = attempt + 1;
       const durationMs = Date.now() - requestStartedAt;
 
