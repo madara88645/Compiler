@@ -64,9 +64,10 @@ GENERIC_TASK = {"tr": "İsteği analiz et ve yanıtla.", "en": "Analyze the requ
 RECENCY_CONSTRAINT_TR = "Güncel bilgi gerektirir; cevap üretmeden önce web araştırması yap."
 RECENCY_CONSTRAINT_EN = "Requires up-to-date info; perform web research before answering."
 
+_SENTENCE_SPLIT_PATTERN = re.compile(r"[\n;.]+")
 
 def split_sentences(text: str) -> List[str]:
-    parts = re.split(r"[\n;.]+", text)
+    parts = _SENTENCE_SPLIT_PATTERN.split(text)
     return [p.strip() for p in parts if p.strip()]
 
 
