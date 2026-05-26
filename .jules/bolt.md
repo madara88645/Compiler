@@ -176,6 +176,9 @@
 **Learning:** When calculating dot products for sparse vectors stored as dictionaries, using the native `in` operator combined with direct key access (`if k in v2: dot += v * v2[k]`) is about 10% faster than using `v2.get(k, missing)` with a sentinel object. The method call overhead of `.get()` and checking `is not missing` in Python is higher than executing the native `COMPARE_OP` and `BINARY_SUBSCR` bytecodes.
 **Action:** When computing dot products or intersectional values across dictionaries in tight loops, iterate over the smaller dictionary and use the `in` operator to check existence in the larger dictionary instead of using `.get()`.
 
+## 2024-05-31 - Avoiding test suite collection failures
+**Learning:** Running `make test-backend` may attempt to collect tests in the entire repository, including optional integration directories (like `integrations/mcp-server`) that might lack installed dependencies, causing the test suite to fail immediately.
+**Action:** When running core backend tests, always use `python -m pytest tests/` rather than `make test-backend` to ensure only the core tests are executed and avoid collection errors from optional modules.
 ## 2025-05-19 - Fast String Concatenation of Repeated Elements
 **Learning:** For generating strings with repeated identical substrings (such as SQL query placeholders), using list multiplication with `join` (e.g., `','.join(['?'] * n)`) is significantly faster than using a generator expression (e.g., `','.join('?' for _ in range(n))`) because it avoids Python generator iteration overhead and allocates memory efficiently at the C level. Microbenchmarks showed list multiplication executing roughly ~3.7x faster than the generator expression.
 **Action:** When creating strings with many identical repeated elements, such as generating placeholders for a SQL `IN` clause over a large batch of items, always use `",".join(["element"] * N)` instead of a generator.
