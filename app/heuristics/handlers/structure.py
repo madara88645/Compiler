@@ -19,6 +19,7 @@ _VAR_PATTERN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 _INTENT_PATTERN = re.compile(
     r"\b(extract|fields|columns|properties|keys|capture)\b[:\s]+(.*?)(?:$|[.!?\n])", re.DOTALL
 )
+_FIELD_SPLIT_PATTERN = re.compile(r"[,;]|\band\b")
 
 
 class StructureHandler(BaseHandler):
@@ -256,7 +257,7 @@ class StructureHandler(BaseHandler):
 
         # 2. Split and Clean Fields
         # Split by comma or 'and'
-        raw_fields = re.split(r"[,;]|\band\b", field_string)
+        raw_fields = _FIELD_SPLIT_PATTERN.split(field_string)
         properties = {}
 
         stopwords = ["from", "in", "of", "for", "the", "with", "where"]

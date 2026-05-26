@@ -175,3 +175,7 @@
 ## 2024-05-23 - Dictionary 'in' check beats .get() for sparse vector loops
 **Learning:** When calculating dot products for sparse vectors stored as dictionaries, using the native `in` operator combined with direct key access (`if k in v2: dot += v * v2[k]`) is about 10% faster than using `v2.get(k, missing)` with a sentinel object. The method call overhead of `.get()` and checking `is not missing` in Python is higher than executing the native `COMPARE_OP` and `BINARY_SUBSCR` bytecodes.
 **Action:** When computing dot products or intersectional values across dictionaries in tight loops, iterate over the smaller dictionary and use the `in` operator to check existence in the larger dictionary instead of using `.get()`.
+
+## 2024-05-31 - Avoiding test suite collection failures
+**Learning:** Running `make test-backend` may attempt to collect tests in the entire repository, including optional integration directories (like `integrations/mcp-server`) that might lack installed dependencies, causing the test suite to fail immediately.
+**Action:** When running core backend tests, always use `python -m pytest tests/` rather than `make test-backend` to ensure only the core tests are executed and avoid collection errors from optional modules.
