@@ -28,7 +28,7 @@ def test_key():
 
 
 @pytest.mark.auth_required
-def test_generator_endpoints_work_without_api_key():
+def test_generator_endpoints_require_api_key():
     client = TestClient(app)
 
     with patch("api.main.hybrid_compiler") as mock_compiler:
@@ -38,10 +38,8 @@ def test_generator_endpoints_work_without_api_key():
         agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
         skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
 
-    assert agent_resp.status_code == 200
-    assert agent_resp.json() == {"system_prompt": "# Mock API Agent"}
-    assert skill_resp.status_code == 200
-    assert skill_resp.json() == {"skill_definition": "# Mock API Skill"}
+    assert agent_resp.status_code == 403
+    assert skill_resp.status_code == 403
 
 
 @pytest.mark.auth_required
@@ -98,7 +96,7 @@ def test_public_routes_rate_limited_by_ip(monkeypatch):
 
 
 @pytest.mark.auth_required
-def test_per_ip_buckets_isolated(monkeypatch):
+def test_per_ip_buckets_isolated(monkeypatch, test_key):
     """Two different X-Forwarded-For headers get separate buckets."""
     monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
     client = TestClient(app)
@@ -117,7 +115,7 @@ def test_per_ip_buckets_isolated(monkeypatch):
             client.post(
                 "/compile/fast",
                 json={"text": "h"},
-                headers={"X-Forwarded-For": "1.1.1.1"},
+                headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
             ).status_code
             == 200
         )
@@ -125,7 +123,7 @@ def test_per_ip_buckets_isolated(monkeypatch):
             client.post(
                 "/compile/fast",
                 json={"text": "h"},
-                headers={"X-Forwarded-For": "1.1.1.1"},
+                headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
             ).status_code
             == 429
         )
@@ -133,14 +131,14 @@ def test_per_ip_buckets_isolated(monkeypatch):
             client.post(
                 "/compile/fast",
                 json={"text": "h"},
-                headers={"X-Forwarded-For": "2.2.2.2"},
+                headers={"X-Forwarded-For": "2.2.2.2", "x-api-key": test_key},
             ).status_code
             == 200
         )
 
 
 @pytest.mark.auth_required
-def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
+def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch, test_key):
     monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
     client = TestClient(app)
     payload = {
@@ -157,12 +155,12 @@ def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
         first = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
         )
         second = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
         )
 
     assert first.status_code == 200
@@ -170,7 +168,8 @@ def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
 
 
 @pytest.mark.auth_required
-def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
+def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch, test_key):
+    monkeypatch.setattr("api.auth.HEAVY_RATE_LIMIT_MAX_REQUESTS", 10)
     monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
     client = TestClient(app)
     payload = {
@@ -187,17 +186,17 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
         first = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
         )
         second = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"X-Forwarded-For": "1.1.1.1", "x-api-key": test_key},
         )
         third = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "2.2.2.2"},
+            headers={"X-Forwarded-For": "2.2.2.2", "x-api-key": test_key},
         )
 
     assert first.status_code == 200
