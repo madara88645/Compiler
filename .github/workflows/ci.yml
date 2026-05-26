@@ -16,9 +16,9 @@ jobs:
     name: Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
@@ -45,7 +45,7 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files --show-diff-on-failure
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
@@ -78,9 +78,9 @@ jobs:
     name: VS Code Extension
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
@@ -113,15 +113,15 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-14]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         with:
           fetch-depth: 0
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.12'
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -141,14 +141,14 @@ jobs:
 
       - name: Upload canonical coverage artifact
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-canonical-py3.12
           path: coverage.xml
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
           fail_ci_if_error: false

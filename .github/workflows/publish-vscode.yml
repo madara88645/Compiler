@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
@@ -38,7 +38,7 @@ jobs:
         run: npx --yes @vscode/vsce@latest package --no-dependencies
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: promptc-vscode-vsix
           path: integrations/vscode-extension/*.vsix
