@@ -63,3 +63,8 @@
 **Vulnerability:** The `/benchmark/run` endpoint lacked the `verify_api_key` dependency entirely, allowing any unauthenticated user to trigger cost-incurring LLM generation via the benchmark route.
 **Learning:** Endpoints added later in the lifecycle (like benchmark routers) can sometimes be missed when applying global or required authentication patterns used in core routers.
 **Prevention:** Always verify that newly added routers or endpoints that trigger cost-incurring actions (like LLM calls) explicitly include standard authentication dependencies (e.g., `Depends(verify_api_key)`) in their signature, matching the pattern used in the rest of the application.
+
+## 2025-05-26 - Prevent Information Leakage in API Routing
+**Vulnerability:** Information Exposure (CWE-200) in FastAPI error handling. An endpoint raised an `HTTPException` where the `detail` parameter was populated dynamically with the raw exception string (`str(exc)`).
+**Learning:** Returning `str(exc)` directly to the client can inadvertently expose sensitive internal paths, downstream API details, or error contexts meant only for developers. The exception must be logged securely on the backend while a sanitized generic message is returned to the user.
+**Prevention:** When raising `HTTPException` inside a `try...except` block, never pass the stringified exception `str(exc)` directly to the `detail` parameter. Instead, provide a generic, safe error message to the client, and rely on `logger.exception()` or explicit backend logging (e.g., `_log_repo_analyze_outcome`) to record the raw exception for internal troubleshooting.
