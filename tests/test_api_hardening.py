@@ -35,8 +35,16 @@ def test_generator_endpoints_require_api_key(test_key):
         mock_compiler.generate_agent.return_value = "# Mock API Agent"
         mock_compiler.generate_skill.return_value = "# Mock API Skill"
 
-        agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"}, headers={"x-api-key": test_key})
-        skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"}, headers={"x-api-key": test_key})
+        agent_resp = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent"},
+            headers={"x-api-key": test_key},
+        )
+        skill_resp = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill"},
+            headers={"x-api-key": test_key},
+        )
 
     assert agent_resp.status_code == 200
     assert agent_resp.json() == {"system_prompt": "# Mock API Agent"}
@@ -328,7 +336,7 @@ def test_worker_client_wraps_user_input_and_context_with_tags():
 def test_generator_endpoints_reject_without_api_key():
     client = TestClient(app)
 
-    with patch("api.main.hybrid_compiler") as mock_compiler:
+    with patch("api.main.hybrid_compiler") as _mock_compiler:  # noqa: F841
         agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
         skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
 
