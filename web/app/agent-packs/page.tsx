@@ -251,7 +251,7 @@ export default function AgentPacksPage() {
               </div>
             </button>
 
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-relaxed text-amber-100/90">
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-100/90">
               <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Experimental Feature</div>
               Agent Packs is in active development and may produce incomplete or incorrect output for your specific project.
               The generated files — Claude settings, agent definitions, and CI workflows — are a useful starting point,
@@ -307,7 +307,7 @@ export default function AgentPacksPage() {
                       className={`rounded-2xl border px-4 py-3 text-left transition-all ${
                         active
                           ? "border-cyan-400/50 bg-cyan-500/10 text-white shadow-lg shadow-cyan-500/10"
-                          : "border-white/8 bg-white/[0.02] text-zinc-400 hover:border-white/15 hover:bg-white/[0.04]"
+                          : "border-white/10 bg-white/[0.05] text-zinc-300 hover:border-white/20 hover:bg-white/[0.08]"
                       }`}
                     >
                       <div className="mb-1 text-sm font-semibold">{option.label}</div>

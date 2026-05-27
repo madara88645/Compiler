@@ -65,8 +65,8 @@ function TabButton({
         onFocus={() => setShowTip(true)}
         onBlur={() => setShowTip(false)}
         className={`relative whitespace-nowrap rounded-t-lg px-3 py-2 text-[13px] font-medium transition-all focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:px-4 ${isActive
-          ? "text-white bg-white/5 border-t border-x border-white/5"
-          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+          ? "text-white bg-white/10 border-t border-x border-white/10"
+          : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
           }`}
       >
         <span>{label}</span>
@@ -104,8 +104,8 @@ function CompilerErrorState({
         </div>
         <h3 className="text-base font-semibold text-white">Compile failed</h3>
         <p className="mt-2 text-sm leading-relaxed text-red-100/80">{describeRequestError(error)}</p>
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-          Your prompt is still in the editor. Retry after checking the backend or API URL.
+        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+          Your prompt is safe in the editor. Try again — if it keeps failing, your connection or the compiler service may be down.
         </p>
         <button
           type="button"
@@ -238,7 +238,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="min-w-[88px] rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-center font-mono text-xs text-zinc-500">
+              <div className="min-w-0 rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-center font-mono text-xs text-zinc-300 sm:min-w-[88px]">
                 {status}
               </div>
               {!!lastError && !loading && (
@@ -326,7 +326,8 @@ export default function Home() {
               <>
                 {/* Tabs + policy verdict */}
                 <div className="flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
-                  <div role="tablist" aria-label="Output views" className="flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
+                  <div className="relative flex min-w-0 flex-1">
+                    <div role="tablist" aria-label="Output views" className="custom-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth pr-6">
                     {(
                       [
                         { key: "user", label: "User Prompt", hint: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
@@ -348,6 +349,11 @@ export default function Home() {
                         onSelect={setActiveTab}
                       />
                     ))}
+                    </div>
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden items-center pr-1 sm:flex lg:hidden">
+                      <div className="h-full w-8 bg-gradient-to-l from-black/60 to-transparent" />
+                      <span className="ml-[-14px] rounded-full border border-white/10 bg-black/60 px-1.5 text-[11px] leading-none text-zinc-300 backdrop-blur-sm">›</span>
+                    </div>
                   </div>
                   <PolicyBadge result={result} />
                 </div>
@@ -510,7 +516,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="max-w-sm space-y-2">
-                  <h3 className="text-zinc-100 font-semibold tracking-tight text-base">Start with any rough request</h3>
+                  <h3 className="text-zinc-100 font-semibold tracking-tight text-lg">Start with any rough request</h3>
                   <p className="text-sm text-zinc-400 leading-relaxed mb-4">
                     Paste a task, question, bug report, or workflow into the editor{" "}
                     <span className="hidden md:inline">on the left, then press <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">Ctrl/Cmd Enter</kbd></span>
@@ -543,10 +549,9 @@ export default function Home() {
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed mt-4">
+                  <p className="text-xs italic text-zinc-500 leading-relaxed mt-4">
                     Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-4 font-mono">v0.1.1</p>
                 </div>
               </div>
             )}
