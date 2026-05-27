@@ -128,7 +128,7 @@ def _secure_ingest_paths(paths: list[str]) -> list[str]:
     for raw_path in paths:
         resolved = resolve_allowed_path(raw_path, allowed_roots=roots)
         if not resolved.exists():
-            raise HTTPException(status_code=400, detail=f"Path does not exist: {resolved}")
+            raise HTTPException(status_code=400, detail="Path does not exist or is invalid.")
         resolved_paths.append(str(resolved))
 
     return resolved_paths
