@@ -8,7 +8,6 @@
 **Learning:** In the Simple Index RAG module (`app/rag/simple_index.py`), calculating the TF-IDF for sentences happens iteratively within an inner loop inside `compute_tfidf` function which is called for each sentence against a `doc_freq` Counter. Re-calculating the IDF via `math.log` for the entire dataset inside the inner loop was an unnecessary computation overhead. Since the document count and total frequency mapping are static, these metrics can be pre-calculated upfront using a dictionary cache to allow O(1) lookups.
 **Action:** Precompute static mapping dependencies inside tight inner loops with caching logic to mitigate unnecessary redundant execution overhead.
 
-
 ## 2024-05-24 - Optimizing PricingModel Cache Invalidation
 **Learning:** Adding a short-circuit length check (`len(keys) != len(dict)`) before an O(N) set equality check (`set(keys) != dict.keys()`) helps only when the dictionary size changes (e.g., in tests/mocking). In the steady production state where lengths are equal, the code still builds a set from `keys_to_check` and compares it against the `dict.keys()` view; the length check then adds only a tiny constant overhead.
 **Action:** Using `dict.keys()` directly in set comparisons avoids allocating an extra set for the right-hand side, since `dict_keys` already supports set operations. For further steady-state optimization, consider tracking a version integer or storing a frozenset of keys to avoid set creation entirely when `RATES` is unchanged.
@@ -172,6 +171,7 @@
 ## 2026-05-22 - Fast regex compilation in hot paths
 **Learning:** In heavily utilized text processing functions like RAG chunkers, precompiling regular expressions at the module level (`re.compile(pattern)`) and calling `pattern.split(text)` is significantly faster than dynamically invoking `re.split(pattern, text)` because it avoids the overhead of implicit string concatenation, `re.split`'s internal caching lookup, and potential cache misses on every single function call.
 **Action:** When a regular expression is executed thousands of times, such as when splitting large texts during document chunking, define the pattern as a module-level constant (e.g., `_SENTENCE_SPLIT_PATTERN = re.compile(...)`) instead of dynamically compiling or evaluating it inside the function.
+
 ## 2024-05-23 - Dictionary 'in' check beats .get() for sparse vector loops
 **Learning:** When calculating dot products for sparse vectors stored as dictionaries, using the native `in` operator combined with direct key access (`if k in v2: dot += v * v2[k]`) is about 10% faster than using `v2.get(k, missing)` with a sentinel object. The method call overhead of `.get()` and checking `is not missing` in Python is higher than executing the native `COMPARE_OP` and `BINARY_SUBSCR` bytecodes.
 **Action:** When computing dot products or intersectional values across dictionaries in tight loops, iterate over the smaller dictionary and use the `in` operator to check existence in the larger dictionary instead of using `.get()`.

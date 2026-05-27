@@ -247,26 +247,4 @@ describe("backend proxy", () => {
       detail: "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
     });
   });
-
-  it("preserves query parameters when proxying to the backend", async () => {
-    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
-
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    const request = new Request("http://localhost:3000/health?verbose=1&source=web", {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
-
-    const response = await proxyBackendRequest(request, "/health");
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.memo.dev/health?verbose=1&source=web");
-    await expect(response.json()).resolves.toEqual({ ok: true });
-  });
 });

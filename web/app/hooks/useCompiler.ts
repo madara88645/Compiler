@@ -77,11 +77,6 @@ export function useCompiler() {
       if (controller.signal.aborted && controllerRef.current !== controller) {
         return;
       }
-      console.error("Compile request failed", {
-        mode,
-        textLength: text.length,
-        aborted: controller.signal.aborted,
-      });
       setLastError(error);
       showError(error);
       setStatus("Error");

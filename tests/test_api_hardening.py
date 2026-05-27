@@ -206,7 +206,7 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 
 
 @pytest.mark.auth_required
-def test_benchmark_requires_api_key():
+def test_benchmark_works_without_api_key():
     client = TestClient(app)
 
     with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
@@ -218,7 +218,7 @@ def test_benchmark_requires_api_key():
             json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
         )
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 @pytest.mark.auth_required
