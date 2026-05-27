@@ -997,9 +997,7 @@ def _search_embed_with_conn(
 
     for i in range(0, len(chunk_ids), BATCH_SIZE):
         batch_ids = chunk_ids[i : i + BATCH_SIZE]
-        placeholders = ",".join(
-            ["?"] * len(batch_ids)
-        )  # Bolt Optimization: list multiplication is faster than generator expression
+        placeholders = ",".join("?" for _ in batch_ids)
 
         cur = conn.execute(
             f"""
