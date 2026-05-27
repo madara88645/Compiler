@@ -327,7 +327,7 @@ export default function Home() {
                 {/* Tabs + policy verdict */}
                 <div className="flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
-                    <div role="tablist" aria-label="Output views" className="custom-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth pr-6">
+                    <div role="tablist" aria-label="Output views" className="custom-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth sm:pr-6 lg:pr-0">
                     {(
                       [
                         { key: "user", label: "User Prompt", hint: "The prompt to copy and send to your model. Most users want this tab.", primary: true },
