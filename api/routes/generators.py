@@ -154,7 +154,9 @@ async def analyze_github_repo_endpoint(
             status_code=exc.status_code,
             error_message=str(exc),
         )
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=exc.status_code, detail="GitHub repository analysis failed."
+        ) from exc
     except Exception as exc:
         logger.exception("github repo analysis failed")
         _log_repo_analyze_outcome(
