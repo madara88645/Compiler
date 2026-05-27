@@ -385,7 +385,7 @@ export default function OptimizerPage() {
                     </div>
                 </div>
             )}
-            <div className="grid min-h-[50vh] grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid min-h-[50vh] grid-cols-1 gap-5 md:grid-cols-2">
                 <section className="flex min-h-80 flex-col gap-2">
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Original Prompt
@@ -448,7 +448,7 @@ export default function OptimizerPage() {
                         ) : (
                             <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
                                 <div className="text-sm italic text-zinc-400 mb-4">
-                                    Optimized prompt will appear here.
+                                    Paste a prompt on the left, then run the analyzer to see a shorter version here.
                                 </div>
                                 <button
                                     type="button"
