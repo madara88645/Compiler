@@ -19,7 +19,7 @@ npm run build
 npm run test:contracts
 ```
 
-`test:contracts` runs the lightweight Node-based contract tests for the shared API layer.
+`test:contracts` runs the lightweight Vitest contract tests for the shared API layer and Next proxy routes.
 
 ## Frontend Architecture
 

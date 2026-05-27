@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 
 import { describeApiError } from "./config.ts";
 import {
@@ -10,8 +9,7 @@ import {
 } from "./lib/api/promptc.ts";
 
 test("describeApiError returns auth-aware copy for 403", () => {
-  assert.equal(
-    describeApiError(403, { detail: "Could not validate credentials" }),
+  expect(describeApiError(403, { detail: "Could not validate credentials" })).toBe(
     "Could not validate credentials",
   );
 });
@@ -21,7 +19,7 @@ test("normalizeRagSearchResults maps legacy source/content fields to canonical s
     { source: "docs/auth.md", content: "Use API keys", score: 0.75 },
   ]);
 
-  assert.deepEqual(results, [
+  expect(results).toEqual([
     {
       path: "docs/auth.md",
       snippet: "Use API keys",
@@ -38,9 +36,9 @@ test("normalizeRagUploadResponse derives compatibility fields from canonical pay
     filename: "auth.py",
   });
 
-  assert.equal(response.success, true);
-  assert.equal(response.num_chunks, 4);
-  assert.match(response.message, /auth\.py/);
+  expect(response.success).toBe(true);
+  expect(response.num_chunks).toBe(4);
+  expect(response.message).toMatch(/auth\.py/);
 });
 
 test("normalizeCompileResponse preserves nested security metadata", () => {
@@ -61,18 +59,15 @@ test("normalizeCompileResponse preserves nested security metadata", () => {
     processing_ms: 25,
   });
 
-  assert.equal(response.processing_ms, 25);
-  assert.equal(response.ir.metadata?.security?.is_safe, false);
-  assert.equal(response.ir.metadata?.security?.redacted_text, "safe text");
-  assert.equal(response.ir.metadata?.security?.findings[0]?.type, "api_key");
+  expect(response.processing_ms).toBe(25);
+  expect(response.ir.metadata?.security?.is_safe).toBe(false);
+  expect(response.ir.metadata?.security?.redacted_text).toBe("safe text");
+  expect(response.ir.metadata?.security?.findings[0]?.type).toBe("api_key");
 });
 
 test("normalizeCompileResponse rejects empty compile payloads", () => {
-  assert.throws(() => normalizeCompileResponse(null), /Invalid compile response/);
-  assert.throws(
-    () => normalizeCompileResponse({}),
-    /Invalid compile response: missing compiler output/,
-  );
+  expect(() => normalizeCompileResponse(null)).toThrow(/Invalid compile response/);
+  expect(() => normalizeCompileResponse({})).toThrow(/Invalid compile response: missing compiler output/);
 });
 
 test("normalizeCompileResponse defaults missing policy fields", () => {
@@ -90,9 +85,9 @@ test("normalizeCompileResponse defaults missing policy fields", () => {
     processing_ms: 25,
   });
 
-  assert.equal(response.ir.policy?.risk_level, "low");
-  assert.deepEqual(response.ir.policy?.allowed_tools, []);
-  assert.equal(response.ir_v2?.policy?.execution_mode, "advice_only");
+  expect(response.ir.policy?.risk_level).toBe("low");
+  expect(response.ir.policy?.allowed_tools).toEqual([]);
+  expect(response.ir_v2?.policy?.execution_mode).toBe("advice_only");
 });
 
 test("normalizeCompileResponse falls back to ir when ir_v2 is missing", () => {
@@ -110,9 +105,9 @@ test("normalizeCompileResponse falls back to ir when ir_v2 is missing", () => {
     processing_ms: 25,
   });
 
-  assert.equal(response.ir_v2?.domain, "security");
-  assert.equal(response.ir_v2?.policy?.risk_level, "high");
-  assert.equal(response.ir_v2?.policy?.data_sensitivity, "public");
+  expect(response.ir_v2?.domain).toBe("security");
+  expect(response.ir_v2?.policy?.risk_level).toBe("high");
+  expect(response.ir_v2?.policy?.data_sensitivity).toBe("public");
 });
 
 test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
@@ -131,9 +126,9 @@ test("normalizeCompileResponse preserves optional ir_v2 payload", () => {
     processing_ms: 25,
   });
 
-  assert.equal(response.ir_v2?.domain, "coding");
-  assert.deepEqual(response.ir_v2?.metadata?.risk_flags, ["security"]);
-  assert.equal(response.ir_v2?.policy?.risk_level, "low");
+  expect(response.ir_v2?.domain).toBe("coding");
+  expect(response.ir_v2?.metadata?.risk_flags).toEqual(["security"]);
+  expect(response.ir_v2?.policy?.risk_level).toBe("low");
 });
 
 test("normalizeCompileResponse preserves backend compile metadata fields", () => {
@@ -152,19 +147,18 @@ test("normalizeCompileResponse preserves backend compile metadata fields", () =>
     trace: ["step 1", "step 2"],
   });
 
-  assert.equal(response.request_id, "abc123");
-  assert.equal(response.heuristic_version, "v1");
-  assert.equal(response.heuristic2_version, "v2");
-  assert.deepEqual(response.trace, ["step 1", "step 2"]);
+  expect(response.request_id).toBe("abc123");
+  expect(response.heuristic_version).toBe("v1");
+  expect(response.heuristic2_version).toBe("v2");
+  expect(response.trace).toEqual(["step 1", "step 2"]);
 });
 
 test("formatSearchResultForPrompt includes path header", () => {
-  assert.equal(
+  expect(
     formatSearchResultForPrompt({
       path: "docs/auth.md",
       snippet: "Use API keys",
       score: 0.4,
     }),
-    "[Source: docs/auth.md]\nUse API keys",
-  );
+  ).toBe("[Source: docs/auth.md]\nUse API keys");
 });
