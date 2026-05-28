@@ -11,10 +11,14 @@ vi.hoisted(() => {
 import AgentGeneratorPage from "./page";
 import { apiJson } from "@/config";
 
-vi.mock("@/config", () => ({
-  apiJson: vi.fn(),
-  buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
-}));
+vi.mock("@/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config")>();
+  return {
+    ...actual,
+    apiJson: vi.fn(),
+    buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
+  };
+});
 
 vi.mock("../components/InfoButton", () => ({
   default: ({ title }: { title: string }) => <button type="button">{title}</button>,
@@ -141,5 +145,25 @@ describe("Agent Generator page", () => {
 
     expect(classes).toContain("md:min-h-[220px]");
     expect(classes).not.toContain("md:min-h-0");
+  });
+
+  it("shows a retryable error in the output panel when generation fails", async () => {
+    apiJsonMock.mockRejectedValueOnce(new Error("The service is temporarily unavailable."));
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a code review agent." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Agent/i })[0]!);
+
+    expect(await screen.findByText("Agent generation failed")).toBeTruthy();
+    expect(screen.getByText("The service is temporarily unavailable.")).toBeTruthy();
+
+    apiJsonMock.mockResolvedValueOnce({ system_prompt: "# Reviewer" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Reviewer" })).toBeTruthy());
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 });

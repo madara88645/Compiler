@@ -11,6 +11,7 @@ import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
+import GeneratorErrorState from "../components/GeneratorErrorState";
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -26,7 +27,7 @@ export default function AgentGenerator() {
   const [repoContextDirty, setRepoContextDirty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<unknown>(null);
   const [multiAgent, setMultiAgent] = useState(false);
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
@@ -40,7 +41,7 @@ export default function AgentGenerator() {
 
     setRepoAnalysisLoading(true);
     setRepoAnalysisWarning(null);
-    setError(null);
+    setLastError(null);
 
     try {
       const data = await withTimeout(
@@ -70,7 +71,7 @@ export default function AgentGenerator() {
     isGeneratingRef.current = true;
 
     setLoading(true);
-    setError(null);
+    setLastError(null);
     setResult(null);
 
     try {
@@ -95,7 +96,7 @@ export default function AgentGenerator() {
       ].slice(0, 5));
     } catch (e: unknown) {
       showError(e);
-      setError(e instanceof Error ? e.message : "Failed to generate agent");
+      setLastError(e);
     } finally {
       setLoading(false);
       isGeneratingRef.current = false;
@@ -138,6 +139,15 @@ export default function AgentGenerator() {
               description="Define a role or task, and this tool will architect a comprehensive, constraint-driven system prompt for an autonomous AI agent or multi-agent swarm."
             />
           </div>
+          {!!lastError && !loading && (
+            <button
+              type="button"
+              onClick={() => void handleGenerate()}
+              className="w-full rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 sm:w-auto"
+            >
+              Retry
+            </button>
+          )}
         </header>
 
         <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
@@ -304,12 +314,6 @@ export default function AgentGenerator() {
               )}
             </button>
 
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300">
-                {error}
-              </div>
-            )}
-
             {/* Context Manager */}
             <ContextManager
               onInsertContext={(text) => setDescription(prev => prev + "\n\n---\nContext:\n" + text)}
@@ -318,7 +322,19 @@ export default function AgentGenerator() {
 
           {/* Right Panel: Output */}
           <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[65%]">
-            {result ? (
+            {loading ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
+                <span className="animate-pulse text-sm font-medium text-green-300/90">Architecting agent prompt...</span>
+                <p className="max-w-xs text-xs text-zinc-500">This can take a moment when the cloud generator is waking up.</p>
+              </div>
+            ) : lastError ? (
+              <GeneratorErrorState
+                error={lastError}
+                onRetry={() => void handleGenerate()}
+                title="Agent generation failed"
+                retryLabel="Retry generation"
+              />
+            ) : result ? (
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
                   <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">System Prompt</h2>

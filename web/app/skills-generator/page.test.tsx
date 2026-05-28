@@ -11,10 +11,14 @@ vi.hoisted(() => {
 import SkillsGeneratorPage from "./page";
 import { apiJson } from "@/config";
 
-vi.mock("@/config", () => ({
-  apiJson: vi.fn(),
-  buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
-}));
+vi.mock("@/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config")>();
+  return {
+    ...actual,
+    apiJson: vi.fn(),
+    buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
+  };
+});
 
 vi.mock("../components/InfoButton", () => ({
   default: ({ title }: { title: string }) => <button type="button">{title}</button>,
@@ -146,5 +150,25 @@ describe("Skills Generator page", () => {
 
     expect(classes).toContain("md:min-h-[220px]");
     expect(classes).not.toContain("md:min-h-0");
+  });
+
+  it("shows a retryable error in the output panel when generation fails", async () => {
+    apiJsonMock.mockRejectedValueOnce(new Error("The service is temporarily unavailable."));
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Parse JSON and validate schemas." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    expect(await screen.findByText("Skill generation failed")).toBeTruthy();
+    expect(screen.getByText("The service is temporarily unavailable.")).toBeTruthy();
+
+    apiJsonMock.mockResolvedValueOnce({ skill_definition: "## json-validator" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "json-validator" })).toBeTruthy());
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 });
