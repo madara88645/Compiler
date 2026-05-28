@@ -99,11 +99,12 @@ class ContextStrategist:
         for query in queries:
             results = self.vector_db.search(query, limit=5)
             for index, result in enumerate(results):
-                path = result.get("file_path", "unknown")
-                if path in all_results:
-                    all_results[path].score += 1.0 / (index + 1)
+                key = self._snippet_key(result)
+                if key in all_results:
+                    all_results[key].score += 1.0 / (index + 1)
                 else:
-                    all_results[path] = Snippet(
+                    path = result.get("file_path", "unknown")
+                    all_results[key] = Snippet(
                         file_path=path,
                         content=result.get("content", ""),
                         score=1.0 / (index + 1),
@@ -113,6 +114,24 @@ class ContextStrategist:
         snippets = list(all_results.values())
         snippets.sort(key=lambda item: item.score, reverse=True)
         return snippets
+
+    @staticmethod
+    def _snippet_key(result: Dict[str, Any]) -> str:
+        metadata = result.get("metadata") or {}
+        chunk_id = metadata.get("chunk_id")
+        if chunk_id is not None:
+            return f"chunk:{chunk_id}"
+
+        path = result.get("file_path", "unknown")
+        chunk_index = metadata.get("chunk_index")
+        if chunk_index is not None:
+            return f"path-chunk:{path}:{chunk_index}"
+
+        content = " ".join(str(result.get("content", "")).split())
+        if content:
+            return f"path-content:{path}:{content}"
+
+        return f"path:{path}"
 
     def rank_and_prune(self, snippets: List[Snippet], max_tokens: int = 4000) -> List[Snippet]:
         selected: List[Snippet] = []
