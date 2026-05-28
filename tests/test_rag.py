@@ -80,6 +80,32 @@ def test_retrieve_rrf(strategist, mock_db):
     assert snippets[1].score == 1.0  # 0.5 + 0.5 = 1.0
 
 
+def test_retrieve_keeps_distinct_chunks_from_same_file():
+    db = MagicMock()
+    db.search.side_effect = [
+        [
+            {
+                "file_path": "docs/ops.md",
+                "content": "Retry policy applies to API requests.",
+                "metadata": {"chunk_id": 11, "chunk_index": 0},
+            },
+            {
+                "file_path": "docs/ops.md",
+                "content": "Backoff doubles after each failed request.",
+                "metadata": {"chunk_id": 12, "chunk_index": 1},
+            },
+        ]
+    ]
+    strategist = ContextStrategist(db, MockLLMClient())
+
+    snippets = strategist.retrieve(["retry backoff"])
+
+    assert len(snippets) == 2
+    assert [snippet.metadata["chunk_id"] for snippet in snippets] == [11, 12]
+    assert snippets[0].file_path == "docs/ops.md"
+    assert snippets[1].file_path == "docs/ops.md"
+
+
 def test_rank_and_prune(strategist):
     snippets = [
         Snippet("a.py", "a" * 400, 10.0, {}),  # 100 tokens

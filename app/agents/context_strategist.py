@@ -37,7 +37,7 @@ class ContextStrategist:
         base_results = search_hybrid(user_prompt, k=limit)
         for r in base_results:
             r["score"] = r.get("score", 0) * 1.5  # Boost original query
-            all_results[r["path"]] = r
+            all_results[self._result_key(r)] = r
 
         # Search for expanded queries
         for q in expanded_queries:
@@ -45,16 +45,34 @@ class ContextStrategist:
                 continue
             sub_results = search_hybrid(q, k=3)
             for r in sub_results:
-                if r["path"] in all_results:
+                key = self._result_key(r)
+                if key in all_results:
                     # Boost existing (confirmation)
-                    all_results[r["path"]]["score"] += 0.2
+                    all_results[key]["score"] += 0.2
                 else:
-                    all_results[r["path"]] = r
+                    all_results[key] = r
 
         # 3. Sort & Limit
         sorted_results = sorted(all_results.values(), key=lambda x: x.get("score", 0), reverse=True)
 
         return sorted_results[:limit]
+
+    @staticmethod
+    def _result_key(result: Dict[str, Any]) -> str:
+        chunk_id = result.get("chunk_id")
+        if chunk_id is not None:
+            return f"chunk:{chunk_id}"
+
+        path = result.get("path", "unknown")
+        chunk_index = result.get("chunk_index")
+        if chunk_index is not None:
+            return f"path-chunk:{path}:{chunk_index}"
+
+        snippet = " ".join(str(result.get("snippet", "")).split())
+        if snippet:
+            return f"path-snippet:{path}:{snippet}"
+
+        return f"path:{path}"
 
     def _expand_query(self, prompt: str) -> List[str]:
         """

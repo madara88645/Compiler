@@ -140,3 +140,42 @@ class TestContextStrategist:
         assert len(results) == 1
         assert results[0]["path"] == "file1.py"
         assert results[0]["score"] == 1.5  # Boost applied
+
+    @patch("app.agents.context_strategist.search_hybrid")
+    def test_retrieve_keeps_distinct_chunks_from_same_path(self, mock_search_hybrid):
+        mock_client = MagicMock()
+        mock_client._call_api.return_value = "[]"
+        strategist = ContextStrategist(client=mock_client)
+
+        mock_search_hybrid.return_value = [
+            {
+                "path": "docs/architecture.md",
+                "chunk_id": 101,
+                "chunk_index": 0,
+                "snippet": "Retry policy applies to API requests.",
+                "score": 0.9,
+            },
+            {
+                "path": "docs/architecture.md",
+                "chunk_id": 102,
+                "chunk_index": 1,
+                "snippet": "Backoff doubles after each failed request.",
+                "score": 0.8,
+            },
+            {
+                "path": "docs/faq.md",
+                "chunk_id": 201,
+                "chunk_index": 0,
+                "snippet": "Unrelated FAQ entry.",
+                "score": 0.1,
+            },
+        ]
+
+        results = strategist.retrieve("retry backoff", limit=3)
+
+        assert len(results) == 3
+        assert [item["chunk_id"] for item in results[:2]] == [101, 102]
+        assert [item["path"] for item in results[:2]] == [
+            "docs/architecture.md",
+            "docs/architecture.md",
+        ]
