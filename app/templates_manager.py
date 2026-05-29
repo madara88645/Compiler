@@ -333,7 +333,9 @@ class TemplatesManager:
                 yaml.safe_dump(template.to_dict(), f, sort_keys=False, allow_unicode=True)
             return True
         except Exception as e:
-            logger.error(f"Failed to export template '{template_id}' to '{output_path}': {e}", exc_info=True)
+            logger.error(
+                f"Failed to export template '{template_id}' to '{output_path}': {e}", exc_info=True
+            )
             return False
 
     def import_template(self, input_path: Path) -> Optional[PromptTemplate]:
