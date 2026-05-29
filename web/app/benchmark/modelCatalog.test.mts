@@ -26,3 +26,15 @@ test("benchmark groups keep cheap and balanced models visible", () => {
   assert.equal(labels.includes("Cheap"), true);
   assert.equal(labels.includes("Balanced"), true);
 });
+
+test("getBenchmarkModelById returns the correct model for a valid ID", () => {
+  const model = getBenchmarkModelById("llama-3.1-8b-instant");
+  assert.notEqual(model, undefined);
+  assert.equal(model?.id, "llama-3.1-8b-instant");
+  assert.equal(model?.label, "Llama 3.1 8B Instant");
+});
+
+test("getBenchmarkModelById returns undefined for an invalid ID", () => {
+  const model = getBenchmarkModelById("non-existent-model");
+  assert.equal(model, undefined);
+});

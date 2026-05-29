@@ -4,25 +4,23 @@ from pydantic import ValidationError
 from api.routes.generators import GitHubRepoContextPayload
 
 
-def test_validate_list_items_length_valid():
-    # Test with valid strings (short and exactly 1024 characters)
+def test_github_repo_context_payload_valid_lists():
+    # Should not raise any validation error, test with short strings and exactly 1024 characters
     payload = GitHubRepoContextPayload(
         normalized_repo_url="https://github.com/foo/bar",
         repo_full_name="foo/bar",
         summary="A summary",
-        highlights=["short string", "a" * 1024],
-        files_used=["another string"],
-        detected_stack=[],
+        highlights=["short item 1", "a" * 1024],
+        files_used=["file1.py"],
+        detected_stack=["python", "fastapi"],
     )
-    assert len(payload.highlights) == 2
-    assert payload.highlights[0] == "short string"
-    assert payload.highlights[1] == "a" * 1024
-    assert payload.files_used == ["another string"]
-    assert payload.detected_stack == []
+    assert payload.highlights == ["short item 1", "a" * 1024]
+    assert payload.files_used == ["file1.py"]
+    assert payload.detected_stack == ["python", "fastapi"]
 
 
-def test_validate_list_items_length_empty():
-    # Test with empty lists (which are valid)
+def test_github_repo_context_payload_empty_lists():
+    # Should not raise any validation error
     payload = GitHubRepoContextPayload(
         normalized_repo_url="https://github.com/foo/bar",
         repo_full_name="foo/bar",
@@ -36,31 +34,19 @@ def test_validate_list_items_length_empty():
     assert payload.detected_stack == []
 
 
-def test_validate_list_items_length_exceeds():
-    # Test with string exceeding 1024 characters
-    with pytest.raises(ValidationError) as exc_info:
-        GitHubRepoContextPayload(
-            normalized_repo_url="https://github.com/foo/bar",
-            repo_full_name="foo/bar",
-            summary="A summary",
-            highlights=["a" * 1025],
-        )
-    assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
+@pytest.mark.parametrize("field_name", ["highlights", "files_used", "detected_stack"])
+def test_github_repo_context_payload_exceeds_max_length(field_name):
+    # Create valid base data
+    data = {
+        "normalized_repo_url": "https://github.com/foo/bar",
+        "repo_full_name": "foo/bar",
+        "summary": "A summary",
+    }
+
+    # Add the invalid field with an item that exceeds 1024 characters
+    data[field_name] = ["valid", "a" * 1025]
 
     with pytest.raises(ValidationError) as exc_info:
-        GitHubRepoContextPayload(
-            normalized_repo_url="https://github.com/foo/bar",
-            repo_full_name="foo/bar",
-            summary="A summary",
-            files_used=["valid", "b" * 1025],
-        )
-    assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
+        GitHubRepoContextPayload(**data)
 
-    with pytest.raises(ValidationError) as exc_info:
-        GitHubRepoContextPayload(
-            normalized_repo_url="https://github.com/foo/bar",
-            repo_full_name="foo/bar",
-            summary="A summary",
-            detected_stack=["c" * 2000],
-        )
     assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
