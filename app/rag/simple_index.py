@@ -1043,11 +1043,15 @@ def _search_embed_with_conn(
 
 # Optional tiktoken support for accurate token counting
 _tiktoken_enc = None
+# Sentinel stored in _tiktoken_enc when BPE load fails; avoids retrying on every call.
+_TIKTOKEN_LOAD_FAILED = object()
 
 
 def _count_tokens(text: str, ratio: float = 4.0) -> int:
     """Count tokens using tiktoken (if available) or fallback to char ratio."""
     global _tiktoken_enc
+    if _tiktoken_enc is _TIKTOKEN_LOAD_FAILED:
+        return int(len(text) / ratio)
     try:
         if _tiktoken_enc is None:
             with _CACHE_LOCK:
@@ -1056,7 +1060,8 @@ def _count_tokens(text: str, ratio: float = 4.0) -> int:
 
                     _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
-    except Exception:
+    except (ImportError, OSError):
+        _tiktoken_enc = _TIKTOKEN_LOAD_FAILED
         return int(len(text) / ratio)
 
 
