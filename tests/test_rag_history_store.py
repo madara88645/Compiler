@@ -33,3 +33,15 @@ def test_add_pins_and_persist(tmp_path: Path) -> None:
     reloaded = RAGHistoryStore(path=path)
     assert reloaded.queries == []
     assert reloaded.pins == []
+
+
+def test_format_timestamp() -> None:
+    store = RAGHistoryStore()
+
+    # Valid timestamp
+    valid_ts = "2024-05-10T12:34:56+00:00"
+    assert store.format_timestamp(valid_ts) == "May 10 12:34"
+
+    # Invalid timestamp
+    invalid_ts = "not a valid iso string"
+    assert store.format_timestamp(invalid_ts) == "not a valid iso string"

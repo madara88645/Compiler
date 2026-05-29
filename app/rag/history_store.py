@@ -139,7 +139,7 @@ class RAGHistoryStore:
         try:
             dt = datetime.fromisoformat(ts)
             return dt.strftime("%b %d %H:%M")
-        except Exception:
+        except ValueError:
             return ts
 
     def _now(self) -> str:
