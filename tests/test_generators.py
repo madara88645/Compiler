@@ -12,7 +12,7 @@ def test_validate_list_items_length_valid():
         summary="A summary",
         highlights=["short string", "a" * 1024],
         files_used=["another string"],
-        detected_stack=[]
+        detected_stack=[],
     )
     assert len(payload.highlights) == 2
     assert payload.highlights[0] == "short string"
@@ -29,7 +29,7 @@ def test_validate_list_items_length_empty():
         summary="A summary",
         highlights=[],
         files_used=[],
-        detected_stack=[]
+        detected_stack=[],
     )
     assert payload.highlights == []
     assert payload.files_used == []
@@ -43,7 +43,7 @@ def test_validate_list_items_length_exceeds():
             normalized_repo_url="https://github.com/foo/bar",
             repo_full_name="foo/bar",
             summary="A summary",
-            highlights=["a" * 1025]
+            highlights=["a" * 1025],
         )
     assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
 
@@ -52,7 +52,7 @@ def test_validate_list_items_length_exceeds():
             normalized_repo_url="https://github.com/foo/bar",
             repo_full_name="foo/bar",
             summary="A summary",
-            files_used=["valid", "b" * 1025]
+            files_used=["valid", "b" * 1025],
         )
     assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
 
@@ -61,6 +61,6 @@ def test_validate_list_items_length_exceeds():
             normalized_repo_url="https://github.com/foo/bar",
             repo_full_name="foo/bar",
             summary="A summary",
-            detected_stack=["c" * 2000]
+            detected_stack=["c" * 2000],
         )
     assert "Item in list exceeds maximum length of 1024 characters" in str(exc_info.value)
