@@ -7,12 +7,15 @@ interactive prompts, and rich CLI output support.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.templates import PromptTemplate, TemplateRegistry, TemplateVariable, get_registry
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -329,7 +332,8 @@ class TemplatesManager:
             with open(output_path, "w", encoding="utf-8") as f:
                 yaml.safe_dump(template.to_dict(), f, sort_keys=False, allow_unicode=True)
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to export template '{template_id}' to '{output_path}': {e}", exc_info=True)
             return False
 
     def import_template(self, input_path: Path) -> Optional[PromptTemplate]:
