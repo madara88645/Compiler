@@ -486,7 +486,10 @@ def parse_file(path: Path, fallback_to_text: bool = True) -> ParseResult:
         # Try plain text for unknown extensions
         try:
             return parse_plain_text(path)
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Parsing error: {e}")
             return ParseResult(
                 content="",
                 metadata={"error": f"Unable to parse file with extension: {ext}"},
