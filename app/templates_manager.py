@@ -47,7 +47,7 @@ class TemplatesManager:
             with open(self.stats_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self._stats = {tid: TemplateUsageStats(**stats) for tid, stats in data.items()}
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
             self._stats = {}
 
     def _save_stats(self) -> None:
