@@ -368,7 +368,7 @@ def compile_endpoint(
         except Exception as exc:
             logger.warning(
                 "LLM compile failed; falling back to local v2 heuristics",
-                exc_info=True,
+                exc_info=exc,
                 extra={"request_id": rid, "mode": mode, "text_length": len(req.text)},
             )
 
