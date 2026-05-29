@@ -10,6 +10,7 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class QueryEntry:
     query: str
