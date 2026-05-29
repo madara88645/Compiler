@@ -378,15 +378,32 @@ export default function AgentGenerator() {
                   <p className="text-sm text-zinc-500 mb-4">
                     Describe the role on the left, choose single or swarm mode, then generate and copy the system prompt.
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={loading || !description.trim()}
-                    title={!description.trim() ? "Enter a description first to generate" : "Generate Agent"}
-                    className={`mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
-                  >
-                    Generate {multiAgent ? 'Swarm' : 'Agent'}
-                  </button>
+                  <div className="flex flex-col items-center gap-3 mt-6 w-full">
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={loading || !description.trim()}
+                      title={!description.trim() ? "Enter a description first to generate" : "Generate Agent"}
+                      className={`mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${multiAgent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/20 focus-visible:ring-purple-500' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-green-500/20 focus-visible:ring-green-500'}`}
+                    >
+                      Generate {multiAgent ? 'Swarm' : 'Agent'}
+                    </button>
+                    {!description.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescription("A customer support agent that answers questions about billing, handles refunds, and escalates complex issues to a human.");
+                          setTimeout(() => {
+                            const textarea = document.getElementById('agent-description');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className={`text-xs ${multiAgent ? 'text-purple-400/80 hover:text-purple-300 focus-visible:ring-purple-500' : 'text-green-400/80 hover:text-green-300 focus-visible:ring-green-500'} transition-colors focus-visible:outline-none focus-visible:ring-1 rounded px-2 py-1`}
+                      >
+                        or try an example
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
