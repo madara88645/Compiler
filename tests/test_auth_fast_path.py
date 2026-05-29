@@ -265,6 +265,7 @@ def test_compile_fast_falls_back_after_two_worker_failures(test_key):
 
 def test_compile_fast_is_gated_by_api_key_rate_limit(test_key):
     from api.auth import RATE_LIMIT_STORE
+
     RATE_LIMIT_STORE.clear()
     from api.auth import HEAVY_RATE_LIMIT_MAX_REQUESTS
 
