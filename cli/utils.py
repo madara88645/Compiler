@@ -1,4 +1,5 @@
 import sys
+import logging
 import orjson
 import time
 from pathlib import Path
@@ -125,8 +126,8 @@ def _run_compile(
                 tags=tags or [],
             )
             AnalyticsManager().record_prompt(record)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.getLogger(__name__).debug(f"Analytics recording failed: {e}")
 
     if json_only and quiet:
         quiet = False
