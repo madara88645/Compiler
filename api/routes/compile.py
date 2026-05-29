@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from api.auth import rate_limit_by_ip
+from api.auth import rate_limit_by_ip, APIKey, verify_api_key, verify_api_key_if_required
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
@@ -338,6 +338,7 @@ def _build_offline_quality_report(req: ValidateRequest) -> QualityReport:
 def compile_endpoint(
     req: CompileRequest,
     request: Request,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     t0 = time.time()
@@ -441,6 +442,7 @@ async def compile_fast(
     req: CompileRequest,
     request: Request,
     response: Response,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     start = time.time()
@@ -482,6 +484,7 @@ async def compile_fast(
 @router.post("/validate", response_model=QualityReport)
 def validate_endpoint(
     req: ValidateRequest,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     try:
@@ -530,6 +533,7 @@ def validate_endpoint(
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_endpoint(
     req: OptimizeRequest,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     compiler = _get_compiler()

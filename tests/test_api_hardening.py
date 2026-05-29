@@ -53,7 +53,7 @@ def test_generator_endpoints_require_api_key(test_key):
 
 
 @pytest.mark.auth_required
-def test_rag_upload_works_without_api_key(monkeypatch):
+def test_rag_upload_fails_without_api_key(monkeypatch):
     """RAG upload uses optional auth — requests without a key should succeed."""
     import os
     import tempfile
@@ -69,7 +69,7 @@ def test_rag_upload_works_without_api_key(monkeypatch):
             json={"filename": "auth.py", "content": "def login():\n    return True"},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 403
 
 
 @pytest.mark.auth_required
@@ -87,69 +87,28 @@ def test_optimize_works_without_api_key():
 @pytest.mark.auth_required
 def test_public_routes_rate_limited_by_ip(monkeypatch):
     """A burst from a single IP hits 429 after 20 heavy requests in 60s."""
-    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 3)
+    monkeypatch.setattr("api.auth.PUBLIC_DEFAULT_RATE_LIMIT", 3)
     client = TestClient(app)
 
-    with patch("api.main.hybrid_compiler") as mock_compiler:
-        mock_res = MagicMock()
-        mock_res.ir.model_dump.return_value = {}
-        mock_res.system_prompt = "sys"
-        mock_res.user_prompt = "user"
-        mock_res.plan = "plan"
-        mock_res.optimized_content = "opt"
-        mock_compiler.worker.process.return_value = mock_res
-        mock_compiler.cache = {}
-
-        for _ in range(3):
-            assert client.post("/compile/fast", json={"text": "h"}).status_code == 200
-        assert client.post("/compile/fast", json={"text": "h"}).status_code == 429
+    for _ in range(3):
+        assert client.get("/rag/stats").status_code == 200
+    assert client.get("/rag/stats").status_code == 429
 
 
 @pytest.mark.auth_required
 def test_per_ip_buckets_isolated(monkeypatch):
     """Two different X-Forwarded-For headers get separate buckets."""
-    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+    monkeypatch.setattr("api.auth.PUBLIC_DEFAULT_RATE_LIMIT", 1)
     client = TestClient(app)
 
-    with patch("api.main.hybrid_compiler") as mock_compiler:
-        mock_res = MagicMock()
-        mock_res.ir.model_dump.return_value = {}
-        mock_res.system_prompt = "sys"
-        mock_res.user_prompt = "user"
-        mock_res.plan = "plan"
-        mock_res.optimized_content = "opt"
-        mock_compiler.worker.process.return_value = mock_res
-        mock_compiler.cache = {}
-
-        assert (
-            client.post(
-                "/compile/fast",
-                json={"text": "h"},
-                headers={"X-Forwarded-For": "1.1.1.1"},
-            ).status_code
-            == 200
-        )
-        assert (
-            client.post(
-                "/compile/fast",
-                json={"text": "h"},
-                headers={"X-Forwarded-For": "1.1.1.1"},
-            ).status_code
-            == 429
-        )
-        assert (
-            client.post(
-                "/compile/fast",
-                json={"text": "h"},
-                headers={"X-Forwarded-For": "2.2.2.2"},
-            ).status_code
-            == 200
-        )
+    assert client.get("/rag/stats", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 200
+    assert client.get("/rag/stats", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 429
+    assert client.get("/rag/stats", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 200
 
 
 @pytest.mark.auth_required
-def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
-    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+def test_repo_context_endpoint_uses_heavy_key_rate_limit(monkeypatch, test_key):
+    monkeypatch.setattr("api.auth.HEAVY_RATE_LIMIT_MAX_REQUESTS", 1)
     client = TestClient(app)
     payload = {
         "normalized_repo_url": "https://github.com/openai/openai-python",
@@ -165,12 +124,12 @@ def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
         first = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"x-api-key": test_key},
         )
         second = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"x-api-key": test_key},
         )
 
     assert first.status_code == 200
@@ -178,8 +137,8 @@ def test_repo_context_endpoint_uses_heavy_public_rate_limit(monkeypatch):
 
 
 @pytest.mark.auth_required
-def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
-    monkeypatch.setattr("api.auth.PUBLIC_HEAVY_RATE_LIMIT", 1)
+def test_repo_context_endpoint_keeps_per_key_buckets_isolated(monkeypatch, test_key):
+    monkeypatch.setattr("api.auth.HEAVY_RATE_LIMIT_MAX_REQUESTS", 1)
     client = TestClient(app)
     payload = {
         "normalized_repo_url": "https://github.com/openai/openai-python",
@@ -191,21 +150,25 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
         "detected_stack": ["Python"],
     }
 
+    # Use an admin key for the second request to simulate a different key bucket
+    admin_key = "test_admin_key"
+    monkeypatch.setenv("ADMIN_API_KEY", admin_key)
+
     with patch("api.routes.generators.analyze_public_github_repo", return_value=payload):
         first = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"x-api-key": test_key},
         )
         second = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "1.1.1.1"},
+            headers={"x-api-key": test_key},
         )
         third = client.post(
             "/repo-context/github",
             json={"repo_url": "https://github.com/openai/openai-python"},
-            headers={"X-Forwarded-For": "2.2.2.2"},
+            headers={"x-api-key": admin_key},
         )
 
     assert first.status_code == 200

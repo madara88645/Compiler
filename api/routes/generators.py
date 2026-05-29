@@ -130,6 +130,7 @@ class AgentGenResponse(BaseModel):
 @router.post("/repo-context/github", response_model=GitHubRepoContextPayload)
 async def analyze_github_repo_endpoint(
     req: GitHubRepoContextRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     started_at = time.monotonic()

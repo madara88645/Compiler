@@ -6,7 +6,7 @@ from typing import List, Optional
 import anyio
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip
+from api.auth import rate_limit_by_ip, APIKey, verify_api_key, verify_api_key_if_required
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -137,6 +137,7 @@ def _secure_ingest_paths(paths: list[str]) -> list[str]:
 @router.post("/rag/ingest", response_model=RagIngestResponse)
 async def rag_ingest(
     req: RagIngestRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     try:
@@ -161,6 +162,7 @@ async def rag_ingest(
 @router.post("/rag/query", response_model=RagQueryResponse)
 def rag_query(
     req: RagQueryRequest,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     if req.method == "embed":
@@ -180,6 +182,7 @@ def rag_query(
 @router.post("/rag/pack")
 def rag_pack(
     req: RagPackRequest,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     if req.method == "embed":
@@ -208,6 +211,7 @@ def rag_pack(
 @router.post("/rag/upload", response_model=RagUploadResponse)
 async def rag_upload(
     req: RagUploadRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     try:
@@ -238,7 +242,7 @@ async def rag_upload(
 
 
 @router.get("/rag/stats")
-def rag_stats_endpoint(_: None = Depends(rate_limit_by_ip)):
+def rag_stats_endpoint(api_key: APIKey | None = Depends(verify_api_key_if_required), _: None = Depends(rate_limit_by_ip)):
     """
     Bolt: Avoid blocking event loop for SQLite query by removing async
     FastAPI handles sync endpoints in a threadpool automatically.
@@ -249,6 +253,7 @@ def rag_stats_endpoint(_: None = Depends(rate_limit_by_ip)):
 @router.post("/rag/search", response_model=List[RagSearchResult])
 def rag_search_endpoint(
     req: RagSearchRequest,
+    api_key: APIKey | None = Depends(verify_api_key_if_required),
     _: None = Depends(rate_limit_by_ip),
 ):
     """
