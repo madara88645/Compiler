@@ -464,7 +464,7 @@ def _domain_suggestions_v2(ir: IRv2, limit: int = 3) -> List[str]:
         seen.add(key)
         try:
             priority = int(item.get("priority") or 0)
-        except Exception:
+        except (ValueError, TypeError):
             priority = 0
         items.append((priority, text))
 
