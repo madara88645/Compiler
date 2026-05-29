@@ -48,7 +48,8 @@ class RAGHistoryStore:
                 data = orjson.loads(self.path.read_bytes())
             else:
                 data = {}
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to load history: %s", e)
             data = {}
         self.queries = [
             QueryEntry(
