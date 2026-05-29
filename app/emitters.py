@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List
+import itertools
 import os
 from .models import IR
 from .models_v2 import IRv2, ConstraintV2, StepV2
@@ -151,7 +152,8 @@ def emit_expanded_prompt(
             + " | ".join(ir.constraints[:3])
         )
     if ir.inputs:
-        kv = [f"{k}={v}" for k, v in list(ir.inputs.items())[:4]]
+        # Bolt Optimization: Avoid O(N) memory allocation by using itertools.islice instead of list()
+        kv = [f"{k}={v}" for k, v in itertools.islice(ir.inputs.items(), 4)]
         ctx_lines.append(
             (
                 "Girdi ipuçları"
@@ -630,7 +632,8 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         for line in policy_checks:
             ctx_lines.append(f"- {line}")
     if ir.inputs:
-        kv = [f"{k}={v}" for k, v in list(ir.inputs.items())[:4]]
+        # Bolt Optimization: Avoid O(N) memory allocation by using itertools.islice instead of list()
+        kv = [f"{k}={v}" for k, v in itertools.islice(ir.inputs.items(), 4)]
         ctx_lines.append(
             (
                 "Girdi ipuçları"
