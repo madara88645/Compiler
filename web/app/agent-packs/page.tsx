@@ -353,6 +353,23 @@ export default function AgentPacksPage() {
             >
               {loading ? "Generating..." : provider.ctaLabel}
             </button>
+            {!error && !request.goal.trim() && (
+              <div className="flex justify-center w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequest(prev => ({ ...prev, goal: "A data science team with a data engineer who cleans data, an analyst who writes SQL, and a reviewer who checks the work." }));
+                    setTimeout(() => {
+                      const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Agent pack description"]');
+                      if (textarea) textarea.focus();
+                    }, 0);
+                  }}
+                  className="text-xs text-cyan-400/80 hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded px-2 py-1 mt-1"
+                >
+                  or try an example
+                </button>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">

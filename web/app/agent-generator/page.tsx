@@ -197,6 +197,23 @@ export default function AgentGenerator() {
                   >
                     {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
                   </button>
+                  {!description.trim() && (
+                    <div className="flex justify-center w-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescription("An expert NextJS frontend developer who can build accessible React components and write Vitest tests.");
+                          setTimeout(() => {
+                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Agent Description"]');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className={`text-xs ${multiAgent ? 'text-purple-400/80 hover:text-purple-300 focus-visible:ring-purple-500' : 'text-green-400/80 hover:text-green-300 focus-visible:ring-green-500'} transition-colors focus-visible:outline-none focus-visible:ring-1 rounded px-2 py-1 mt-2`}
+                      >
+                        or try an example
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {repoContext && !repoContextDirty ? (

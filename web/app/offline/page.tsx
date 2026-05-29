@@ -257,6 +257,21 @@ export default function OfflinePage() {
                                     >
                                         Run Heuristics
                                     </button>
+                                    {!prompt.trim() && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPrompt("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.");
+                                                setTimeout(() => {
+                                                    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]');
+                                                    if (textarea) textarea.focus();
+                                                }, 0);
+                                            }}
+                                            className="text-xs text-blue-400/80 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded px-2 py-1 mt-2"
+                                        >
+                                            or try an example
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}

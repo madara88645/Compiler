@@ -195,6 +195,23 @@ export default function SkillsGenerator() {
                   >
                     {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
                   </button>
+                  {!description.trim() && (
+                    <div className="flex justify-center w-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescription("A tool that takes a GitHub repository URL, fetches the latest commits using the GitHub API, and returns a summary.");
+                          setTimeout(() => {
+                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Skill Description"]');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className="text-xs text-yellow-400/80 hover:text-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded px-2 py-1 mt-2"
+                      >
+                        or try an example
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {repoContext && !repoContextDirty ? (

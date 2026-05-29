@@ -433,6 +433,21 @@ export default function OptimizerPage() {
                                 >
                                     Copy
                                 </button>
+                                {!input.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInput("Write a detailed explanation of how to use NextJS 13 App Router, including examples for fetching data on the server and client.");
+                                            setTimeout(() => {
+                                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Prompt to optimize"]');
+                                                if (textarea) textarea.focus();
+                                            }, 0);
+                                        }}
+                                        className="text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1 mt-3"
+                                    >
+                                        or try an example
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -459,6 +474,21 @@ export default function OptimizerPage() {
                                 >
                                     {loading ? "Analyzing..." : "Analyze cost"}
                                 </button>
+                                {!input.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInput("Write a detailed explanation of how to use NextJS 13 App Router, including examples for fetching data on the server and client.");
+                                            setTimeout(() => {
+                                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Prompt to optimize"]');
+                                                if (textarea) textarea.focus();
+                                            }, 0);
+                                        }}
+                                        className="text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1 mt-3"
+                                    >
+                                        or try an example
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

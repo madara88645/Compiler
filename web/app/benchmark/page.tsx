@@ -328,6 +328,23 @@ export default function BenchmarkPage() {
                       Switch to Mock Engine (Demo Trial)
                     </button>
                   )}
+                  {!errorMessage && !prompt.trim() && (
+                    <div className="flex justify-center w-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrompt("Write a Python script to scrape data from a wikipedia page and save it to a CSV file.");
+                          setTimeout(() => {
+                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Benchmark prompt input"]');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 rounded px-2 py-1 mt-2"
+                      >
+                        or try an example
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

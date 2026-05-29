@@ -1,3 +1,3 @@
-## 2024-05-20 - Ensure visual feedback for Copy to Clipboard actions
-**Learning:** Adding a toast notification using a library like `sonner` is a crucial micro-interaction for copy-to-clipboard functionality. Users lack confidence when clicking a copy button without visual confirmation, and this small change significantly improves the perceived reliability of the UI.
-**Action:** Always verify that interactive elements, especially non-destructive actions like copying or sharing, have immediate visual feedback in the form of a toast or inline confirmation.
+## 2024-05-29 - Empty States Need Examples
+**Learning:** The "blank canvas" problem is particularly acute in generative AI tools. Users often don't know the optimal format, length, or detail required for a prompt until they see an example. The main page had a highly effective "or try an example" button that populated the text area, but this crucial UX pattern was missing from all other specialized generative pages.
+**Action:** When designing or reviewing empty states for text areas, especially those driving generative actions, always include a call-to-action (like a button) that explicitly populates the input field with a high-quality example to teach the user the expected input format and enable immediate interaction.
