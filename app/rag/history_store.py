@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -77,8 +80,8 @@ class RAGHistoryStore:
             # Bolt Optimization: orjson.dumps is significantly faster than json.dumps
             # for serializing history payloads to disk.
             self.path.write_bytes(orjson.dumps(payload, option=orjson.OPT_INDENT_2))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Failed to save RAG history: %s", e)
 
     def add_query(self, query: str, method: str, k: int) -> None:
         if not query:
