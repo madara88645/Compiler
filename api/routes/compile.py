@@ -365,7 +365,7 @@ def compile_endpoint(
             user_v2 = _safe_worker_text(worker_res, "user_prompt") or user_v2
             plan_v2 = _safe_worker_text(worker_res, "plan") or plan_v2
             exp_v2 = _safe_worker_text(worker_res, "optimized_content") or exp_v2
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "LLM compile failed; falling back to local v2 heuristics",
                 exc_info=True,
