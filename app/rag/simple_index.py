@@ -701,7 +701,8 @@ def ingest_paths(
                                     content = result.content
                                 else:
                                     content = fp.read_text(encoding="utf-8", errors="ignore")
-                            except Exception:
+                            except Exception as e:
+                                logger.warning("Failed to parse file %s: %s", fp, e)
                                 continue
                             if not content:
                                 continue
@@ -724,7 +725,8 @@ def ingest_paths(
                             content = result.content
                         else:
                             content = pth.read_text(encoding="utf-8", errors="ignore")
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Failed to parse file %s: %s", pth, e)
                         continue
                     if not content:
                         continue
