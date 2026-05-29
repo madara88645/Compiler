@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -45,7 +48,8 @@ class RAGHistoryStore:
                 data = orjson.loads(self.path.read_bytes())
             else:
                 data = {}
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to load history: %s", e)
             data = {}
         self.queries = [
             QueryEntry(
