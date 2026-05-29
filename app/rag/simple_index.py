@@ -215,7 +215,8 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         paths = [row[0] for row in cursor.fetchall()]
         conn.close()
         return paths
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to get indexed files: %s", e)
         return []
 
 
