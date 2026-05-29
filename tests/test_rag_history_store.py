@@ -34,6 +34,7 @@ def test_add_pins_and_persist(tmp_path: Path) -> None:
     assert reloaded.queries == []
     assert reloaded.pins == []
 
+
 def test_format_timestamp() -> None:
     store = RAGHistoryStore()
 
