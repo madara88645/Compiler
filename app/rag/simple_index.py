@@ -479,11 +479,7 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
         idx = h % dim
         vec[idx] += 1.0
     # L2 normalize
-    # Bolt Optimization: math.sqrt(math.sumprod(v, v)) is faster than math.hypot(*v) for sequence unpacking overhead
-    if hasattr(math, "sumprod"):
-        norm = math.sqrt(math.sumprod(vec, vec)) or 1.0
-    else:
-        norm = math.hypot(*vec) or 1.0
+    norm = math.hypot(*vec) or 1.0
     vec = [v / norm for v in vec]
     return vec
 
