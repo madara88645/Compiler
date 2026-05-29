@@ -354,7 +354,10 @@ class TemplatesManager:
             self.registry.save_template(template, user_template=True)
 
             return template
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Failed to import template from {input_path}: {e}")
             return None
 
     def validate_template(self, template_id: str) -> Dict[str, Any]:
