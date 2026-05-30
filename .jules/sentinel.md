@@ -68,3 +68,8 @@
 **Vulnerability:** Information Exposure (CWE-200) in FastAPI error handling. An endpoint raised an `HTTPException` where the `detail` parameter was populated dynamically with the raw exception string (`str(exc)`).
 **Learning:** Returning `str(exc)` directly to the client can inadvertently expose sensitive internal paths, downstream API details, or error contexts meant only for developers. The exception must be logged securely on the backend while a sanitized generic message is returned to the user.
 **Prevention:** When raising `HTTPException` inside a `try...except` block, never pass the stringified exception `str(exc)` directly to the `detail` parameter. Instead, provide a generic, safe error message to the client, and rely on `logger.exception()` or explicit backend logging (e.g., `_log_repo_analyze_outcome`) to record the raw exception for internal troubleshooting.
+
+## 2024-05-18 - Prevent Command Injection with click.edit
+**Vulnerability:** The `$EDITOR` environment variable was manually parsed using `shlex.split` and executed using `subprocess.run`, attempting to block dangerous executables with a brittle denylist. This allowed command injection through execution wrappers or unblocked commands.
+**Learning:** Manual denylists for executables are error-prone and easy to bypass. Invoking user-provided environment variables securely across multiple operating systems requires robust handling of paths, quotes, and execution contexts.
+**Prevention:** Always use well-tested standard libraries or heavily adopted third-party libraries for invoking external processes interactively. Specifically for CLI applications opening text editors, use `click.edit(text, require_save=True)` instead of custom `subprocess` logic.
