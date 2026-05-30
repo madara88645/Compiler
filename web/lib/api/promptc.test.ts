@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, apiJson } from "../../config";
 import {
+  InvalidCompileResponseError,
   compilePrompt,
   normalizeCompileResponse,
   normalizeRagSearchResults,
@@ -18,6 +19,21 @@ vi.mock("../../config", async () => {
 });
 
 const apiJsonMock = vi.mocked(apiJson);
+
+describe("InvalidCompileResponseError", () => {
+  it("sets the default message and name correctly", () => {
+    const error = new InvalidCompileResponseError();
+    expect(error.message).toBe("Invalid compile response.");
+    expect(error.name).toBe("InvalidCompileResponseError");
+    expect(error).toBeInstanceOf(Error);
+  });
+
+  it("allows setting a custom message", () => {
+    const error = new InvalidCompileResponseError("Custom error message.");
+    expect(error.message).toBe("Custom error message.");
+    expect(error.name).toBe("InvalidCompileResponseError");
+  });
+});
 
 describe("compile response normalization", () => {
   it("treats incomplete security metadata without findings as safe", () => {
