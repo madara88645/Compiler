@@ -1,5 +1,5 @@
-import pytest
 from app.rag.simple_index import _query_cache, _clear_query_cache, _cache_put, _cache_get
+
 
 def test_clear_query_cache():
     # Setup: populate the cache
