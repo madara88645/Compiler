@@ -39,12 +39,13 @@ app = FastAPI(title="Prompt Compiler API", lifespan=lifespan)
 allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
 allow_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 if not allow_origins:
-    allow_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ]
+    if os.environ.get("ENV", "production").strip().lower() == "development":
+        allow_origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+        ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,9 +71,9 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers[
-        "Content-Security-Policy"
-    ] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com"
+    )
     return response
 
 
