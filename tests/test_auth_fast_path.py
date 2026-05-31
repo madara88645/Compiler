@@ -287,6 +287,11 @@ def test_compile_fast_is_gated_by_api_key_rate_limit(test_key):
         resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
         assert resp.status_code == 429
 
+    with patch("api.main.hybrid_compiler") as mock:
+        mock.cache = {}
+        resp = client.post("/compile/fast", json={"text": "h"}, headers={"x-api-key": test_key})
+        assert resp.status_code == 429
+
 
 def test_verify_api_key_rate_limit_is_atomic(monkeypatch):
     class SlowDict(dict):
@@ -556,12 +561,11 @@ def test_public_routes_still_accept_requests_when_global_enforcement_enabled(tes
         ),
     ],
 )
-def test_export_routes_are_public(path, payload, expected_key, test_key, monkeypatch):
+def test_export_routes_require_api_key(path, payload, expected_key, test_key, monkeypatch):
     monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "false")
 
     unauthorized_response = client.post(path, json=payload)
-    assert unauthorized_response.status_code == 200
-    assert expected_key in unauthorized_response.json()
+    assert unauthorized_response.status_code == 403
 
     authorized_response = client.post(path, json=payload, headers={"x-api-key": test_key})
     assert authorized_response.status_code == 200

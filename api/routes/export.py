@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip
+from api.auth import rate_limit_by_ip, APIKey, verify_api_key
 from pydantic import BaseModel, Field
 
 from api.shared import logger
@@ -23,6 +23,7 @@ class ExportRequest(BaseModel):
 @router.post("/agent-generator/export")
 async def export_agent(
     req: ExportRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     if req.format not in [
@@ -105,6 +106,7 @@ _SKILL_EXPORT_FORMATS = frozenset(
 @router.post("/skills-generator/export")
 async def export_skill(
     req: ExportRequest,
+    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     if req.format not in _SKILL_EXPORT_FORMATS:

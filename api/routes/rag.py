@@ -6,7 +6,12 @@ from typing import List, Optional
 import anyio
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip, APIKey, verify_api_key, verify_api_key_if_required
+from api.auth import (
+    rate_limit_by_ip,
+    APIKey,
+    verify_api_key,
+    verify_api_key_if_required,
+)
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger

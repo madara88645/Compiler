@@ -8,7 +8,12 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from api.auth import rate_limit_by_ip, APIKey, verify_api_key, verify_api_key_if_required
+from api.auth import (
+    rate_limit_by_ip,
+    APIKey,
+    verify_api_key,
+    verify_api_key_if_required,
+)
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
