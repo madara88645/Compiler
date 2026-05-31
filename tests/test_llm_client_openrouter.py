@@ -24,7 +24,7 @@ def test_worker_client_prefers_openrouter_env_defaults():
     mock_openai.assert_called_once()
     _, kwargs = mock_openai.call_args
     assert kwargs["default_headers"]["HTTP-Referer"] == "https://prcompiler.com"
-    assert kwargs["default_headers"]["X-OpenRouter-Title"] == "Prompt Compiler"
+    assert kwargs["default_headers"]["X-Title"] == "Prompt Compiler"
 
 
 def test_call_api_requires_parameter_support_for_openrouter_json_mode():

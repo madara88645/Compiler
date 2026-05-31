@@ -115,7 +115,7 @@ class OpenAIProvider(LLMProvider):
         if os.environ.get("OPENROUTER_HTTP_REFERER"):
             headers["HTTP-Referer"] = os.environ["OPENROUTER_HTTP_REFERER"]
         if os.environ.get("OPENROUTER_TITLE"):
-            headers["X-OpenRouter-Title"] = os.environ["OPENROUTER_TITLE"]
+            headers["X-Title"] = os.environ["OPENROUTER_TITLE"]
 
         messages = []
         if system_prompt:

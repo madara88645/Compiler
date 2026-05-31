@@ -118,7 +118,7 @@ class WorkerClient:
         if referer:
             headers["HTTP-Referer"] = referer
         if title:
-            headers["X-OpenRouter-Title"] = title
+            headers["X-Title"] = title
 
         return headers
 
