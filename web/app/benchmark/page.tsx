@@ -426,15 +426,32 @@ export default function BenchmarkPage() {
                       : "Paste a prompt on the left, pick a real model (the default Mock Engine returns demo numbers), then run a benchmark."}
                   </p>
                   {!errorMessage && (
-                    <button
-                      type="button"
-                      onClick={handleBenchmark}
-                      disabled={loading || !prompt.trim()}
-                      title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
-                      className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Run Benchmark
-                    </button>
+                    <div className="flex flex-col items-center gap-3 mt-6 w-full">
+                      <button
+                        type="button"
+                        onClick={handleBenchmark}
+                        disabled={loading || !prompt.trim()}
+                        title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
+                        className="mx-auto flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Run Benchmark
+                      </button>
+                      {!prompt.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrompt("Write a Python script to scrape data from a Wikipedia page and extract all the tables.");
+                            setTimeout(() => {
+                              const textarea = document.getElementById('benchmark-prompt');
+                              if (textarea) textarea.focus();
+                            }, 0);
+                          }}
+                          className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 rounded px-2 py-1"
+                        >
+                          or try an example
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

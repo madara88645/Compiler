@@ -31,5 +31,11 @@ class ParadoxResolverHandler(BaseHandler):
                 ir_v1.constraints.append(resolution)
 
             # Update v2
-            if not any(c.text == resolution for c in ir_v2.constraints):
+            # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+            has_resolution = False
+            for c in ir_v2.constraints:
+                if c.text == resolution:
+                    has_resolution = True
+                    break
+            if not has_resolution:
                 ir_v2.constraints.append(ConstraintV2(type="resolution", text=resolution))

@@ -162,7 +162,7 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
         @mcp.tool()
         async def {tool_name}({param_signature}) -> str:
             \"\"\"{ir.purpose or f"Execute {tool_name}."}\"\"\"
-            return "TODO: implement {tool_name}"
+            raise NotImplementedError("TODO: implement {tool_name}")
 
 
         if __name__ == "__main__":

@@ -465,6 +465,7 @@ export default function OptimizerPage() {
                                 <div className="text-sm italic text-zinc-400 mb-4">
                                     Paste a prompt on the left, then run the analyzer to see a shorter version here.
                                 </div>
+                                <div className="flex flex-col items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={handleOptimize}
@@ -478,7 +479,7 @@ export default function OptimizerPage() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setInput("Write a detailed explanation of how to use NextJS 13 App Router, including examples for fetching data on the server and client.");
+                                            setInput("You are a helpful assistant. Provide a detailed, step-by-step summary of the provided text, ensuring that no important information is left out, and format the output as a bulleted list with clear headings for each section.");
                                             setTimeout(() => {
                                                 const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Prompt to optimize"]');
                                                 if (textarea) textarea.focus();
@@ -489,6 +490,7 @@ export default function OptimizerPage() {
                                         or try an example
                                     </button>
                                 )}
+                                </div>
                             </div>
                         )}
                     </div>
