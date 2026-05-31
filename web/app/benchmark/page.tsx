@@ -287,6 +287,7 @@ export default function BenchmarkPage() {
               type="button"
               onClick={handleBenchmark}
               disabled={loading || !prompt.trim()}
+              aria-busy={loading}
               title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             >
@@ -414,6 +415,7 @@ export default function BenchmarkPage() {
                         type="button"
                         onClick={handleBenchmark}
                         disabled={loading || !prompt.trim()}
+                        aria-busy={loading}
                         title={!prompt.trim() ? "Enter a prompt first to run a benchmark" : "Run Benchmark"}
                         className="mx-auto flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all active:scale-95 hover:from-amber-500 hover:to-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                       >

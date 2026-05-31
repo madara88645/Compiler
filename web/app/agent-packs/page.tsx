@@ -349,6 +349,7 @@ export default function AgentPacksPage() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !request.goal.trim()}
+              aria-busy={loading}
               className={`mt-1 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${provider.buttonClass}`}
             >
               {loading ? "Generating..." : provider.ctaLabel}

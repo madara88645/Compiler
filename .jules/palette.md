@@ -7,3 +7,6 @@
 ## 2024-05-30 - Empty States Call-to-Action
 **Learning:** Including an 'or try an example' call-to-action button that populates the input field solves the 'blank canvas' UX problem by explicitly demonstrating the expected input format to users.
 **Action:** When designing empty states for text areas and generative tools, include an 'or try an example' call-to-action button that populates the input field.
+## 2024-05-31 - Add aria-busy to loading buttons
+**Learning:** Found that while buttons were being visually and functionally disabled via `disabled={loading}`, screen readers were not being explicitly informed of the loading state. This is an accessibility issue for async actions across multiple pages.
+**Action:** Use `aria-busy={loading}` along with `disabled` states for asynchronous actions like fetching, processing, or generating. Do not use `aria-disabled` if the native `disabled` attribute is already correctly managing focus and click prevention, as it's a known ARIA anti-pattern.
