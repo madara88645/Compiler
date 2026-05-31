@@ -217,8 +217,9 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 def test_benchmark_requires_api_key():
     client = TestClient(app)
 
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.side_effect = ["raw output", "compiled output"]
         response = client.post(
@@ -289,8 +290,13 @@ def test_rag_ingest_rejects_path_outside_allowed_root(test_key, monkeypatch):
         assert "invalid path specified" in response.json()["detail"].lower()
 
 
-def test_cors_preflight_allows_prompt_mode_header():
-    client = TestClient(app)
+def test_cors_preflight_allows_prompt_mode_header(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    import importlib
+    import api.main
+
+    importlib.reload(api.main)
+    client = TestClient(api.main.app)
 
     response = client.options(
         "/compile",

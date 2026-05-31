@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -144,7 +143,7 @@ class RAGHistoryStore:
         try:
             dt = datetime.fromisoformat(ts)
             return dt.strftime("%b %d %H:%M")
-        except Exception as e:
+        except ValueError as e:
             logger.error(f"Failed to format timestamp {ts}: {e}")
             return ts
 

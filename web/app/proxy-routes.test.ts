@@ -107,6 +107,20 @@ describe("Next backend proxy route wiring", () => {
 
   it.each<RouteCase>([
     {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+    },
+    {
       name: "repo context analysis",
       handler: repoContextGithubRoute,
       requestUrl: "http://localhost:3000/repo-context/github",
