@@ -7,16 +7,17 @@ import {
   getBenchmarkModelById,
 } from "./modelCatalog.ts";
 
-test("benchmark catalog removes deprecated Maverick and includes production + preview targets", () => {
+test("benchmark catalog is OpenRouter-only and keeps GPT-OSS 20B as the default cheap option", () => {
   const ids = BENCHMARK_MODELS.map((model) => model.id);
 
-  assert.equal(ids.includes("meta-llama/llama-4-maverick-17b-128e-instruct"), false);
-  assert.equal(ids.includes("qwen/qwen3-32b"), true);
-  assert.equal(ids.includes("meta-llama/llama-4-scout-17b-16e-instruct"), true);
+  assert.equal(ids.includes("openai/gpt-oss-20b"), true);
+  assert.equal(ids.includes("openai/gpt-oss-120b"), true);
+  assert.equal(ids.includes("mistralai/mistral-small-3.2-24b-instruct"), true);
+  assert.equal(ids.includes("llama-3.1-8b-instant"), false);
+  assert.equal(ids[0], "openai/gpt-oss-20b");
 });
 
-test("benchmark catalog exposes preview badges for scout and qwen", () => {
-  assert.equal(getBenchmarkModelById("meta-llama/llama-4-scout-17b-16e-instruct")?.availability, "preview");
+test("benchmark catalog keeps preview coverage for qwen", () => {
   assert.equal(getBenchmarkModelById("qwen/qwen3-32b")?.availability, "preview");
 });
 

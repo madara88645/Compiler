@@ -24,8 +24,8 @@ def test_api_optimize_basic_reduces_whitespace(mock_optimize):
     # Tokens should ideally be less or equal
     assert data["after_tokens"] <= data["before_tokens"]
     assert data["changed"] is True
-    assert data["provider"] == "groq"
-    assert data["model"] == "llama-3.1-8b-instant"
+    assert data["provider"] == "openrouter"
+    assert data["model"] == "openai/gpt-oss-20b"
     assert data["source_language"] == "en"
     assert data["tokenizer_method"].endswith(":estimated")
     assert data["estimated_input_cost_usd"] > data["estimated_output_cost_usd"]

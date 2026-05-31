@@ -29,8 +29,8 @@ type OptimizeResponse = {
     warnings: string[];
 };
 
-const DEFAULT_OPTIMIZER_PROVIDER = "groq";
-const DEFAULT_OPTIMIZER_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_OPTIMIZER_PROVIDER = "openrouter";
+const DEFAULT_OPTIMIZER_MODEL = "openai/gpt-oss-20b";
 const DEFAULT_TOKENIZER_METHOD = "tiktoken:o200k_base:estimated";
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -100,6 +100,17 @@ function charsPerToken(chars: number, tokens: number): string {
         return "0.00";
     }
     return (chars / tokens).toFixed(2);
+}
+
+function formatProviderName(provider: string): string {
+    const normalized = (provider ?? "").toLowerCase();
+    if (normalized === "openrouter") {
+        return "OpenRouter";
+    }
+    if (normalized === "local") {
+        return "Local";
+    }
+    return provider || "Unknown";
 }
 
 function getErrorMessage(error: unknown): string {
@@ -181,8 +192,8 @@ export default function OptimizerPage() {
     const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
-    const [provider, setProvider] = useState("groq");
-    const [model, setModel] = useState("llama-3.1-8b-instant");
+    const [provider, setProvider] = useState(DEFAULT_OPTIMIZER_PROVIDER);
+    const [model, setModel] = useState(DEFAULT_OPTIMIZER_MODEL);
     const [optimizationError, setOptimizationError] = useState<string | null>(null);
 
     const output = result?.text ?? "";
@@ -294,7 +305,7 @@ export default function OptimizerPage() {
                     </div>
                     <InfoButton
                         title="Prompt Optimizer"
-                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates Groq cost and compares language efficiency."
+                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates OpenRouter cost and compares language efficiency."
                     />
                 </div>
 
@@ -314,7 +325,8 @@ export default function OptimizerPage() {
                             }}
                             className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
                         >
-                            <option value="groq:llama-3.1-8b-instant">Groq Llama 3 (Cloud)</option>
+                            <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
+                            <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
                             <option value="local:offline">Local Heuristics (Offline)</option>
                         </select>
                     </div>
@@ -525,7 +537,7 @@ export default function OptimizerPage() {
                                 <div>
                                     <h2 className="text-sm font-semibold text-white">English compact suggestion</h2>
                                     <p className="mt-1 text-xs text-zinc-500">
-                                        Groq / {result.model}
+                                        {formatProviderName(result.provider)} / {result.model}
                                     </p>
                                 </div>
                                 <span className="rounded-lg border border-white/10 px-2 py-1 font-mono text-xs text-zinc-400">

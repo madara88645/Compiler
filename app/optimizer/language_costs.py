@@ -12,19 +12,16 @@ except Exception:  # pragma: no cover - tiktoken is a declared dependency.
     tiktoken = None
 
 
-DEFAULT_PROVIDER = "groq"
-DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+DEFAULT_PROVIDER = "openrouter"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-oss-20b"
 TOKENIZER_METHOD = "tiktoken:o200k_base:estimated"
 
-# USD per 1M tokens. Source: Groq public pricing page, captured in AGENTS-driven plan.
-GROQ_RATES: dict[str, dict[str, float]] = {
-    "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
-    "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
+# USD per 1M tokens.
+OPENROUTER_RATES: dict[str, dict[str, float]] = {
     "openai/gpt-oss-20b": {"input": 0.075, "output": 0.30},
     "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
-    "openai/gpt-oss-safeguard-20b": {"input": 0.075, "output": 0.30},
-    "meta-llama/llama-4-scout-17b-16e-instruct": {"input": 0.11, "output": 0.34},
-    "qwen/qwen3-32b": {"input": 0.29, "output": 0.59},
+    "mistralai/mistral-small-3.2-24b-instruct": {"input": 0.075, "output": 0.20},
+    "qwen/qwen3-32b": {"input": 0.08, "output": 0.28},
 }
 
 _TURKISH_CHARS_RE = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
@@ -126,45 +123,55 @@ def count_estimated_tokens(text: str) -> int:
         return estimate_tokens(text)
 
 
-def get_groq_rates(model: str) -> tuple[float, float, list[str]]:
-    normalized = (model or DEFAULT_GROQ_MODEL).strip()
-    if normalized in GROQ_RATES:
-        rates = GROQ_RATES[normalized]
+def get_openrouter_rates(model: str) -> tuple[float, float, list[str]]:
+    normalized = (model or DEFAULT_OPENROUTER_MODEL).strip()
+    if normalized in OPENROUTER_RATES:
+        rates = OPENROUTER_RATES[normalized]
         return rates["input"], rates["output"], []
 
-    for key in sorted(GROQ_RATES, key=len, reverse=True):
+    for key in sorted(OPENROUTER_RATES, key=len, reverse=True):
         if normalized.startswith(key):
-            rates = GROQ_RATES[key]
+            rates = OPENROUTER_RATES[key]
             return rates["input"], rates["output"], []
 
-    return 0.0, 0.0, [f"No Groq pricing configured for model '{normalized}'. Cost shown as $0."]
+    return (
+        0.0,
+        0.0,
+        [f"No OpenRouter pricing configured for model '{normalized}'. Cost shown as $0."],
+    )
 
 
 def estimate_prompt_cost(
     text: str,
     *,
     provider: str = DEFAULT_PROVIDER,
-    model: str = DEFAULT_GROQ_MODEL,
+    model: str = DEFAULT_OPENROUTER_MODEL,
     direction: Literal["input", "output"] = "input",
     token_count_override: int | None = None,
 ) -> PromptCostEstimate:
     value = text or ""
+    normalized_provider = (provider or DEFAULT_PROVIDER).strip().lower()
+    resolved_model = (model or DEFAULT_OPENROUTER_MODEL).strip()
     tokens = (
         token_count_override if token_count_override is not None else count_estimated_tokens(value)
     )
-    input_rate, output_rate, warnings = (
-        get_groq_rates(model) if provider == "groq" else (0.0, 0.0, [])
-    )
-    if provider != "groq":
-        warnings = [f"No pricing configured for provider '{provider}'. Cost shown as $0."]
+    if normalized_provider == "local":
+        input_rate, output_rate, warnings = (0.0, 0.0, [])
+    elif normalized_provider == "openrouter":
+        input_rate, output_rate, warnings = get_openrouter_rates(resolved_model)
+    else:
+        input_rate, output_rate, warnings = (0.0, 0.0, [])
+        warnings = [
+            f"No pricing configured for provider '{normalized_provider}'. Cost shown as $0."
+        ]
 
     rate = input_rate if direction == "input" else output_rate
     estimated_cost = round((tokens / 1_000_000) * rate, 10)
     chars_per_token = round((len(value) / tokens), 2) if tokens else 0.0
 
     return PromptCostEstimate(
-        provider=provider,
-        model=model or DEFAULT_GROQ_MODEL,
+        provider=normalized_provider,
+        model=resolved_model,
         source_language=detect_language(value),
         tokenizer_method=TOKENIZER_METHOD,
         tokens=tokens,

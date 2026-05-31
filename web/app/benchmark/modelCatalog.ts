@@ -12,14 +12,6 @@ export type BenchmarkModelDefinition = {
 
 export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
   {
-    id: "llama-3.1-8b-instant",
-    label: "Llama 3.1 8B Instant",
-    badge: "cheap",
-    availability: "production",
-    helperText: "Cheapest model. Use this for a quick sanity check — runs in a second or two.",
-    group: "Cheap",
-  },
-  {
     id: "openai/gpt-oss-20b",
     label: "GPT-OSS 20B",
     badge: "cheap",
@@ -28,36 +20,20 @@ export const BENCHMARK_MODELS: BenchmarkModelDefinition[] = [
     group: "Cheap",
   },
   {
-    id: "mistral-saba-24b",
-    label: "Mistral Saba 24B",
+    id: "mistralai/mistral-small-3.2-24b-instruct",
+    label: "Mistral Small 3.2 24B",
     badge: "cheap",
     availability: "production",
-    helperText: "Affordable and works well in multiple languages — handy if your prompt isn't in English.",
+    helperText: "Affordable and strong at instruction-following plus structured output.",
     group: "Cheap",
-  },
-  {
-    id: "llama-3.3-70b-versatile",
-    label: "Llama 3.3 70B Versatile",
-    badge: "balanced",
-    availability: "production",
-    helperText: "Smarter model. Slower and pricier, but answers are more thoughtful.",
-    group: "Balanced",
   },
   {
     id: "openai/gpt-oss-120b",
     label: "GPT-OSS 120B",
     badge: "balanced",
     availability: "production",
-    helperText: "Bigger and stronger. Use this when you want the most polished comparison.",
+    helperText: "Higher-quality option when you can trade speed for depth.",
     group: "Balanced",
-  },
-  {
-    id: "meta-llama/llama-4-scout-17b-16e-instruct",
-    label: "Llama 4 Scout 17B 16E",
-    badge: "preview",
-    availability: "preview",
-    helperText: "Newer model. Still being evaluated — try it if you want to compare cutting-edge results.",
-    group: "Preview",
   },
   {
     id: "qwen/qwen3-32b",
