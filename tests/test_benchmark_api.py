@@ -78,7 +78,7 @@ def test_benchmark_run_endpoint(client):
 
         response = client.post(
             "/benchmark/run",
-            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
         )
 
     assert response.status_code == 200
@@ -134,7 +134,7 @@ def test_benchmark_run_short_prompt_with_valid_model(client):
 
         response = client.post(
             "/benchmark/run",
-            json={"text": "hello", "model": "llama-3.1-8b-instant"},
+            json={"text": "hello", "model": "openai/gpt-oss-20b"},
         )
 
     assert response.status_code == 200
@@ -163,7 +163,7 @@ def test_benchmark_request_rejects_blank_text(client):
     """Blank prompts should be rejected before any LLM work starts."""
     response = client.post(
         "/benchmark/run",
-        json={"text": "", "model": "llama-3.1-8b-instant"},
+        json={"text": "", "model": "openai/gpt-oss-20b"},
     )
 
     assert response.status_code == 422
@@ -177,7 +177,7 @@ def test_benchmark_provider_failure_returns_safe_error(client):
     ), patch("app.routers.benchmark._judge_with_llm", return_value=None):
         response = client.post(
             "/benchmark/run",
-            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
         )
 
     assert response.status_code == 502

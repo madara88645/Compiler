@@ -78,7 +78,7 @@ export default function BenchmarkPage() {
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
   const [resultIsMock, setResultIsMock] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("mock");
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-20b");
   const [status, setStatus] = useState("Ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -421,7 +421,7 @@ export default function BenchmarkPage() {
                   <p className="mb-4 text-sm text-zinc-400">
                     {errorMessage
                       ? errorMessage
-                      : "Paste a prompt on the left, pick a real model (the default Mock Engine returns demo numbers), then run a benchmark."}
+                      : "Paste a prompt on the left, tweak the OpenRouter model if needed, then run a benchmark."}
                   </p>
                   {!errorMessage && (
                     <button

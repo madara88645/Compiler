@@ -53,9 +53,13 @@ def get_provider(
             )
             model = os.environ.get("PROMPTC_LLM_MODEL", "claude-opus-4-7")
         else:
-            api_key = os.environ.get("OPENAI_API_KEY")
-            base_url = os.environ.get("PROMPTC_LLM_BASE_URL")
-            model = os.environ.get("PROMPTC_LLM_MODEL", "gpt-4o")
+            api_key = os.environ.get("OPENROUTER_API_KEY")
+            base_url = os.environ.get("PROMPTC_LLM_BASE_URL") or os.environ.get(
+                "OPENROUTER_BASE_URL"
+            )
+            model = os.environ.get("PROMPTC_LLM_MODEL") or os.environ.get(
+                "OPENROUTER_MODEL", "openai/gpt-oss-20b"
+            )
 
         config = ProviderConfig(
             api_key=api_key,

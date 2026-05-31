@@ -26,7 +26,12 @@ from app.emitters import (
 )
 from app.llm_engine.schemas import QualityReport
 from app.models_v2 import DiagnosticItem, IRv2
-from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
+from app.optimizer.language_costs import (
+    DEFAULT_OPENROUTER_MODEL,
+    DEFAULT_PROVIDER,
+    detect_language,
+    estimate_prompt_cost,
+)
 from app.optimizer.postprocess import strip_wrapper_labels
 from app.validator import validate_prompt
 
@@ -99,7 +104,7 @@ class OptimizeRequest(BaseModel):
     max_chars: Optional[int] = Field(default=None, ge=1, le=_MAX_PROMPT_CHARS)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=8_000)
     token_ratio: float = Field(default=4.0, gt=0, le=20.0)
-    provider: str = Field(default="groq", max_length=40)
+    provider: str = Field(default=DEFAULT_PROVIDER, max_length=40)
     model: Optional[str] = Field(default=None, max_length=120)
 
 
@@ -513,9 +518,9 @@ async def optimize_endpoint(
         model = (
             req.model
             or (worker_model if isinstance(worker_model, str) else None)
-            or DEFAULT_GROQ_MODEL
+            or DEFAULT_OPENROUTER_MODEL
         )
-        provider = (req.provider or "groq").strip().lower()
+        provider = (req.provider or DEFAULT_PROVIDER).strip().lower()
         raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
             functools.partial(
                 compiler.worker.optimize_prompt,
