@@ -109,6 +109,40 @@ describe("backend proxy", () => {
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
+  it("retries binary download requests and keeps the response streaming", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
+
+    const upstreamResponse = new Response("zip-bytes", {
+      status: 200,
+      headers: { "content-type": "application/zip" },
+    });
+    const arrayBufferSpy = vi.spyOn(upstreamResponse, "arrayBuffer");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("fetch failed"))
+      .mockResolvedValueOnce(upstreamResponse);
+
+    const request = new Request("http://localhost:3000/agent-packs/claude/download", {
+      method: "POST",
+      headers: {
+        Accept: "application/octet-stream",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ goal: "download code" }),
+    });
+
+    const response = await proxyBackendRequest(request, "/agent-packs/claude/download", {
+      retryNetworkErrors: true,
+      networkRetryAttempts: 2,
+      networkRetryDelayMs: 1,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(arrayBufferSpy).not.toHaveBeenCalled();
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("2");
+    await expect(response.text()).resolves.toBe("zip-bytes");
+  });
+
   it("does not retry non-retryable requests when the backend fetch throws", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
 
