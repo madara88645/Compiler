@@ -68,3 +68,8 @@
 **Vulnerability:** Information Exposure (CWE-200) in FastAPI error handling. An endpoint raised an `HTTPException` where the `detail` parameter was populated dynamically with the raw exception string (`str(exc)`).
 **Learning:** Returning `str(exc)` directly to the client can inadvertently expose sensitive internal paths, downstream API details, or error contexts meant only for developers. The exception must be logged securely on the backend while a sanitized generic message is returned to the user.
 **Prevention:** When raising `HTTPException` inside a `try...except` block, never pass the stringified exception `str(exc)` directly to the `detail` parameter. Instead, provide a generic, safe error message to the client, and rely on `logger.exception()` or explicit backend logging (e.g., `_log_repo_analyze_outcome`) to record the raw exception for internal troubleshooting.
+
+## 2024-05-20 - Ensure Environment Configuration for CORS is Testable
+**Vulnerability:** Default local CORS allowed origins (`localhost:3000`) enabled by default without explicit environment checks.
+**Learning:** Default configuration logic evaluated at module import (`os.environ.get`) is harder to test using standard pytest monkeypatch without using `importlib.reload()`, and defaults can expose unverified environments.
+**Prevention:** Always scope permissive security defaults (like localhost origins) behind strict environment checks (e.g., `ENV == "development"`), and ensure proper mock-reloading when testing top-level variables.

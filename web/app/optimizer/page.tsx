@@ -450,6 +450,7 @@ export default function OptimizerPage() {
                                 <div className="text-sm italic text-zinc-400 mb-4">
                                     Paste a prompt on the left, then run the analyzer to see a shorter version here.
                                 </div>
+                                <div className="flex flex-col items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={handleOptimize}
@@ -459,6 +460,18 @@ export default function OptimizerPage() {
                                 >
                                     {loading ? "Analyzing..." : "Analyze cost"}
                                 </button>
+                                {!input.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setInput("You are a helpful assistant. Provide a detailed, step-by-step summary of the provided text, ensuring that no important information is left out, and format the output as a bulleted list with clear headings for each section.");
+                                        }}
+                                        className="text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1"
+                                    >
+                                        or try an example
+                                    </button>
+                                )}
+                                </div>
                             </div>
                         )}
                     </div>

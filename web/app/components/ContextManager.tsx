@@ -135,6 +135,7 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                     type="button"
                     onClick={() => void ingestPath(filePath)}
                     disabled={ingesting || !filePath}
+                    aria-busy={ingesting}
                     title={!filePath ? "Enter a file path first to ingest" : "Ingest Path"}
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-700/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
