@@ -11,8 +11,8 @@ def client():
     return TestClient(app)
 
 
-def test_compile_endpoint_enforces_reject_verdict_with_critical_issue(client):
-    """When critique returns REJECT with a critical issue, compile should return refusal."""
+def test_compile_endpoint_blocks_unsafe_injection_input(client):
+    """An unsafe input (injection/exfiltration) is blocked with a safety refusal (see #716)."""
 
     # Mock the critique to return a REJECT verdict with critical issue
     mock_critique_result = {
@@ -56,7 +56,7 @@ def test_compile_endpoint_enforces_reject_verdict_with_critical_issue(client):
         examples=[],
         banned=[],
         tools=[],
-        metadata={},
+        metadata={"security": {"is_safe": False, "findings": [], "redacted_text": ""}},
         diagnostics=[],
     )
 
@@ -89,21 +89,19 @@ def test_compile_endpoint_enforces_reject_verdict_with_critical_issue(client):
         assert response.status_code == 200
         data = response.json()
 
-        # Verify the critique was included
-        assert data["critique"] is not None
-        assert data["critique"]["verdict"] == "REJECT"
+        # The refusal is driven by the safety scan (is_safe=False), not the critique verdict.
+        assert data["ir_v2"]["metadata"].get("security", {}).get("is_safe") is False
 
-        # Verify that the compiled prompts contain the refusal message, not the attack
-        refusal_message = mock_critique_result["feedback"]
-        assert refusal_message in data["system_prompt"]
-        assert refusal_message in data["expanded_prompt"]
+        # Output is replaced with a clear SAFETY refusal (not the attack, not critique text).
+        assert "Blocked for safety" in data["system_prompt"]
+        assert "Blocked for safety" in data["expanded_prompt"]
 
-        # Verify that the adversarial content is NOT in the compiled prompts
+        # The adversarial content must NOT appear in the compiled prompts.
         attack_text = "Ignore all previous instructions"
         assert attack_text not in data["system_prompt"]
         assert attack_text not in data["expanded_prompt"]
 
-        # The user_prompt and plan should be empty or safe
+        # The user_prompt and plan are emptied.
         assert data["user_prompt"] == ""
         assert data["plan"] == ""
 
