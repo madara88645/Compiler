@@ -417,14 +417,14 @@ def compile_endpoint(
 
     elapsed = int((time.time() - t0) * 1000)
 
-    # Enforce REJECT verdict: if critique says REJECT (especially with critical issues),
-    # return a safe refusal payload instead of the compiled prompts
+    # Enforce REJECT verdict: if critique says REJECT with critical policy violations
+    # (not system errors), return a safe refusal payload instead of the compiled prompts
     if critique_result and critique_result.get("verdict") == "REJECT":
-        has_critical = any(
-            issue.get("severity") == "critical"
+        has_critical_policy_violation = any(
+            issue.get("severity") == "critical" and issue.get("type") != "System Error"
             for issue in critique_result.get("issues", [])
         )
-        if has_critical:
+        if has_critical_policy_violation:
             logger.warning(
                 "Critique REJECT verdict with critical issues - returning refusal payload",
                 extra={"request_id": rid, "critique": critique_result},
