@@ -6,6 +6,7 @@ Provides deterministic safety checks without LLM calls:
 - Unsafe Content Flags (Profanity, Injection keywords)
 - Complexity/Length Guardrails
 """
+
 import re
 from typing import List, Dict, Any
 from app.models import IR
@@ -36,24 +37,21 @@ class SafetyHandler:
         r"\b(?:ignore|disregard|forget)\s+(?:everything|anything|what)\s+(?:you|was|were)\s+(?:told|said|instructed)",
         r"\bact\s+as\s+if\s+(?:you|your)\s+(?:previous|original|initial)\s+(?:instructions?|prompts?)",
         r"\breset\s+(?:your|the)\s+(?:instructions?|context|memory|system)",
-        
         # Secret exfiltration patterns - flexible matching
         r"\b(?:reveal|show|print|display|output|tell|give|provide|share)\s+(?:me\s+)?(?:your|the|any|all)\s+(?:hidden\s+)?(?:secret\s+)?(?:original\s+)?(?:internal\s+)?(?:system\s+)?(?:prompt|instructions?|rules?)",
         r"\b(?:reveal|show|print|display|output|tell|give|provide|share)\s+(?:me\s+)?(?:your|the|any|all)?\s*(?:api\s*keys?|secrets?|credentials?|passwords?|tokens?)",
         r"\b(?:what\s+(?:is|are)|list)\s+(?:your|the|any)\s+(?:api\s*keys?|secrets?|credentials?|passwords?)",
         r"\b(?:what\s+(?:is|are))\s+(?:your|the)\s+(?:hidden\s+)?(?:system\s+)?(?:prompt|instructions?)",
-        
         # Jailbreak patterns
         r"\b(?:bypass|circumvent|break|escape|evade)\s+(?:your|the|any)?\s*(?:restrictions?|filters?|safety|guardrails?|rules?|limitations?)",
         r"\bjailbreak",
         r"\bunfiltered\s+(?:mode|response|output)",
-        
         # Developer mode / DAN (Do Anything Now) patterns
         r"\b(?:developer|admin|debug|god)\s+mode",
         r"\bDAN\s+mode",
         r"\bact\s+as\s+if\s+you\s+(?:have\s+)?no\s+(?:restrictions?|rules?|limitations?)",
     ]
-    
+
     # Compile patterns for faster matching
     COMPILED_INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in INJECTION_PATTERNS]
 
@@ -104,23 +102,25 @@ class SafetyHandler:
             ir2.diagnostics.extend(diagnostics)
             # Tag metadata
             ir2.metadata.setdefault("safety_flags", []).extend([d.message for d in diagnostics])
-        
+
         # If injection detected, update security metadata and policy
         if has_injection:
             # Update security metadata to mark as unsafe
             if "security" in ir2.metadata:
                 ir2.metadata["security"]["is_safe"] = False
-                ir2.metadata["security"]["findings"].append({
-                    "type": "prompt_injection",
-                    "message": "Prompt injection or secret exfiltration attempt detected"
-                })
-            
+                ir2.metadata["security"]["findings"].append(
+                    {
+                        "type": "prompt_injection",
+                        "message": "Prompt injection or secret exfiltration attempt detected",
+                    }
+                )
+
             # Update policy to high risk
             ir2.policy.risk_level = "high"
             ir2.policy.data_sensitivity = "sensitive"
             ir2.policy.execution_mode = "advice_only"
             ir2.policy.risk_domains.append("security")
-            
+
             # Add to risk_flags in metadata so PolicyHandler can also see it
             ir1.metadata.setdefault("risk_flags", []).append("security_injection_attempt")
 

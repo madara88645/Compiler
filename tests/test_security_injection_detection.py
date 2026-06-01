@@ -2,15 +2,11 @@
 Test suite for security injection and exfiltration detection.
 Tests both SafetyHandler and StructureHandler fixes.
 """
-import sys
-import os
-
-sys.path.append(os.getcwd())
 
 from app.heuristics.handlers.safety import SafetyHandler
 from app.heuristics.handlers.structure import StructureHandler
 from app.models import IR
-from app.models_v2 import IRv2, PolicyV2
+from app.models_v2 import IRv2
 
 
 def _make_ir1(text: str) -> IR:
@@ -53,7 +49,10 @@ def test_prompt_injection_ignore_all_previous():
     assert len(ir2.diagnostics) > 0, "Should detect injection pattern"
     security_diagnostics = [d for d in ir2.diagnostics if d.category == "security"]
     assert len(security_diagnostics) > 0, "Should have security diagnostic"
-    assert "injection" in security_diagnostics[0].message.lower() or "threat" in security_diagnostics[0].message.lower()
+    assert (
+        "injection" in security_diagnostics[0].message.lower()
+        or "threat" in security_diagnostics[0].message.lower()
+    )
 
     # Verify security metadata was updated
     assert ir2.metadata["security"]["is_safe"] is False, "Should mark as unsafe"

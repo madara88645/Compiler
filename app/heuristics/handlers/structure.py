@@ -75,8 +75,7 @@ class StructureHandler(BaseHandler):
 
         # Priority order: JSON > XML > CSV > Markdown table > List
         target_format = None
-        format_label = None
-        
+
         for fmt, patterns in [
             ("JSON", format_patterns["json"]),
             ("XML", format_patterns["xml"]),
@@ -87,7 +86,6 @@ class StructureHandler(BaseHandler):
             for pattern in patterns:
                 if re.search(pattern, lower_text, re.IGNORECASE):
                     target_format = fmt
-                    format_label = fmt
                     break
             if target_format:
                 break
@@ -96,17 +94,22 @@ class StructureHandler(BaseHandler):
         if target_format:
             # Check if the detected format contradicts the IR's output_format field
             current_output_format = ir_v2.output_format.lower()
-            
+
             # Only inject if it aligns or if output_format is generic (markdown/text)
             should_inject = True
             if current_output_format not in ["markdown", "text", "auto", ""]:
                 # Check if detected format matches chosen format
                 fmt_lower = target_format.lower().replace(" ", "_")
-                if fmt_lower not in current_output_format and current_output_format not in fmt_lower:
+                if (
+                    fmt_lower not in current_output_format
+                    and current_output_format not in fmt_lower
+                ):
                     should_inject = False
-            
+
             if should_inject:
-                constraint_text = f"Output strict {target_format}. Do not output conversational text."
+                constraint_text = (
+                    f"Output strict {target_format}. Do not output conversational text."
+                )
                 ir_v2.constraints.append(
                     ConstraintV2(
                         id=f"structure_strict_{target_format.lower().replace(' ', '_')}",
