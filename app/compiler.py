@@ -58,13 +58,13 @@ logger = logging.getLogger(__name__)
 
 def merge_policy_from_critique(ir2: IRv2, critique: Dict[str, Any]) -> None:
     """
-    Merge critique verdict and safety findings into IR policy.
+    Add critique quality feedback as diagnostics without escalating security policy.
 
-    This ensures the UI shows the WORST-CASE policy across:
-    - v1 heuristic layer (ir.policy)
-    - v2/critique layer (critique.verdict)
-    - SafetyHandler flags
-    - scan_text findings
+    The critique evaluates prompt quality (hallucination, constraint violations, logic errors),
+    NOT safety. Security policy escalation is driven by SafetyHandler/PolicyHandler via
+    ir2.metadata.security.is_safe and policy.risk_level (set by #720).
+
+    This function only adds informational diagnostics about quality concerns.
     """
     if not critique:
         return
@@ -73,46 +73,10 @@ def merge_policy_from_critique(ir2: IRv2, critique: Dict[str, Any]) -> None:
     issues = critique.get("issues", [])
     score = critique.get("score", 0)
 
-    # If critique REJECTs or has critical issues, escalate policy to max severity
-    has_critical = any(
-        issue.get("severity", "").lower() in ("critical", "high") for issue in issues
-    )
-
-    if verdict == "REJECT" or has_critical or score < 30:
-        # Escalate to maximum severity
-        ir2.policy.risk_level = "high"
-        ir2.policy.execution_mode = "advice_only"
-
-        # Add critique issues to risk domains
-        critique_domains = []
-        for issue in issues:
-            issue_type = issue.get("type", "")
-            if issue_type:
-                critique_domains.append(f"critique:{issue_type.lower().replace(' ', '_')}")
-
-        ir2.policy.risk_domains = list(
-            set(ir2.policy.risk_domains + critique_domains + ["security", "safety"])
-        )
-
-        # Add sanitization rules
-        ir2.policy.sanitization_rules = list(
-            set(ir2.policy.sanitization_rules + ["critique_rejected", "manual_review_required"])
-        )
-
-        # Add diagnostic
-        feedback = critique.get("feedback", "The critique layer identified security concerns.")
-        ir2.diagnostics.append(
-            DiagnosticItem(
-                severity="critical",
-                message=f"Critique verdict: {verdict}",
-                suggestion=feedback,
-                category="security",
-            )
-        )
-
-        # Store critique in metadata
-        ir2.metadata["critique_verdict"] = verdict
-        ir2.metadata["critique_score"] = score
+    # Store critique metadata for UI display (informational only)
+    ir2.metadata["critique_verdict"] = verdict
+    ir2.metadata["critique_score"] = score
+    if issues:
         ir2.metadata["critique_issues"] = [
             {
                 "type": issue.get("type", ""),
@@ -122,27 +86,29 @@ def merge_policy_from_critique(ir2: IRv2, critique: Dict[str, Any]) -> None:
             for issue in issues
         ]
 
-    elif verdict == "WARN" or score < 60:
-        # Escalate to medium if currently low
-        if ir2.policy.risk_level == "low":
-            ir2.policy.risk_level = "medium"
-
-        # Change execution mode to require approval if currently auto_ok
-        if ir2.policy.execution_mode == "auto_ok":
-            ir2.policy.execution_mode = "human_approval_required"
-
-        # Add diagnostic
+    # Add quality diagnostics based on critique verdict
+    # DO NOT escalate risk_level or execution_mode - those are driven by SafetyHandler
+    if verdict == "REJECT":
+        feedback = critique.get(
+            "feedback", "The critique identified quality concerns with this prompt."
+        )
         ir2.diagnostics.append(
             DiagnosticItem(
                 severity="warning",
-                message=f"Critique raised concerns (score: {score})",
+                message=f"Critique quality check: {verdict}",
+                suggestion=feedback,
+                category="quality",
+            )
+        )
+    elif verdict == "WARN" or score < 60:
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="info",
+                message=f"Critique raised minor concerns (score: {score})",
                 suggestion=critique.get("feedback", "Review the critique feedback."),
                 category="quality",
             )
         )
-
-        ir2.metadata["critique_verdict"] = verdict
-        ir2.metadata["critique_score"] = score
 
 
 GENERIC_GOAL = {

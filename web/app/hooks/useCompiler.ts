@@ -14,51 +14,35 @@ import type {
 const REQUEST_TIMEOUT_MS = 190_000;
 
 function extractSecurityMetadata(result: CompileResponse): SecurityMetadata | undefined {
-  // Check v1 security metadata from scan_text
+  // Only extract REAL security metadata from SafetyHandler/PolicyHandler
+  // The critique evaluates quality, not safety - do not conflate them
+
+  // Primary safety signal: v1 security metadata from scan_text/SafetyHandler
   const v1Security = result.ir.metadata?.security;
 
-  // Check critique verdict
-  const critique = result.critique;
-  const critiqueVerdict = critique?.verdict?.toUpperCase();
-
-  // Check if there are critical diagnostics in ir_v2
-  const criticalDiagnostics = (result.ir_v2?.diagnostics ?? []).filter(
-    (d) => d.severity === "critical"
+  // Secondary safety signal: critical security/safety diagnostics from SafetyHandler
+  const criticalSecurityDiagnostics = (result.ir_v2?.diagnostics ?? []).filter(
+    (d) => d.severity === "critical" && (d.category === "security" || d.category === "safety")
   );
 
-  // If critique REJECTs or has critical security diagnostics, escalate to security alert
-  const hasCritiqueRejection = critiqueVerdict === "REJECT";
-  const hasCriticalSecurityDiagnostic = criticalDiagnostics.some(
-    (d) => d.category === "security" || d.category === "safety"
-  );
-
-  if (hasCritiqueRejection || hasCriticalSecurityDiagnostic) {
-    // Build findings from critique issues
-    const critiqueFindings = (critique?.issues || []).map((issue) => ({
-      type: `critique_${issue.type.toLowerCase().replace(/\s+/g, "_")}`,
+  // If there are critical security diagnostics (not quality), merge them into findings
+  if (criticalSecurityDiagnostics.length > 0 && v1Security) {
+    const diagnosticFindings = criticalSecurityDiagnostics.map((d) => ({
+      type: `${d.category}_diagnostic`,
       original: "***",
-      masked: `[SECURITY CONCERN: ${issue.type}]`,
+      masked: `[${d.category.toUpperCase()}: ${d.message}]`,
     }));
 
-    // Merge with v1 security findings if any
-    const allFindings = [
-      ...(v1Security?.findings || []),
-      ...critiqueFindings,
-    ];
-
-    // Create a synthetic redacted text message
-    const redactedText = result.ir.metadata?.original_text || "";
-    const securityMessage = hasCritiqueRejection
-      ? `\n\n[SECURITY NOTICE: This request was flagged by the critique layer. Verdict: ${critiqueVerdict}. Feedback: ${critique?.feedback || "N/A"}]`
-      : `\n\n[SECURITY NOTICE: Critical security diagnostics were detected.]`;
-
     return {
-      is_safe: false,
-      findings: allFindings,
-      redacted_text: redactedText + securityMessage,
+      ...v1Security,
+      findings: [
+        ...(v1Security.findings || []),
+        ...diagnosticFindings,
+      ],
     };
   }
 
+  // Return the original safety signal from SafetyHandler
   return v1Security;
 }
 
