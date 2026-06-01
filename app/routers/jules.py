@@ -88,7 +88,7 @@ def generate_jules_reply(
     if instruction_text:
         fallback = f"{instruction_text}\n\n{fallback}".strip()
 
-    if not (os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")):
+    if not os.getenv("OPENROUTER_API_KEY"):
         return fallback[:2000]
 
     worker = WorkerClient()

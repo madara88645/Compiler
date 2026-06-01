@@ -272,9 +272,11 @@ cp .env.example .env
 Core variables:
 
 ```env
-OPENAI_API_KEY=sk-your-actual-key
-OPENAI_BASE_URL=https://api.openai.com
-GROQ_API_KEY=gsk_your_groq_key
+OPENROUTER_API_KEY=sk-or-v1-your-actual-key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=openai/gpt-oss-20b
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_TITLE=Prompt Compiler
 
 # Prompt compiler mode: conservative (default) or default
 PROMPT_COMPILER_MODE=conservative
@@ -291,7 +293,8 @@ PROMPTC_RAG_ALLOWED_ROOTS=
 Notes:
 
 - Public app routes are intended to work without custom Prompt Compiler API keys.
-- `OPENAI_API_KEY` / `GROQ_API_KEY` are server-side provider credentials, not values that visitors should type into the app.
+- `OPENROUTER_API_KEY` is a server-side provider credential, not a value that visitors should type into the app.
+- Prompt Compiler's cloud path is OpenRouter-only. Groq and legacy OpenAI fallback guidance should be treated as obsolete.
 - If you set `PROMPTC_RAG_ALLOWED_ROOTS`, only files inside those roots can be ingested by path.
 
 ---

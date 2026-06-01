@@ -34,7 +34,7 @@ npm run test:contracts
 
 - Browser calls stay same-origin and hit the Next proxy layer first. Server-side proxy handlers forward to `NEXT_PUBLIC_API_URL` (or `http://127.0.0.1:8080` locally).
 - Public web flows should never ask visitors for a Prompt Compiler API key or rely on proxy-only secret setup in the browser.
-- If a cloud feature needs credentials, that configuration belongs on the backend via provider keys such as `OPENAI_API_KEY` or `GROQ_API_KEY`.
+- If a cloud feature needs credentials, that configuration belongs on the backend via provider keys such as `OPENROUTER_API_KEY`.
 - `/rag/search` returns canonical items shaped like `{ path, snippet, score }`.
 - `/rag/upload` returns canonical ingest metadata and may also include compatibility fields.
 - Public app routes should not return `403` just because a Prompt Compiler-specific API key is missing.

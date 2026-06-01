@@ -224,7 +224,7 @@ def test_benchmark_requires_api_key():
         mock_llm.side_effect = ["raw output", "compiled output"]
         response = client.post(
             "/benchmark/run",
-            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
         )
 
     assert response.status_code == 403
