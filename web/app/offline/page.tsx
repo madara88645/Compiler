@@ -216,23 +216,6 @@ export default function OfflinePage() {
                                     aria-labelledby={`tab-${activeTab}`}
                                     className="flex-1 p-0 overflow-hidden relative group bg-black/20"
                                 >
-                                    {/* Badge */}
-                                    <div
-                                        className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity cursor-help group/reasoning-v2"
-                                        tabIndex={0}
-                                        title="Reasoning V2 enabled"
-                                    >
-                                        <div className="relative flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                            <span className="text-[10px] text-zinc-400 font-medium">Reasoning V2</span>
-                                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/reasoning-v2:opacity-100 group-hover/reasoning-v2:visible group-focus/reasoning-v2:opacity-100 group-focus/reasoning-v2:visible transition-all z-50 pointer-events-none">
-                                                <div className="text-xs text-zinc-300 leading-relaxed">
-                                                    Offline mode uses the V2 heuristic engine for faster, deterministic prompt compilation without requiring an API connection.
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     {activeTab !== "json" && (
                                         <>
                                             <textarea
