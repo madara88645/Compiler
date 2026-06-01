@@ -417,6 +417,44 @@ def compile_endpoint(
 
     elapsed = int((time.time() - t0) * 1000)
 
+    # Enforce REJECT verdict: if critique says REJECT (especially with critical issues),
+    # return a safe refusal payload instead of the compiled prompts
+    if critique_result and critique_result.get("verdict") == "REJECT":
+        has_critical = any(
+            issue.get("severity") == "critical"
+            for issue in critique_result.get("issues", [])
+        )
+        if has_critical:
+            logger.warning(
+                "Critique REJECT verdict with critical issues - returning refusal payload",
+                extra={"request_id": rid, "critique": critique_result},
+            )
+            refusal_message = (
+                "Request rejected due to policy violation. "
+                "The critique identified critical issues that prevent compilation."
+            )
+            if critique_result.get("feedback"):
+                refusal_message = critique_result["feedback"]
+
+            return CompileResponse(
+                ir=ir.model_dump(),
+                ir_v2=(ir2.model_dump() if ir2 else None),
+                system_prompt=refusal_message,
+                user_prompt="",
+                plan="",
+                expanded_prompt=refusal_message,
+                system_prompt_v2=refusal_message,
+                user_prompt_v2="",
+                plan_v2="",
+                expanded_prompt_v2=refusal_message,
+                processing_ms=elapsed,
+                request_id=rid,
+                heuristic_version=HEURISTIC_VERSION,
+                heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
+                trace=trace_lines,
+                critique=critique_result,
+            )
+
     return CompileResponse(
         ir=ir.model_dump(),
         ir_v2=(ir2.model_dump() if ir2 else None),
