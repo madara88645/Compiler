@@ -446,7 +446,7 @@ export default function Home() {
 
                           {/* Reasoning Badge */}
                           {result.system_prompt_v2 ? (
-                            <div 
+                            <div
                               className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md cursor-help group/reasoning relative"
                               tabIndex={0}
                               title="Reasoning Model enabled"

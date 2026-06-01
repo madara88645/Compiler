@@ -217,7 +217,7 @@ export default function OfflinePage() {
                                     className="flex-1 p-0 overflow-hidden relative group bg-black/20"
                                 >
                                     {/* Badge */}
-                                    <div 
+                                    <div
                                         className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity cursor-help group/reasoning-v2"
                                         tabIndex={0}
                                         title="Reasoning V2 enabled"
