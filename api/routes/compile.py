@@ -408,6 +408,13 @@ def compile_endpoint(
                 system_prompt=sys_v2,
                 context=context_str,
             ).model_dump()
+
+            # Merge critique verdict into policy (#700)
+            if ir2:
+                from app.compiler import merge_policy_from_critique
+
+                merge_policy_from_critique(ir2, critique_result)
+
         except Exception:
             logger.warning(
                 "Critique generation skipped",

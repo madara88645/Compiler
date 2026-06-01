@@ -56,6 +56,61 @@ from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
 logger = logging.getLogger(__name__)
 
 
+def merge_policy_from_critique(ir2: IRv2, critique: Dict[str, Any]) -> None:
+    """
+    Add critique quality feedback as diagnostics without escalating security policy.
+
+    The critique evaluates prompt quality (hallucination, constraint violations, logic errors),
+    NOT safety. Security policy escalation is driven by SafetyHandler/PolicyHandler via
+    ir2.metadata.security.is_safe and policy.risk_level (set by #720).
+
+    This function only adds informational diagnostics about quality concerns.
+    """
+    if not critique:
+        return
+
+    verdict = critique.get("verdict", "").upper()
+    issues = critique.get("issues", [])
+    score = critique.get("score", 0)
+
+    # Store critique metadata for UI display (informational only)
+    ir2.metadata["critique_verdict"] = verdict
+    ir2.metadata["critique_score"] = score
+    if issues:
+        ir2.metadata["critique_issues"] = [
+            {
+                "type": issue.get("type", ""),
+                "description": issue.get("description", ""),
+                "severity": issue.get("severity", ""),
+            }
+            for issue in issues
+        ]
+
+    # Add quality diagnostics based on critique verdict
+    # DO NOT escalate risk_level or execution_mode - those are driven by SafetyHandler
+    if verdict == "REJECT":
+        feedback = critique.get(
+            "feedback", "The critique identified quality concerns with this prompt."
+        )
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="warning",
+                message=f"Critique quality check: {verdict}",
+                suggestion=feedback,
+                category="quality",
+            )
+        )
+    elif verdict == "WARN" or score < 60:
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="info",
+                message=f"Critique raised minor concerns (score: {score})",
+                suggestion=critique.get("feedback", "Review the critique feedback."),
+                category="quality",
+            )
+        )
+
+
 GENERIC_GOAL = {
     "tr": "İsteği yerine getir ve faydalı, doğru bir cevap üret.",
     "en": "Satisfy the request and produce a helpful, correct answer.",
@@ -65,6 +120,23 @@ RECENCY_CONSTRAINT_TR = "Güncel bilgi gerektirir; cevap üretmeden önce web ar
 RECENCY_CONSTRAINT_EN = "Requires up-to-date info; perform web research before answering."
 
 _SENTENCE_SPLIT_PATTERN = re.compile(r"[\n;.]+")
+
+_ADVERSARIAL_PATTERNS = [
+    r"ignore\s+(?:previous|all|the)\s+(?:instructions|rules|prompts?)",
+    r"system\s+prompt\s+injection",
+    r"bypass\s+(?:filter|guard|safety)",
+    r"jailbreak",
+    r"pretend\s+you\s+are",
+    r"act\s+as\s+if",
+    r"forget\s+(?:your|all|the)\s+(?:instructions|rules)",
+    r"disregard\s+(?:previous|all|the)\s+(?:instructions|rules)",
+]
+_ADVERSARIAL_RE = re.compile("|".join(_ADVERSARIAL_PATTERNS), re.IGNORECASE)
+
+
+def _is_adversarial(sentence: str) -> bool:
+    """Check if a sentence contains adversarial patterns."""
+    return bool(_ADVERSARIAL_RE.search(sentence))
 
 
 def split_sentences(text: str) -> List[str]:
@@ -78,6 +150,9 @@ def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
     tasks: List[str] = []
     for s in sentences:
         if len(s.split()) < 2:
+            continue
+        # Filter out adversarial text
+        if _is_adversarial(s):
             continue
         if len(goals) < 3:
             goals.append(s)
