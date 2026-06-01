@@ -31,6 +31,19 @@ def test_default_openrouter_gpt_oss_20b_pricing_is_applied():
     assert estimate.estimated_cost_usd == pytest.approx(0.075)
 
 
+def test_gemini_flash_lite_pricing_is_applied():
+    estimate = estimate_prompt_cost(
+        "hello world",
+        model="google/gemini-2.5-flash-lite",
+        token_count_override=1_000_000,
+    )
+
+    assert estimate.input_rate_per_million == pytest.approx(0.10)
+    assert estimate.output_rate_per_million == pytest.approx(0.40)
+    assert estimate.estimated_cost_usd == pytest.approx(0.10)
+    assert not estimate.warnings
+
+
 def test_unknown_model_returns_zero_cost_with_warning():
     estimate = estimate_prompt_cost("hello world", model="unknown-model")
 
