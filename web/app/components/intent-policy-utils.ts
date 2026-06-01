@@ -267,7 +267,7 @@ export function normalizeIntentPolicy(result: CompileResultLike): NormalizedInte
   }
 
   // Determine execution mode from policy
-  let executionMode = policy.execution_mode ?? "advice_only";
+  const executionMode = policy.execution_mode ?? "advice_only";
 
   // Merge risk domains from policy and legacy flags
   const riskDomains = [
