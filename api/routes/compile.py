@@ -352,6 +352,13 @@ def compile_endpoint(
     trace_lines = generate_trace(ir) if req.trace else None
     ir2 = compile_text_v2(req.text, offline_only=not req.v2)
 
+    # The heuristic v2 pipeline runs the SafetyHandler (injection / secret-exfiltration
+    # scan). The LLM worker path below rebuilds ir2 and does NOT run that scan, so capture
+    # the safety verdict here and re-apply it after the worker overwrites ir2 (see #719).
+    heuristic_security = dict(ir2.metadata.get("security") or {}) if ir2 else {}
+    heuristic_unsafe = heuristic_security.get("is_safe") is False
+    heuristic_risk_domains = list(ir2.policy.risk_domains) if (ir2 and heuristic_unsafe) else []
+
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
     mode = resolve_mode(req.mode, request)
 
@@ -360,6 +367,22 @@ def compile_endpoint(
             compiler = _get_compiler()
             worker_res = compiler.compile(req.text, mode=mode)
             ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
+
+            # Re-apply the heuristic safety verdict — the worker IR does not run the
+            # SafetyHandler, so without this an unsafe prompt would lose its
+            # is_safe=False flag and skip the safety refusal (#719).
+            if heuristic_unsafe and ir2 is not None:
+                sec = ir2.metadata.setdefault(
+                    "security", {"is_safe": True, "findings": [], "redacted_text": req.text}
+                )
+                sec["is_safe"] = False
+                if heuristic_security.get("findings"):
+                    sec["findings"] = heuristic_security["findings"]
+                ir2.policy.risk_level = "high"
+                ir2.policy.data_sensitivity = "sensitive"
+                for dom in ("security", *heuristic_risk_domains):
+                    if dom not in ir2.policy.risk_domains:
+                        ir2.policy.risk_domains.append(dom)
             if used_fallback:
                 logger.warning(
                     "LLM compile returned unusable IR; falling back to local v2 heuristics",
