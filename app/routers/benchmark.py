@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import re
 import time
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,12 +36,31 @@ _HEADER_RE = re.compile(r"^#{1,3} ", re.MULTILINE)
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
 MAX_BENCHMARK_TEXT_LENGTH = 4000
-SUPPORTED_BENCHMARK_MODELS = {
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
-    "mistralai/mistral-small-3.2-24b-instruct",
-    "qwen/qwen3-32b",
-}
+_BENCHMARK_MODEL_MANIFEST_PATH = (
+    Path(__file__).resolve().parents[2] / "web" / "app" / "benchmark" / "models.json"
+)
+
+
+@lru_cache(maxsize=1)
+def _load_benchmark_model_manifest() -> tuple[dict[str, str], ...]:
+    raw = json.loads(_BENCHMARK_MODEL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("Benchmark model manifest must contain at least one model")
+
+    manifest: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ValueError("Benchmark model manifest entries must be objects")
+        model_id = item.get("id")
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise ValueError("Benchmark model manifest entries must include a non-empty id")
+        manifest.append(item)
+
+    return tuple(manifest)
+
+
+SUPPORTED_BENCHMARK_MODELS = tuple(item["id"] for item in _load_benchmark_model_manifest())
+DEFAULT_BENCHMARK_MODEL = SUPPORTED_BENCHMARK_MODELS[0]
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +78,7 @@ class BenchmarkRequest(BaseModel):
         description="Raw user input prompt",
     )
     model: str = Field(
-        default="openai/gpt-oss-20b",
+        default=DEFAULT_BENCHMARK_MODEL,
         description="LLM model identifier (e.g. 'openai/gpt-oss-20b')",
     )
 
