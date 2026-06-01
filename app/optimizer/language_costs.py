@@ -20,6 +20,8 @@ TOKENIZER_METHOD = "tiktoken:o200k_base:estimated"
 OPENROUTER_RATES: dict[str, dict[str, float]] = {
     "openai/gpt-oss-20b": {"input": 0.075, "output": 0.30},
     "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
+    "google/gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
+    "google/gemini-2.5-flash": {"input": 0.30, "output": 2.50},
     "mistralai/mistral-small-3.2-24b-instruct": {"input": 0.075, "output": 0.20},
     "qwen/qwen3-32b": {"input": 0.08, "output": 0.28},
 }
