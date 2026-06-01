@@ -443,28 +443,6 @@ export default function Home() {
                               </div>
                             </div>
                           )}
-
-                          {/* Reasoning Badge */}
-                          {result.system_prompt_v2 ? (
-                            <div
-                              className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md cursor-help group/reasoning relative"
-                              tabIndex={0}
-                              title="Reasoning Model enabled"
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
-                              <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
-                              <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/reasoning:opacity-100 group-hover/reasoning:visible group-focus/reasoning:opacity-100 group-focus/reasoning:visible transition-all z-50 pointer-events-none">
-                                <div className="text-xs text-zinc-300 leading-relaxed">
-                                  This output was generated using extended reasoning capabilities for deeper analysis and more structured responses.
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md">
-                              <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                              <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
-                            </div>
-                          )}
                         </div>
 
                         <textarea
