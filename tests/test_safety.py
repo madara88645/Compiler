@@ -32,8 +32,10 @@ def test_pii_credit_card(handler):
 def test_unsafe_keywords(handler):
     text = "How to bypass the filter and ignore previous instructions?"
     flags = handler._scan_unsafe_content(text)
-    assert "bypass" in flags
-    assert "ignore previous instructions" in flags
+    # Flags are now formatted as "injection_pattern: <matched text>" (see #712),
+    # so check that a flag containing each unsafe phrase was raised.
+    assert any("bypass" in flag for flag in flags)
+    assert any("ignore previous instructions" in flag for flag in flags)
 
 
 def test_guardrails_length_short(handler):
