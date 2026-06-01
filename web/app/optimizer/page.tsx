@@ -187,7 +187,7 @@ export default function OptimizerPage() {
     const router = useRouter();
     const [input, setInput] = useState(() => {
         if (typeof window === "undefined") return "";
-        return window.localStorage.getItem("promptc_last_prompt") || "";
+        return window.localStorage.getItem("promptc_optimizer_prompt") || "";
     });
     const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -275,7 +275,7 @@ export default function OptimizerPage() {
 
     const handleSendToCompiler = () => {
         if (!output) return;
-        window.localStorage.setItem("promptc_last_prompt", output);
+        window.localStorage.setItem("promptc_compiler_prompt", output);
         router.push("/");
     };
 
@@ -402,12 +402,15 @@ export default function OptimizerPage() {
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Original Prompt
                     </label>
-                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40">
+                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40 relative">
                         <textarea
                             id="original-prompt"
                             aria-label="Original Prompt"
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={(e) => {
+                                setInput(e.target.value);
+                                window.localStorage.setItem("promptc_optimizer_prompt", e.target.value);
+                            }}
                             onKeyDown={(e) => {
                                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                     e.preventDefault();
@@ -419,6 +422,20 @@ export default function OptimizerPage() {
                             placeholder="Paste a verbose prompt here..."
                             className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
                         />
+                        {input && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setInput("");
+                                    window.localStorage.removeItem("promptc_optimizer_prompt");
+                                }}
+                                className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/50"
+                                title="Clear prompt"
+                                aria-label="Clear prompt"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </section>
 

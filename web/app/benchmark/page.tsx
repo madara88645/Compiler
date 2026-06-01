@@ -58,7 +58,7 @@ function isBackendConfigIssue(message: string | null): boolean {
 export default function BenchmarkPage() {
   const [prompt, setPrompt] = useState(() => {
     if (typeof window === "undefined") return "";
-    return window.localStorage.getItem("promptc_last_prompt") || "";
+    return window.localStorage.getItem("promptc_benchmark_prompt") || "";
   });
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
@@ -271,7 +271,10 @@ export default function BenchmarkPage() {
                 className="h-full min-h-[160px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                 placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  window.localStorage.setItem("promptc_benchmark_prompt", event.target.value);
+                }}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                     event.preventDefault();
@@ -281,6 +284,20 @@ export default function BenchmarkPage() {
                   }
                 }}
               />
+              {prompt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrompt("");
+                    window.localStorage.removeItem("promptc_benchmark_prompt");
+                  }}
+                  className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/50"
+                  title="Clear prompt"
+                  aria-label="Clear prompt"
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
             <button

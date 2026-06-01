@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { WifiOff } from "lucide-react";
 import ContextManager from "../components/ContextManager";
+import CopyButton from "../components/CopyButton";
 import { describeRequestError } from "@/config";
 import { compilePrompt } from "../../lib/api/promptc";
 import type { CompileMode, CompileResponse } from "../../lib/api/types";
@@ -142,6 +143,17 @@ export default function OfflinePage() {
                                     }
                                 }}
                             />
+                            {prompt && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPrompt("")}
+                                    className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500/50"
+                                    title="Clear prompt"
+                                    aria-label="Clear prompt"
+                                >
+                                    Clear
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-4">
@@ -205,10 +217,19 @@ export default function OfflinePage() {
                                     className="flex-1 p-0 overflow-hidden relative group bg-black/20"
                                 >
                                     {/* Badge */}
-                                    <div className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
+                                    <div
+                                        className="absolute top-4 right-6 z-10 opacity-50 hover:opacity-100 transition-opacity cursor-help group/reasoning-v2"
+                                        tabIndex={0}
+                                        title="Reasoning V2 enabled"
+                                    >
+                                        <div className="relative flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50">
                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                                             <span className="text-[10px] text-zinc-400 font-medium">Reasoning V2</span>
+                                            <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/reasoning-v2:opacity-100 group-hover/reasoning-v2:visible group-focus/reasoning-v2:opacity-100 group-focus/reasoning-v2:visible transition-all z-50 pointer-events-none">
+                                                <div className="text-xs text-zinc-300 leading-relaxed">
+                                                    Offline mode uses the V2 heuristic engine for faster, deterministic prompt compilation without requiring an API connection.
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -221,24 +242,27 @@ export default function OfflinePage() {
                                                 readOnly
                                                 value={getOfflineTabContent(result, activeTab)}
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => navigator.clipboard.writeText(getOfflineTabContent(result, activeTab))}
-                                                className="absolute bottom-6 right-6 bg-zinc-700 hover:bg-zinc-600 text-white p-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-                                                title="Copy"
-                                                aria-label="Copy to Clipboard"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                                            </button>
+                                            <CopyButton
+                                                text={getOfflineTabContent(result, activeTab)}
+                                                className="absolute bottom-6 right-6"
+                                                variant="gray"
+                                            />
                                         </>
                                     )}
 
                                     {activeTab === "json" && (
-                                        <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
-                                            <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
-                                                {JSON.stringify(result, null, 2)}
-                                            </pre>
-                                        </div>
+                                        <>
+                                            <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
+                                                <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
+                                                    {JSON.stringify(result, null, 2)}
+                                                </pre>
+                                            </div>
+                                            <CopyButton
+                                                text={JSON.stringify(result, null, 2)}
+                                                className="absolute bottom-6 right-6"
+                                                variant="gray"
+                                            />
+                                        </>
                                     )}
                                 </div>
                             </>
