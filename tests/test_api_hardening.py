@@ -217,7 +217,7 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 def test_benchmark_is_public_endpoint():
     """
     /benchmark/run should be accessible without API key (public endpoint).
-    
+
     This endpoint is rate-limited by IP but does not require authentication,
     following the CLAUDE.md policy for public web flows.
     """
@@ -353,7 +353,7 @@ def test_generator_endpoints_are_public():
     """
     /agent-generator/generate and /skills-generator/generate should be accessible
     without API key (public endpoints).
-    
+
     These endpoints are rate-limited by IP but do not require authentication,
     following the CLAUDE.md policy for public web flows.
     """
@@ -362,13 +362,13 @@ def test_generator_endpoints_are_public():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = "# Mock Agent"
         mock_compiler.generate_skill.return_value = "# Mock Skill"
-        
+
         agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
         skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
 
     # Both should succeed without API key (public endpoints)
     assert agent_resp.status_code == 200
     assert agent_resp.json() == {"system_prompt": "# Mock Agent"}
-    
+
     assert skill_resp.status_code == 200
     assert skill_resp.json() == {"skill_definition": "# Mock Skill"}
