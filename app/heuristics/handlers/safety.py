@@ -106,20 +106,24 @@ class SafetyHandler:
         # If injection detected, update security metadata and policy
         if has_injection:
             # Update security metadata to mark as unsafe
-            if "security" in ir2.metadata:
-                ir2.metadata["security"]["is_safe"] = False
-                ir2.metadata["security"]["findings"].append(
-                    {
-                        "type": "prompt_injection",
-                        "message": "Prompt injection or secret exfiltration attempt detected",
-                    }
-                )
+            # Use setdefault to ensure the key always exists (fixes #712 no-op bug)
+            sec = ir2.metadata.setdefault(
+                "security", {"is_safe": True, "findings": [], "redacted_text": text}
+            )
+            sec["is_safe"] = False
+            sec["findings"].append(
+                {
+                    "type": "prompt_injection",
+                    "message": "Prompt injection or secret exfiltration attempt detected",
+                }
+            )
 
             # Update policy to high risk
             ir2.policy.risk_level = "high"
             ir2.policy.data_sensitivity = "sensitive"
             ir2.policy.execution_mode = "advice_only"
-            ir2.policy.risk_domains.append("security")
+            if "security" not in ir2.policy.risk_domains:
+                ir2.policy.risk_domains.append("security")
 
             # Add to risk_flags in metadata so PolicyHandler can also see it
             ir1.metadata.setdefault("risk_flags", []).append("security_injection_attempt")
