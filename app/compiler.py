@@ -56,6 +56,95 @@ from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
 logger = logging.getLogger(__name__)
 
 
+def merge_policy_from_critique(ir2: IRv2, critique: Dict[str, Any]) -> None:
+    """
+    Merge critique verdict and safety findings into IR policy.
+
+    This ensures the UI shows the WORST-CASE policy across:
+    - v1 heuristic layer (ir.policy)
+    - v2/critique layer (critique.verdict)
+    - SafetyHandler flags
+    - scan_text findings
+    """
+    if not critique:
+        return
+
+    verdict = critique.get("verdict", "").upper()
+    issues = critique.get("issues", [])
+    score = critique.get("score", 0)
+
+    # If critique REJECTs or has critical issues, escalate policy to max severity
+    has_critical = any(
+        issue.get("severity", "").lower() in ("critical", "high") for issue in issues
+    )
+
+    if verdict == "REJECT" or has_critical or score < 30:
+        # Escalate to maximum severity
+        ir2.policy.risk_level = "high"
+        ir2.policy.execution_mode = "advice_only"
+
+        # Add critique issues to risk domains
+        critique_domains = []
+        for issue in issues:
+            issue_type = issue.get("type", "")
+            if issue_type:
+                critique_domains.append(f"critique:{issue_type.lower().replace(' ', '_')}")
+
+        ir2.policy.risk_domains = list(
+            set(ir2.policy.risk_domains + critique_domains + ["security", "safety"])
+        )
+
+        # Add sanitization rules
+        ir2.policy.sanitization_rules = list(
+            set(ir2.policy.sanitization_rules + ["critique_rejected", "manual_review_required"])
+        )
+
+        # Add diagnostic
+        feedback = critique.get("feedback", "The critique layer identified security concerns.")
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="critical",
+                message=f"Critique verdict: {verdict}",
+                suggestion=feedback,
+                category="security",
+            )
+        )
+
+        # Store critique in metadata
+        ir2.metadata["critique_verdict"] = verdict
+        ir2.metadata["critique_score"] = score
+        ir2.metadata["critique_issues"] = [
+            {
+                "type": issue.get("type", ""),
+                "description": issue.get("description", ""),
+                "severity": issue.get("severity", ""),
+            }
+            for issue in issues
+        ]
+
+    elif verdict == "WARN" or score < 60:
+        # Escalate to medium if currently low
+        if ir2.policy.risk_level == "low":
+            ir2.policy.risk_level = "medium"
+
+        # Change execution mode to require approval if currently auto_ok
+        if ir2.policy.execution_mode == "auto_ok":
+            ir2.policy.execution_mode = "human_approval_required"
+
+        # Add diagnostic
+        ir2.diagnostics.append(
+            DiagnosticItem(
+                severity="warning",
+                message=f"Critique raised concerns (score: {score})",
+                suggestion=critique.get("feedback", "Review the critique feedback."),
+                category="quality",
+            )
+        )
+
+        ir2.metadata["critique_verdict"] = verdict
+        ir2.metadata["critique_score"] = score
+
+
 GENERIC_GOAL = {
     "tr": "İsteği yerine getir ve faydalı, doğru bir cevap üret.",
     "en": "Satisfy the request and produce a helpful, correct answer.",
@@ -65,6 +154,23 @@ RECENCY_CONSTRAINT_TR = "Güncel bilgi gerektirir; cevap üretmeden önce web ar
 RECENCY_CONSTRAINT_EN = "Requires up-to-date info; perform web research before answering."
 
 _SENTENCE_SPLIT_PATTERN = re.compile(r"[\n;.]+")
+
+_ADVERSARIAL_PATTERNS = [
+    r"ignore\s+(?:previous|all|the)\s+(?:instructions|rules|prompts?)",
+    r"system\s+prompt\s+injection",
+    r"bypass\s+(?:filter|guard|safety)",
+    r"jailbreak",
+    r"pretend\s+you\s+are",
+    r"act\s+as\s+if",
+    r"forget\s+(?:your|all|the)\s+(?:instructions|rules)",
+    r"disregard\s+(?:previous|all|the)\s+(?:instructions|rules)",
+]
+_ADVERSARIAL_RE = re.compile("|".join(_ADVERSARIAL_PATTERNS), re.IGNORECASE)
+
+
+def _is_adversarial(sentence: str) -> bool:
+    """Check if a sentence contains adversarial patterns."""
+    return bool(_ADVERSARIAL_RE.search(sentence))
 
 
 def split_sentences(text: str) -> List[str]:
@@ -78,6 +184,9 @@ def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
     tasks: List[str] = []
     for s in sentences:
         if len(s.split()) < 2:
+            continue
+        # Filter out adversarial text
+        if _is_adversarial(s):
             continue
         if len(goals) < 3:
             goals.append(s)
