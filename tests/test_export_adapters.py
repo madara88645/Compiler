@@ -247,22 +247,22 @@ def test_claude_subagent_frontmatter_starts_at_column_zero():
     """Verify agent file starts with --- at column 0 (no leading spaces)."""
     ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
     file_spec = to_claude_subagent(ir)
-    
+
     content = file_spec["content"]
     lines = content.split("\n")
-    
+
     # First line must be exactly "---" with no leading spaces
     assert lines[0] == "---", f"Expected '---' at column 0, got: {repr(lines[0])}"
-    
+
     # Find the closing frontmatter line
     closing_idx = None
     for idx, line in enumerate(lines[1:], start=1):
         if line == "---":
             closing_idx = idx
             break
-    
+
     assert closing_idx is not None, "Missing closing --- in frontmatter"
-    
+
     # Verify frontmatter fields have no leading spaces
     for line in lines[1:closing_idx]:
         if line.strip():  # Skip empty lines
@@ -273,10 +273,10 @@ def test_claude_subagent_no_stray_code_fences():
     """Verify agent file contains no stray markdown code fences."""
     ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
     file_spec = to_claude_subagent(ir)
-    
+
     content = file_spec["content"]
     lines = content.split("\n")
-    
+
     # Count all ``` occurrences (should be 0 for regular agent markdown)
     fence_count = sum(1 for line in lines if line.strip().startswith("```"))
     assert fence_count == 0, f"Found {fence_count} stray code fence(s) in agent file"
@@ -287,14 +287,14 @@ def test_claude_subagent_strips_markdown_fences_from_prompt():
     # Create a markdown with code fences around it (simulating model output)
     fenced_markdown = "```markdown\n" + SINGLE_AGENT_MARKDOWN + "\n```"
     ir = parse_agent_markdown(fenced_markdown)
-    
+
     file_spec = to_claude_subagent(ir)
     content = file_spec["content"]
-    
+
     # Should not contain the wrapper fences
     assert not content.strip().startswith("```"), "Content starts with code fence"
     assert not content.strip().endswith("```"), "Content ends with code fence"
-    
+
     # Should still contain the actual agent content
     assert "Data Analyst" in content or "expert data analyst" in content
 
@@ -314,15 +314,15 @@ def test_claude_project_pack_claude_md_starts_at_column_zero():
     """Verify CLAUDE.md starts with # at column 0 (no leading spaces)."""
     ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
     pack = to_claude_project_pack(ir)
-    
+
     claude_md = next(item for item in pack if item["path"] == "CLAUDE.md")
     content = claude_md["content"]
     lines = content.split("\n")
-    
+
     # First line must start with # at column 0
     assert lines[0].startswith("#"), f"Expected heading at column 0, got: {repr(lines[0])}"
     assert not lines[0].startswith(" "), f"CLAUDE.md has leading spaces: {repr(lines[0])}"
-    
+
     # Check that all markdown headings start at column 0
     for line in lines:
         if line.strip().startswith("#"):
@@ -332,27 +332,34 @@ def test_claude_project_pack_claude_md_starts_at_column_zero():
 def test_named_subagent_frontmatter_at_column_zero():
     """Verify named subagents have frontmatter at column 0."""
     from app.adapters.claude_code import _named_subagent
-    
-    for name in ["compiler-architect", "prompt-safety-reviewer", "mcp-integrator", "frontend-polisher"]:
+
+    for name in [
+        "compiler-architect",
+        "prompt-safety-reviewer",
+        "mcp-integrator",
+        "frontend-polisher",
+    ]:
         content = _named_subagent(name)
         lines = content.split("\n")
-        
+
         # First line must be exactly "---"
         assert lines[0] == "---", f"Agent {name}: Expected '---' at column 0, got: {repr(lines[0])}"
-        
+
         # Find closing frontmatter
         closing_idx = None
         for idx, line in enumerate(lines[1:], start=1):
             if line == "---":
                 closing_idx = idx
                 break
-        
+
         assert closing_idx is not None, f"Agent {name}: Missing closing --- in frontmatter"
-        
+
         # Verify frontmatter fields have no leading spaces
         for line in lines[1:closing_idx]:
             if line.strip():
-                assert not line.startswith(" "), f"Agent {name}: Frontmatter line has leading spaces: {repr(line)}"
+                assert not line.startswith(
+                    " "
+                ), f"Agent {name}: Frontmatter line has leading spaces: {repr(line)}"
 
 
 def test_claude_mcp_tool_stub_output():

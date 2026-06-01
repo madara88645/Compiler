@@ -86,7 +86,8 @@ def to_claude_subagent(ir: AgentExportIR) -> dict[str, str]:
     tools = ", ".join(ir.allowed_tools or ["Read", "Edit", "Write"])
     description = ir.role or (ir.goals[0] if ir.goals else f"Specialized assistant for {ir.name}")
     clean_prompt = _strip_markdown_fences(ir.raw_system_prompt)
-    content = textwrap.dedent(f"""\
+    content = textwrap.dedent(
+        f"""\
 ---
 name: {slug}
 description: {description}
@@ -94,7 +95,8 @@ tools: {tools}
 ---
 
 {clean_prompt}
-""")
+"""
+    )
     return {"path": f".claude/agents/{slug}.md", "content": content}
 
 
@@ -124,7 +126,8 @@ def to_claude_project_pack(ir: AgentExportIR) -> list[dict[str, str]]:
 
 def to_claude_subagent_bundle(ir: AgentExportIR) -> list[dict[str, str]]:
     subagent = to_claude_subagent(ir)
-    readme = textwrap.dedent(f"""\
+    readme = textwrap.dedent(
+        f"""\
 # Claude Subagent Bundle
 
 Drop `{subagent["path"]}` into your repo, then ask Claude Code to use the `{_slugify(ir.name)}` subagent.
@@ -132,7 +135,8 @@ Drop `{subagent["path"]}` into your repo, then ask Claude Code to use the `{_slu
 Recommended usage:
 - Keep `CLAUDE.md` in the repo root for shared guidance.
 - Add `.claude/settings.json` if you want permission guardrails alongside this agent.
-""")
+"""
+    )
     return [
         subagent,
         {"path": "README.md", "content": readme},
@@ -159,7 +163,8 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
         + ("" if param.required else " | None = None")
         for param in ir.params
     )
-    content = textwrap.dedent(f"""\
+    content = textwrap.dedent(
+        f"""\
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("{tool_name}")
@@ -173,14 +178,17 @@ async def {tool_name}({param_signature}) -> str:
 
 if __name__ == "__main__":
     mcp.run()
-""")
-    readme = textwrap.dedent(f"""\
+"""
+    )
+    readme = textwrap.dedent(
+        f"""\
 # {tool_name} MCP Tool Stub
 
 Generated from Prompt Compiler for Claude Code / MCP workflows.
 
 Purpose: {ir.purpose}
-""")
+"""
+    )
     return [
         {"path": "server.py", "content": content},
         {"path": "README.md", "content": readme},
@@ -197,7 +205,8 @@ def _project_claude_md(ir: AgentExportIR) -> str:
         or "- Do not leak secrets."
     )
     mcp_servers = ", ".join(ir.mcp_servers) if ir.mcp_servers else "none yet"
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
 # Prompt Compiler Claude Code Memory
 
 ## Project Summary
@@ -225,7 +234,8 @@ Prompt Compiler is a FastAPI + Next.js product that turns vague requests into st
 - Permission mode: `{ir.permission_mode}`
 - Suggested tools: {", ".join(ir.allowed_tools)}
 - Suggested MCP servers: {mcp_servers}
-""")
+"""
+    )
 
 
 def _project_settings_json(ir: AgentExportIR) -> str:
@@ -280,7 +290,8 @@ def _named_subagent(name: str) -> str:
         "mcp-integrator": "Read, Edit, Write, Grep, Glob, Bash",
         "frontend-polisher": "Read, Edit, Write, Grep, Glob, Bash",
     }
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
 ---
 name: {name}
 description: {descriptions[name]}
@@ -288,11 +299,13 @@ tools: {tools[name]}
 ---
 
 {prompts[name]}
-""")
+"""
+    )
 
 
 def _github_action_workflow() -> str:
-    return textwrap.dedent("""\
+    return textwrap.dedent(
+        """\
 name: Claude Code
 
 on:
@@ -314,7 +327,8 @@ jobs:
             Follow CLAUDE.md, inspect the referenced issue or PR context,
             and respond or create changes only when the request is actionable.
           claude_args: "--max-turns 5"
-""")
+"""
+    )
 
 
 def _pr_reviewer_memory(ir: AgentExportIR) -> str:
@@ -322,7 +336,8 @@ def _pr_reviewer_memory(ir: AgentExportIR) -> str:
         "\n".join(f"- {goal}" for goal in ir.goals[:4])
         or "- Review code changes for risk, regressions, and safety gaps."
     )
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
 # Claude PR Reviewer Memory
 
 ## Mission
@@ -339,11 +354,13 @@ Review pull requests with a focus on prompt safety, secret handling, permission 
 - Do not expose secrets or credentials.
 - Flag unsafe `.claude/settings.json` permissions.
 - Call out prompt leakage, weak validation, and missing regression coverage.
-""")
+"""
+    )
 
 
 def _pr_reviewer_readme() -> str:
-    return textwrap.dedent("""\
+    return textwrap.dedent(
+        """\
 # Claude PR Reviewer Pack
 
 This pack gives Claude Code a dedicated `pr-reviewer` subagent plus review-focused repo memory.
@@ -351,7 +368,8 @@ This pack gives Claude Code a dedicated `pr-reviewer` subagent plus review-focus
 Suggested prompts:
 - `Use the pr-reviewer subagent to review this pull request for prompt leakage and unsafe settings.`
 - `Review this diff for missing tests, secret exposure, and MCP misconfiguration.`
-""")
+"""
+    )
 
 
 def _ordered_tools(tools: list[str]) -> list[str]:
