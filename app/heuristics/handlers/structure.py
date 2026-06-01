@@ -31,6 +31,7 @@ class StructureHandler(BaseHandler):
     def handle(self, ir_v2: IRv2, ir_v1: IR) -> None:
         """
         Detect output format keywords and inject strict constraints.
+        Only inject format constraint when user explicitly requests that output format.
         """
         text = ir_v2.tasks[0] if ir_v2.tasks else ""
         # Also check original text if available
@@ -39,47 +40,82 @@ class StructureHandler(BaseHandler):
 
         lower_text = text.lower()
 
-        # Keywords to detect
-        formats = {
-            "json": "JSON",
-            "csv": "CSV",
-            "xml": "XML",
-            "markdown table": "Markdown table",
-            "list": "List",
+        # Context-aware format detection patterns
+        # These patterns look for explicit requests, not incidental nouns
+        format_patterns = {
+            "json": [
+                r"\b(?:in|as|output|return|format|generate|produce)\s+json\b",
+                r"\bjson\s+(?:format|output|response|structure)\b",
+                r"\boutput\s*:\s*json\b",
+            ],
+            "xml": [
+                r"\b(?:in|as|output|return|format|generate|produce)\s+xml\b",
+                r"\bxml\s+(?:format|output|response|structure)\b",
+                r"\boutput\s*:\s*xml\b",
+            ],
+            "csv": [
+                r"\b(?:in|as|output|return|format|generate|produce)\s+csv\b",
+                r"\bcsv\s+(?:format|output|file)\b",
+                r"\boutput\s*:\s*csv\b",
+            ],
+            "markdown table": [
+                r"\bmarkdown\s+table\b",
+                r"\btable\s+in\s+markdown\b",
+            ],
+            "list": [
+                # Only match when "list" is requested as an output format
+                # NOT when it's part of a noun phrase like "todo list", "shopping list"
+                r"\b(?:as|in|output)\s+(?:a\s+)?list\b",
+                r"\blist\s+(?:format|of\s+items?)\b",
+                r"\boutput\s*:\s*list\b",
+                r"\b(?:bulleted|numbered|ordered|unordered)\s+list\b",
+                # Do NOT match: "todo list", "shopping list", "task list", etc.
+            ],
         }
 
-        detected = []
-        for key, label in formats.items():
-            if key in lower_text:
-                detected.append(label)
-
-        # If multiple detected, pick the first one (simple heuristic)
-        # or maybe we want to enforce all? Let's just pick the first specific one found.
-        # Priority: JSON > XML > CSV > Table > List
-
+        # Priority order: JSON > XML > CSV > Markdown table > List
         target_format = None
-        if "json" in lower_text:
-            target_format = "JSON"
-        elif "xml" in lower_text:
-            target_format = "XML"
-        elif "csv" in lower_text:
-            target_format = "CSV"
-        elif "markdown table" in lower_text:
-            target_format = "Markdown table"
-        elif "list" in lower_text:
-            target_format = "List"
+        format_label = None
+        
+        for fmt, patterns in [
+            ("JSON", format_patterns["json"]),
+            ("XML", format_patterns["xml"]),
+            ("CSV", format_patterns["csv"]),
+            ("Markdown table", format_patterns["markdown table"]),
+            ("List", format_patterns["list"]),
+        ]:
+            for pattern in patterns:
+                if re.search(pattern, lower_text, re.IGNORECASE):
+                    target_format = fmt
+                    format_label = fmt
+                    break
+            if target_format:
+                break
 
+        # Only inject constraint if we detected a format AND it doesn't contradict chosen output_format
         if target_format:
-            constraint_text = f"Output strict {target_format}. Do not output conversational text."
-            ir_v2.constraints.append(
-                ConstraintV2(
-                    id=f"structure_strict_{target_format.lower().replace(' ', '_')}",
-                    text=constraint_text,
-                    origin="structure_handler",
-                    priority=85,
-                    rationale=f"User requested {target_format} format.",
+            # Check if the detected format contradicts the IR's output_format field
+            current_output_format = ir_v2.output_format.lower()
+            
+            # Only inject if it aligns or if output_format is generic (markdown/text)
+            should_inject = True
+            if current_output_format not in ["markdown", "text", "auto", ""]:
+                # Check if detected format matches chosen format
+                fmt_lower = target_format.lower().replace(" ", "_")
+                if fmt_lower not in current_output_format and current_output_format not in fmt_lower:
+                    should_inject = False
+            
+            if should_inject:
+                constraint_text = f"Output strict {target_format}. Do not output conversational text."
+                ir_v2.constraints.append(
+                    ConstraintV2(
+                        id=f"structure_strict_{target_format.lower().replace(' ', '_')}",
+                        text=constraint_text,
+                        origin="structure_handler",
+                        priority=85,
+                        rationale=f"User explicitly requested {target_format} format.",
+                    )
                 )
-            )
 
     def process(self, text: str) -> str:
         """
