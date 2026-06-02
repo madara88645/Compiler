@@ -180,8 +180,8 @@ class PromptLinter:
         conflicts: List[str] = []
 
         # 2. Ambiguity Check
-        # Bolt Optimization: list comprehension with len() is faster than sum(map(...))
-        weasel_count = len([w for w in words if w in WEASEL_WORDS])
+        # Bolt Optimization: C-level sum(map) with __contains__ is highly optimized and memory efficient
+        weasel_count = sum(map(WEASEL_WORDS.__contains__, words))
 
         # Check for multi-word weasels (e.g. "try to") - simple heuristic check
         if "try to" in lower_text:
