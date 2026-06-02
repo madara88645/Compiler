@@ -21,5 +21,11 @@ class FormatEnforcerHandler(BaseHandler):
                 ir_v1.constraints.append(constraint_text)
 
             # Update v2
-            if not any(c.text == constraint_text for c in ir_v2.constraints):
+            # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
+            has_constraint = False
+            for c in ir_v2.constraints:
+                if c.text == constraint_text:
+                    has_constraint = True
+                    break
+            if not has_constraint:
                 ir_v2.constraints.append(ConstraintV2(type="formatting", text=constraint_text))

@@ -108,10 +108,6 @@ class PromptValidator:
         (["simple", "basic"], ["advanced", "complex", "sophisticated"]),
     ]
 
-    def __init__(self):
-        """Initialize validator."""
-        pass
-
     def _has_any(self, text: str, keywords: Iterable[str]) -> bool:
         """Fast path check without generator overhead."""
         for k in keywords:

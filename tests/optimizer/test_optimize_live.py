@@ -1,13 +1,13 @@
-"""Live integration tests for the /optimize endpoint against the real Groq API.
+"""Live integration tests for the /optimize endpoint against the real OpenRouter API.
 
 These tests are double-gated:
 - The `live` pytest marker is skipped by default unless `--run-live` or
   `PROMPTC_RUN_LIVE_TESTS=1` is set, so CI does not hit Groq accidentally.
-- The `GROQ_API_KEY` skipif keeps local runs from emitting confusing auth errors.
+- The `OPENROUTER_API_KEY` skipif keeps local runs from emitting confusing auth errors.
 
 Run them explicitly with:
 
-    GROQ_API_KEY=... python -m pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
+    OPENROUTER_API_KEY=... python -m pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
 
 Assertions verify *invariants* (language preserved, no wrapper text, costs > 0)
 rather than exact strings, since real LLM output is non-deterministic.
@@ -26,8 +26,8 @@ from app.optimizer.language_costs import detect_language
 pytestmark = [
     pytest.mark.live,
     pytest.mark.skipif(
-        not os.environ.get("GROQ_API_KEY") and not os.environ.get("OPENAI_API_KEY"),
-        reason="GROQ_API_KEY/OPENAI_API_KEY not set; skipping live Groq tests",
+        not os.environ.get("OPENROUTER_API_KEY"),
+        reason="OPENROUTER_API_KEY not set; skipping live OpenRouter tests",
     ),
 ]
 
@@ -109,12 +109,12 @@ def test_live_optimizer_strips_wrapper_labels_if_emitted(client: TestClient) -> 
 
 
 def test_live_costs_and_metadata_are_populated(client: TestClient) -> None:
-    """Sanity-check the response shape against the real Groq pricing path."""
+    """Sanity-check the response shape against the real OpenRouter pricing path."""
 
     text = "Write a haiku about debugging at 3am."
     data = _post_optimize(client, text)
 
-    assert data["provider"] == "groq"
+    assert data["provider"] == "openrouter"
     assert data["model"], "Model identifier should be present"
     assert data["before_tokens"] > 0
     assert data["after_tokens"] > 0

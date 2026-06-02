@@ -7,12 +7,15 @@ interactive prompts, and rich CLI output support.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.templates import PromptTemplate, TemplateRegistry, TemplateVariable, get_registry
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -44,7 +47,7 @@ class TemplatesManager:
             with open(self.stats_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self._stats = {tid: TemplateUsageStats(**stats) for tid, stats in data.items()}
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
             self._stats = {}
 
     def _save_stats(self) -> None:
@@ -329,7 +332,8 @@ class TemplatesManager:
             with open(output_path, "w", encoding="utf-8") as f:
                 yaml.safe_dump(template.to_dict(), f, sort_keys=False, allow_unicode=True)
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to export template {template_id}: {e}", exc_info=True)
             return False
 
     def import_template(self, input_path: Path) -> Optional[PromptTemplate]:
@@ -354,7 +358,10 @@ class TemplatesManager:
             self.registry.save_template(template, user_template=True)
 
             return template
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Failed to import template from {input_path}: {e}")
             return None
 
     def validate_template(self, template_id: str) -> Dict[str, Any]:

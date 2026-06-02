@@ -1,7 +1,7 @@
 import pytest
 
 from app.optimizer.language_costs import (
-    DEFAULT_GROQ_MODEL,
+    DEFAULT_OPENROUTER_MODEL,
     detect_language,
     estimate_prompt_cost,
 )
@@ -14,8 +14,8 @@ def test_turkish_prompt_can_cost_more_tokens_than_english_equivalent():
     english_estimate = estimate_prompt_cost(english)
     turkish_estimate = estimate_prompt_cost(turkish)
 
-    assert english_estimate.provider == "groq"
-    assert english_estimate.model == DEFAULT_GROQ_MODEL
+    assert english_estimate.provider == "openrouter"
+    assert english_estimate.model == DEFAULT_OPENROUTER_MODEL
     assert english_estimate.source_language == "en"
     assert turkish_estimate.source_language == "tr"
     assert turkish_estimate.tokens > english_estimate.tokens
@@ -23,12 +23,25 @@ def test_turkish_prompt_can_cost_more_tokens_than_english_equivalent():
     assert turkish_estimate.tokenizer_method.endswith(":estimated")
 
 
-def test_default_groq_llama_31_8b_pricing_is_applied():
+def test_default_openrouter_gpt_oss_20b_pricing_is_applied():
     estimate = estimate_prompt_cost("hello world", token_count_override=1_000_000)
 
-    assert estimate.input_rate_per_million == pytest.approx(0.05)
-    assert estimate.output_rate_per_million == pytest.approx(0.08)
-    assert estimate.estimated_cost_usd == pytest.approx(0.05)
+    assert estimate.input_rate_per_million == pytest.approx(0.075)
+    assert estimate.output_rate_per_million == pytest.approx(0.30)
+    assert estimate.estimated_cost_usd == pytest.approx(0.075)
+
+
+def test_gemini_flash_lite_pricing_is_applied():
+    estimate = estimate_prompt_cost(
+        "hello world",
+        model="google/gemini-2.5-flash-lite",
+        token_count_override=1_000_000,
+    )
+
+    assert estimate.input_rate_per_million == pytest.approx(0.10)
+    assert estimate.output_rate_per_million == pytest.approx(0.40)
+    assert estimate.estimated_cost_usd == pytest.approx(0.10)
+    assert not estimate.warnings
 
 
 def test_unknown_model_returns_zero_cost_with_warning():
@@ -37,6 +50,15 @@ def test_unknown_model_returns_zero_cost_with_warning():
     assert estimate.tokens > 0
     assert estimate.estimated_cost_usd == 0.0
     assert any("unknown-model" in warning for warning in estimate.warnings)
+
+
+def test_local_provider_always_returns_zero_cost():
+    estimate = estimate_prompt_cost("hello world", provider="local", model="offline")
+
+    assert estimate.provider == "local"
+    assert estimate.input_rate_per_million == 0.0
+    assert estimate.output_rate_per_million == 0.0
+    assert estimate.estimated_cost_usd == 0.0
 
 
 def test_detect_language_returns_tr_for_turkish_with_diacritics():

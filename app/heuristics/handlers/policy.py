@@ -91,6 +91,8 @@ class PolicyHandler(BaseHandler):
         policy = ir_v2.policy
         policy.risk_domains = self._unique(risk_flags)
 
+        # Check for security injection attempt flag (from SafetyHandler) - always high risk
+        has_security_injection = "security_injection_attempt" in risk_flags
         # Bolt Optimization: Use isdisjoint() instead of any() with generator for 5-10x speedup
         has_high_risk_domain = not self._HIGH_RISK_DOMAINS.isdisjoint(risk_flags)
         risk_score = len(set(risk_flags))
@@ -109,7 +111,9 @@ class PolicyHandler(BaseHandler):
         )
         policy_reasons: list[str] = []
         for domain in risk_flags:
-            if domain in self._HIGH_RISK_DOMAINS:
+            if domain == "security_injection_attempt":
+                policy_reasons.append("security_injection_attempt")
+            elif domain in self._HIGH_RISK_DOMAINS:
                 policy_reasons.append(f"high_risk_domain:{domain}")
             else:
                 policy_reasons.append(f"risk_domain:{domain}")
@@ -123,7 +127,13 @@ class PolicyHandler(BaseHandler):
             policy_reasons.append(f"pii_detected:{flag}")
 
         # Cumulative risk scoring: 2+ overlapping domains always escalate
-        if benign_educational_risk:
+        # Security injection always gets high risk (fixes #712 escalation bug)
+        if has_security_injection:
+            policy.risk_level = "high"
+            policy.execution_mode = "advice_only"
+            if "security" not in policy.risk_domains:
+                policy.risk_domains.append("security")
+        elif benign_educational_risk:
             policy.risk_level = "low"
             policy.execution_mode = "auto_ok"
         elif risk_score >= 2 or has_high_risk_domain:

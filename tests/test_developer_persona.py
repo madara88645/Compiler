@@ -38,3 +38,39 @@ def test_live_debug_tr_constraints():
     assert ir.persona in {"developer", "assistant"}
     j = " | ".join(ir.constraints).lower()
     assert "minimal" in j or "örnek" in j or "mre" in j
+
+
+def test_api_mention_does_not_force_developer_persona():
+    """Test #701: lone 'api' token from 'REST API' or 'API keys' should not force developer persona."""
+    # Educational/explanation requests with "REST API" or "API keys" should get assistant/teacher, not developer
+    ir1 = compile_text("Explain REST API authentication methods")
+    assert ir1.persona in {
+        "assistant",
+        "teacher",
+    }, f"Expected assistant or teacher, got {ir1.persona}"
+
+    ir2 = compile_text("What are API keys and how do they work?")
+    assert ir2.persona in {
+        "assistant",
+        "teacher",
+    }, f"Expected assistant or teacher, got {ir2.persona}"
+
+    ir3 = compile_text("Teach me about REST API design principles")
+    # This one might be teacher because of "teach me"
+    assert ir3.persona in {
+        "assistant",
+        "teacher",
+    }, f"Expected assistant or teacher, got {ir3.persona}"
+
+    # But requests with stronger coding context should still get developer
+    ir4 = compile_text("Build an API endpoint for user authentication")
+    assert ir4.persona in {
+        "developer",
+        "assistant",
+    }, f"Expected developer or assistant, got {ir4.persona}"
+
+    ir5 = compile_text("Implement a REST API with Python Flask")
+    assert ir5.persona in {
+        "developer",
+        "assistant",
+    }, f"Expected developer or assistant, got {ir5.persona}"
