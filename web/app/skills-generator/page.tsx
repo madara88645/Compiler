@@ -284,6 +284,7 @@ export default function SkillsGenerator() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
+              aria-busy={loading}
               title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
               className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
@@ -363,6 +364,7 @@ export default function SkillsGenerator() {
                       type="button"
                       onClick={handleGenerate}
                       disabled={loading || !description.trim()}
+                      aria-busy={loading}
                       title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
                       className="mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
                     >

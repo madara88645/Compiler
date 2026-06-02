@@ -11,7 +11,7 @@ import PolicyBadge from "./components/PolicyBadge";
 import CopyButton from "./components/CopyButton";
 import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
-import { toast } from "sonner";
+
 import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
