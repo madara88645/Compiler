@@ -11,7 +11,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
-from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
+from api.shared import (
+    forced_minimal_expanded_prompt,
+    is_meta_leaked,
+    logger,
+    resolve_mode,
+    safety_refusal_prompt_fields,
+)
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
 from app.emitters import (
@@ -462,24 +468,10 @@ def compile_endpoint(
             "Unsafe input blocked - returning safety refusal payload",
             extra={"request_id": rid, "security": security_meta},
         )
-        refusal_message = (
-            "⚠️ Blocked for safety. This request looks like a prompt-injection or "
-            "secret-exfiltration attempt (e.g. overriding instructions or extracting "
-            "hidden system data), so Prompt Compiler will not compile it. Rephrase your "
-            "actual task without trying to override or extract instructions."
-        )
-
         return CompileResponse(
             ir=ir.model_dump(),
             ir_v2=(ir2.model_dump() if ir2 else None),
-            system_prompt=refusal_message,
-            user_prompt="",
-            plan="",
-            expanded_prompt=refusal_message,
-            system_prompt_v2=refusal_message,
-            user_prompt_v2="",
-            plan_v2="",
-            expanded_prompt_v2=refusal_message,
+            **safety_refusal_prompt_fields(),
             processing_ms=elapsed,
             request_id=rid,
             heuristic_version=HEURISTIC_VERSION,
