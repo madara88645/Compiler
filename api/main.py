@@ -39,12 +39,13 @@ app = FastAPI(title="Prompt Compiler API", lifespan=lifespan)
 allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "")
 allow_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 if not allow_origins:
-    allow_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ]
+    if os.environ.get("ENV", "production").strip().lower() == "development":
+        allow_origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+        ]
 
 app.add_middleware(
     CORSMiddleware,

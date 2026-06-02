@@ -20,8 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip, verify_api_key
-from api.auth import APIKey
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -36,12 +35,9 @@ router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
 MAX_BENCHMARK_TEXT_LENGTH = 4000
 SUPPORTED_BENCHMARK_MODELS = {
-    "llama-3.1-8b-instant",
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
-    "llama-3.3-70b-versatile",
-    "mistral-saba-24b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "mistralai/mistral-small-3.2-24b-instruct",
     "qwen/qwen3-32b",
 }
 
@@ -61,8 +57,8 @@ class BenchmarkRequest(BaseModel):
         description="Raw user input prompt",
     )
     model: str = Field(
-        default="llama-3.1-8b-instant",
-        description="LLM model identifier (e.g. 'llama-3.1-8b-instant')",
+        default="openai/gpt-oss-20b",
+        description="LLM model identifier (e.g. 'openai/gpt-oss-20b')",
     )
 
     @field_validator("text")
@@ -276,7 +272,6 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 @router.post("/run", response_model=BenchmarkResponse)
 async def benchmark_run(
     req: BenchmarkRequest,
-    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     """

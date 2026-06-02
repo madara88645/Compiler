@@ -48,6 +48,7 @@ export default function RagSearchPanel({
                     type="button"
                     onClick={onRunSearch}
                     disabled={searching || !query.trim()}
+                    aria-busy={searching}
                     title={!query.trim() ? "Enter a query first to search" : "Search"}
                     className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 text-xs font-medium text-blue-400 transition-all hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >

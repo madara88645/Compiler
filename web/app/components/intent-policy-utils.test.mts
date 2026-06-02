@@ -143,3 +143,44 @@ test("normalizeIntentPolicy maps legacy risk_flags 'financial' to riskLevel high
   assert.equal(result.riskLevel, "high");
   assert.deepEqual(result.riskDomains, ["financial"]);
 });
+
+test("normalizeIntentPolicy falls back to ir when ir_v2 is present but missing fields", async () => {
+  const { normalizeIntentPolicy } = await import("./intent-policy-utils.ts");
+
+  const result = normalizeIntentPolicy({
+    ir: {
+      domain: "fallback_domain",
+      persona: "fallback_persona",
+      intents: ["fallback_intent"],
+    },
+    ir_v2: {
+      // ir_v2 exists, so source = ir_v2
+      // but it lacks domain, persona, and intents
+      policy: {
+        risk_level: "low",
+      },
+    },
+  });
+
+  assert.equal(result.domain, "fallback_domain");
+  assert.equal(result.persona, "fallback_persona");
+  assert.deepEqual(result.intents, ["fallback_intent"]);
+});
+
+test("normalizeIntentDetails sorts alphabetically by label when group and order are equal", async () => {
+  const { normalizeIntentPolicy } = await import("./intent-policy-utils.ts");
+
+  // "future_magic" and "compare" fall back to group "workflow", order 999
+  // "unknown_a", "unknown_b", "unknown_c" will all have group "workflow", order 999.
+  // We expect them to be sorted by label (which are humanized to "Unknown A", etc).
+  const result = normalizeIntentPolicy({
+    ir: {
+      intents: ["unknown_c", "unknown_a", "unknown_b"],
+    },
+  });
+
+  assert.deepEqual(
+    result.intentDetails.map((item) => item.key),
+    ["unknown_a", "unknown_b", "unknown_c"],
+  );
+});

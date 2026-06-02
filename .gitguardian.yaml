@@ -1,0 +1,13 @@
+# GitGuardian configuration
+# Documentation: https://docs.gitguardian.com/internal-repositories-monitoring/integrations/git_hooks/pre_commit#gitguardian-configuration-file
+
+version: 2
+
+paths-ignore:
+  - .env.example  # Template file with placeholder credentials only
+  - "**/*.example"  # All example files
+  - "**/example.env"  # Alternative naming patterns
+
+# Do not scan example/template files
+exclude:
+  - .env.example

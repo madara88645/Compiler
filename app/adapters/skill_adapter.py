@@ -183,7 +183,7 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
         parts.append(f"def {func_name}() -> {ir.output_type}:")
     parts.append(_build_docstring(ir))
     parts.append("    # TODO: implement")
-    parts.append("    pass")
+    parts.append("    raise NotImplementedError")
 
     return "\n".join(parts)
 
