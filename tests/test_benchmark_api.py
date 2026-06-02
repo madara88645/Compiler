@@ -178,3 +178,18 @@ def test_benchmark_provider_failure_returns_safe_error(client):
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Benchmark model request failed"
+
+
+def test_benchmark_models_are_loaded_from_shared_manifest():
+    """Backend benchmark model validation should follow the shared frontend manifest."""
+    from app.routers.benchmark import (
+        DEFAULT_BENCHMARK_MODEL,
+        SUPPORTED_BENCHMARK_MODELS,
+        _load_benchmark_model_manifest,
+    )
+
+    manifest = _load_benchmark_model_manifest()
+    manifest_ids = [item["id"] for item in manifest]
+
+    assert tuple(manifest_ids) == SUPPORTED_BENCHMARK_MODELS
+    assert DEFAULT_BENCHMARK_MODEL == manifest_ids[0]
