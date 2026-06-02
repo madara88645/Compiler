@@ -284,6 +284,7 @@ export default function SkillsGenerator() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !description.trim()}
+              aria-busy={loading}
               title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
               className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
@@ -358,15 +359,33 @@ export default function SkillsGenerator() {
                   <p className="text-sm text-zinc-500 mb-4">
                     Describe the capability on the left, choose whether examples belong in it, then generate and copy the skill.
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={loading || !description.trim()}
-                    title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
-                    className="mt-6 mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
-                  >
-                    Generate Skill
-                  </button>
+                  <div className="flex flex-col items-center gap-3 mt-6 w-full">
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={loading || !description.trim()}
+                      aria-busy={loading}
+                      title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
+                      className="mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
+                    >
+                      Generate Skill
+                    </button>
+                    {!description.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescription("A skill that takes a URL, fetches the page content, extracts the main article text, and returns a 3-bullet summary.");
+                          setTimeout(() => {
+                            const textarea = document.getElementById('skill-description');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className="text-xs text-yellow-400/80 hover:text-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded px-2 py-1"
+                      >
+                        or try an example
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

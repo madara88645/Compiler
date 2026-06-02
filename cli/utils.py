@@ -1,4 +1,5 @@
 import sys
+import logging
 import orjson
 import time
 from pathlib import Path
@@ -8,7 +9,7 @@ from rich import print
 # Optional YAML support
 try:
     import yaml  # type: ignore
-except Exception:
+except ImportError:
     yaml = None  # type: ignore
 
 from app.compiler import (
@@ -125,8 +126,8 @@ def _run_compile(
                 tags=tags or [],
             )
             AnalyticsManager().record_prompt(record)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.getLogger(__name__).debug(f"Analytics recording failed: {e}")
 
     if json_only and quiet:
         quiet = False

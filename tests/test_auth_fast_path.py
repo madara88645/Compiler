@@ -411,7 +411,7 @@ def test_validate_no_key():
 def test_validate_no_key_falls_back_when_worker_analysis_is_unavailable():
     with patch("api.main.get_compiler") as mock_get_compiler:
         mock_get_compiler.return_value.worker.analyze_prompt.side_effect = RuntimeError(
-            "API Key is missing. Please set OPENAI_API_KEY."
+            "API Key is missing. Please set OPENROUTER_API_KEY."
         )
 
         resp = client.post("/validate", json={"text": "hello"})

@@ -57,6 +57,11 @@ def parse_plain_text(path: Path) -> ParseResult:
     )
 
 
+# Bolt Optimization: Precompiled regex patterns are significantly faster than inline regexes.
+_MD_HEADER_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+_MD_CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+
+
 def parse_markdown(path: Path) -> ParseResult:
     """
     Parse Markdown files with section hierarchy extraction.
@@ -92,7 +97,7 @@ def parse_markdown(path: Path) -> ParseResult:
             continue
 
         # Detect headers
-        header_match = re.match(r"^(#{1,6})\s+(.+)$", line)
+        header_match = _MD_HEADER_RE.match(line)
         if header_match:
             level = len(header_match.group(1))
             title = header_match.group(2).strip()
@@ -105,7 +110,7 @@ def parse_markdown(path: Path) -> ParseResult:
             )
 
     # Extract code blocks for metadata
-    code_blocks = re.findall(r"```(\w*)\n(.*?)```", content, re.DOTALL)
+    code_blocks = _MD_CODE_BLOCK_RE.findall(content)
     languages = list(set(lang for lang, _ in code_blocks if lang))
 
     return ParseResult(
@@ -486,7 +491,10 @@ def parse_file(path: Path, fallback_to_text: bool = True) -> ParseResult:
         # Try plain text for unknown extensions
         try:
             return parse_plain_text(path)
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(f"Parsing error: {e}")
             return ParseResult(
                 content="",
                 metadata={"error": f"Unable to parse file with extension: {ext}"},

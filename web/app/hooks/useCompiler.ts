@@ -14,7 +14,36 @@ import type {
 const REQUEST_TIMEOUT_MS = 190_000;
 
 function extractSecurityMetadata(result: CompileResponse): SecurityMetadata | undefined {
-  return result.ir.metadata?.security;
+  // Only extract REAL security metadata from SafetyHandler/PolicyHandler
+  // The critique evaluates quality, not safety - do not conflate them
+
+  // Primary safety signal: v1 security metadata from scan_text/SafetyHandler
+  const v1Security = result.ir.metadata?.security;
+
+  // Secondary safety signal: critical security/safety diagnostics from SafetyHandler
+  const criticalSecurityDiagnostics = (result.ir_v2?.diagnostics ?? []).filter(
+    (d) => d.severity === "critical" && (d.category === "security" || d.category === "safety")
+  );
+
+  // If there are critical security diagnostics (not quality), merge them into findings
+  if (criticalSecurityDiagnostics.length > 0 && v1Security) {
+    const diagnosticFindings = criticalSecurityDiagnostics.map((d) => ({
+      type: `${d.category}_diagnostic`,
+      original: "***",
+      masked: `[${d.category.toUpperCase()}: ${d.message}]`,
+    }));
+
+    return {
+      ...v1Security,
+      findings: [
+        ...(v1Security.findings || []),
+        ...diagnosticFindings,
+      ],
+    };
+  }
+
+  // Return the original safety signal from SafetyHandler
+  return v1Security;
 }
 
 export function useCompiler() {

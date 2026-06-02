@@ -42,9 +42,18 @@ export type CompilePolicy = {
   execution_mode: string;
 };
 
+export type DiagnosticItem = {
+  severity: string;
+  message: string;
+  suggestion?: string;
+  category: string;
+};
+
 export type CompileIr = JsonObject & {
   metadata?: CompileMetadata;
   policy?: CompilePolicy;
+  diagnostics?: DiagnosticItem[];
+  intents?: string[];
 };
 
 export type CritiqueIssue = {

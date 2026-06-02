@@ -4,10 +4,7 @@ This module provides functionality to quickly edit prompts from history and favo
 including text editing, metadata updates, and re-compilation.
 """
 
-import tempfile
-import subprocess
-import os
-import shlex
+import click
 from typing import Optional, Dict, Any, Literal
 
 from rich.console import Console
@@ -69,24 +66,6 @@ class QuickEditor:
 
         return None, None
 
-    def get_editor(self) -> str:
-        """Get the default text editor.
-
-        Returns:
-            Editor command
-        """
-        # Try environment variables
-        editor = os.environ.get("EDITOR") or os.environ.get("VISUAL")
-
-        if editor:
-            return editor
-
-        # Platform-specific defaults
-        if os.name == "nt":  # Windows
-            return "notepad"
-        else:  # Unix-like
-            return "nano"
-
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content.
 
@@ -96,100 +75,18 @@ class QuickEditor:
         Returns:
             Edited text or None if cancelled
         """
-        # Create temporary file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(text)
-            temp_path = f.name
-
         try:
-            editor = self.get_editor()
-
-            # Open editor
-            # Safely parse the editor string into arguments to handle cases like "nano -w"
-            # and prevent command injection if the EDITOR env var is maliciously crafted
-            try:
-                editor_parts = shlex.split(editor, posix=os.name != "nt")
-            except ValueError as exc:
-                console.print(
-                    f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]"
-                )
+            # click.edit handles opening the editor, temp files, and command parsing safely
+            result = click.edit(text, extension=".txt", require_save=False)
+            if result is None:
                 return None
-
-            if os.name == "nt":
-                editor_parts = [
-                    part[1:-1] if len(part) >= 2 and part[0] == part[-1] == '"' else part
-                    for part in editor_parts
-                ]
-
-            editor_parts = [part for part in editor_parts if part]
-            if not editor_parts:
-                console.print(
-                    "[red]⚠️ EDITOR/VISUAL environment variable is empty or invalid.[/red]"
-                )
-                return None
-
-            # Validate editor components against a denylist of shells/interpreters
-            # to prevent command injection via execution wrappers
-            denylist_prefixes = (
-                "bash",
-                "sh",
-                "zsh",
-                "csh",
-                "ksh",
-                "tcsh",
-                "dash",
-                "fish",
-                "python",
-                "pypy",
-                "env",
-                "cmd",
-                "powershell",
-                "pwsh",
-                "node",
-                "ruby",
-                "perl",
-                "php",
-            )
-            for part in editor_parts:
-                normalized_part = part.replace("\\", "/")
-                basename = os.path.basename(normalized_part).lower()
-
-                # Check for extensions and exact matches/prefixes
-                base_without_ext = basename
-                if basename.endswith(".exe"):
-                    base_without_ext = basename[:-4]
-
-                for prefix in denylist_prefixes:
-                    if base_without_ext.startswith(prefix):
-                        remainder = base_without_ext[len(prefix) :]
-                        if not remainder or remainder.lstrip(".0123456789") == "":
-                            console.print(
-                                f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
-                            )
-                            return None
-
-            editor_parts.append(temp_path)
-
-            result = subprocess.run(editor_parts)
-
-            if result.returncode != 0:
-                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
-                return None
-
-            # Read edited content
-            with open(temp_path, "r", encoding="utf-8") as f:
-                edited_text = f.read()
-
-            return edited_text
-
-        finally:
-            # Clean up temp file
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            return result
+        except click.ClickException as exc:
+            console.print(f"[red]⚠️ Failed to open editor: {exc}[/red]")
+            return None
+        except Exception as exc:
+            console.print(f"[red]⚠️ Unexpected error opening editor: {exc}[/red]")
+            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID.

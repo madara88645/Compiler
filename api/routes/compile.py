@@ -11,7 +11,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
-from api.shared import forced_minimal_expanded_prompt, is_meta_leaked, logger, resolve_mode
+from api.shared import (
+    forced_minimal_expanded_prompt,
+    is_meta_leaked,
+    logger,
+    resolve_mode,
+    safety_refusal_prompt_fields,
+)
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
 from app.emitters import (
@@ -26,7 +32,12 @@ from app.emitters import (
 )
 from app.llm_engine.schemas import QualityReport
 from app.models_v2 import DiagnosticItem, IRv2
-from app.optimizer.language_costs import DEFAULT_GROQ_MODEL, detect_language, estimate_prompt_cost
+from app.optimizer.language_costs import (
+    DEFAULT_OPENROUTER_MODEL,
+    DEFAULT_PROVIDER,
+    detect_language,
+    estimate_prompt_cost,
+)
 from app.optimizer.postprocess import strip_wrapper_labels
 from app.validator import validate_prompt
 
@@ -99,7 +110,7 @@ class OptimizeRequest(BaseModel):
     max_chars: Optional[int] = Field(default=None, ge=1, le=_MAX_PROMPT_CHARS)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=8_000)
     token_ratio: float = Field(default=4.0, gt=0, le=20.0)
-    provider: str = Field(default="groq", max_length=40)
+    provider: str = Field(default=DEFAULT_PROVIDER, max_length=40)
     model: Optional[str] = Field(default=None, max_length=120)
 
 
@@ -347,6 +358,13 @@ def compile_endpoint(
     trace_lines = generate_trace(ir) if req.trace else None
     ir2 = compile_text_v2(req.text, offline_only=not req.v2)
 
+    # The heuristic v2 pipeline runs the SafetyHandler (injection / secret-exfiltration
+    # scan). The LLM worker path below rebuilds ir2 and does NOT run that scan, so capture
+    # the safety verdict here and re-apply it after the worker overwrites ir2 (see #719).
+    heuristic_security = dict(ir2.metadata.get("security") or {}) if ir2 else {}
+    heuristic_unsafe = heuristic_security.get("is_safe") is False
+    heuristic_risk_domains = list(ir2.policy.risk_domains) if (ir2 and heuristic_unsafe) else []
+
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
     mode = resolve_mode(req.mode, request)
 
@@ -355,6 +373,22 @@ def compile_endpoint(
             compiler = _get_compiler()
             worker_res = compiler.compile(req.text, mode=mode)
             ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
+
+            # Re-apply the heuristic safety verdict — the worker IR does not run the
+            # SafetyHandler, so without this an unsafe prompt would lose its
+            # is_safe=False flag and skip the safety refusal (#719).
+            if heuristic_unsafe and ir2 is not None:
+                sec = ir2.metadata.setdefault(
+                    "security", {"is_safe": True, "findings": [], "redacted_text": req.text}
+                )
+                sec["is_safe"] = False
+                if heuristic_security.get("findings"):
+                    sec["findings"] = heuristic_security["findings"]
+                ir2.policy.risk_level = "high"
+                ir2.policy.data_sensitivity = "sensitive"
+                for dom in ("security", *heuristic_risk_domains):
+                    if dom not in ir2.policy.risk_domains:
+                        ir2.policy.risk_domains.append(dom)
             if used_fallback:
                 logger.warning(
                     "LLM compile returned unusable IR; falling back to local v2 heuristics",
@@ -365,10 +399,10 @@ def compile_endpoint(
             user_v2 = _safe_worker_text(worker_res, "user_prompt") or user_v2
             plan_v2 = _safe_worker_text(worker_res, "plan") or plan_v2
             exp_v2 = _safe_worker_text(worker_res, "optimized_content") or exp_v2
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "LLM compile failed; falling back to local v2 heuristics",
-                exc_info=True,
+                exc_info=exc,
                 extra={"request_id": rid, "mode": mode, "text_length": len(req.text)},
             )
 
@@ -403,6 +437,13 @@ def compile_endpoint(
                 system_prompt=sys_v2,
                 context=context_str,
             ).model_dump()
+
+            # Merge critique verdict into policy (#700)
+            if ir2:
+                from app.compiler import merge_policy_from_critique
+
+                merge_policy_from_critique(ir2, critique_result)
+
         except Exception:
             logger.warning(
                 "Critique generation skipped",
@@ -411,6 +452,33 @@ def compile_endpoint(
             )
 
     elapsed = int((time.time() - t0) * 1000)
+
+    # Block compilation ONLY when the safety scan flags the input as unsafe
+    # (prompt injection / secret exfiltration detected by SafetyHandler, see #712).
+    # A quality REJECT from the critique is advisory feedback and must NOT empty the
+    # output — it is surfaced via the `critique` field instead (see #716).
+    security_meta = {}
+    if ir2 and isinstance(getattr(ir2, "metadata", None), dict):
+        security_meta = ir2.metadata.get("security") or {}
+    if not security_meta and isinstance(getattr(ir, "metadata", None), dict):
+        security_meta = ir.metadata.get("security") or {}
+
+    if security_meta.get("is_safe") is False:
+        logger.warning(
+            "Unsafe input blocked - returning safety refusal payload",
+            extra={"request_id": rid, "security": security_meta},
+        )
+        return CompileResponse(
+            ir=ir.model_dump(),
+            ir_v2=(ir2.model_dump() if ir2 else None),
+            **safety_refusal_prompt_fields(),
+            processing_ms=elapsed,
+            request_id=rid,
+            heuristic_version=HEURISTIC_VERSION,
+            heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
+            trace=trace_lines,
+            critique=critique_result,
+        )
 
     return CompileResponse(
         ir=ir.model_dump(),
@@ -539,9 +607,9 @@ async def optimize_endpoint(
         model = (
             req.model
             or (worker_model if isinstance(worker_model, str) else None)
-            or DEFAULT_GROQ_MODEL
+            or DEFAULT_OPENROUTER_MODEL
         )
-        provider = (req.provider or "groq").strip().lower()
+        provider = (req.provider or DEFAULT_PROVIDER).strip().lower()
         raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
             functools.partial(
                 compiler.worker.optimize_prompt,

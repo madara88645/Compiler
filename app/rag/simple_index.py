@@ -215,7 +215,8 @@ def get_all_indexed_files(db_path: Optional[str] = None) -> List[str]:
         paths = [row[0] for row in cursor.fetchall()]
         conn.close()
         return paths
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to get indexed files: %s", e)
         return []
 
 
@@ -478,11 +479,7 @@ def _simple_embed(text: str, dim: int = 64) -> List[float]:
         idx = h % dim
         vec[idx] += 1.0
     # L2 normalize
-    # Bolt Optimization: math.sqrt(math.sumprod(v, v)) is faster than math.hypot(*v) for sequence unpacking overhead
-    if hasattr(math, "sumprod"):
-        norm = math.sqrt(math.sumprod(vec, vec)) or 1.0
-    else:
-        norm = math.hypot(*vec) or 1.0
+    norm = math.hypot(*vec) or 1.0
     vec = [v / norm for v in vec]
     return vec
 
@@ -701,7 +698,8 @@ def ingest_paths(
                                     content = result.content
                                 else:
                                     content = fp.read_text(encoding="utf-8", errors="ignore")
-                            except Exception:
+                            except Exception as e:
+                                logger.warning("Failed to read or parse file %s: %s", fp, e)
                                 continue
                             if not content:
                                 continue
@@ -724,7 +722,8 @@ def ingest_paths(
                             content = result.content
                         else:
                             content = pth.read_text(encoding="utf-8", errors="ignore")
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Failed to read or parse file %s: %s", pth, e)
                         continue
                     if not content:
                         continue
@@ -1043,11 +1042,15 @@ def _search_embed_with_conn(
 
 # Optional tiktoken support for accurate token counting
 _tiktoken_enc = None
+# Sentinel stored in _tiktoken_enc when BPE load fails; avoids retrying on every call.
+_TIKTOKEN_LOAD_FAILED = object()
 
 
 def _count_tokens(text: str, ratio: float = 4.0) -> int:
     """Count tokens using tiktoken (if available) or fallback to char ratio."""
     global _tiktoken_enc
+    if _tiktoken_enc is _TIKTOKEN_LOAD_FAILED:
+        return int(len(text) / ratio)
     try:
         if _tiktoken_enc is None:
             with _CACHE_LOCK:
@@ -1056,7 +1059,8 @@ def _count_tokens(text: str, ratio: float = 4.0) -> int:
 
                     _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
         return len(_tiktoken_enc.encode(text))
-    except Exception:
+    except (ImportError, OSError):
+        _tiktoken_enc = _TIKTOKEN_LOAD_FAILED
         return int(len(text) / ratio)
 
 

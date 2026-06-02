@@ -214,19 +214,30 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 
 
 @pytest.mark.auth_required
-def test_benchmark_requires_api_key():
+def test_benchmark_is_public_endpoint():
+    """
+    /benchmark/run should be accessible without API key (public endpoint).
+
+    This endpoint is rate-limited by IP but does not require authentication,
+    following the CLAUDE.md policy for public web flows.
+    """
     client = TestClient(app)
 
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.side_effect = ["raw output", "compiled output"]
         response = client.post(
             "/benchmark/run",
-            json={"text": "Explain Python", "model": "llama-3.1-8b-instant"},
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
         )
 
-    assert response.status_code == 403
+    # Should succeed without API key (public endpoint)
+    assert response.status_code == 200
+    data = response.json()
+    assert "raw_output" in data
+    assert "compiled_output" in data
 
 
 @pytest.mark.auth_required
@@ -289,8 +300,13 @@ def test_rag_ingest_rejects_path_outside_allowed_root(test_key, monkeypatch):
         assert "invalid path specified" in response.json()["detail"].lower()
 
 
-def test_cors_preflight_allows_prompt_mode_header():
-    client = TestClient(app)
+def test_cors_preflight_allows_prompt_mode_header(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    import importlib
+    import api.main
+
+    importlib.reload(api.main)
+    client = TestClient(api.main.app)
 
     response = client.options(
         "/compile",
@@ -333,12 +349,26 @@ def test_worker_client_wraps_user_input_and_context_with_tags():
 
 
 @pytest.mark.auth_required
-def test_generator_endpoints_reject_without_api_key():
+def test_generator_endpoints_are_public():
+    """
+    /agent-generator/generate and /skills-generator/generate should be accessible
+    without API key (public endpoints).
+
+    These endpoints are rate-limited by IP but do not require authentication,
+    following the CLAUDE.md policy for public web flows.
+    """
     client = TestClient(app)
 
-    with patch("api.main.hybrid_compiler") as _mock_compiler:  # noqa: F841
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Mock Agent"
+        mock_compiler.generate_skill.return_value = "# Mock Skill"
+
         agent_resp = client.post("/agent-generator/generate", json={"description": "Test Agent"})
         skill_resp = client.post("/skills-generator/generate", json={"description": "Test Skill"})
 
-    assert agent_resp.status_code == 403
-    assert skill_resp.status_code == 403
+    # Both should succeed without API key (public endpoints)
+    assert agent_resp.status_code == 200
+    assert agent_resp.json() == {"system_prompt": "# Mock Agent"}
+
+    assert skill_resp.status_code == 200
+    assert skill_resp.json() == {"skill_definition": "# Mock Skill"}

@@ -31,7 +31,7 @@ describe("Optimizer page", () => {
     });
   });
 
-  it("shows Groq cost estimates and a separate English suggestion", async () => {
+  it("shows OpenRouter cost estimates and a separate English suggestion", async () => {
     apiJsonMock.mockResolvedValueOnce({
       text: "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz.",
       before_chars: 96,
@@ -44,8 +44,8 @@ describe("Optimizer page", () => {
       met_max_tokens: true,
       met_budget: true,
       changed: true,
-      provider: "groq",
-      model: "llama-3.1-8b-instant",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
       source_language: "tr",
       tokenizer_method: "tiktoken:o200k_base:estimated",
       estimated_input_cost_usd: 0.0000017,
@@ -67,7 +67,7 @@ describe("Optimizer page", () => {
 
     expect(await screen.findByText("Original estimate")).toBeTruthy();
     expect(screen.getByText("Optimized estimate")).toBeTruthy();
-    expect(screen.getByText("Groq / llama-3.1-8b-instant")).toBeTruthy();
+    expect(screen.getByText("OpenRouter / openai/gpt-oss-20b")).toBeTruthy();
     expect(screen.getByText("TR")).toBeTruthy();
     expect(screen.getByText("38.2%")).toBeTruthy();
     expect(screen.getByDisplayValue("Summarize PDF. Write implementation plan for junior developer.")).toBeTruthy();
@@ -95,8 +95,8 @@ describe("Optimizer page", () => {
       met_max_tokens: true,
       met_budget: true,
       changed: true,
-      provider: "groq",
-      model: "llama-3.1-8b-instant",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
       source_language: "en",
       tokenizer_method: "tiktoken:o200k_base:estimated",
       estimated_input_cost_usd: 0.0000004,
@@ -151,8 +151,8 @@ describe("Optimizer page", () => {
       after_tokens: 7,
       saved_percent: 61.1,
       changed: true,
-      provider: "groq",
-      model: "llama-3.1-8b-instant",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
       source_language: "tr",
       tokenizer_method: "tiktoken:o200k_base:estimated",
       estimated_input_cost_usd: 0.0000018,
@@ -184,8 +184,8 @@ describe("Optimizer page", () => {
       after_tokens: 4,
       saved_percent: 50,
       changed: true,
-      provider: "groq",
-      model: "llama-3.1-8b-instant",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
       source_language: "en",
       tokenizer_method: "tiktoken:o200k_base:estimated",
       estimated_input_cost_usd: 0.0000004,
@@ -221,8 +221,8 @@ describe("Optimizer page", () => {
       after_tokens: 1,
       saved_percent: 50,
       changed: true,
-      provider: "groq",
-      model: "llama-3.1-8b-instant",
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
       source_language: "en",
       tokenizer_method: "tiktoken:o200k_base:estimated",
       estimated_input_cost_usd: 0.00000017,
