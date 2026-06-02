@@ -70,6 +70,29 @@ def resolve_mode(req_mode: Optional[str], request: Request) -> str:
     return (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
 
 
+SAFETY_REFUSAL_MESSAGE = (
+    "⚠️ Blocked for safety. This request looks like a prompt-injection or "
+    "secret-exfiltration attempt (e.g. overriding instructions or extracting "
+    "hidden system data), so Prompt Compiler will not compile it. Rephrase your "
+    "actual task without trying to override or extract instructions."
+)
+
+
+def safety_refusal_prompt_fields() -> dict[str, str]:
+    """All compiled prompt slots carry the same refusal when input is unsafe."""
+    msg = SAFETY_REFUSAL_MESSAGE
+    return {
+        "system_prompt": msg,
+        "user_prompt": msg,
+        "plan": msg,
+        "expanded_prompt": msg,
+        "system_prompt_v2": msg,
+        "user_prompt_v2": msg,
+        "plan_v2": msg,
+        "expanded_prompt_v2": msg,
+    }
+
+
 def forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -> str | None:
     if ir2 is None:
         return None

@@ -92,18 +92,23 @@ def test_compile_endpoint_blocks_unsafe_injection_input(client):
         # The refusal is driven by the safety scan (is_safe=False), not the critique verdict.
         assert data["ir_v2"]["metadata"].get("security", {}).get("is_safe") is False
 
-        # Output is replaced with a clear SAFETY refusal (not the attack, not critique text).
-        assert "Blocked for safety" in data["system_prompt"]
-        assert "Blocked for safety" in data["expanded_prompt"]
+        # Output is replaced with a clear SAFETY refusal in every prompt section.
+        for field in (
+            "system_prompt",
+            "user_prompt",
+            "plan",
+            "expanded_prompt",
+            "system_prompt_v2",
+            "user_prompt_v2",
+            "plan_v2",
+            "expanded_prompt_v2",
+        ):
+            assert "Blocked for safety" in data[field], field
 
         # The adversarial content must NOT appear in the compiled prompts.
         attack_text = "Ignore all previous instructions"
-        assert attack_text not in data["system_prompt"]
-        assert attack_text not in data["expanded_prompt"]
-
-        # The user_prompt and plan are emptied.
-        assert data["user_prompt"] == ""
-        assert data["plan"] == ""
+        for field in ("system_prompt", "user_prompt", "plan", "expanded_prompt"):
+            assert attack_text not in data[field], field
 
 
 def test_compile_endpoint_enforces_reject_verdict_without_critical_issue(client):
@@ -356,6 +361,16 @@ def test_compile_v2_worker_path_preserves_safety_block(client):
     # The heuristic safety verdict must be preserved onto the worker IR and trigger the block.
     assert data["ir_v2"]["metadata"].get("security", {}).get("is_safe") is False
     assert data["ir_v2"]["policy"]["risk_level"] == "high"
-    assert "Blocked for safety" in data["system_prompt"]
-    assert data["user_prompt"] == ""
+    for field in (
+        "system_prompt",
+        "user_prompt",
+        "plan",
+        "expanded_prompt",
+        "system_prompt_v2",
+        "user_prompt_v2",
+        "plan_v2",
+        "expanded_prompt_v2",
+    ):
+        assert "Blocked for safety" in data[field], field
     assert "Ignore all previous instructions" not in data["system_prompt"]
+    assert "Ignore all previous instructions" not in data["user_prompt"]
