@@ -7,6 +7,7 @@ Includes quality scores, issue summaries, recommendations, and visual charts.
 
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+import operator
 from dataclasses import dataclass
 
 from app.validator import ValidationResult
@@ -486,7 +487,7 @@ class ValidationReportGenerator:
                 issue_counts[key] = issue_counts.get(key, 0) + 1
 
         # Get top issues
-        top_issues = sorted(issue_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_issues = sorted(issue_counts.items(), key=operator.itemgetter(1), reverse=True)[:5]
 
         parts = [
             '<div class="recommendations">',
