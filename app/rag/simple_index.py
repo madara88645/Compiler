@@ -972,7 +972,7 @@ def _search_embed_with_conn(
         score = 1.0 - sim
         scores.append((score, sim, chunk_id))
 
-    scores.sort(key=lambda x: x[0])  # sort by score asc
+    scores.sort(key=operator.itemgetter(0))  # sort by score asc
 
     # The original implementation returned the *entire* sorted list of results,
     # leaving it to the caller (`search_embed`, `search_hybrid`) to slice it via `[:k]`

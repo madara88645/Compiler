@@ -6,6 +6,7 @@ from text before it is processed by LLMs.
 """
 
 import re
+import operator
 from typing import List, Dict, NamedTuple
 from app.heuristics import _count_digits
 
@@ -100,7 +101,7 @@ def scan_text(text: str) -> SecurityResult:
     # Deduplicate matches that overlap (prefer longer matches)
     # e.g. "sk-123" matched by key and something else
     # Simple strategy: sort by start pos. if overlap, skip shorter.
-    matches.sort(key=lambda x: x["start"])
+    matches.sort(key=operator.itemgetter("start"))
 
     final_matches = []
     last_end = -1

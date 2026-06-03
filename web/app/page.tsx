@@ -8,9 +8,10 @@ import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
 import PolicyBadge from "./components/PolicyBadge";
+import CopyButton from "./components/CopyButton";
 import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
-import { toast } from "sonner";
+
 import { describeRequestError } from "../config";
 import type { CompileMode, CompileResponse } from "../lib/api/types";
 
@@ -124,10 +125,9 @@ export default function Home() {
     if (typeof window === "undefined") {
       return "";
     }
-    return window.localStorage.getItem("promptc_last_prompt") || "";
+    return window.localStorage.getItem("promptc_compiler_prompt") || "";
   });
   const [activeTab, setActiveTab] = useState<OutputTab>("user");
-  const [copied, setCopied] = useState(false);
   const [conservativeMode, setConservativeMode] = useState(() => {
     if (typeof window === "undefined") {
       return true;
@@ -152,7 +152,7 @@ export default function Home() {
   const { indexStats } = useContextManager();
 
   useEffect(() => {
-    window.localStorage.setItem("promptc_last_prompt", prompt);
+    window.localStorage.setItem("promptc_compiler_prompt", prompt);
   }, [prompt]);
 
   useEffect(() => {
@@ -260,21 +260,34 @@ export default function Home() {
 
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-              <textarea
-                aria-label="Describe what you want compiled"
-                className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
-                placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    if (!loading && prompt.trim()) {
-                      void handleGenerate();
+              <div className="relative flex-1 flex flex-col">
+                <textarea
+                  aria-label="Describe what you want compiled"
+                  className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
+                  placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      if (!loading && prompt.trim()) {
+                        void handleGenerate();
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+                {prompt && (
+                  <button
+                    type="button"
+                    onClick={() => setPrompt("")}
+                    className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/50"
+                    title="Clear prompt"
+                    aria-label="Clear prompt"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-4">
@@ -430,19 +443,6 @@ export default function Home() {
                               </div>
                             </div>
                           )}
-
-                          {/* Reasoning Badge */}
-                          {result.system_prompt_v2 ? (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 backdrop-blur-md">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_5px_rgba(96,165,250,0.8)]" />
-                              <span className="text-[10px] text-blue-200 font-medium">Reasoning Model</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md">
-                              <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                              <span className="text-[10px] text-zinc-400 font-medium">Standard</span>
-                            </div>
-                          )}
                         </div>
 
                         <textarea
@@ -453,24 +453,10 @@ export default function Home() {
                           value={getTabContent(result, tab)}
                         />
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(getTabContent(result, tab));
-                            setCopied(true);
-                            toast.success("Copied to clipboard");
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                          title={copied ? "Copied!" : "Copy to Clipboard"}
-                          aria-label={copied ? "Copied" : "Copy to Clipboard"}
-                        >
-                          {copied ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                          )}
-                        </button>
+                        <CopyButton
+                          text={getTabContent(result, tab)}
+                          className="absolute bottom-6 right-6"
+                        />
                       </>
                     )}
                   </div>
@@ -485,11 +471,17 @@ export default function Home() {
                   className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
                 >
                   {activeTab === "json" && (
-                    <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
-                      <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
-                        {JSON.stringify(result, null, 2)}
-                      </pre>
-                    </div>
+                    <>
+                      <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
+                        <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
+                          {JSON.stringify(result, null, 2)}
+                        </pre>
+                      </div>
+                      <CopyButton
+                        text={JSON.stringify(result, null, 2)}
+                        className="absolute bottom-6 right-6"
+                      />
+                    </>
                   )}
                 </div>
 

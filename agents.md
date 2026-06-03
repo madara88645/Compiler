@@ -31,9 +31,9 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 
 | Variable | Required for | Default / Notes |
 |---|---|---|
-| `OPENAI_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for LLM paths |
-| `OPENAI_BASE_URL` | LLM provider URL | `https://api.openai.com` |
-| `GROQ_API_KEY` | Groq-backed LLM paths | Optional; LLM routes fall back to OpenAI |
+| `OPENROUTER_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for cloud LLM paths |
+| `OPENROUTER_BASE_URL` | LLM provider URL | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL` | Default cloud model slug | `openai/gpt-oss-20b` |
 | `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
 | `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
@@ -59,13 +59,14 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
 ### Auth / API key notes
 
 - Public app routes are intended to work **without** asking visitors for a Prompt Compiler API key.
-- Cloud-backed features may still need server-side provider credentials such as `OPENAI_API_KEY` or `GROQ_API_KEY`, but those stay on the server and are never typed by end users.
+- Cloud-backed features may still need a server-side provider credential such as `OPENROUTER_API_KEY`, but that stays on the server and is never typed by end users.
+- OpenRouter is the **only** supported cloud provider for this repo. Do not reintroduce Groq or OpenAI fallbacks into public product flows, defaults, or docs.
 - `x-api-key`, `PROMPTC_SERVER_API_KEY`, and similar custom backend keys are legacy/internal mechanisms and should not be introduced into public web flows.
 - In tests, authentication is **automatically bypassed** by `conftest.py` unless the test is marked `@pytest.mark.auth_required`.
 
 ### Mocking / disabling LLM calls
 
-The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENAI_API_KEY` / `GROQ_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
+The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENROUTER_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
 
 If agent-pack or skill exports are getting truncated, adjust `LLM_AGENT_MAX_TOKENS` or `LLM_SKILL_MAX_TOKENS` in `.env` before retrying.
 
@@ -196,7 +197,7 @@ pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test
 **Live optimizer tests (opt-in only; requires upstream credentials):**
 
 ```bash
-GROQ_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
+OPENROUTER_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
 ```
 
 **Live API smoke test (requires running backend):**
@@ -243,7 +244,7 @@ Relevant files: `app/rag/simple_index.py`, `api/routes/rag.py`
 pytest tests/test_rag.py tests/test_rag_upload.py tests/test_rag_pipeline.py tests/test_rag_chunking.py tests/test_rag_hybrid_api.py tests/test_rag_parsers.py -v
 ```
 
-**Windows temp-dir note:** `tests/conftest.py` now prefers a repo-local `.\.tmp-test-run` session dir and falls back to a user temp folder automatically if that repo-local runtime root is not writable. `tests/runtime_bootstrap.py` creates the pytest session directory directly under the candidate root and probes it before use, which avoids Windows environments where `mkdtemp()` succeeds but the returned directory still rejects child file or folder creation. If you still hit a `PermissionError`, inspect stale directories under `.\.tmp-test-run` first, then override `TMP`, `TEMP`, and `DB_DIR` manually only as a last resort.
+**Windows temp-dir note:** `tests/conftest.py` now prefers a repo-local `.\.tmp-test-run` session dir and falls back to a user temp folder automatically if that repo-local runtime root is not writable. `tests/runtime_bootstrap.py` creates the pytest session directory directly under the candidate root and now probes both a simple child folder and a pytest-style nested temp tree before use, which avoids Windows environments where a session dir looks writable at first but later rejects nested `pytest-of-*` paths or directory scans. If you still hit a `PermissionError`, inspect stale directories under `.\.tmp-test-run` first, then override `TMP`, `TEMP`, and `DB_DIR` manually only as a last resort.
 
 **RAG upload smoke (requires running backend):**
 
@@ -422,6 +423,13 @@ cd ../..
 ```
 
 Full matrix tests (Python 3.10–3.12, Linux/Windows/macOS) only run on push to `main`, not on PRs.
+
+### Snyk dependency scan
+
+The dedicated GitHub workflow in `.github/workflows/snyk.yml` scans `requirements.txt` and `pyproject.toml`
+explicitly with separate `snyk test --file=...` commands. Keep the runtime dependency snapshot in
+`requirements.txt` aligned with `pyproject.toml`, and avoid adding editable-install-only packages to the Snyk job
+because that can create noisy dependency graphs and stale vulnerability alerts.
 
 ---
 

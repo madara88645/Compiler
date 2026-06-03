@@ -9,7 +9,7 @@ from rich import print
 # Optional YAML support
 try:
     import yaml  # type: ignore
-except Exception:
+except ImportError:
     yaml = None  # type: ignore
 
 from app.compiler import (

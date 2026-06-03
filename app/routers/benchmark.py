@@ -16,12 +16,13 @@ from __future__ import annotations
 import json
 import re
 import time
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip, verify_api_key
-from api.auth import APIKey
+from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -35,15 +36,31 @@ _HEADER_RE = re.compile(r"^#{1,3} ", re.MULTILINE)
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
 MAX_BENCHMARK_TEXT_LENGTH = 4000
-SUPPORTED_BENCHMARK_MODELS = {
-    "llama-3.1-8b-instant",
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
-    "llama-3.3-70b-versatile",
-    "mistral-saba-24b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "qwen/qwen3-32b",
-}
+_BENCHMARK_MODEL_MANIFEST_PATH = (
+    Path(__file__).resolve().parents[2] / "web" / "app" / "benchmark" / "models.json"
+)
+
+
+@lru_cache(maxsize=1)
+def _load_benchmark_model_manifest() -> tuple[dict[str, str], ...]:
+    raw = json.loads(_BENCHMARK_MODEL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("Benchmark model manifest must contain at least one model")
+
+    manifest: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ValueError("Benchmark model manifest entries must be objects")
+        model_id = item.get("id")
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise ValueError("Benchmark model manifest entries must include a non-empty id")
+        manifest.append(item)
+
+    return tuple(manifest)
+
+
+SUPPORTED_BENCHMARK_MODELS = tuple(item["id"] for item in _load_benchmark_model_manifest())
+DEFAULT_BENCHMARK_MODEL = SUPPORTED_BENCHMARK_MODELS[0]
 
 
 # ---------------------------------------------------------------------------
@@ -61,8 +78,8 @@ class BenchmarkRequest(BaseModel):
         description="Raw user input prompt",
     )
     model: str = Field(
-        default="llama-3.1-8b-instant",
-        description="LLM model identifier (e.g. 'llama-3.1-8b-instant')",
+        default=DEFAULT_BENCHMARK_MODEL,
+        description="LLM model identifier (e.g. 'openai/gpt-oss-20b')",
     )
 
     @field_validator("text")
@@ -276,7 +293,6 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 @router.post("/run", response_model=BenchmarkResponse)
 async def benchmark_run(
     req: BenchmarkRequest,
-    api_key: APIKey = Depends(verify_api_key),
     _: None = Depends(rate_limit_by_ip),
 ):
     """

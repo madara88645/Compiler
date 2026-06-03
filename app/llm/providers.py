@@ -2,7 +2,6 @@ from __future__ import annotations
 import json
 import time
 import os
-import httpx
 from typing import Optional
 
 from .base import LLMProvider, LLMResponse
@@ -69,7 +68,7 @@ class OllamaProvider(LLMProvider):
         start = time.time()
         try:
             # high timeout for local inference
-            resp = httpx.post(url, json=payload, timeout=60.0)
+            resp = self.client.post(url, json=payload, timeout=60.0)
             resp.raise_for_status()
             data = resp.json()
             content = data.get("response", "")
@@ -92,21 +91,30 @@ class OllamaProvider(LLMProvider):
 
 class OpenAIProvider(LLMProvider):
     """
-    Provider for OpenAI API.
-    Requires OPENAI_API_KEY env var or config.api_key.
+    Provider for OpenAI-compatible APIs.
+    Defaults to OpenRouter via OPENROUTER_* env vars or config overrides.
     """
 
     def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
-        api_key = self.config.api_key or os.environ.get("OPENAI_API_KEY")
+        api_key = self.config.api_key or os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
-            return LLMResponse(content="Error: Missing OpenAI API Key", latency_ms=0)
+            return LLMResponse(content="Error: Missing OpenRouter API Key", latency_ms=0)
 
         # We use httpx directly to avoid strict dependency on openai package if not installed,
         # but for robustness usually the package is better.
         # For this implementation plan, we will stick to httpx for lightweight dependency.
 
-        url = "https://api.openai.com/v1/chat/completions"
+        base_url = (
+            self.config.base_url
+            or os.environ.get("OPENROUTER_BASE_URL")
+            or "https://openrouter.ai/api/v1"
+        ).rstrip("/")
+        url = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        if os.environ.get("OPENROUTER_HTTP_REFERER"):
+            headers["HTTP-Referer"] = os.environ["OPENROUTER_HTTP_REFERER"]
+        if os.environ.get("OPENROUTER_TITLE"):
+            headers["X-Title"] = os.environ["OPENROUTER_TITLE"]
 
         messages = []
         if system_prompt:
@@ -122,7 +130,7 @@ class OpenAIProvider(LLMProvider):
 
         start = time.time()
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=self.config.timeout)
+            resp = self.client.post(url, json=payload, headers=headers, timeout=self.config.timeout)
             resp.raise_for_status()
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
@@ -171,7 +179,7 @@ class AnthropicProvider(LLMProvider):
 
         start = time.time()
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=self.config.timeout)
+            resp = self.client.post(url, json=payload, headers=headers, timeout=self.config.timeout)
             resp.raise_for_status()
             data = resp.json()
             blocks = data.get("content", [])
