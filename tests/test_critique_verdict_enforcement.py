@@ -1,8 +1,10 @@
-"""Test that critique REJECT verdicts are enforced in the compile flow."""
+"""Test that critique quality verdicts stay advisory in the compile flow."""
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from api.main import app
+from app.compiler import merge_policy_from_critique
+from app.models_v2 import DiagnosticItem, IRv2, PolicyV2
 
 
 @pytest.fixture
@@ -374,3 +376,86 @@ def test_compile_v2_worker_path_preserves_safety_block(client):
         assert "Blocked for safety" in data[field], field
     assert "Ignore all previous instructions" not in data["system_prompt"]
     assert "Ignore all previous instructions" not in data["user_prompt"]
+
+
+def test_merge_policy_from_critique_reject_adds_quality_warning_without_escalation():
+    ir2 = IRv2(
+        goals=["Ship a feature"],
+        tasks=["Write a prompt"],
+        policy=PolicyV2(risk_level="low", execution_mode="auto_ok"),
+        metadata={"security": {"is_safe": True}},
+        diagnostics=[
+            DiagnosticItem(
+                severity="info",
+                message="Existing diagnostic",
+                suggestion="Keep it",
+                category="system",
+            )
+        ],
+    )
+
+    merge_policy_from_critique(
+        ir2,
+        {
+            "verdict": "REJECT",
+            "score": 22,
+            "issues": [
+                {
+                    "type": "Ambiguity",
+                    "description": "The request is underspecified.",
+                    "severity": "warning",
+                }
+            ],
+            "feedback": "Clarify the expected output and constraints.",
+        },
+    )
+
+    assert ir2.policy.risk_level == "low"
+    assert ir2.policy.execution_mode == "auto_ok"
+    assert ir2.metadata["critique_verdict"] == "REJECT"
+    assert ir2.metadata["critique_score"] == 22
+    assert ir2.metadata["critique_issues"] == [
+        {
+            "type": "Ambiguity",
+            "description": "The request is underspecified.",
+            "severity": "warning",
+        }
+    ]
+    assert len(ir2.diagnostics) == 2
+    assert ir2.diagnostics[-1].severity == "warning"
+    assert ir2.diagnostics[-1].category == "quality"
+    assert ir2.diagnostics[-1].message == "Critique quality check: REJECT"
+    assert ir2.diagnostics[-1].suggestion == "Clarify the expected output and constraints."
+
+
+def test_merge_policy_from_critique_warn_branch_preserves_existing_safety_policy():
+    ir2 = IRv2(
+        goals=["Review the request"],
+        tasks=["Return advice"],
+        policy=PolicyV2(
+            risk_level="high",
+            execution_mode="human_approval_required",
+            risk_domains=["privacy"],
+        ),
+        metadata={"security": {"is_safe": False}},
+    )
+
+    merge_policy_from_critique(
+        ir2,
+        {
+            "verdict": "WARN",
+            "score": 55,
+            "feedback": "Mention the missing compliance details.",
+        },
+    )
+
+    assert ir2.policy.risk_level == "high"
+    assert ir2.policy.execution_mode == "human_approval_required"
+    assert ir2.metadata["critique_verdict"] == "WARN"
+    assert ir2.metadata["critique_score"] == 55
+    assert "critique_issues" not in ir2.metadata
+    assert len(ir2.diagnostics) == 1
+    assert ir2.diagnostics[0].severity == "info"
+    assert ir2.diagnostics[0].category == "quality"
+    assert ir2.diagnostics[0].message == "Critique raised minor concerns (score: 55)"
+    assert ir2.diagnostics[0].suggestion == "Mention the missing compliance details."
