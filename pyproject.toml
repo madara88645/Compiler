@@ -7,24 +7,24 @@ requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 dependencies = [
-	"fastapi==0.136.1",
-	"uvicorn==0.47.0",
+	"fastapi==0.136.3",
+	"uvicorn==0.48.0",
 	"pydantic==2.13.4",
-	"typer==0.25.1",
-	"click==8.4.0",
+	"typer==0.26.4",
+	"click==8.4.1",
 	"jsonschema==4.26.0",
 	"rich==15.0.0",
 	"textual==8.2.7",
 	"pyyaml>=6.0.3",
 	"ttkbootstrap>=1.20.3",
 	"pillow>=12.2.0",
-	"openai>=2.37.0",
+	"openai>=2.38.0",
 	"httpx<0.29",
 	"python-dotenv>=1.2.2",
 	"jinja2>=3.1.6",
 	"tiktoken>=0.13.0",
-	"cachetools>=7.1.3",
-	"sqlalchemy>=2.0.49",
+	"cachetools>=7.1.4",
+	"sqlalchemy>=2.0.50",
 	"orjson>=3.11.9"
 ]
 
@@ -51,7 +51,7 @@ dev = [
 	"pytest==9.0.3",
 	"pytest-cov>=7.1.0",
 	"build>=1.5.0",
-	"ruff==0.15.14",
+	"ruff==0.15.15",
 	"pre-commit==4.6.0",
 ]
 

@@ -349,6 +349,7 @@ export default function AgentPacksPage() {
               type="button"
               onClick={handleGenerate}
               disabled={loading || !request.goal.trim()}
+              aria-busy={loading}
               className={`mt-1 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${provider.buttonClass}`}
             >
               {loading ? "Generating..." : provider.ctaLabel}
@@ -393,6 +394,7 @@ export default function AgentPacksPage() {
                       type="button"
                       onClick={handleDownload}
                       disabled={downloading}
+                      aria-busy={downloading}
                       className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                     >
                       <Download size={14} aria-hidden="true" />

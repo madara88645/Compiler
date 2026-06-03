@@ -183,6 +183,9 @@
 ## 2026-06-25 - Removing any() generator overhead in heuristic short-circuit evaluations
 **Learning:** In heavily utilized heuristic handlers (like `format_enforcer` and `paradox_resolver`), using an inline `any(c.text == val for c in constraints)` generator expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `==` operation, especially for small sequences like the current list of constraints. Microbenchmarks show a ~2x performance improvement by replacing it with an explicit loop.
 **Action:** Replace `any()` generator expressions used for constraint existence checks in hot paths with explicit `for` loops to bypass generator overhead and achieve a 2x speedup.
+## 2025-02-27 - CPython sum(map) vs List Comprehension Memory Performance
+**Learning:** For counting elements matching a condition in CPython, `sum(map(condition_func, iterable))` evaluates largely at the C-level and requires O(1) extra memory, making it notably more memory-efficient and marginally faster than an equivalent list comprehension `len([x for x in iterable if condition])`, which materializes a full intermediate list requiring O(N) memory allocation.
+**Action:** Replace length checks of filtered list comprehensions with `sum(map(...))` when optimizing for memory and tight CPU loops, particularly in hot heuristic or parsing paths.
 
 ## 2024-05-31 - Fast counting of character properties
 **Learning:** While `sum(map(str.isdigit, val))` is generally fast, a native explicit `for` loop with an accumulator variable (`count += 1`) can be up to 15% faster for counting character properties in Python. This avoids the overhead of mapping a function over an iterable and creating temporary boolean values, directly leveraging basic bytecode execution.

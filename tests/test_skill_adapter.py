@@ -45,6 +45,14 @@ def test_to_langchain_tool_no_params():
     assert '"""Get the current weather."""' in result
 
 
+def test_to_langchain_tool_stub_raises_instead_of_silently_passing():
+    ir = SkillExportIR(name="get_weather", purpose="Get the current weather.")
+    result = to_langchain_tool(ir)
+
+    assert result.splitlines()[-1] == "    raise NotImplementedError"
+    assert all(line.strip() != "pass" for line in result.splitlines())
+
+
 def test_to_langchain_tool_with_params():
     ir = SkillExportIR(
         name="get_weather",

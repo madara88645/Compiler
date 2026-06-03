@@ -29,8 +29,8 @@ type OptimizeResponse = {
     warnings: string[];
 };
 
-const DEFAULT_OPTIMIZER_PROVIDER = "groq";
-const DEFAULT_OPTIMIZER_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_OPTIMIZER_PROVIDER = "openrouter";
+const DEFAULT_OPTIMIZER_MODEL = "openai/gpt-oss-20b";
 const DEFAULT_TOKENIZER_METHOD = "tiktoken:o200k_base:estimated";
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -100,6 +100,17 @@ function charsPerToken(chars: number, tokens: number): string {
         return "0.00";
     }
     return (chars / tokens).toFixed(2);
+}
+
+function formatProviderName(provider: string): string {
+    const normalized = (provider ?? "").toLowerCase();
+    if (normalized === "openrouter") {
+        return "OpenRouter";
+    }
+    if (normalized === "local") {
+        return "Local";
+    }
+    return provider || "Unknown";
 }
 
 function getErrorMessage(error: unknown): string {
@@ -176,13 +187,13 @@ export default function OptimizerPage() {
     const router = useRouter();
     const [input, setInput] = useState(() => {
         if (typeof window === "undefined") return "";
-        return window.localStorage.getItem("promptc_last_prompt") || "";
+        return window.localStorage.getItem("promptc_optimizer_prompt") || "";
     });
     const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
-    const [provider, setProvider] = useState("groq");
-    const [model, setModel] = useState("llama-3.1-8b-instant");
+    const [provider, setProvider] = useState(DEFAULT_OPTIMIZER_PROVIDER);
+    const [model, setModel] = useState(DEFAULT_OPTIMIZER_MODEL);
     const [optimizationError, setOptimizationError] = useState<string | null>(null);
 
     const output = result?.text ?? "";
@@ -264,7 +275,7 @@ export default function OptimizerPage() {
 
     const handleSendToCompiler = () => {
         if (!output) return;
-        window.localStorage.setItem("promptc_last_prompt", output);
+        window.localStorage.setItem("promptc_compiler_prompt", output);
         router.push("/");
     };
 
@@ -294,7 +305,7 @@ export default function OptimizerPage() {
                     </div>
                     <InfoButton
                         title="Prompt Optimizer"
-                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates Groq cost and compares language efficiency."
+                        description="Shortens prompts while keeping intent, constraints, variables, and safety details visible. Estimates OpenRouter cost and compares language efficiency."
                     />
                 </div>
 
@@ -314,7 +325,8 @@ export default function OptimizerPage() {
                             }}
                             className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
                         >
-                            <option value="groq:llama-3.1-8b-instant">Groq Llama 3 (Cloud)</option>
+                            <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
+                            <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
                             <option value="local:offline">Local Heuristics (Offline)</option>
                         </select>
                     </div>
@@ -340,6 +352,7 @@ export default function OptimizerPage() {
                         type="button"
                         onClick={handleOptimize}
                         disabled={loading || !input.trim()}
+                        aria-busy={loading}
                         title={!input.trim() ? "Enter a prompt first to analyze cost" : "Analyze cost"}
                         className="w-full rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 sm:w-auto"
                     >
@@ -390,12 +403,15 @@ export default function OptimizerPage() {
                     <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Original Prompt
                     </label>
-                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40">
+                    <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40 relative">
                         <textarea
                             id="original-prompt"
                             aria-label="Original Prompt"
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={(e) => {
+                                setInput(e.target.value);
+                                window.localStorage.setItem("promptc_optimizer_prompt", e.target.value);
+                            }}
                             onKeyDown={(e) => {
                                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                     e.preventDefault();
@@ -407,6 +423,20 @@ export default function OptimizerPage() {
                             placeholder="Paste a verbose prompt here..."
                             className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
                         />
+                        {input && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setInput("");
+                                    window.localStorage.removeItem("promptc_optimizer_prompt");
+                                }}
+                                className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/50"
+                                title="Clear prompt"
+                                aria-label="Clear prompt"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </section>
 
@@ -455,6 +485,7 @@ export default function OptimizerPage() {
                                     type="button"
                                     onClick={handleOptimize}
                                     disabled={loading || !input.trim()}
+                                    aria-busy={loading}
                                     title={!input.trim() ? "Enter a prompt first to analyze cost" : "Analyze cost"}
                                     className="rounded-lg bg-emerald-600/20 border border-emerald-500/30 px-5 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-600/30 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                                 >
@@ -525,7 +556,7 @@ export default function OptimizerPage() {
                                 <div>
                                     <h2 className="text-sm font-semibold text-white">English compact suggestion</h2>
                                     <p className="mt-1 text-xs text-zinc-500">
-                                        Groq / {result.model}
+                                        {formatProviderName(result.provider)} / {result.model}
                                     </p>
                                 </div>
                                 <span className="rounded-lg border border-white/10 px-2 py-1 font-mono text-xs text-zinc-400">

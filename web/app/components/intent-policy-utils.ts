@@ -8,12 +8,27 @@ type PolicyLike = {
   execution_mode?: string;
 };
 
+type DiagnosticItemLike = {
+  severity: string;
+  message: string;
+  suggestion?: string;
+  category: string;
+};
+
+type SecurityMetadataLike = {
+  is_safe?: boolean;
+  findings?: Array<{ type: string; original: string; masked: string }>;
+  redacted_text?: string;
+};
+
 type IRLike = {
   domain?: string;
   persona?: string;
   intents?: string[];
+  diagnostics?: DiagnosticItemLike[];
   metadata?: {
     risk_flags?: string[];
+    security?: SecurityMetadataLike;
     [key: string]: unknown;
   };
   policy?: PolicyLike;
@@ -231,18 +246,45 @@ export function normalizeIntentPolicy(result: CompileResultLike): NormalizedInte
   const policy = source.policy ?? {};
   const intents = emptyList(source.intents ?? result.ir?.intents);
 
+  // Surface policy from SafetyHandler/PolicyHandler (#720)
+  // Do NOT conflate critique quality verdict with security risk
+
+  // Check for critical security diagnostics from SafetyHandler
+  const criticalSecurityDiagnostics = (source.diagnostics ?? []).filter(
+    (d) => d.severity === "critical" && (d.category === "security" || d.category === "safety")
+  );
+
+  // Check if security metadata indicates unsafe
+  const securityMetadata = result.ir?.metadata?.security;
+  const isUnsafe = securityMetadata?.is_safe === false;
+
+  // Determine risk level from SafetyHandler/PolicyHandler signals
+  let riskLevel = policy.risk_level ?? "low";
+  if (isUnsafe || criticalSecurityDiagnostics.length > 0 || policy.risk_level === "high") {
+    riskLevel = "high";
+  } else if (legacyRiskFlags.length > 0) {
+    riskLevel = legacyRiskFlags.includes("security") ? "medium" : "high";
+  }
+
+  // Determine execution mode from policy
+  const executionMode = policy.execution_mode ?? "advice_only";
+
+  // Merge risk domains from policy and legacy flags
+  const riskDomains = [
+    ...emptyList(policy.risk_domains ?? legacyRiskFlags),
+  ];
+
   return {
     domain: source.domain ?? result.ir?.domain ?? "general",
     persona: source.persona ?? result.ir?.persona ?? "assistant",
     intents,
     intentDetails: normalizeIntentDetails(intents),
-    riskLevel:
-      policy.risk_level ?? (legacyRiskFlags.length > 0 ? (legacyRiskFlags.includes("security") ? "medium" : "high") : "low"),
-    riskDomains: emptyList(policy.risk_domains ?? legacyRiskFlags),
+    riskLevel,
+    riskDomains: [...new Set(riskDomains)],
     allowedTools: emptyList(policy.allowed_tools),
     forbiddenTools: emptyList(policy.forbidden_tools),
     sanitizationRules: emptyList(policy.sanitization_rules),
     dataSensitivity: policy.data_sensitivity ?? "public",
-    executionMode: policy.execution_mode ?? "advice_only",
+    executionMode,
   };
 }

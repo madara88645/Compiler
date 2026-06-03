@@ -43,10 +43,14 @@ describe("Benchmark page", () => {
     apiJsonMock.mockReset();
   });
 
-  it("shows a mock-only helper message and demo banner for the default engine", async () => {
+  it("lets the user switch into mock mode and shows the demo banner", async () => {
     vi.useFakeTimers();
 
     render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Model"), {
+      target: { value: "mock" },
+    });
 
     expect(
       screen.getByText(
@@ -68,7 +72,7 @@ describe("Benchmark page", () => {
     expect(screen.getByText("Demo result (Mock Engine — fake scores)")).toBeTruthy();
   });
 
-  it("submits the selected real model and prompt to the benchmark route", async () => {
+  it("submits the default OpenRouter model and prompt to the benchmark route", async () => {
     apiJsonMock.mockResolvedValueOnce({
       raw_output: "Raw answer",
       compiled_output: "Compiled answer",
@@ -86,9 +90,6 @@ describe("Benchmark page", () => {
 
     fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
       target: { value: "  Write a safer onboarding checklist.  " },
-    });
-    fireEvent.change(screen.getByLabelText("Model"), {
-      target: { value: "openai/gpt-oss-20b" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
 
@@ -114,7 +115,7 @@ describe("Benchmark page", () => {
       target: { value: "Explain rate limiting." },
     });
     fireEvent.change(screen.getByLabelText("Model"), {
-      target: { value: "llama-3.1-8b-instant" },
+      target: { value: "openai/gpt-oss-120b" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
 

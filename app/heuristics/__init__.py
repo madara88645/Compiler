@@ -180,7 +180,12 @@ PERSONA_KEYWORDS = {
         r"class",
         r"script",
         r"module",
-        r"api",
+        # API patterns that need stronger context (not lone "api" token)
+        r"api\s+(?:call|endpoint|request|design|development|integration)",
+        r"build\s+(?:an\s+)?api",
+        r"create\s+(?:an\s+)?api",
+        r"rest\s+api\s+(?:design|implementation|code)",
+        r"graphql\s+api",
         r"python",
         r"javascript",
         r"typescript",

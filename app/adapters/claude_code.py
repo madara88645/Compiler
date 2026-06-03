@@ -18,6 +18,16 @@ def _escape_triple_quotes(text: str) -> str:
     return text.replace('"""', '\\"\\"\\"')
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Remove leading/trailing markdown code fences from text."""
+    text = text.strip()
+    # Strip leading fence (```lang or just ```)
+    text = re.sub(r"^```[a-zA-Z0-9]*\n", "", text)
+    # Strip trailing fence
+    text = re.sub(r"\n```\s*$", "", text)
+    return text.strip()
+
+
 def to_agent_sdk_python(ir: AgentExportIR) -> str:
     prompt = _escape_triple_quotes(ir.raw_system_prompt)
     allowed_tools = ", ".join(f'"{tool}"' for tool in _ordered_tools(ir.allowed_tools))
@@ -75,16 +85,17 @@ def to_claude_subagent(ir: AgentExportIR) -> dict[str, str]:
     slug = _slugify(ir.name)
     tools = ", ".join(ir.allowed_tools or ["Read", "Edit", "Write"])
     description = ir.role or (ir.goals[0] if ir.goals else f"Specialized assistant for {ir.name}")
+    clean_prompt = _strip_markdown_fences(ir.raw_system_prompt)
     content = textwrap.dedent(
         f"""\
-        ---
-        name: {slug}
-        description: {description}
-        tools: {tools}
-        ---
+---
+name: {slug}
+description: {description}
+tools: {tools}
+---
 
-        {ir.raw_system_prompt.strip()}
-        """
+{clean_prompt}
+"""
     )
     return {"path": f".claude/agents/{slug}.md", "content": content}
 
@@ -117,14 +128,14 @@ def to_claude_subagent_bundle(ir: AgentExportIR) -> list[dict[str, str]]:
     subagent = to_claude_subagent(ir)
     readme = textwrap.dedent(
         f"""\
-        # Claude Subagent Bundle
+# Claude Subagent Bundle
 
-        Drop `{subagent["path"]}` into your repo, then ask Claude Code to use the `{_slugify(ir.name)}` subagent.
+Drop `{subagent["path"]}` into your repo, then ask Claude Code to use the `{_slugify(ir.name)}` subagent.
 
-        Recommended usage:
-        - Keep `CLAUDE.md` in the repo root for shared guidance.
-        - Add `.claude/settings.json` if you want permission guardrails alongside this agent.
-        """
+Recommended usage:
+- Keep `CLAUDE.md` in the repo root for shared guidance.
+- Add `.claude/settings.json` if you want permission guardrails alongside this agent.
+"""
     )
     return [
         subagent,
@@ -154,29 +165,29 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
     )
     content = textwrap.dedent(
         f"""\
-        from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
-        mcp = FastMCP("{tool_name}")
-
-
-        @mcp.tool()
-        async def {tool_name}({param_signature}) -> str:
-            \"\"\"{ir.purpose or f"Execute {tool_name}."}\"\"\"
-            raise NotImplementedError("TODO: implement {tool_name}")
+mcp = FastMCP("{tool_name}")
 
 
-        if __name__ == "__main__":
-            mcp.run()
-        """
+@mcp.tool()
+async def {tool_name}({param_signature}) -> str:
+    \"\"\"{ir.purpose or f"Execute {tool_name}."}\"\"\"
+    raise NotImplementedError("TODO: implement {tool_name}")
+
+
+if __name__ == "__main__":
+    mcp.run()
+"""
     )
     readme = textwrap.dedent(
         f"""\
-        # {tool_name} MCP Tool Stub
+# {tool_name} MCP Tool Stub
 
-        Generated from Prompt Compiler for Claude Code / MCP workflows.
+Generated from Prompt Compiler for Claude Code / MCP workflows.
 
-        Purpose: {ir.purpose}
-        """
+Purpose: {ir.purpose}
+"""
     )
     return [
         {"path": "server.py", "content": content},
@@ -196,34 +207,34 @@ def _project_claude_md(ir: AgentExportIR) -> str:
     mcp_servers = ", ".join(ir.mcp_servers) if ir.mcp_servers else "none yet"
     return textwrap.dedent(
         f"""\
-        # Prompt Compiler Claude Code Memory
+# Prompt Compiler Claude Code Memory
 
-        ## Project Summary
-        Prompt Compiler is a FastAPI + Next.js product that turns vague requests into structured prompts, execution plans, policy layers, agent packs, and workflow artifacts.
+## Project Summary
+Prompt Compiler is a FastAPI + Next.js product that turns vague requests into structured prompts, execution plans, policy layers, agent packs, and workflow artifacts.
 
-        ## Working Rules
-        - Start from repo-root commands.
-        - Prefer targeted tests before broad suites.
-        - Respect API/auth boundaries and never expose secrets.
-        - Keep provider integrations framework-agnostic unless the export surface is explicitly Claude-native.
+## Working Rules
+- Start from repo-root commands.
+- Prefer targeted tests before broad suites.
+- Respect API/auth boundaries and never expose secrets.
+- Keep provider integrations framework-agnostic unless the export surface is explicitly Claude-native.
 
-        ## Domain Concepts
-        {goals}
+## Domain Concepts
+{goals}
 
-        ## Constraints
-        {constraints}
+## Constraints
+{constraints}
 
-        ## Runbook
-        - Backend: `python -m uvicorn api.main:app --reload --port 8080`
-        - Frontend: `cd web && npm run dev`
-        - Python tests: `python -m pytest tests/ -q`
-        - Frontend tests: `cd web && npm run test`
+## Runbook
+- Backend: `python -m uvicorn api.main:app --reload --port 8080`
+- Frontend: `cd web && npm run dev`
+- Python tests: `python -m pytest tests/ -q`
+- Frontend tests: `cd web && npm run test`
 
-        ## Claude-Native Notes
-        - Permission mode: `{ir.permission_mode}`
-        - Suggested tools: {", ".join(ir.allowed_tools)}
-        - Suggested MCP servers: {mcp_servers}
-        """
+## Claude-Native Notes
+- Permission mode: `{ir.permission_mode}`
+- Suggested tools: {", ".join(ir.allowed_tools)}
+- Suggested MCP servers: {mcp_servers}
+"""
     )
 
 
@@ -281,42 +292,42 @@ def _named_subagent(name: str) -> str:
     }
     return textwrap.dedent(
         f"""\
-        ---
-        name: {name}
-        description: {descriptions[name]}
-        tools: {tools[name]}
-        ---
+---
+name: {name}
+description: {descriptions[name]}
+tools: {tools[name]}
+---
 
-        {prompts[name]}
-        """
+{prompts[name]}
+"""
     )
 
 
 def _github_action_workflow() -> str:
     return textwrap.dedent(
         """\
-        name: Claude Code
+name: Claude Code
 
-        on:
-          issue_comment:
-            types: [created]
-          pull_request_review_comment:
-            types: [created]
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
 
-        jobs:
-          claude:
-            if: contains(github.event.comment.body, '@claude')
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-              - uses: anthropics/claude-code-action@v1
-                with:
-                  anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-                  prompt: >
-                    Follow CLAUDE.md, inspect the referenced issue or PR context,
-                    and respond or create changes only when the request is actionable.
-                  claude_args: "--max-turns 5"
-        """
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: >
+            Follow CLAUDE.md, inspect the referenced issue or PR context,
+            and respond or create changes only when the request is actionable.
+          claude_args: "--max-turns 5"
+"""
     )
 
 
@@ -327,37 +338,37 @@ def _pr_reviewer_memory(ir: AgentExportIR) -> str:
     )
     return textwrap.dedent(
         f"""\
-        # Claude PR Reviewer Memory
+# Claude PR Reviewer Memory
 
-        ## Mission
-        Review pull requests with a focus on prompt safety, secret handling, permission boundaries, and missing tests.
+## Mission
+Review pull requests with a focus on prompt safety, secret handling, permission boundaries, and missing tests.
 
-        ## Repo Context
-        - Project type: repo-specific software product
-        - Default review posture: skeptical, concrete, and test-aware
+## Repo Context
+- Project type: repo-specific software product
+- Default review posture: skeptical, concrete, and test-aware
 
-        ## Review Checklist
-        {goals}
+## Review Checklist
+{goals}
 
-        ## Guardrails
-        - Do not expose secrets or credentials.
-        - Flag unsafe `.claude/settings.json` permissions.
-        - Call out prompt leakage, weak validation, and missing regression coverage.
-        """
+## Guardrails
+- Do not expose secrets or credentials.
+- Flag unsafe `.claude/settings.json` permissions.
+- Call out prompt leakage, weak validation, and missing regression coverage.
+"""
     )
 
 
 def _pr_reviewer_readme() -> str:
     return textwrap.dedent(
         """\
-        # Claude PR Reviewer Pack
+# Claude PR Reviewer Pack
 
-        This pack gives Claude Code a dedicated `pr-reviewer` subagent plus review-focused repo memory.
+This pack gives Claude Code a dedicated `pr-reviewer` subagent plus review-focused repo memory.
 
-        Suggested prompts:
-        - `Use the pr-reviewer subagent to review this pull request for prompt leakage and unsafe settings.`
-        - `Review this diff for missing tests, secret exposure, and MCP misconfiguration.`
-        """
+Suggested prompts:
+- `Use the pr-reviewer subagent to review this pull request for prompt leakage and unsafe settings.`
+- `Review this diff for missing tests, secret exposure, and MCP misconfiguration.`
+"""
     )
 
 

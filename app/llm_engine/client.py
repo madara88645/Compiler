@@ -18,9 +18,10 @@ from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 from app.heuristics.security import scan_text
 
-# Default settings - Groq (much faster than LLM Service)
-DEFAULT_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
-DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1")
+OPENROUTER_DEFAULT_MODEL = "openai/gpt-oss-20b"
+OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", OPENROUTER_DEFAULT_MODEL)
+DEFAULT_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", OPENROUTER_DEFAULT_BASE_URL)
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 WORKER_PROMPT_PATH = PROMPTS_DIR / "worker_v1.md"
 WORKER_CONSERVATIVE_PROMPT_PATH = PROMPTS_DIR / "worker_conservative.md"
@@ -29,7 +30,6 @@ AGENT_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "agent_generator.md"
 SKILLS_GENERATOR_PROMPT_PATH = PROMPTS_DIR / "skills_generator.md"
 MULTI_AGENT_PLANNER_PROMPT_PATH = PROMPTS_DIR / "multi_agent_planner.md"
 
-# Timeouts - Much shorter for Groq (300+ tok/s)
 # Allow overriding timeout via env var
 try:
     HARD_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT", 30))
@@ -73,23 +73,22 @@ class WorkerClient:
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        model: str = DEFAULT_MODEL,
+        model: Optional[str] = None,
     ):
-        self.api_key = (
-            api_key
-            or os.environ.get("OPENAI_API_KEY")
-            or os.environ.get("GROQ_API_KEY")
-            or "missing_key"
-        )
-        self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or DEFAULT_BASE_URL
-        self.model = model
+        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY") or "missing_key"
+        self.base_url = base_url or os.environ.get("OPENROUTER_BASE_URL") or DEFAULT_BASE_URL
+        self.model = model or os.environ.get("OPENROUTER_MODEL") or DEFAULT_MODEL
+        default_headers = self._build_default_headers()
 
         # Explicit timeout for the HTTP client
-        self.client = OpenAI(
+        client_kwargs = dict(
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=HARD_TIMEOUT_SECONDS,  # Pass timeout to underlying httpx client
         )
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+        self.client = OpenAI(**client_kwargs)
         self.default_mode = (
             (os.environ.get("PROMPT_COMPILER_MODE") or "conservative").strip().lower()
         )
@@ -110,6 +109,21 @@ class WorkerClient:
     def _resolve_mode(self, mode: Optional[str]) -> str:
         m = (mode or self.default_mode or "conservative").strip().lower()
         return m if m in {"conservative", "default"} else "conservative"
+
+    def _build_default_headers(self) -> Dict[str, str]:
+        headers: Dict[str, str] = {}
+        referer = os.environ.get("OPENROUTER_HTTP_REFERER")
+        title = os.environ.get("OPENROUTER_TITLE")
+
+        if referer:
+            headers["HTTP-Referer"] = referer
+        if title:
+            headers["X-Title"] = title
+
+        return headers
+
+    def _is_openrouter_request(self) -> bool:
+        return "openrouter.ai" in (self.base_url or "").lower()
 
     def _worker_system_prompt_for_mode(self, mode: str) -> str:
         if mode == "default":
@@ -142,6 +156,8 @@ class WorkerClient:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+            if self._is_openrouter_request():
+                kwargs["extra_body"] = {"provider": {"require_parameters": True}}
 
         try:
             completion = self.client.chat.completions.create(**kwargs)
@@ -296,7 +312,7 @@ class WorkerClient:
     ) -> WorkerResponse:
         """Compile user text into structured prompt components."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         resolved_mode = self._resolve_mode(mode)
         system_prompt = self._worker_system_prompt_for_mode(resolved_mode)
@@ -369,7 +385,7 @@ class WorkerClient:
     def analyze_prompt(self, user_text: str) -> QualityReport:
         """Analyze prompt quality and return score/feedback."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         if not self.coach_prompt:
             raise RuntimeError("Quality Coach prompt not found.")
@@ -400,7 +416,7 @@ class WorkerClient:
         so concurrent callers never see each other's token counts.
         """
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY or GROQ_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         if not self.optimizer_prompt:
             # Fallback if file missing
@@ -445,7 +461,7 @@ class WorkerClient:
     def fix_prompt(self, user_text: str) -> LLMFixResponse:
         """Auto-fix prompt using LLM Editor."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         if not self.editor_prompt:
             self.editor_prompt = "You are an expert editor. Rewrite this prompt to be better. Return JSON: {fixed_text, explanation, changes}"
@@ -475,7 +491,7 @@ class WorkerClient:
         Returns ``(english_text, usage_dict_or_none)``.
         """
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY or GROQ_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         sys_prompt = (
             self.optimizer_prompt
@@ -561,7 +577,7 @@ class WorkerClient:
     ) -> str:
         """Generate a comprehensive AI Agent system prompt."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
 
         if multi_agent:
             system_prompt = self._multi_agent_prompt(include_example_code)
@@ -651,7 +667,7 @@ class WorkerClient:
     ) -> str:
         """Generate a comprehensive AI Skill definition."""
         if self.api_key == "missing_key":
-            raise RuntimeError("API Key is missing. Please set OPENAI_API_KEY.")
+            raise RuntimeError("API Key is missing. Please set OPENROUTER_API_KEY.")
         system_prompt = self._skill_prompt(include_example_code)
 
         messages = [
