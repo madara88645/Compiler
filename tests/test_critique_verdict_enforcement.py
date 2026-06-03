@@ -412,6 +412,7 @@ def test_merge_policy_from_critique_reject_adds_quality_warning_without_escalati
 
     assert ir2.policy.risk_level == "low"
     assert ir2.policy.execution_mode == "auto_ok"
+    assert ir2.metadata["security"]["is_safe"] is True
     assert ir2.metadata["critique_verdict"] == "REJECT"
     assert ir2.metadata["critique_score"] == 22
     assert ir2.metadata["critique_issues"] == [
@@ -451,6 +452,8 @@ def test_merge_policy_from_critique_warn_branch_preserves_existing_safety_policy
 
     assert ir2.policy.risk_level == "high"
     assert ir2.policy.execution_mode == "human_approval_required"
+    assert ir2.policy.risk_domains == ["privacy"]
+    assert ir2.metadata["security"]["is_safe"] is False
     assert ir2.metadata["critique_verdict"] == "WARN"
     assert ir2.metadata["critique_score"] == 55
     assert "critique_issues" not in ir2.metadata
@@ -459,3 +462,32 @@ def test_merge_policy_from_critique_warn_branch_preserves_existing_safety_policy
     assert ir2.diagnostics[0].category == "quality"
     assert ir2.diagnostics[0].message == "Critique raised minor concerns (score: 55)"
     assert ir2.diagnostics[0].suggestion == "Mention the missing compliance details."
+
+
+def test_merge_policy_from_critique_low_score_adds_info_without_touching_policy():
+    ir2 = IRv2(
+        goals=["Summarize the request"],
+        tasks=["Return a draft"],
+        policy=PolicyV2(risk_level="medium", execution_mode="human_approval_required"),
+        metadata={"security": {"is_safe": False}},
+    )
+
+    merge_policy_from_critique(
+        ir2,
+        {
+            "verdict": "ACCEPT",
+            "score": 40,
+            "feedback": "The prompt is safe but needs more specifics.",
+        },
+    )
+
+    assert ir2.policy.risk_level == "medium"
+    assert ir2.policy.execution_mode == "human_approval_required"
+    assert ir2.metadata["security"]["is_safe"] is False
+    assert ir2.metadata["critique_verdict"] == "ACCEPT"
+    assert ir2.metadata["critique_score"] == 40
+    assert len(ir2.diagnostics) == 1
+    assert ir2.diagnostics[0].severity == "info"
+    assert ir2.diagnostics[0].category == "quality"
+    assert ir2.diagnostics[0].message == "Critique raised minor concerns (score: 40)"
+    assert ir2.diagnostics[0].suggestion == "The prompt is safe but needs more specifics."
