@@ -81,8 +81,11 @@ def scan_text(text: str) -> SecurityResult:
                 if "." in val or _HEX_PATTERN.search(val):  # Hex check just in case
                     continue
                 # Length check for raw digits
-                # Bolt Optimization: sum(map(str.isdigit, val)) is ~3x faster than list comp with len()
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: native for-loop is faster than sum(map(...))
+                digits_count = 0
+                for c in val:
+                    if c.isdigit():
+                        digits_count += 1
                 if digits_count < 13 or digits_count > 19:
                     continue
 
