@@ -468,6 +468,33 @@ export default function AgentPacksPage() {
                   <p className="text-sm leading-relaxed text-zinc-500">
                     Pick a pack type, describe what Claude should do, then generate a ready-to-review asset bundle on the right.
                   </p>
+                  <div className="flex flex-col items-center gap-3 mt-6 w-full">
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={loading || !request.goal.trim()}
+                      aria-busy={loading}
+                      title={!request.goal.trim() ? "Enter a goal first to generate" : provider.ctaLabel}
+                      className={`mx-auto flex items-center justify-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${provider.buttonClass}`}
+                    >
+                      {provider.ctaLabel}
+                    </button>
+                    {!request.goal.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleFieldChange("goal", "Review PRs for prompt leakage, unsafe settings, and missing regression tests.");
+                          setTimeout(() => {
+                            const textarea = document.getElementById('agent-pack-goal');
+                            if (textarea) textarea.focus();
+                          }, 0);
+                        }}
+                        className="text-xs text-cyan-400/80 hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded px-2 py-1"
+                      >
+                        or try an example
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
