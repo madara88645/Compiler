@@ -32,12 +32,22 @@ def _create_session_dir(root: Path) -> Path:
     session_dir = (root / f"pytest-{uuid4().hex[:8]}").resolve()
     session_dir.mkdir(parents=False, exist_ok=False)
     probe_dir = session_dir / ".write-probe"
+    pytest_probe_root = session_dir / "pytest-of-probe"
+    pytest_probe_leaf = pytest_probe_root / "pytest-0"
 
     try:
         probe_dir.mkdir(parents=True, exist_ok=False)
+        pytest_probe_root.mkdir(parents=True, exist_ok=False)
+        pytest_probe_leaf.mkdir(parents=False, exist_ok=False)
+        os.scandir(pytest_probe_root).close()
+        os.scandir(pytest_probe_leaf).close()
     finally:
         if probe_dir.exists():
             probe_dir.rmdir()
+        if pytest_probe_leaf.exists():
+            pytest_probe_leaf.rmdir()
+        if pytest_probe_root.exists():
+            pytest_probe_root.rmdir()
 
     return session_dir
 
