@@ -244,7 +244,7 @@ Relevant files: `app/rag/simple_index.py`, `api/routes/rag.py`
 pytest tests/test_rag.py tests/test_rag_upload.py tests/test_rag_pipeline.py tests/test_rag_chunking.py tests/test_rag_hybrid_api.py tests/test_rag_parsers.py -v
 ```
 
-**Windows temp-dir note:** `tests/conftest.py` now prefers a repo-local `.\.tmp-test-run` session dir and falls back to a user temp folder automatically if that repo-local runtime root is not writable. `tests/runtime_bootstrap.py` creates the pytest session directory directly under the candidate root and probes it before use, which avoids Windows environments where `mkdtemp()` succeeds but the returned directory still rejects child file or folder creation. If you still hit a `PermissionError`, inspect stale directories under `.\.tmp-test-run` first, then override `TMP`, `TEMP`, and `DB_DIR` manually only as a last resort.
+**Windows temp-dir note:** `tests/conftest.py` now prefers a repo-local `.\.tmp-test-run` session dir and falls back to a user temp folder automatically if that repo-local runtime root is not writable. `tests/runtime_bootstrap.py` creates the pytest session directory directly under the candidate root and now probes both a simple child folder and a pytest-style nested temp tree before use, which avoids Windows environments where a session dir looks writable at first but later rejects nested `pytest-of-*` paths or directory scans. If you still hit a `PermissionError`, inspect stale directories under `.\.tmp-test-run` first, then override `TMP`, `TEMP`, and `DB_DIR` manually only as a last resort.
 
 **RAG upload smoke (requires running backend):**
 
