@@ -183,3 +183,7 @@
 ## 2026-06-25 - Removing any() generator overhead in heuristic short-circuit evaluations
 **Learning:** In heavily utilized heuristic handlers (like `format_enforcer` and `paradox_resolver`), using an inline `any(c.text == val for c in constraints)` generator expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `==` operation, especially for small sequences like the current list of constraints. Microbenchmarks show a ~2x performance improvement by replacing it with an explicit loop.
 **Action:** Replace `any()` generator expressions used for constraint existence checks in hot paths with explicit `for` loops to bypass generator overhead and achieve a 2x speedup.
+
+## 2024-06-25 - math.sumprod > sum(map)
+**Learning:** `math.sumprod` (Python 3.12+) is >3x faster than `sum(map(operator.mul))` for vector dot product similarity calculations.
+**Action:** When working in Python 3.12+, eliminate backwards-compatibility `hasattr(math, "sumprod")` fallbacks in hot paths and use `math.sumprod` directly to save overhead per iteration.

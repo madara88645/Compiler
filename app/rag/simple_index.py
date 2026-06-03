@@ -7,7 +7,6 @@ import threading
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Dict
 import math
-import operator
 import orjson
 import functools
 from collections import OrderedDict
@@ -964,10 +963,7 @@ def _search_embed_with_conn(
         emb = _parse_embedding(vec_json)
         # cosine since vectors L2 normalized => dot product
         # Bolt Optimization: math.sumprod (Python 3.12+) is >3x faster than sum(map(operator.mul))
-        if hasattr(math, "sumprod"):
-            sim = math.sumprod(q_vec, emb)
-        else:
-            sim = sum(map(operator.mul, q_vec, emb))
+        sim = math.sumprod(q_vec, emb)
         # score as (1 - sim) so lower is better similar to bm25 semantics
         score = 1.0 - sim
         scores.append((score, sim, chunk_id))
