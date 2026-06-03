@@ -1,6 +1,8 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from app.quick_edit import QuickEditor
 
 
@@ -63,6 +65,26 @@ def test_editor_empty_command_returns_none():
 
     with patch("subprocess.run") as mock_run:
         with patch.dict(os.environ, {"EDITOR": "   "}):
+            result = editor.edit_text_in_editor("test content")
+
+    assert result is None
+    mock_run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "editor_value",
+    [
+        "nano ; whoami",
+        "vim | cat /etc/passwd",
+        "code && echo pwned",
+        '"C:\\Program Files\\VS Code\\Code.exe" & calc.exe',
+    ],
+)
+def test_editor_shell_metacharacters_are_rejected_before_execution(editor_value):
+    editor = QuickEditor()
+
+    with patch("subprocess.run") as mock_run:
+        with patch.dict(os.environ, {"EDITOR": editor_value}):
             result = editor.edit_text_in_editor("test content")
 
     assert result is None
