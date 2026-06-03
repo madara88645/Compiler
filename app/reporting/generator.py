@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import json
+import operator
 from datetime import datetime
 from jinja2 import Template
 
@@ -304,7 +305,7 @@ class ReportGenerator:
                     )
 
         # Sort robustness data by main score descending and take top 10
-        robustness_data.sort(key=lambda x: x["main_score"], reverse=True)
+        robustness_data.sort(key=operator.itemgetter("main_score"), reverse=True)
         robustness_data = robustness_data[:10]
 
         # Render Template
