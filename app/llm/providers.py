@@ -2,7 +2,6 @@ from __future__ import annotations
 import json
 import time
 import os
-import httpx
 from typing import Optional
 
 from .base import LLMProvider, LLMResponse
@@ -69,7 +68,7 @@ class OllamaProvider(LLMProvider):
         start = time.time()
         try:
             # high timeout for local inference
-            resp = httpx.post(url, json=payload, timeout=60.0)
+            resp = self.client.post(url, json=payload, timeout=60.0)
             resp.raise_for_status()
             data = resp.json()
             content = data.get("response", "")
@@ -131,7 +130,7 @@ class OpenAIProvider(LLMProvider):
 
         start = time.time()
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=self.config.timeout)
+            resp = self.client.post(url, json=payload, headers=headers, timeout=self.config.timeout)
             resp.raise_for_status()
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
@@ -180,7 +179,7 @@ class AnthropicProvider(LLMProvider):
 
         start = time.time()
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=self.config.timeout)
+            resp = self.client.post(url, json=payload, headers=headers, timeout=self.config.timeout)
             resp.raise_for_status()
             data = resp.json()
             blocks = data.get("content", [])
