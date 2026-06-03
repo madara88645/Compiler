@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
+import httpx
 from pydantic import BaseModel, Field
 
 
@@ -32,6 +33,8 @@ class LLMProvider(ABC):
     def __init__(self, config: ProviderConfig):
         self.config = config
 
+        self.client = httpx.Client(timeout=config.timeout)
+
     @abstractmethod
     def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
         """
@@ -46,3 +49,10 @@ class LLMProvider(ABC):
             LLMResponse object containing content and metadata.
         """
         pass
+
+    def __del__(self):
+        if hasattr(self, "client"):
+            try:
+                self.client.close()
+            except Exception:
+                pass

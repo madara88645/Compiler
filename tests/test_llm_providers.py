@@ -99,7 +99,7 @@ class TestAnthropicProvider:
             "usage": {"input_tokens": 12, "output_tokens": 34},
         }
 
-        with patch("app.llm.providers.httpx.post", return_value=mock_response):
+        with patch.object(provider.client, "post", return_value=mock_response):
             response = provider.generate("Hello", system_prompt="Be concise")
 
         assert response.content == "Anthropic says hi"
