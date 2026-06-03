@@ -4,12 +4,15 @@ This module provides functionality to quickly edit prompts from history and favo
 including text editing, metadata updates, and re-compilation.
 """
 
-import click
-from typing import Optional, Dict, Any, Literal
+import os
+import shlex
+import subprocess
+import tempfile
+from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 
 # from app.history import get_history_manager
 from app.favorites import get_favorites_manager
@@ -34,6 +37,28 @@ def get_history_manager():
 
 console = Console()
 
+FORBIDDEN_EDITOR_PREFIXES = (
+    "bash",
+    "sh",
+    "zsh",
+    "csh",
+    "ksh",
+    "tcsh",
+    "dash",
+    "fish",
+    "python",
+    "pypy",
+    "env",
+    "cmd",
+    "powershell",
+    "pwsh",
+    "node",
+    "ruby",
+    "perl",
+    "php",
+)
+SHELL_METACHAR_TOKENS = {";", "|", "&", "&&", "||"}
+
 
 class QuickEditor:
     """Quick editor for prompts in history and favorites."""
@@ -54,51 +79,93 @@ class QuickEditor:
         Returns:
             Tuple of (prompt_dict, source) where source is "history", "favorites", or None
         """
-        # Search in history
         history_entry = self.history_manager.get_by_id(prompt_id)
         if history_entry:
             return history_entry.to_dict(), "history"
 
-        # Search in favorites
         fav_entry = self.favorites_manager.get_by_id(prompt_id)
         if fav_entry:
             return fav_entry.to_dict(), "favorites"
 
         return None, None
 
-    def edit_text_in_editor(self, text: str) -> Optional[str]:
-        """Open text in external editor and return edited content.
+    def get_editor(self) -> str:
+        """Get the default text editor."""
+        editor = os.environ.get("EDITOR") or os.environ.get("VISUAL")
+        if editor:
+            return editor
 
-        Args:
-            text: Initial text to edit
+        return "notepad" if os.name == "nt" else "nano"
 
-        Returns:
-            Edited text or None if cancelled
-        """
+    def _parse_editor_command(self, editor: str) -> Optional[list[str]]:
+        """Parse and validate the configured editor command."""
         try:
-            # click.edit handles opening the editor, temp files, and command parsing safely
-            result = click.edit(text, extension=".txt", require_save=False)
-            if result is None:
+            editor_parts = shlex.split(editor, posix=os.name != "nt")
+        except ValueError as exc:
+            console.print(f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]")
+            return None
+
+        if os.name == "nt":
+            editor_parts = [
+                part[1:-1] if len(part) >= 2 and part[0] == part[-1] == '"' else part
+                for part in editor_parts
+            ]
+
+        editor_parts = [part for part in editor_parts if part]
+        if not editor_parts:
+            console.print("[red]⚠️ EDITOR/VISUAL environment variable is empty or invalid.[/red]")
+            return None
+
+        for part in editor_parts:
+            if part in SHELL_METACHAR_TOKENS:
+                console.print(
+                    f"[red]⚠️ Editor command contains forbidden shell operator: {part}[/red]"
+                )
                 return None
-            return result
-        except click.ClickException as exc:
-            console.print(f"[red]⚠️ Failed to open editor: {exc}[/red]")
-            return None
-        except Exception as exc:
-            console.print(f"[red]⚠️ Unexpected error opening editor: {exc}[/red]")
-            return None
+
+            normalized_part = part.replace("\\", "/")
+            basename = os.path.basename(normalized_part).lower()
+            base_without_ext = basename[:-4] if basename.endswith(".exe") else basename
+
+            for prefix in FORBIDDEN_EDITOR_PREFIXES:
+                if base_without_ext.startswith(prefix):
+                    remainder = base_without_ext[len(prefix) :]
+                    if not remainder or remainder.lstrip(".0123456789") == "":
+                        console.print(
+                            f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
+                        )
+                        return None
+
+        return editor_parts
+
+    def edit_text_in_editor(self, text: str) -> Optional[str]:
+        """Open text in external editor and return edited content."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as handle:
+            handle.write(text)
+            temp_path = handle.name
+
+        try:
+            editor_parts = self._parse_editor_command(self.get_editor())
+            if not editor_parts:
+                return None
+
+            result = subprocess.run([*editor_parts, temp_path])
+            if result.returncode != 0:
+                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
+                return None
+
+            with open(temp_path, "r", encoding="utf-8") as handle:
+                return handle.read()
+        finally:
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
-        """Edit a prompt by ID.
-
-        Args:
-            prompt_id: The prompt ID to edit
-            recompile: Whether to recompile after editing
-
-        Returns:
-            True if edited successfully
-        """
-        # Find the prompt
+        """Edit a prompt by ID."""
         prompt_dict, source = self.find_prompt(prompt_id)
 
         if not prompt_dict or not source:
@@ -107,7 +174,6 @@ class QuickEditor:
 
         console.print(f"\n[cyan]✏️ Editing prompt from {source}:[/cyan] {prompt_id}\n")
 
-        # Display current prompt info
         info_text = f"[bold cyan]ID:[/bold cyan] {prompt_dict.get('id', 'N/A')}\n"
         info_text += f"[bold cyan]Timestamp:[/bold cyan] {prompt_dict.get('timestamp', 'N/A')}\n"
         info_text += f"[bold cyan]Domain:[/bold cyan] {prompt_dict.get('domain', 'N/A')}\n"
@@ -116,7 +182,6 @@ class QuickEditor:
 
         console.print(Panel(info_text, title="📋 Current Prompt Info", border_style="cyan"))
 
-        # Show what to edit
         console.print("\n[bold yellow]What would you like to edit?[/bold yellow]")
         console.print("1. Prompt text")
         console.print("2. Domain and Language")
@@ -127,7 +192,6 @@ class QuickEditor:
         changes_made = False
 
         if choice == "1":
-            # Edit prompt text
             current_text = prompt_dict.get("prompt_text", "")
             console.print(f"\n[dim]Current text:[/dim]\n{current_text[:200]}...\n")
 
@@ -143,7 +207,6 @@ class QuickEditor:
                     changes_made = True
 
         elif choice == "2":
-            # Edit domain and language
             console.print("\n[bold]Edit Domain and Language:[/bold]")
 
             new_domain = Prompt.ask(
@@ -161,7 +224,6 @@ class QuickEditor:
                 changes_made = True
 
         elif choice == "3":
-            # Edit tags
             console.print("\n[bold]Edit Tags:[/bold]")
 
             current_tags = ", ".join(prompt_dict.get("tags", []))
@@ -176,9 +238,7 @@ class QuickEditor:
             console.print("\n[yellow]No changes made[/yellow]\n")
             return False
 
-        # Save changes
         if source == "history":
-            # Update history entry
             for entry in self.history_manager.entries:
                 if entry.id == prompt_id:
                     entry.prompt_text = prompt_dict.get("prompt_text", entry.prompt_text)
@@ -187,8 +247,7 @@ class QuickEditor:
                     entry.tags = prompt_dict.get("tags", entry.tags)
                     break
             self.history_manager._save()
-        else:  # favorites
-            # Update favorites entry
+        else:
             for entry in self.favorites_manager.entries:
                 if entry.id == prompt_id:
                     entry.prompt_text = prompt_dict.get("prompt_text", entry.prompt_text)
@@ -204,12 +263,7 @@ class QuickEditor:
         return True
 
     def display_prompt_preview(self, prompt: Dict[str, Any], source: str):
-        """Display a preview of the prompt.
-
-        Args:
-            prompt: Prompt dictionary
-            source: Source ("history" or "favorites")
-        """
+        """Display a preview of the prompt."""
         info_text = f"[bold cyan]Source:[/bold cyan] {source}\n"
         info_text += f"[bold cyan]ID:[/bold cyan] {prompt.get('id', 'N/A')}\n"
         info_text += f"[bold cyan]Timestamp:[/bold cyan] {prompt.get('timestamp', 'N/A')}\n"
@@ -222,7 +276,6 @@ class QuickEditor:
         console.print()
         console.print(Panel(info_text, title="📋 Prompt Info", border_style="cyan"))
 
-        # Show input and output
         input_text = prompt.get("input_text", "")
         output_text = prompt.get("output_prompt", "")
 
@@ -239,16 +292,11 @@ class QuickEditor:
         console.print()
 
 
-# Singleton instance
 _quick_editor: Optional[QuickEditor] = None
 
 
 def get_quick_editor() -> QuickEditor:
-    """Get or create the singleton QuickEditor instance.
-
-    Returns:
-        QuickEditor instance
-    """
+    """Get or create the singleton QuickEditor instance."""
     global _quick_editor
     if _quick_editor is None:
         _quick_editor = QuickEditor()
