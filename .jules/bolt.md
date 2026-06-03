@@ -183,3 +183,6 @@
 ## 2026-06-25 - Removing any() generator overhead in heuristic short-circuit evaluations
 **Learning:** In heavily utilized heuristic handlers (like `format_enforcer` and `paradox_resolver`), using an inline `any(c.text == val for c in constraints)` generator expression creates a measurable performance bottleneck. The overhead of setting up and tearing down the generator frame eclipses the cost of the actual string `==` operation, especially for small sequences like the current list of constraints. Microbenchmarks show a ~2x performance improvement by replacing it with an explicit loop.
 **Action:** Replace `any()` generator expressions used for constraint existence checks in hot paths with explicit `for` loops to bypass generator overhead and achieve a 2x speedup.
+## 2024-05-18 - Fast-path loop optimization using native methods
+**Learning:** In heavily utilized loop iterations counting occurrences in CPython, `sum(map(method, iterable))` uses O(1) extra memory and is faster/more memory-efficient than list comprehension with `len()`.
+**Action:** Replace `len([x for x in iterable if condition])` with `sum(map(condition_func, iterable))` for occurrences counting in hot paths, specially utilizing `__contains__` or native string methods.
