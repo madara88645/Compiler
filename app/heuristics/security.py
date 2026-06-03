@@ -9,6 +9,15 @@ import re
 from typing import List, Dict, NamedTuple
 
 
+
+def _count_digits(val: str) -> int:
+    c = 0
+    for ch in val:
+        if ch.isdigit():
+            c += 1
+    return c
+
+
 class Redaction(NamedTuple):
     original: str
     masked: str
@@ -81,8 +90,8 @@ def scan_text(text: str) -> SecurityResult:
                 if "." in val or _HEX_PATTERN.search(val):  # Hex check just in case
                     continue
                 # Length check for raw digits
-                # Bolt Optimization: sum(map(str.isdigit, val)) is ~3x faster than list comp with len()
-                digits_count = sum(map(str.isdigit, val))
+                # Bolt Optimization: explicit loop is faster than sum(map(...)) for small strings
+                digits_count = _count_digits(val)
                 if digits_count < 13 or digits_count > 19:
                     continue
 
