@@ -81,8 +81,11 @@ class CompileRequest(BaseModel):
         if tags is None:
             return None
         normalized = [tag.strip() for tag in tags if tag and tag.strip()]
-        if any(len(t) > 100 for t in normalized):
-            raise ValueError("Tag length must not exceed 100 characters")
+        # Bolt Optimization: Replace any() generator expression with explicit loop
+        # Bypasses generator setup/teardown overhead in a hot validation path
+        for t in normalized:
+            if len(t) > 100:
+                raise ValueError("Tag length must not exceed 100 characters")
         return normalized[:20]
 
 

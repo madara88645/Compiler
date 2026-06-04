@@ -22,6 +22,7 @@ class JulesClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._transport = transport
+        self._client = None if transport else httpx.Client(base_url=self.base_url, timeout=self.timeout)
 
     def _request(
         self,
@@ -42,14 +43,13 @@ class JulesClient:
                 params=params,
             )
         else:
-            with httpx.Client(base_url=self.base_url, timeout=self.timeout) as client:
-                response = client.request(
-                    method,
-                    path,
-                    headers=headers,
-                    json=json,
-                    params=params,
-                )
+            response = self._client.request(
+                method,
+                path,
+                headers=headers,
+                json=json,
+                params=params,
+            )
 
         response.raise_for_status()
         if not getattr(response, "content", None):
