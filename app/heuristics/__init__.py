@@ -4,6 +4,8 @@ import os
 import re
 from typing import Any, Dict, List, Tuple
 
+from .utils import _count_digits
+
 
 try:
     import yaml  # type: ignore
@@ -700,16 +702,6 @@ def _has_fp_hint_around_match(text: str, start: int, end: int, window: int = 24)
         if hint in ctx:
             return True
     return False
-
-
-
-def _count_digits(val: str) -> int:
-    c = 0
-    for ch in val:
-        if ch.isdigit():
-            c += 1
-    return c
-
 
 def detect_pii(text: str) -> list[str]:
     flags: list[str] = []

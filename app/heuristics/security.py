@@ -8,14 +8,7 @@ from text before it is processed by LLMs.
 import re
 from typing import List, Dict, NamedTuple
 
-
-
-def _count_digits(val: str) -> int:
-    c = 0
-    for ch in val:
-        if ch.isdigit():
-            c += 1
-    return c
+from .utils import _count_digits
 
 
 class Redaction(NamedTuple):
