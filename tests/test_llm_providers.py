@@ -38,6 +38,34 @@ class TestMockProvider:
 
         assert "variations" in response.content or "passed" in response.content
 
+    def test_close_closes_persistent_client_once(self):
+        provider = MockProvider(ProviderConfig())
+
+        with patch.object(provider.client, "close") as close_mock:
+            provider.close()
+            provider.close()
+
+        close_mock.assert_called_once()
+
+    def test_close_propagates_client_close_errors_and_allows_retry(self):
+        provider = MockProvider(ProviderConfig())
+
+        with patch.object(provider.client, "close", side_effect=[RuntimeError("boom"), None]) as close_mock:
+            with pytest.raises(RuntimeError, match="boom"):
+                provider.close()
+
+            provider.close()
+
+        assert close_mock.call_count == 2
+
+    def test_del_swallows_client_close_errors(self):
+        provider = MockProvider(ProviderConfig())
+
+        with patch.object(provider.client, "close", side_effect=RuntimeError("boom")) as close_mock:
+            provider.__del__()
+
+        close_mock.assert_called_once()
+
 
 class TestFactory:
     def test_get_mock_provider(self):
@@ -104,6 +132,25 @@ class TestAnthropicProvider:
 
         assert response.content == "Anthropic says hi"
         assert response.usage == {"prompt_tokens": 12, "completion_tokens": 34}
+
+    def test_repeated_calls_reuse_persistent_client(self):
+        config = ProviderConfig(api_key="test-key", model="claude-opus-4-7")
+        provider = AnthropicProvider(config)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "content": [{"type": "text", "text": "Anthropic says hi"}],
+            "usage": {"input_tokens": 12, "output_tokens": 34},
+        }
+
+        with patch.object(provider.client, "post", return_value=mock_response) as post_mock:
+            first = provider.generate("Hello")
+            second = provider.generate("Hello again")
+
+        assert first.content == "Anthropic says hi"
+        assert second.content == "Anthropic says hi"
+        assert post_mock.call_count == 2
 
     def test_custom_config(self):
         config = ProviderConfig(model="custom-model", temperature=0.9)
