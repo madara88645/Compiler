@@ -22,7 +22,9 @@ class JulesClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._transport = transport
-        self._client = None if transport else httpx.Client(base_url=self.base_url, timeout=self.timeout)
+        self._client = (
+            None if transport else httpx.Client(base_url=self.base_url, timeout=self.timeout)
+        )
 
     def _request(
         self,
