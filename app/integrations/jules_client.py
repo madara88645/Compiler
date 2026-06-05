@@ -23,7 +23,9 @@ class JulesClient:
         self.timeout = timeout
         self._transport = transport
         # Bolt Optimization: Persist httpx.Client to reuse connection pool and avoid instantiation overhead on every request
-        self._client = httpx.Client(base_url=self.base_url, timeout=self.timeout)
+        self._client = httpx.Client(
+            base_url=self.base_url, timeout=self.timeout, transport=self._transport
+        )
 
     def close(self) -> None:
         if hasattr(self, "_client"):
