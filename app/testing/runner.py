@@ -134,20 +134,6 @@ class TestRunner:
 
         try:
             # 1. Compile prompt with variables
-            # Note: The current 'compile_text' doesn't support Jinja-like injection directly in valid compilation logic
-            # usually, but 'emit_user_prompt' might if the IR supports it.
-            # For this sprint, we'll do a simple f-string like sub if not supported,
-            # BUT the project has a template system.
-            # Let's assume we use the 'template_app' filling logic or similar.
-            # For now, we will use a basic string replace for keys locally to simulate "filling"
-            # if the compiler doesn't handle it.
-            # Actually, `compile_text` takes raw text. `emit_expanded_prompt` creates the final string.
-            # We need a way to INJECT variables into the prompt BEFORE compilation or DURING emission.
-            # Looking at existing code, `emit_expanded_prompt` takes `ir`.
-            # There is no variable injection in the core compiler yet (it's static analysis).
-            # So we will treat the input variables as just metadata we pass to the executor,
-            # OR we format the text before compiling. Let's format before compiling.
-
             filled_text = template_text
             for k, v in args.items():
                 filled_text = filled_text.replace(
