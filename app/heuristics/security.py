@@ -54,7 +54,6 @@ def scan_text(text: str) -> SecurityResult:
     Scans text for sensitive information and returns a redacted version.
     """
     findings = []
-    # redacted_text = text # Removed unused variable
 
     # We apply redactions in reverse order of matching to avoid index invalidation issues
     # But strings start replacing from left.
