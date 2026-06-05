@@ -10,6 +10,7 @@ from uuid import uuid4
 @dataclass(frozen=True)
 class TestRuntime:
     session_dir: Path
+    temp_root: Path
     db_dir: Path
     env_updates: dict[str, str]
 
@@ -63,16 +64,23 @@ def prepare_test_runtime(
         try:
             root.mkdir(parents=True, exist_ok=True)
             session_dir = _create_session_dir(root)
+            temp_root = (session_dir / "tmp").resolve()
+            temp_root.mkdir(parents=True, exist_ok=True)
             db_dir = (session_dir / "db").resolve()
             db_dir.mkdir(parents=True, exist_ok=True)
 
             env_updates = {
-                "TMP": str(session_dir),
-                "TEMP": str(session_dir),
-                "TMPDIR": str(session_dir),
+                "TMP": str(temp_root),
+                "TEMP": str(temp_root),
+                "TMPDIR": str(temp_root),
                 "DB_DIR": str(db_dir),
             }
-            return TestRuntime(session_dir=session_dir, db_dir=db_dir, env_updates=env_updates)
+            return TestRuntime(
+                session_dir=session_dir,
+                temp_root=temp_root,
+                db_dir=db_dir,
+                env_updates=env_updates,
+            )
         except PermissionError as exc:
             if "session_dir" in locals():
                 shutil.rmtree(session_dir, ignore_errors=True)
@@ -87,4 +95,4 @@ def prepare_test_runtime(
 def apply_test_runtime(runtime: TestRuntime) -> None:
     for env_name, value in runtime.env_updates.items():
         os.environ[env_name] = value
-    tempfile.tempdir = str(runtime.session_dir)
+    tempfile.tempdir = str(runtime.temp_root)

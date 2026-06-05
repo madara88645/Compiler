@@ -33,9 +33,13 @@ def test_prepare_test_runtime_sets_process_temp_environment(tmp_path):
 
     assert runtime.session_dir.is_dir()
     assert runtime.db_dir.is_dir()
-    assert runtime.env_updates["TMP"] == str(runtime.session_dir)
-    assert runtime.env_updates["TEMP"] == str(runtime.session_dir)
-    assert runtime.env_updates["TMPDIR"] == str(runtime.session_dir)
+    assert runtime.env_updates["TMP"] != str(runtime.session_dir)
+    assert runtime.env_updates["TEMP"] != str(runtime.session_dir)
+    assert runtime.env_updates["TMPDIR"] != str(runtime.session_dir)
+    assert Path(runtime.env_updates["TMP"]) == runtime.session_dir / "tmp"
+    assert Path(runtime.env_updates["TEMP"]) == runtime.session_dir / "tmp"
+    assert Path(runtime.env_updates["TMPDIR"]) == runtime.session_dir / "tmp"
+    assert Path(runtime.env_updates["TMP"]).is_dir()
     assert runtime.env_updates["DB_DIR"] == str(runtime.db_dir)
 
 
