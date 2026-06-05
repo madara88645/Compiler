@@ -1,7 +1,7 @@
-
 import os
 from unittest.mock import patch
 from app.quick_edit import QuickEditor
+
 
 def test_editor_calls_click_edit():
     editor = QuickEditor()

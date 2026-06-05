@@ -54,6 +54,8 @@ FORBIDDEN_EDITOR_PREFIXES = (
     "perl",
     "php",
 )
+
+
 class QuickEditor:
     """Quick editor for prompts in history and favorites."""
 
