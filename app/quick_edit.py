@@ -4,10 +4,7 @@ This module provides functionality to quickly edit prompts from history and favo
 including text editing, metadata updates, and re-compilation.
 """
 
-import os
-import shlex
-import subprocess
-import tempfile
+import click
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
@@ -57,9 +54,6 @@ FORBIDDEN_EDITOR_PREFIXES = (
     "perl",
     "php",
 )
-SHELL_METACHAR_TOKENS = {";", "|", "&", "&&", "||"}
-
-
 class QuickEditor:
     """Quick editor for prompts in history and favorites."""
 
@@ -89,80 +83,13 @@ class QuickEditor:
 
         return None, None
 
-    def get_editor(self) -> str:
-        """Get the default text editor."""
-        editor = os.environ.get("EDITOR") or os.environ.get("VISUAL")
-        if editor:
-            return editor
-
-        return "notepad" if os.name == "nt" else "nano"
-
-    def _parse_editor_command(self, editor: str) -> Optional[list[str]]:
-        """Parse and validate the configured editor command."""
-        try:
-            editor_parts = shlex.split(editor, posix=os.name != "nt")
-        except ValueError as exc:
-            console.print(f"[red]⚠️ Failed to parse editor command from EDITOR/VISUAL: {exc}[/red]")
-            return None
-
-        if os.name == "nt":
-            editor_parts = [
-                part[1:-1] if len(part) >= 2 and part[0] == part[-1] == '"' else part
-                for part in editor_parts
-            ]
-
-        editor_parts = [part for part in editor_parts if part]
-        if not editor_parts:
-            console.print("[red]⚠️ EDITOR/VISUAL environment variable is empty or invalid.[/red]")
-            return None
-
-        for part in editor_parts:
-            if part in SHELL_METACHAR_TOKENS:
-                console.print(
-                    f"[red]⚠️ Editor command contains forbidden shell operator: {part}[/red]"
-                )
-                return None
-
-            normalized_part = part.replace("\\", "/")
-            basename = os.path.basename(normalized_part).lower()
-            base_without_ext = basename[:-4] if basename.endswith(".exe") else basename
-
-            for prefix in FORBIDDEN_EDITOR_PREFIXES:
-                if base_without_ext.startswith(prefix):
-                    remainder = base_without_ext[len(prefix) :]
-                    if not remainder or remainder.lstrip(".0123456789") == "":
-                        console.print(
-                            f"[red]⚠️ Editor command contains forbidden executable or shell: {part}[/red]"
-                        )
-                        return None
-
-        return editor_parts
-
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as handle:
-            handle.write(text)
-            temp_path = handle.name
-
         try:
-            editor_parts = self._parse_editor_command(self.get_editor())
-            if not editor_parts:
-                return None
-
-            result = subprocess.run([*editor_parts, temp_path])
-            if result.returncode != 0:
-                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
-                return None
-
-            with open(temp_path, "r", encoding="utf-8") as handle:
-                return handle.read()
-        finally:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            return click.edit(text, require_save=False)
+        except Exception as exc:
+            console.print(f"[red]⚠️ Failed to open editor: {exc}[/red]")
+            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID."""
