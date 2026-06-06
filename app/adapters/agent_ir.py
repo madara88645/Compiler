@@ -305,7 +305,6 @@ def _infer_memory_outline(
     outline = [f"Agent name: {name}"]
     if role:
         outline.append(f"Primary role: {role}")
-    # Bolt Optimization: list comprehension inside extend() is faster than generator expression
-    outline.extend([f"Goal: {goal}" for goal in goals[:3]])
-    outline.extend([f"Constraint: {constraint}" for constraint in constraints[:3]])
+    outline.extend(f"Goal: {goal}" for goal in goals[:3])
+    outline.extend(f"Constraint: {constraint}" for constraint in constraints[:3])
     return outline
