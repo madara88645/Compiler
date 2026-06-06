@@ -4,6 +4,7 @@ tests/test_export_adapters.py — Tests for the Export Adapter layer.
 Covers IR extraction, code generation, and API endpoints for both
 agent and skill exports.
 """
+
 from __future__ import annotations
 
 import json
@@ -538,3 +539,41 @@ def test_export_api_python_only(client):
     data = response.json()
     assert data["python_code"] is not None
     assert data["yaml_config"] is None
+
+
+def test_export_api_unsupported_format_no_reflection(client):
+    """
+    Ensure that an unsupported format does NOT echo the format string
+    back to the user in the error message to prevent Information Exposure/XSS.
+    """
+    malicious_payload = "<script>alert('xss')</script>"
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": "hello",
+            "format": malicious_payload,
+            "output_type": "python",
+        },
+    )
+    assert response.status_code == 400
+    assert malicious_payload not in response.text
+    assert response.json()["detail"] == "Unsupported format."
+
+
+def test_export_skill_api_unsupported_format_no_reflection(client):
+    """
+    Ensure that an unsupported format does NOT echo the format string
+    back to the user in the error message in the skill endpoint.
+    """
+    malicious_payload = "<img src=x onerror=alert('xss')>"
+    response = client.post(
+        "/skills-generator/export",
+        json={
+            "skill_definition": "hello",
+            "format": malicious_payload,
+            "output_type": "python",
+        },
+    )
+    assert response.status_code == 400
+    assert malicious_payload not in response.text
+    assert response.json()["detail"] == "Unsupported format."
