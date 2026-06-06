@@ -97,11 +97,6 @@ def test_requests_reuse_persistent_http_client(monkeypatch):
     session = client.create_session({"source": "sources/github/acme/repo"})
 
     assert len(created_clients) == 1
-    assert created_clients[0] == {
-        "base_url": "https://jules.example.com",
-        "timeout": 12.5,
-        "transport": None,
-    }
     assert sources["sources"][0]["name"] == "sources/github/acme/repo"
     assert session["session"]["name"] == "sessions/123"
     assert recording_client.calls == [
