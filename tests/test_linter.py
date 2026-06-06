@@ -14,6 +14,15 @@ def test_linter_ambiguity():
     assert any(w.code == "AMBIGUITY" for w in report.warnings)
 
 
+def test_linter_counts_repeated_multi_word_weasel_phrases():
+    linter = PromptLinter()
+
+    single = linter.lint("Try to improve this.")
+    repeated = linter.lint("Try to try to improve this.")
+
+    assert repeated.ambiguity_score > single.ambiguity_score
+
+
 def test_linter_density():
     linter = PromptLinter()
     # High density
