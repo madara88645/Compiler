@@ -22,6 +22,17 @@ class JulesClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._transport = transport
+        # Bolt Optimization: Persist httpx.Client to reuse connection pool and avoid instantiation overhead on every request
+        self._client = httpx.Client(
+            base_url=self.base_url, timeout=self.timeout, transport=self._transport
+        )
+
+    def close(self) -> None:
+        if hasattr(self, "_client"):
+            self._client.close()
+
+    def __del__(self) -> None:
+        self.close()
 
     def _request(
         self,
@@ -42,14 +53,13 @@ class JulesClient:
                 params=params,
             )
         else:
-            with httpx.Client(base_url=self.base_url, timeout=self.timeout) as client:
-                response = client.request(
-                    method,
-                    path,
-                    headers=headers,
-                    json=json,
-                    params=params,
-                )
+            response = self._client.request(
+                method,
+                path,
+                headers=headers,
+                json=json,
+                params=params,
+            )
 
         response.raise_for_status()
         if not getattr(response, "content", None):

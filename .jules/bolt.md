@@ -186,3 +186,6 @@
 ## 2025-02-27 - CPython sum(map) vs List Comprehension Memory Performance
 **Learning:** For counting elements matching a condition in CPython, `sum(map(condition_func, iterable))` evaluates largely at the C-level and requires O(1) extra memory, making it notably more memory-efficient and marginally faster than an equivalent list comprehension `len([x for x in iterable if condition])`, which materializes a full intermediate list requiring O(N) memory allocation.
 **Action:** Replace length checks of filtered list comprehensions with `sum(map(...))` when optimizing for memory and tight CPU loops, particularly in hot heuristic or parsing paths.
+## 2024-05-31 - Persistent HTTP Clients over Ephemeral Connections
+**Learning:** Recreating HTTP clients (like `httpx.Client`) for every API request using a short-lived `with httpx.Client(...) as client:` context manager incurs massive overhead (up to 100x slower) because it forces a new TCP connection and TLS handshake for every call.
+**Action:** When making synchronous API requests inside a class or frequently called function, initialize a persistent `httpx.Client` instance at the class level and reuse it across requests to benefit from HTTP connection pooling (Keep-Alive). Ensure to implement a `.close()` method to clean up resources appropriately.
