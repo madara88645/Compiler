@@ -76,7 +76,7 @@ describe("Agent Packs page", () => {
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Review pull requests for secret leaks and missing tests." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /generate claude pack/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
 
     await waitFor(() => expect(apiJson).toHaveBeenCalledTimes(1));
     const [path, options] = apiJson.mock.calls[0];
@@ -107,7 +107,7 @@ describe("Agent Packs page", () => {
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Create a full project pack." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /generate claude pack/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
 
     await screen.findByText("Pack Preview");
     fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
@@ -127,7 +127,7 @@ describe("Agent Packs page", () => {
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Create a full project pack." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /generate claude pack/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
 
     expect(
       await screen.findByText("The service is temporarily unavailable or still waking up. Please retry in a few seconds."),
