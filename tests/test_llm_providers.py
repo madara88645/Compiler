@@ -113,6 +113,114 @@ class TestAnthropicProvider:
         assert provider.config.temperature == 0.9
 
 
+class TestOpenAIProvider:
+    def test_missing_api_key_returns_error_without_making_request(self):
+        config = ProviderConfig()
+        provider = OpenAIProvider(config)
+
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}, clear=False), patch.object(
+            provider.client, "post"
+        ) as mock_post:
+            response = provider.generate("Hello")
+
+        assert response.content == "Error: Missing OpenRouter API Key"
+        mock_post.assert_not_called()
+
+    def test_successful_response_uses_persistent_client_and_openrouter_headers(self):
+        config = ProviderConfig(api_key="test-key", model="openai/gpt-oss-20b", timeout=12.5)
+        provider = OpenAIProvider(config)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "OpenRouter says hi"}}],
+            "usage": {"prompt_tokens": 21, "completion_tokens": 8},
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+                "OPENROUTER_HTTP_REFERER": "https://promptc.example",
+                "OPENROUTER_TITLE": "Prompt Compiler",
+            },
+            clear=False,
+        ), patch.object(provider.client, "post", return_value=mock_response) as mock_post:
+            response = provider.generate(
+                "Hello",
+                system_prompt="Be concise",
+                model="openai/gpt-oss-120b",
+                temperature=0.2,
+                max_tokens=321,
+            )
+
+        assert response.content == "OpenRouter says hi"
+        assert response.usage == {"prompt_tokens": 21, "completion_tokens": 8}
+        mock_post.assert_called_once()
+        url = mock_post.call_args.args[0]
+        kwargs = mock_post.call_args.kwargs
+        assert url == "https://openrouter.ai/api/v1/chat/completions"
+        assert kwargs["timeout"] == 12.5
+        assert kwargs["headers"]["Authorization"] == "Bearer test-key"
+        assert kwargs["headers"]["Content-Type"] == "application/json"
+        assert kwargs["headers"]["HTTP-Referer"] == "https://promptc.example"
+        assert kwargs["headers"]["X-Title"] == "Prompt Compiler"
+        assert kwargs["json"]["model"] == "openai/gpt-oss-120b"
+        assert kwargs["json"]["temperature"] == 0.2
+        assert kwargs["json"]["max_tokens"] == 321
+        assert kwargs["json"]["messages"] == [
+            {"role": "system", "content": "Be concise"},
+            {"role": "user", "content": "Hello"},
+        ]
+
+    def test_http_failures_return_generic_error(self):
+        config = ProviderConfig(api_key="test-key")
+        provider = OpenAIProvider(config)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = RuntimeError("boom")
+
+        with patch.object(provider.client, "post", return_value=mock_response):
+            response = provider.generate("Hello")
+
+        assert response.content == "Error: An internal error occurred."
+
+
+class TestOllamaProvider:
+    def test_successful_response_maps_usage_and_system_prompt(self):
+        config = ProviderConfig(base_url="http://ollama.local:11434", model="llama3")
+        provider = OllamaProvider(config)
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "response": "Local model says hi",
+            "prompt_eval_count": 13,
+            "eval_count": 5,
+        }
+
+        with patch.object(provider.client, "post", return_value=mock_response) as mock_post:
+            response = provider.generate(
+                "Hello",
+                system_prompt="Answer precisely",
+                temperature=0.2,
+                max_tokens=99,
+            )
+
+        assert response.content == "Local model says hi"
+        assert response.usage == {"prompt_tokens": 13, "completion_tokens": 5}
+        mock_post.assert_called_once()
+        url = mock_post.call_args.args[0]
+        kwargs = mock_post.call_args.kwargs
+        assert url == "http://ollama.local:11434/api/generate"
+        assert kwargs["timeout"] == 60.0
+        assert kwargs["json"]["model"] == "llama3"
+        assert kwargs["json"]["prompt"] == "Hello"
+        assert kwargs["json"]["stream"] is False
+        assert kwargs["json"]["options"] == {"temperature": 0.2, "num_predict": 99}
+        assert kwargs["json"]["system"] == "Answer precisely"
+
+
 class TestRegisterProvider:
     def test_register_custom_provider(self):
         class CustomProvider(LLMProvider):
