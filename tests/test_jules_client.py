@@ -57,14 +57,24 @@ class RecordingClient:
         self.closed = True
 
 
+def _response(method, path, *, status_code=200, json_body=None, content=None):
+    request = httpx.Request(method, f"https://jules.example.com{path}")
+    response_kwargs = {"status_code": status_code, "request": request}
+    if json_body is not None:
+        response_kwargs["json"] = json_body
+    else:
+        response_kwargs["content"] = b"" if content is None else content
+    return httpx.Response(**response_kwargs)
+
+
 def test_requests_reuse_persistent_http_client(monkeypatch):
     from app.integrations.jules_client import JulesClient
     import app.integrations.jules_client as jules_client_module
 
     recording_client = RecordingClient(
         [
-            httpx.Response(200, json={"sources": [{"name": "sources/github/acme/repo"}]}),
-            httpx.Response(200, json={"session": {"name": "sessions/123"}}),
+            _response("GET", "/v1alpha/sources", json_body={"sources": [{"name": "sources/github/acme/repo"}]}),
+            _response("POST", "/v1alpha/sessions", json_body={"session": {"name": "sessions/123"}}),
         ]
     )
     created_clients = []
@@ -116,7 +126,9 @@ def test_request_returns_empty_dict_for_empty_success_response(monkeypatch):
     from app.integrations.jules_client import JulesClient
     import app.integrations.jules_client as jules_client_module
 
-    recording_client = RecordingClient([httpx.Response(204, content=b"")])
+    recording_client = RecordingClient(
+        [_response("POST", "/v1alpha/sessions/session-123:approvePlan", status_code=204, content=b"")]
+    )
     monkeypatch.setattr(jules_client_module.httpx, "Client", lambda **_: recording_client)
 
     client = JulesClient(api_key="jules-key")
