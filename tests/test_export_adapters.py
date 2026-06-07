@@ -633,6 +633,38 @@ def test_export_api_invalid_format(client):
     assert response.status_code == 400
 
 
+def test_export_api_invalid_agent_format_does_not_reflect_input(client):
+    malicious_format = '<script>alert("pwnd")</script>'
+    response = client.post(
+        "/agent-generator/export",
+        json={
+            "system_prompt": SINGLE_AGENT_MARKDOWN,
+            "format": malicious_format,
+            "output_type": "python",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Unsupported format."}
+    assert malicious_format not in response.text
+
+
+def test_export_api_invalid_skill_format_does_not_reflect_input(client):
+    malicious_format = '<img src=x onerror="alert(1)">'
+    response = client.post(
+        "/skills-generator/export",
+        json={
+            "skill_definition": SKILL_MARKDOWN,
+            "format": malicious_format,
+            "output_type": "python",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Unsupported format."}
+    assert malicious_format not in response.text
+
+
 def test_export_api_python_only(client):
     response = client.post(
         "/agent-generator/export",
