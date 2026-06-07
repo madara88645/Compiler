@@ -117,6 +117,46 @@ describe("Agent Packs page", () => {
     expect(path).toBe("/agent-packs/claude/download");
     expect(JSON.parse(options.body).goal).toBe("Create a full project pack.");
     expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    // The blob URL is created for the download and cleaned up afterwards.
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview"));
+
+    // Button leaves the "Preparing..." state after a successful download.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
+        "Download Pack",
+      ),
+    );
+  });
+
+  test("shows a visible error and resets the button when download fails", async () => {
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Create a full project pack." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+
+    await screen.findByText("Pack Preview");
+
+    apiFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: "Pack generation failed." }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
+
+    expect(await screen.findByText("Pack generation failed.")).toBeTruthy();
+
+    // No silent infinite loading state: the button returns to its idle label.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
+        "Download Pack",
+      ),
+    );
   });
 
   test("shows a normalized network error when generation fails to fetch", async () => {

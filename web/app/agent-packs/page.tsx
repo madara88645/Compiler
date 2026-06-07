@@ -168,13 +168,24 @@ export default function AgentPacksPage() {
       }
 
       const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error("The agent pack download was empty. Please try generating it again.");
+      }
+
       const href = URL.createObjectURL(blob);
       const filename = getDownloadFilename(response, `${manifest?.download_name || "agent-pack"}.zip`);
       const anchor = document.createElement("a");
       anchor.href = href;
       anchor.download = filename;
+      anchor.rel = "noopener";
+      anchor.style.display = "none";
+      // The anchor must be in the document for the synthetic click to trigger a
+      // download in Firefox, and the object URL must outlive the click — revoking
+      // it synchronously cancels the download in Chromium-based browsers.
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(href);
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 0);
     } catch (err: unknown) {
       showError(err);
       setError(describeRequestError(err, { fallback: "Failed to download agent pack." }));
