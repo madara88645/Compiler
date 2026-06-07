@@ -108,6 +108,29 @@ def test_agent_packs_download_returns_single_file_when_manifest_has_one_file():
         assert set(archive.namelist()) == {"server.py", "README.md"}
 
 
+def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = (
+            "# Review Agent\n\n## Role\nYou review code.\n\n## Goals\n- Catch prompt leaks"
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-packs/claude/download", json=_request_payload("project-pack")
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        assert "filename=" in response.headers["content-disposition"]
+        assert 'filename="saas-project-pack-claude.zip"' in response.headers["content-disposition"]
+        assert len(response.content) > 0
+
+        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        assert len(archive.namelist()) > 1
+        # Every archived file should carry real content.
+        assert all(archive.read(name) for name in archive.namelist())
+
+
 def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = "# Review Agent\n\n## Role\nYou review code."
