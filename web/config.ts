@@ -30,6 +30,53 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Raised by {@link withTimeout} when a wrapped promise does not settle within
+ * the allotted time. Surfaced like an AbortError by {@link describeRequestError}.
+ */
+export class TimeoutError extends Error {
+  constructor(message = "The request timed out.") {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
+/**
+ * Opt-in client-side timeout wrapper. Races `promise` against a timer; if the
+ * timer wins it invokes `onTimeout` (e.g. to abort an in-flight request) and
+ * rejects with a {@link TimeoutError}. Handlers are always attached to
+ * `promise`, so a losing rejection can never surface as an unhandled rejection.
+ *
+ * This does not alter `apiFetch`/`apiJson` default behavior — callers opt in by
+ * wrapping a request promise and passing their own timeout.
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  onTimeout?: () => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      try {
+        onTimeout?.();
+      } finally {
+        reject(new TimeoutError());
+      }
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function resolveApiBase(locationLike?: LocationLike | null): string {
   const runtimeLocation =
     locationLike ?? (typeof window !== "undefined" ? window.location : undefined);
@@ -93,7 +140,7 @@ export function describeRequestError(
     return error.detail;
   }
 
-  if (error instanceof Error && error.name === "AbortError") {
+  if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
     return copy.timeout || "The backend took too long to respond.";
   }
 

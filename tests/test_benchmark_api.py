@@ -180,6 +180,49 @@ def test_benchmark_provider_failure_returns_safe_error(client):
     assert response.json()["detail"] == "Benchmark model request failed"
 
 
+def test_judge_with_llm_handles_malformed_provider_response():
+    """A malformed (non-JSON) judge response must degrade to None, not raise."""
+    from unittest.mock import MagicMock
+
+    import app.routers.benchmark as benchmark_mod
+
+    fake_worker = MagicMock()
+    fake_worker._call_api.return_value = "not valid json <<< {oops"
+    fake_hybrid = MagicMock()
+    fake_hybrid.worker = fake_worker
+
+    with patch("api.main.hybrid_compiler", fake_hybrid):
+        result = benchmark_mod._judge_with_llm("task", "raw output", "compiled output")
+
+    assert result is None
+
+
+def test_benchmark_run_succeeds_when_judge_response_is_malformed(client):
+    """A malformed judge response must still yield a 200 via the heuristic fallback."""
+    from unittest.mock import MagicMock
+
+    fake_worker = MagicMock()
+    # Judge returns non-JSON garbage -> _judge_with_llm returns None -> heuristic judge.
+    fake_worker._call_api.return_value = "}}} not json"
+    fake_hybrid = MagicMock()
+    fake_hybrid.worker = fake_worker
+
+    with patch(
+        "app.routers.benchmark._generate_llm_output",
+        side_effect=["raw output", "compiled output"],
+    ), patch("api.main.hybrid_compiler", fake_hybrid):
+        response = client.post(
+            "/benchmark/run",
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["raw_output"] == "raw output"
+    assert data["compiled_output"] == "compiled output"
+    assert data["winner"] in ("compiled", "raw")
+
+
 def test_benchmark_models_are_loaded_from_shared_manifest():
     """Backend benchmark model validation should follow the shared frontend manifest."""
     from app.routers.benchmark import (

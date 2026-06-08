@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { apiJson } from "@/config";
+import { apiJson, TimeoutError, withTimeout } from "@/config";
 import DiffViewer from "../components/DiffViewer";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
@@ -30,7 +30,76 @@ type BenchmarkPayload = {
   improvement_score: number;
 };
 
+// Client-side safety net so the UI can never wait forever on a request that
+// the network/proxy fails to settle. The backend + proxy already enforce their
+// own (shorter) timeouts; this is the last-resort backstop on the browser side.
+const DEFAULT_BENCHMARK_TIMEOUT_MS = 60_000;
+const MIN_BENCHMARK_TIMEOUT_MS = 1_000;
+
+function resolveBenchmarkTimeoutMs(): number {
+  const raw = process.env.NEXT_PUBLIC_BENCHMARK_TIMEOUT_MS;
+  if (!raw || !raw.trim()) {
+    return DEFAULT_BENCHMARK_TIMEOUT_MS;
+  }
+  const parsed = Number.parseInt(raw.trim(), 10);
+  if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed < MIN_BENCHMARK_TIMEOUT_MS) {
+    return DEFAULT_BENCHMARK_TIMEOUT_MS;
+  }
+  return parsed;
+}
+
+const BENCHMARK_TIMEOUT_MS = resolveBenchmarkTimeoutMs();
+
+const BENCHMARK_TIMEOUT_MESSAGE =
+  "Benchmark timed out — the model took too long to respond. Try again or switch to the Mock Engine.";
+const BENCHMARK_MALFORMED_MESSAGE =
+  "Benchmark returned an unexpected response. Try again or switch to the Mock Engine.";
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isMetricPair(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const pair = value as { raw?: unknown; compiled?: unknown };
+  return isFiniteNumber(pair.raw) && isFiniteNumber(pair.compiled);
+}
+
+// Validate the response against the existing BenchmarkPayload/UI contract so a
+// malformed body becomes a clean error instead of crashing the radar/diff render.
+function isValidBenchmarkPayload(data: unknown): data is BenchmarkPayload {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+  const payload = data as Record<string, unknown>;
+  if (typeof payload.raw_output !== "string" || typeof payload.compiled_output !== "string") {
+    return false;
+  }
+  if (payload.winner !== "compiled" && payload.winner !== "raw") {
+    return false;
+  }
+  if (!isFiniteNumber(payload.improvement_score) || !isFiniteNumber(payload.processing_ms)) {
+    return false;
+  }
+  const metrics = payload.metrics;
+  if (!metrics || typeof metrics !== "object") {
+    return false;
+  }
+  const metricGroups = metrics as Record<string, unknown>;
+  return (
+    isMetricPair(metricGroups.safety) &&
+    isMetricPair(metricGroups.clarity) &&
+    isMetricPair(metricGroups.conciseness)
+  );
+}
+
 function buildBenchmarkErrorMessage(error: unknown): string {
+  if (error instanceof TimeoutError || (error instanceof Error && error.name === "AbortError")) {
+    return BENCHMARK_TIMEOUT_MESSAGE;
+  }
+
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
@@ -122,11 +191,22 @@ export default function BenchmarkPage() {
         return;
       }
 
-      const data = await apiJson<BenchmarkPayload>("/benchmark/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: prompt.trim(), model: selectedModel }),
-      });
+      const controller = new AbortController();
+      const data = await withTimeout(
+        apiJson<BenchmarkPayload>("/benchmark/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: prompt.trim(), model: selectedModel }),
+          signal: controller.signal,
+        }),
+        BENCHMARK_TIMEOUT_MS,
+        () => controller.abort(),
+      );
+
+      if (!isValidBenchmarkPayload(data)) {
+        throw new Error(BENCHMARK_MALFORMED_MESSAGE);
+      }
+
       setBenchmarkResult(data);
       setResultIsMock(false);
       setStatus(`Benchmark complete (${data.processing_ms}ms)`);
