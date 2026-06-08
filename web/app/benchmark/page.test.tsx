@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import BenchmarkPage from "./page";
 import { apiJson } from "@/config";
 
-vi.mock("@/config", () => ({
-  apiJson: vi.fn(),
-}));
+vi.mock("@/config", async () => {
+  const actual = await vi.importActual<typeof import("@/config")>("@/config");
+  return {
+    ...actual,
+    apiJson: vi.fn(),
+  };
+});
 
 vi.mock("../lib/showError", () => ({
   showError: vi.fn(),
@@ -126,5 +130,100 @@ describe("Benchmark page", () => {
     expect(screen.getByText("Ready")).toBeTruthy();
     expect(screen.queryByText("Cloud Benchmark Unavailable")).toBeNull();
     expect((screen.getByLabelText("Model") as HTMLSelectElement).value).toBe("mock");
+  });
+
+  it("ends loading and shows a visible error when the benchmark request fails", async () => {
+    apiJsonMock.mockRejectedValueOnce(new Error("Benchmark model request failed"));
+
+    render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
+      target: { value: "Explain rate limiting." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
+
+    expect(await screen.findByText("Benchmark failed")).toBeTruthy();
+    expect(screen.getByText("Benchmark Issue")).toBeTruthy();
+
+    // Loading state cleared: button is no longer "Running..." and is re-enabled.
+    expect(screen.queryByText("Running...")).toBeNull();
+    const runButton = screen.getByRole("button", { name: /Run Benchmark/i }) as HTMLButtonElement;
+    expect(runButton.disabled).toBe(false);
+  });
+
+  it("does not stay stuck on Running when the request never resolves", async () => {
+    vi.useFakeTimers();
+    // Simulate a request that hangs forever (never resolves or rejects).
+    apiJsonMock.mockReturnValueOnce(new Promise<never>(() => {}));
+
+    render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
+      target: { value: "Explain rate limiting." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
+
+    // While in flight the button shows the running state.
+    expect(screen.getByText("Running...")).toBeTruthy();
+
+    // Advance past the client-side benchmark timeout (default 60s).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(screen.getByText("Benchmark failed")).toBeTruthy();
+    expect(screen.getByText("Benchmark Issue")).toBeTruthy();
+    expect(screen.getAllByText(/Benchmark timed out/i).length).toBeGreaterThan(0);
+
+    // Loading state cleared: button reset and re-enabled, not stuck on "Running...".
+    expect(screen.queryByText("Running...")).toBeNull();
+    const runButton = screen.getByRole("button", { name: /Run Benchmark/i }) as HTMLButtonElement;
+    expect(runButton.disabled).toBe(false);
+  });
+
+  it("shows an error instead of crashing when the response is malformed", async () => {
+    apiJsonMock.mockResolvedValueOnce({ unexpected: "shape" } as never);
+
+    render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
+      target: { value: "Explain rate limiting." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
+
+    expect(await screen.findByText("Benchmark failed")).toBeTruthy();
+    expect(screen.getByText("Benchmark Issue")).toBeTruthy();
+    expect(screen.queryByText("Running...")).toBeNull();
+  });
+
+  it("recovers on retry after a failed run", async () => {
+    apiJsonMock
+      .mockRejectedValueOnce(new Error("Benchmark model request failed"))
+      .mockResolvedValueOnce({
+        raw_output: "Raw answer",
+        compiled_output: "Compiled answer",
+        metrics: {
+          safety: { raw: 6, compiled: 9 },
+          clarity: { raw: 5, compiled: 9 },
+          conciseness: { raw: 5, compiled: 8 },
+        },
+        processing_ms: 4321,
+        winner: "compiled",
+        improvement_score: 35,
+      });
+
+    render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
+      target: { value: "Explain rate limiting." },
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Benchmark/i })[0]);
+    expect(await screen.findByText("Benchmark failed")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Run Benchmark/i }));
+    expect(await screen.findByText("Benchmark complete (4321ms)")).toBeTruthy();
+    expect(screen.getByText("COMPILED PROMPT")).toBeTruthy();
+    expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 });
