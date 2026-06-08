@@ -175,6 +175,69 @@ describe("useContextManager", () => {
     expect(fetchRagStatsMock).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a friendly error and skips the request for an empty file", async () => {
+    const emptyFile = new File([], "empty.txt", { type: "text/plain" });
+
+    const { result } = renderHook(() => useContextManager());
+
+    await waitFor(() => {
+      expect(result.current.isConnected).toBe(true);
+    });
+
+    fetchRagStatsMock.mockClear();
+
+    await act(async () => {
+      await result.current.uploadFiles([emptyFile]);
+    });
+
+    // No request is sent for an empty file.
+    expect(uploadContextFileMock).not.toHaveBeenCalled();
+    // Friendly, actionable copy — not a raw "API Error: 422".
+    expect(result.current.status).toContain("This file is empty. Please upload a file with content.");
+    expect(result.current.status).not.toContain("422");
+    // Progress is not stuck and stats are not refreshed after a failed empty upload.
+    expect(result.current.ingesting).toBe(false);
+    expect(result.current.uploadProgress).toBeNull();
+    expect(fetchRagStatsMock).not.toHaveBeenCalled();
+  });
+
+  it("uploads valid files and skips empty ones in a mixed selection", async () => {
+    const emptyFile = new File([], "empty.txt", { type: "text/plain" });
+    const validFile = new File(["hello world"], "notes.md", { type: "text/markdown" });
+
+    uploadContextFileMock.mockResolvedValueOnce({
+      ingested_docs: 1,
+      total_chunks: 2,
+      elapsed_ms: 5,
+      filename: "notes.md",
+      success: true,
+      num_chunks: 2,
+      message: "Indexed notes.md into the RAG index.",
+    });
+
+    const { result } = renderHook(() => useContextManager());
+
+    await waitFor(() => {
+      expect(result.current.isConnected).toBe(true);
+    });
+
+    fetchRagStatsMock.mockClear();
+
+    await act(async () => {
+      await result.current.uploadFiles([emptyFile, validFile]);
+    });
+
+    // Only the valid file is uploaded; the empty one is skipped.
+    expect(uploadContextFileMock).toHaveBeenCalledTimes(1);
+    expect(uploadContextFileMock).toHaveBeenCalledWith({
+      filename: "notes.md",
+      relative_path: "notes.md",
+      content: "hello world",
+    });
+    expect(result.current.status).toBe("Indexed 1/1 files (2 chunks) — skipped 1 empty file(s)");
+    expect(fetchRagStatsMock).toHaveBeenCalledTimes(1);
+  });
+
   it("resets the indexed path after a successful manual ingest", async () => {
     ingestContextPathMock.mockResolvedValueOnce({
       ingested_docs: 2,

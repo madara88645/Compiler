@@ -64,7 +64,7 @@ class RagIngestResponse(BaseModel):
 class RagUploadRequest(BaseModel):
     filename: str = Field(default="upload.txt", max_length=255)
     relative_path: Optional[str] = Field(default=None, max_length=1024)
-    content: str = Field(..., min_length=1, max_length=1_000_000)
+    content: str = Field(..., max_length=1_000_000)
     embed: bool = Field(default=False)
     embed_dim: int = Field(default=64, ge=8, le=1024)
 
@@ -210,6 +210,14 @@ async def rag_upload(
     req: RagUploadRequest,
     _: None = Depends(rate_limit_by_ip),
 ):
+    # Normalize the empty-file case to a clear 4xx with a string detail so the UI
+    # never surfaces a raw 422. (Raised before the try so it is not re-wrapped.)
+    if not req.content:
+        raise HTTPException(
+            status_code=400,
+            detail="This file is empty. Please upload a file with content.",
+        )
+
     try:
         display_name = normalize_display_name(req.filename)
         _, chunks, secs = await anyio.to_thread.run_sync(
