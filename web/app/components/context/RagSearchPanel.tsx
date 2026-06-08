@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { toast } from "sonner";
 import { formatSearchResultForPrompt, formatSearchScore } from "../../../lib/api/promptc";
 import type { RagSearchResult } from "../../../lib/api/types";
@@ -19,16 +20,25 @@ export default function RagSearchPanel({
     onRunSearch,
     onInsertContext,
 }: RagSearchPanelProps) {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Guarantee a single mouse click focuses the input. Some ancestor layout
+    // layers can otherwise swallow the initial focus, forcing users to press
+    // Tab first (see issue #762).
+    const focusInput = () => inputRef.current?.focus();
+
     return (
         <div className="flex flex-col gap-2">
             <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1" onClick={focusInput}>
                     <input
+                        ref={inputRef}
                         type="text"
                         aria-label="Search context..."
                         className="w-full rounded-lg border border-white/5 bg-black/30 p-2 pr-8 font-mono text-xs transition-colors placeholder-zinc-600 focus:border-blue-500/30 focus:outline-none"
                         placeholder="Search context..."
                         value={query}
+                        onClick={focusInput}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && onRunSearch()}
                     />
@@ -88,7 +98,7 @@ export default function RagSearchPanel({
                                 toast.success("Snippet inserted into prompt");
                             }}
                             aria-label={`Insert snippet from ${result.path} into prompt`}
-                            className="mt-1 text-[10px] text-blue-300 hover:text-blue-200 text-left opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
+                            className="mt-1 self-start text-[10px] text-blue-300 hover:text-blue-200 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                         >
                             <span>+</span> Insert into Prompt
                         </button>

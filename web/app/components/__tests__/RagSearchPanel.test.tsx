@@ -20,6 +20,92 @@ describe("RagSearchPanel", () => {
     expect(button.hasAttribute("disabled")).toBe(true);
   });
 
+  it("focuses the search input on a single mouse click", () => {
+    render(
+      <RagSearchPanel
+        query=""
+        setQuery={vi.fn()}
+        searching={false}
+        results={[]}
+        onRunSearch={vi.fn()}
+        onInsertContext={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByLabelText("Search context...");
+    expect(document.activeElement).not.toBe(input);
+
+    fireEvent.click(input);
+
+    // Clicking must focus the input so the user can type immediately,
+    // without first pressing Tab (issue #762).
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("does not insert any result into the prompt just from rendering search results", () => {
+    const onInsertContext = vi.fn();
+
+    render(
+      <RagSearchPanel
+        query="auth flow"
+        setQuery={vi.fn()}
+        searching={false}
+        results={[
+          { path: "src/auth.ts", snippet: "Handle session creation", score: 0.8123 },
+          { path: "src/session.ts", snippet: "Refresh tokens", score: 0.71 },
+        ]}
+        onRunSearch={vi.fn()}
+        onInsertContext={onInsertContext}
+      />,
+    );
+
+    // Results render but nothing is auto-inserted into the prompt.
+    expect(screen.getByText("Handle session creation")).toBeTruthy();
+    expect(onInsertContext).not.toHaveBeenCalled();
+  });
+
+  it("only updates the prompt when an explicit Insert button is clicked", () => {
+    const onInsertContext = vi.fn();
+
+    render(
+      <RagSearchPanel
+        query="auth flow"
+        setQuery={vi.fn()}
+        searching={false}
+        results={[
+          { path: "src/auth.ts", snippet: "Handle session creation", score: 0.8123 },
+        ]}
+        onRunSearch={vi.fn()}
+        onInsertContext={onInsertContext}
+      />,
+    );
+
+    expect(onInsertContext).not.toHaveBeenCalled();
+
+    const insertButton = screen.getByRole("button", {
+      name: /insert snippet from src\/auth\.ts into prompt/i,
+    });
+    fireEvent.click(insertButton);
+
+    expect(onInsertContext).toHaveBeenCalledTimes(1);
+    expect(onInsertContext).toHaveBeenCalledWith("[Source: src/auth.ts]\nHandle session creation");
+  });
+
+  it("shows a clear no-results state when a query returns nothing", () => {
+    render(
+      <RagSearchPanel
+        query="nonexistent"
+        setQuery={vi.fn()}
+        searching={false}
+        results={[]}
+        onRunSearch={vi.fn()}
+        onInsertContext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/No results found for/i)).toBeTruthy();
+  });
+
   it("runs search on Enter and inserts formatted context safely", () => {
     const onRunSearch = vi.fn();
     const onInsertContext = vi.fn();
