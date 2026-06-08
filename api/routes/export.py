@@ -35,7 +35,7 @@ async def export_agent(
         "langchain-yaml",
         "langgraph",
     ]:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
+        raise HTTPException(status_code=400, detail="Unsupported format.")
 
     from app.adapters.agent_ir import parse_agent_markdown
     from app.adapters.claude_code import (
@@ -108,7 +108,7 @@ async def export_skill(
     _: None = Depends(rate_limit_by_ip),
 ):
     if req.format not in _SKILL_EXPORT_FORMATS:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
+        raise HTTPException(status_code=400, detail="Unsupported format.")
 
     from app.adapters.claude_code import to_claude_mcp_tool_stub
     from app.adapters.skill_adapter import (
