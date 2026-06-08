@@ -21,6 +21,8 @@ type FileWithRelativePath = File & {
   webkitRelativePath?: string;
 };
 
+const EMPTY_FILE_MESSAGE = "This file is empty. Please upload a file with content.";
+
 function toUserMessage(error: unknown): string {
   return describeRequestError(error, {
     network: "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
@@ -102,25 +104,36 @@ export function useContextManager() {
         return;
       }
 
+      // Pre-validate: never send an empty file to the server. This avoids a raw
+      // "API Error: 422" and keeps stats untouched after a failed empty upload.
+      const validFiles = files.filter((file) => file.size > 0);
+      const emptyCount = files.length - validFiles.length;
+
+      if (validFiles.length === 0) {
+        setStatus(`Error: ${EMPTY_FILE_MESSAGE}`);
+        setUploadProgress(null);
+        return;
+      }
+
       setIngesting(true);
-      setStatus(`Uploading ${files.length} file(s)...`);
+      setStatus(`Uploading ${validFiles.length} file(s)...`);
       setUploadProgress({
         completed: 0,
-        currentFile: files[0]?.name ?? null,
-        total: files.length,
+        currentFile: validFiles[0]?.name ?? null,
+        total: validFiles.length,
       });
 
       let totalChunks = 0;
       let successCount = 0;
 
       try {
-        for (const [index, file] of files.entries()) {
+        for (const [index, file] of validFiles.entries()) {
           setUploadProgress({
             completed: successCount,
             currentFile: file.name,
-            total: files.length,
+            total: validFiles.length,
           });
-          setStatus(`Uploading ${index + 1}/${files.length}: ${file.name}`);
+          setStatus(`Uploading ${index + 1}/${validFiles.length}: ${file.name}`);
 
           const content = await file.text();
           const response = await uploadContextFile({
@@ -135,13 +148,14 @@ export function useContextManager() {
             setUploadProgress({
               completed: successCount,
               currentFile: file.name,
-              total: files.length,
+              total: validFiles.length,
             });
           }
         }
 
         setIsConnected(true);
-        setStatus(`Indexed ${successCount}/${files.length} files (${totalChunks} chunks)`);
+        const skippedNote = emptyCount > 0 ? ` — skipped ${emptyCount} empty file(s)` : "";
+        setStatus(`Indexed ${successCount}/${validFiles.length} files (${totalChunks} chunks)${skippedNote}`);
         await refreshStats();
       } catch (error: unknown) {
         setStatus(`Error: ${toUserMessage(error)}`);

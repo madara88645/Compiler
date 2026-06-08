@@ -63,6 +63,25 @@ def test_rag_upload_indexes_file(client):
     assert "auth.py" in data["message"]
 
 
+def test_rag_upload_rejects_empty_content_with_friendly_detail(client):
+    """Empty content should return a clean 400 with a string detail, not a raw 422 list."""
+    response = client.post(
+        "/rag/upload",
+        json={"filename": "empty.txt", "content": ""},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert isinstance(detail, str)
+    assert "empty" in detail.lower()
+    assert "API Error" not in detail
+
+    # A failed empty upload must not change the index stats.
+    stats = client.get("/rag/stats")
+    assert stats.status_code == 200
+    assert stats.json()["docs"] == 0
+
+
 def test_rag_stats_get(client):
     """GET /rag/stats should return index statistics."""
     response = client.get("/rag/stats")
