@@ -5,10 +5,7 @@ including text editing, metadata updates, and re-compilation.
 """
 
 import os
-import shlex
 import click
-import subprocess
-import tempfile
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
@@ -37,6 +34,7 @@ def get_history_manager():
 
 
 console = Console()
+
 
 class QuickEditor:
     """Quick editor for prompts in history and favorites."""

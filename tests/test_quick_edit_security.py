@@ -1,7 +1,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
 
 from app.quick_edit import QuickEditor
 
@@ -15,6 +14,7 @@ def test_editor_click_edit_used():
 
         mock_edit.assert_called_once_with("test content", editor="nano", extension=".txt")
         assert result == "edited content"
+
 
 def test_editor_click_edit_handles_usage_error():
     editor = QuickEditor()
