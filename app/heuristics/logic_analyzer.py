@@ -181,7 +181,13 @@ PROCESS_PATTERNS = [
 # ==============================================================================
 
 
+
+_SENTENCE_BOUNDARY_PAT = re.compile(r"([.!?])\s+")
+_BULLET_PAT = re.compile(r"\n\s*[-*•]\s*")
+_NUMBERED_LIST_PAT = re.compile(r"\n\s*\d+[.):]\s*")
+
 class LogicAnalyzer:
+
     """
     Advanced logic extractor for prompt analysis.
 
@@ -237,10 +243,11 @@ class LogicAnalyzer:
     def _split_sentences(self, text: str) -> List[str]:
         """Split text into sentences for analysis."""
         # Handle common sentence boundaries
-        text = re.sub(r"([.!?])\s+", r"\1\n", text)
+        # Bolt Optimization: pre-compile patterns to avoid overhead
+        text = _SENTENCE_BOUNDARY_PAT.sub(r"\1\n", text)
         # Handle bullet points and numbered lists
-        text = re.sub(r"\n\s*[-*•]\s*", "\n", text)
-        text = re.sub(r"\n\s*\d+[.):]\s*", "\n", text)
+        text = _BULLET_PAT.sub("\n", text)
+        text = _NUMBERED_LIST_PAT.sub("\n", text)
 
         sentences = [s.strip() for s in text.split("\n") if s.strip()]
         return sentences

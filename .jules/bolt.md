@@ -193,3 +193,8 @@
 ## 2024-06-08 - Use collections.Counter.update over manual loops
 **Learning:** In Python, when adding elements from an iterable to a `collections.Counter`, iterating over the elements in a manual Python `for` loop (e.g., `for x in iterable: counter[x] += 1`) incurs significant bytecode overhead. Using the `update()` method (e.g., `counter.update(iterable)`) pushes the iteration down to highly optimized C code (the `_count_elements` function), resulting in a ~3-4x performance improvement for large iterables.
 **Action:** When populating or updating a `collections.Counter` with multiple elements from an iterable, always prefer `Counter.update(iterable)` over a manual Python loop.
+
+## 2026-06-09 - Pre-compiling Regex Patterns inside Logic Analyzers
+**Learning:** In text parsing hot paths, such as the `_split_sentences` function in `app/heuristics/logic_analyzer.py` used during prompt logic evaluation, creating regex pattern objects on the fly with inline `re.sub(r"pattern", ...)` introduces significant, recurring compilation overhead. Pre-compiling the regex objects using `re.compile()` at the module level avoids redundant compilation on every function call.
+**Action:** Always extract static regular expression patterns to module-level constants using `re.compile()` if they are used within frequently executed logic analyzers and split functions.
+
