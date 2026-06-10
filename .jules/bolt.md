@@ -189,3 +189,7 @@
 ## 2024-05-31 - Persistent HTTP Clients over Ephemeral Connections
 **Learning:** Recreating HTTP clients (like `httpx.Client`) for every API request using a short-lived `with httpx.Client(...) as client:` context manager incurs massive overhead (up to 100x slower) because it forces a new TCP connection and TLS handshake for every call.
 **Action:** When making synchronous API requests inside a class or frequently called function, initialize a persistent `httpx.Client` instance at the class level and reuse it across requests to benefit from HTTP connection pooling (Keep-Alive). Ensure to implement a `.close()` method to clean up resources appropriately.
+
+## 2024-06-08 - Use collections.Counter.update over manual loops
+**Learning:** In Python, when adding elements from an iterable to a `collections.Counter`, iterating over the elements in a manual Python `for` loop (e.g., `for x in iterable: counter[x] += 1`) incurs significant bytecode overhead. Using the `update()` method (e.g., `counter.update(iterable)`) pushes the iteration down to highly optimized C code (the `_count_elements` function), resulting in a ~3-4x performance improvement for large iterables.
+**Action:** When populating or updating a `collections.Counter` with multiple elements from an iterable, always prefer `Counter.update(iterable)` over a manual Python loop.
