@@ -1,6 +1,9 @@
 import re
 
 
+_VAR_PATTERN = re.compile(r"\{\{\s*[\w_]+\s*\}\}")
+
+
 def validate_human_input(original_template: str, new_template: str) -> bool:
     """
     Validates that the new template preserves all variable placeholders
@@ -17,10 +20,8 @@ def validate_human_input(original_template: str, new_template: str) -> bool:
     # We use non-greedy matching .*? inside braces.
     # Handles potential whitespace inside braces if needed: {{\s*[\w_]+\s*}}
     # But generally standard is {{var}}. Let's be reasonably flexible.
-    pattern = r"\{\{\s*[\w_]+\s*\}\}"
-
     # Find all unique placeholders in original
-    required_placeholders = set(re.findall(pattern, original_template))
+    required_placeholders = set(_VAR_PATTERN.findall(original_template))
 
     if not required_placeholders:
         return True

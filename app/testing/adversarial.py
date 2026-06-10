@@ -2,6 +2,7 @@
 
 Uses an LLM to generate tricky test inputs designed to break prompts.
 """
+
 from __future__ import annotations
 import orjson
 

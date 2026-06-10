@@ -63,8 +63,7 @@ class AgentPackManifest(BaseModel):
 class AgentPackAdapter(Protocol):
     provider: str
 
-    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest:
-        ...
+    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest: ...
 
 
 class ClaudeAgentPackAdapter:

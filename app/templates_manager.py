@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional
 
 from app.templates import PromptTemplate, TemplateRegistry, TemplateVariable, get_registry
@@ -381,9 +382,7 @@ class TemplatesManager:
         issues = []
 
         # Check for undefined variables in template text
-        import re
-
-        placeholders = set(re.findall(r"\{\{(\w+)\}\}", template.template_text))
+        placeholders = set(_VAR_PATTERN.findall(template.template_text))
         defined_vars = {v.name for v in template.variables}
 
         undefined = placeholders - defined_vars
@@ -410,6 +409,9 @@ class TemplatesManager:
 
 # Global manager instance
 _manager: Optional[TemplatesManager] = None
+
+
+_VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
 
 def get_templates_manager() -> TemplatesManager:

@@ -11,6 +11,9 @@ from rich.table import Table
 from app.templates_manager import get_templates_manager
 
 
+_VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+
+
 class TemplatePreview:
     """Handles template preview and variable filling."""
 
@@ -28,8 +31,7 @@ class TemplatePreview:
         Returns:
             List of unique variable names found in template
         """
-        pattern = r"\{\{(\w+)\}\}"
-        variables = re.findall(pattern, template_content)
+        variables = _VAR_PATTERN.findall(template_content)
         return list(dict.fromkeys(variables))  # Remove duplicates, preserve order
 
     def validate_variables(
