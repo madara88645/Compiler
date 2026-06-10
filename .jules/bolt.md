@@ -189,3 +189,7 @@
 ## 2024-05-31 - Persistent HTTP Clients over Ephemeral Connections
 **Learning:** Recreating HTTP clients (like `httpx.Client`) for every API request using a short-lived `with httpx.Client(...) as client:` context manager incurs massive overhead (up to 100x slower) because it forces a new TCP connection and TLS handshake for every call.
 **Action:** When making synchronous API requests inside a class or frequently called function, initialize a persistent `httpx.Client` instance at the class level and reuse it across requests to benefit from HTTP connection pooling (Keep-Alive). Ensure to implement a `.close()` method to clean up resources appropriately.
+
+## 2024-05-31 - Fusing Tallying Iterations with map and operator
+**Learning:** In Python, using a generator expression inside `sum()` (e.g., `sum(s.use_count for s in self._stats.values())`) incurs overhead due to generator initialization and Python bytecode execution for every loop iteration.
+**Action:** For high-performance micro-optimizations of simple tallying, replace `sum(generator_expression)` with `sum(map(operator.attrgetter('attribute'), iterable))` or `sum(map(operator.itemgetter(index), iterable))` to push the entire iteration into optimized C-level execution, ensuring that `import operator` is present in the file. Avoid doing this if the logic is too complex to express cleanly.

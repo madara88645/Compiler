@@ -5,6 +5,7 @@ interactive prompts, and rich CLI output support.
 """
 
 from __future__ import annotations
+import operator
 
 import json
 import logging
@@ -288,7 +289,7 @@ class TemplatesManager:
             }
 
         # Return overall stats
-        total_uses = sum(s.use_count for s in self._stats.values())
+        total_uses = sum(map(operator.attrgetter("use_count"), self._stats.values()))
         templates_used = len(self._stats)
 
         most_used = []
