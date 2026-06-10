@@ -10,3 +10,6 @@
 ## 2024-06-01 - Avoid duplicate ARIA attributes in React
 **Learning:** Adding duplicate props like `aria-busy={downloading}` and `aria-busy={loading}` causes React build failures due to `react/jsx-no-duplicate-props`. Even though one of the values might be correct logically, both cannot exist on the same element.
 **Action:** When adding accessibility attributes like `aria-busy` to existing elements, ensure there isn't already one present, or replace the existing one with the correct value if necessary.
+## 2024-06-03 - Empty State Examples
+**Learning:** To solve the 'blank canvas' problem in empty states for complex text inputs or textareas (like prompt generators), include an 'or try an example' call-to-action button that populates the field with a demonstrative example.
+**Action:** When designing empty states for text areas and generative tools, include an 'or try an example' call-to-action button that populates the input field.
