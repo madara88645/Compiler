@@ -356,9 +356,9 @@ def _chunk_text_semantic(
     # Document frequency
     doc_freq: Counter = Counter()
     for sent in sentences:
-        tokens = set(tokenize(sent))
-        for tok in tokens:
-            doc_freq[tok] += 1
+        # Bolt Optimization: Counter.update(iterable) uses optimized C code
+        # and is faster than a manual Python loop with += 1
+        doc_freq.update(set(tokenize(sent)))
 
     n_docs = len(sentences)
 
