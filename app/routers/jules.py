@@ -201,6 +201,7 @@ def reply_to_session(
 ):
     del api_key
     try:
+
         def _reply(client: JulesClient) -> dict[str, Any]:
             session_data = client.get_session(session_id)
             activity_payload = client.list_activities(session_id, page_size=req.page_size)

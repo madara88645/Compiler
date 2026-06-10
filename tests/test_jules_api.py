@@ -61,9 +61,7 @@ def test_jules_sources_endpoint_closes_client_after_success():
         "app.routers.jules.JulesClient"
     ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
-        mock_client.list_sources.return_value = {
-            "sources": [{"name": "sources/github/acme/repo"}]
-        }
+        mock_client.list_sources.return_value = {"sources": [{"name": "sources/github/acme/repo"}]}
 
         client = TestClient(app)
         response = client.get("/jules/sources", headers=_auth_headers())
