@@ -14,6 +14,7 @@ import {
 import { apiJson, TimeoutError, withTimeout } from "@/config";
 import DiffViewer from "../components/DiffViewer";
 import InfoButton from "../components/InfoButton";
+import PremiumSelect from "../components/PremiumSelect";
 import { showError } from "../lib/showError";
 import { BENCHMARK_MODEL_GROUPS, getBenchmarkModelById } from "./modelCatalog";
 
@@ -292,11 +293,13 @@ export default function BenchmarkPage() {
               >
                 Model
               </label>
-              <select
+              <PremiumSelect
                 id="benchmark-model"
                 value={selectedModel}
                 onChange={(event) => setSelectedModel(event.target.value)}
-                className="w-full cursor-pointer rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200 transition-colors focus:outline-none sm:min-w-[240px]"
+                focusVariant="yellow"
+                containerClassName="w-full sm:min-w-[240px]"
+                selectClassName="w-full rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200"
               >
                 <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
                   Mock Engine — demo (fake scores)
@@ -314,7 +317,7 @@ export default function BenchmarkPage() {
                     ))}
                   </optgroup>
                 ))}
-              </select>
+              </PremiumSelect>
               <p
                 className={`px-2 pb-1 pt-2 text-xs ${selectedModel === "mock" ? "text-amber-300/80" : "text-zinc-500"}`}
               >

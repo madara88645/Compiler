@@ -12,6 +12,8 @@ import InfoButton from "../components/InfoButton";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
 import GeneratorErrorState from "../components/GeneratorErrorState";
+import PremiumSelect from "../components/PremiumSelect";
+
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -277,9 +279,9 @@ export default function AgentGenerator() {
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
                 <label htmlFor="agent-history" className="text-xs font-medium text-zinc-300">Previous results</label>
-                <select
+                <PremiumSelect
                   id="agent-history"
-                  className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
+                  focusVariant="green"
                   defaultValue=""
                   onChange={(e) => {
                     const selected = history[Number(e.target.value)];
@@ -296,7 +298,7 @@ export default function AgentGenerator() {
                       {entry.label}
                     </option>
                   ))}
-                </select>
+                </PremiumSelect>
               </div>
             )}
 

@@ -7,6 +7,7 @@ import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
 
 import InfoButton from "../components/InfoButton";
+import PremiumSelect from "../components/PremiumSelect";
 
 type OptimizeResponse = {
     text: string;
@@ -314,7 +315,7 @@ export default function OptimizerPage() {
                         <label htmlFor="optimizer-engine" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                             Optimizer Engine
                         </label>
-                        <select
+                        <PremiumSelect
                             id="optimizer-engine"
                             value={`${provider}:${model}`}
                             onChange={(e) => {
@@ -323,12 +324,13 @@ export default function OptimizerPage() {
                                 setModel(m);
                                 setOptimizationError(null);
                             }}
-                            className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                            focusVariant="green"
+                            selectClassName="bg-zinc-900 border border-white/10"
                         >
                             <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
                             <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
                             <option value="local:offline">Local Heuristics (Offline)</option>
-                        </select>
+                        </PremiumSelect>
                     </div>
 
                     <div className="flex min-w-40 flex-col gap-1">
