@@ -111,6 +111,19 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
         )
 
 
+def test_skill_prompt_omits_examples_section_when_disabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    rendered = client._skill_prompt(include_example_code=False)
+
+    assert "## Examples\n[At least one" not in rendered
+    assert "Input: `{param_name:" not in rendered
+    assert "## OPTIONAL IMPLEMENTATION EXAMPLE SECTION" not in rendered
+    assert "Omit `## Examples` entirely" in rendered
+    assert "Do not include fenced code blocks" in rendered
+
+
 def test_worker_client_omits_skill_implementation_example_when_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
@@ -129,7 +142,14 @@ def test_worker_client_omits_skill_implementation_example_when_disabled():
             msg["content"] for msg in captured["messages"] if msg["role"] == "system"
         ]
         assert any(
-            "Omit the entire `## Implementation Example` section" in message
+            "Example code is disabled for this request" in message for message in system_messages
+        )
+        assert any(
+            "You MUST NOT include" in message and "`## Examples` section" in message
+            for message in system_messages
+        )
+        assert any(
+            "fenced code blocks" in message and "`## Implementation Example` section" in message
             for message in system_messages
         )
 
@@ -152,6 +172,10 @@ def test_worker_client_requests_skill_implementation_example_when_enabled():
             msg["content"] for msg in captured["messages"] if msg["role"] == "system"
         ]
         assert any(
-            "Include a final `## Implementation Example` section" in message
+            "Example code is enabled for this request" in message for message in system_messages
+        )
+        assert any(
+            "You MUST include" in message and "`## Examples` section" in message
             for message in system_messages
         )
+        assert any("`## Implementation Example` section" in message for message in system_messages)
