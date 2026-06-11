@@ -20,6 +20,11 @@ from api.main import app  # noqa: E402
 from api.auth import verify_api_key, APIKey  # noqa: E402
 
 
+def pytest_configure(config):
+    # Keep pytest's tmp_path tree separate from tempfile.mkdtemp() calls.
+    config.option.basetemp = str(_TEST_RUNTIME.pytest_temp_root)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--run-live",
