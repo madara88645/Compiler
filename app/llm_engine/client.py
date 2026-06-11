@@ -87,12 +87,52 @@ _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS = [
 ]
 
 _SKILL_PLAIN_FENCED_CODE_PATTERN = re.compile(r"```[\w-]*\s*\r?\n[\s\S]*?```", flags=re.DOTALL)
+_SKILL_PLAIN_FENCE_LINE_PATTERN = re.compile(r"(?m)^[ \t]*```[\w-]*[ \t]*\r?\n?")
 
 _SKILL_PLAIN_OUTPUT_LINE_PATTERNS = [
     re.compile(r"^- Input:.*?(?:→|->).*$", flags=re.MULTILINE),
     re.compile(r"^- (?:Input|Output|Example):\s*`?\{.*$", flags=re.MULTILINE),
     re.compile(r"^- (?:Input|Output|Example):\s*`?\[.*$", flags=re.MULTILINE),
 ]
+
+_SKILL_PLAIN_NAME_FENCE_PATTERN = re.compile(
+    r"(?im)^(?P<heading>\s*(?:#{1,3}\s+Name|Name:|\*\*Name:?\*\*)\s*)\r?\n"
+    r"[ \t]*```[^\r\n]*\r?\n"
+    r"(?P<name>[A-Za-z_][\w.-]*)\s*\r?\n"
+    r"[ \t]*```[ \t]*\r?\n?"
+)
+
+_SKILL_PLAIN_ATX_HEADING_PATTERN = re.compile(r"^\s{0,3}#{1,3}\s+(?P<heading>.+?)\s*#*\s*$")
+_SKILL_PLAIN_BOLD_HEADING_PATTERN = re.compile(r"^\s*\*\*(?P<heading>[^*]+?)\*\*:?\s*$")
+_SKILL_PLAIN_BRACKET_HEADING_PATTERN = re.compile(r"^\s*\[(?P<heading>[^\]]+?)\]\s*$")
+_SKILL_PLAIN_COLON_HEADING_PATTERN = re.compile(
+    r"^\s*(?P<heading>[A-Za-z][A-Za-z0-9 /_-]{0,60}):\s*$"
+)
+
+_SKILL_PLAIN_ALLOWED_SECTION_NAMES = {
+    "name",
+    "purpose",
+    "input schema",
+    "output schema",
+    "implementation",
+    "error handling",
+    "testing strategy",
+    "test strategy",
+    "notes",
+    "constraints",
+    "notes constraints",
+}
+
+_SKILL_PLAIN_JSON_SAMPLE_LINE_PATTERN = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:Input|Output|Example)\s*:\s*(?:`?\s*)?(?:[\[{]|$)",
+    flags=re.IGNORECASE,
+)
+_SKILL_PLAIN_JSONISH_LINE_PATTERN = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:`?\s*)?[\[{\]}]", flags=re.IGNORECASE
+)
+_SKILL_PLAIN_JSON_FIELD_LINE_PATTERN = re.compile(
+    r'^\s*(?:[-*]\s*)?"[^"]+"\s*:', flags=re.IGNORECASE
+)
 
 _SKILL_PATTERNS = [
     re.compile(
@@ -115,18 +155,120 @@ _SKILL_PATTERNS = [
 ]
 
 
+def _normalize_skill_plain_heading(heading: str) -> str:
+    normalized = heading.strip().strip(":").strip("#").strip("[]").strip()
+    normalized = normalized.replace("&", " and ")
+    normalized = re.sub(r"[^A-Za-z0-9]+", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip().lower()
+
+
+def _skill_plain_heading_name(line: str) -> str | None:
+    stripped = line.strip()
+    if not stripped:
+        return None
+
+    for pattern in (
+        _SKILL_PLAIN_ATX_HEADING_PATTERN,
+        _SKILL_PLAIN_BOLD_HEADING_PATTERN,
+        _SKILL_PLAIN_BRACKET_HEADING_PATTERN,
+        _SKILL_PLAIN_COLON_HEADING_PATTERN,
+    ):
+        match = pattern.match(stripped)
+        if match:
+            return _normalize_skill_plain_heading(match.group("heading"))
+    return None
+
+
+def _strip_skill_plain_fenced_blocks(text: str) -> str:
+    lines = text.splitlines()
+    cleaned_lines: list[str] = []
+    in_fence = False
+
+    for line in lines:
+        if _SKILL_PLAIN_FENCE_LINE_PATTERN.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            if _skill_plain_heading_name(line):
+                in_fence = False
+                cleaned_lines.append(line)
+            continue
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)
+
+
+def _is_skill_plain_sample_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if _SKILL_PLAIN_JSON_SAMPLE_LINE_PATTERN.match(stripped):
+        return True
+    if _SKILL_PLAIN_JSONISH_LINE_PATTERN.match(stripped):
+        return True
+    if _SKILL_PLAIN_JSON_FIELD_LINE_PATTERN.match(stripped):
+        return True
+    if re.search(r"(?:→|->)\s*Output\s*:", stripped, flags=re.IGNORECASE):
+        return True
+    return False
+
+
+def _filter_skill_plain_allowed_sections(text: str) -> str:
+    cleaned_lines: list[str] = []
+    current_section_allowed = False
+
+    for line in text.splitlines():
+        heading_name = _skill_plain_heading_name(line)
+        if heading_name:
+            if "example" in heading_name:
+                current_section_allowed = False
+                continue
+            current_section_allowed = heading_name in _SKILL_PLAIN_ALLOWED_SECTION_NAMES
+            if current_section_allowed:
+                cleaned_lines.append(line)
+            continue
+
+        if current_section_allowed and not _is_skill_plain_sample_line(line):
+            cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)
+
+
+def _skill_plain_heading_summary(text: str) -> tuple[bool, bool]:
+    has_allowed = False
+    has_forbidden = False
+    for line in text.splitlines():
+        heading_name = _skill_plain_heading_name(line)
+        if not heading_name:
+            continue
+        has_allowed = has_allowed or heading_name in _SKILL_PLAIN_ALLOWED_SECTION_NAMES
+        has_forbidden = has_forbidden or "example" in heading_name
+    return has_allowed, has_forbidden
+
+
+def _remove_skill_plain_remaining_fence_lines(text: str) -> str:
+    return "\n".join(line for line in text.splitlines() if "```" not in line)
+
+
 def _sanitize_skill_definition_plain(text: str) -> str:
     """Strip example/code artifacts from plain skill output when example code is disabled."""
     if not text:
         return text
 
-    cleaned = text
-    for pattern in _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS:
-        cleaned = pattern.sub("", cleaned)
-    cleaned = _SKILL_PLAIN_FENCED_CODE_PATTERN.sub("", cleaned)
+    cleaned = _SKILL_PLAIN_NAME_FENCE_PATTERN.sub(
+        lambda match: f"{match.group('heading')}\n{match.group('name')}\n",
+        text.replace("\r\n", "\n").replace("\r", "\n"),
+    )
+    cleaned = _strip_skill_plain_fenced_blocks(cleaned)
+    has_allowed_heading, has_forbidden_heading = _skill_plain_heading_summary(cleaned)
+    filtered = _filter_skill_plain_allowed_sections(cleaned)
+    if filtered.strip() or has_allowed_heading or has_forbidden_heading:
+        cleaned = filtered
     for pattern in _SKILL_PLAIN_OUTPUT_LINE_PATTERNS:
         cleaned = pattern.sub("", cleaned)
 
+    cleaned = _SKILL_PLAIN_FENCE_LINE_PATTERN.sub("", cleaned)
+    cleaned = _remove_skill_plain_remaining_fence_lines(cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
 
