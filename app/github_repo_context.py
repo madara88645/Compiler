@@ -51,7 +51,6 @@ def close_github_http_client() -> None:
         _GITHUB_HTTP_CLIENT = None
 
 
-
 def _resolve_repo_cache_ttl() -> int:
     raw = os.environ.get("PROMPTC_REPO_CONTEXT_CACHE_TTL")
     if raw is None or raw.strip() == "":
