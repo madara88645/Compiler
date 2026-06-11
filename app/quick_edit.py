@@ -140,29 +140,25 @@ class QuickEditor:
 
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as handle:
-            handle.write(text)
-            temp_path = handle.name
+        import click
+        import shlex
 
         try:
             editor_parts = self._parse_editor_command(self.get_editor())
             if not editor_parts:
                 return None
 
-            result = subprocess.run([*editor_parts, temp_path])
-            if result.returncode != 0:
-                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
-                return None
+            editor_cmd = shlex.join(editor_parts)
 
-            with open(temp_path, "r", encoding="utf-8") as handle:
-                return handle.read()
-        finally:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            edited_text = click.edit(text, editor=editor_cmd)
+
+            if edited_text is None:
+                return text
+
+            return edited_text
+        except Exception as e:
+            console.print(f"[red]⚠️ Editor error: {e}[/red]")
+            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID."""
