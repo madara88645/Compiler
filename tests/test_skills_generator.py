@@ -10,12 +10,17 @@ from fastapi.testclient import TestClient
 
 def _assert_plain_skill_output_is_clean(text: str) -> None:
     assert "```" not in text
+    assert "Example JSON" not in text
+    assert "[Example JSON]" not in text
+    assert "Implementation Example" not in text
     assert "**Examples**" not in text
     assert "**Examples:**" not in text
     assert "## Examples" not in text
     assert "### Examples" not in text
     assert re.search(r"^Examples:\s*$", text, flags=re.MULTILINE) is None
     assert 'Input: `{"' not in text
+    assert re.search(r"^\s*-?\s*Input:\s*[`{\[]", text, flags=re.MULTILINE) is None
+    assert re.search(r"^\s*-?\s*Output:\s*[`{\[]", text, flags=re.MULTILINE) is None
     assert "→ Output:" not in text
     assert "-> Output:" not in text
 
@@ -115,6 +120,66 @@ Validates a project plan and returns blockers, risks, and next steps.
 ## Error Handling
 - Return empty lists when the plan is empty.
 ```
+"""
+
+_BROWSER_FAILED_PLAIN_SKILL_OUTPUT = """\
+# Skill Definition
+
+**Name**
+```text
+project_plan_validator
+```
+
+**Purpose**
+Validates project plans and returns blockers, risks, and next steps.
+
+**Input Schema**
+```json
+{
+  "project_plan": "string",
+  "team": "string"
+}
+```
+
+- Input: {"project_plan": "Ship v1", "team": "Platform"}
+- Output: {"blockers": [], "risks": ["unclear owner"], "next_steps": ["assign owner"]}
+
+**Output Schema**
+```json
+{
+  "blockers": ["string"],
+  "risks": ["string"],
+  "next_steps": ["string"]
+}
+```
+
+**Implementation**
+1. Read the project plan.
+2. Identify blockers, risks, and next steps.
+
+**Example JSON**
+```json
+{
+  "input": {"project_plan": "Ship v1"},
+  "output": {"blockers": [], "risks": [], "next_steps": ["Start"]}
+}
+```
+
+[Example JSON]
+```json
+{
+  "project_plan": "Ship v1"
+}
+```
+
+## Implementation Example
+```python
+def run_skill(payload):
+    return {"blockers": [], "risks": [], "next_steps": []}
+```
+
+**Error Handling**
+- Return a clear validation error when the plan is empty.
 """
 
 
@@ -293,6 +358,19 @@ def test_sanitize_skill_definition_plain_removes_orphan_fence_after_example_clea
     assert cleaned.endswith("empty.")
 
 
+def test_sanitize_skill_definition_plain_normalizes_browser_failed_output():
+    cleaned = _sanitize_skill_definition_plain(_BROWSER_FAILED_PLAIN_SKILL_OUTPUT)
+
+    _assert_plain_skill_output_is_clean(cleaned)
+    assert "project_plan_validator" in cleaned
+    assert "**Name**" in cleaned
+    assert "**Input Schema**" in cleaned
+    assert "**Output Schema**" in cleaned
+    assert "**Implementation**" in cleaned
+    assert "**Error Handling**" in cleaned
+    assert "Return a clear validation error" in cleaned
+
+
 def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
@@ -307,7 +385,7 @@ def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
 
 def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
     with patch("api.main.hybrid_compiler") as mock_compiler:
-        mock_compiler.generate_skill.return_value = _ORPHAN_FENCE_SKILL_OUTPUT
+        mock_compiler.generate_skill.return_value = _BROWSER_FAILED_PLAIN_SKILL_OUTPUT
 
         client = TestClient(app)
         response = client.post(
@@ -319,7 +397,7 @@ def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
         skill_definition = response.json()["skill_definition"]
         _assert_plain_skill_output_is_clean(skill_definition)
         assert "Implementation Example" not in skill_definition
-        assert "## Error Handling" in skill_definition
+        assert "Error Handling" in skill_definition
         mock_compiler.generate_skill.assert_called_with(
             "Validate a project plan",
             include_example_code=False,
