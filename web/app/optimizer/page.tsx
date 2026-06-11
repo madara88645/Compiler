@@ -437,6 +437,23 @@ export default function OptimizerPage() {
                                 Clear
                             </button>
                         )}
+                        {!input && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const example = "I want you to act as a data analyst. You will write a Python script for me. The script needs to read a file called 'sales.csv'. It should group the data by the 'region' column. Then it should calculate the total 'revenue' for each region. Finally, it should print the results out to the console. Make sure to use the pandas library for this. Please include comments explaining what each part of the code does.";
+                                    setInput(example);
+                                    window.localStorage.setItem("promptc_optimizer_prompt", example);
+                                    setTimeout(() => {
+                                        const textarea = document.getElementById('original-prompt');
+                                        if (textarea) textarea.focus();
+                                    }, 0);
+                                }}
+                                className="absolute top-4 right-4 text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1"
+                            >
+                                or try an example
+                            </button>
+                        )}
                     </div>
                 </section>
 
