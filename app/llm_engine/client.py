@@ -87,6 +87,7 @@ _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS = [
 ]
 
 _SKILL_PLAIN_FENCED_CODE_PATTERN = re.compile(r"```[\w-]*\s*\r?\n[\s\S]*?```", flags=re.DOTALL)
+_SKILL_PLAIN_FENCE_LINE_PATTERN = re.compile(r"(?m)^[ \t]*```[\w-]*[ \t]*\r?\n?")
 
 _SKILL_PLAIN_OUTPUT_LINE_PATTERNS = [
     re.compile(r"^- Input:.*?(?:→|->).*$", flags=re.MULTILINE),
@@ -124,6 +125,7 @@ def _sanitize_skill_definition_plain(text: str) -> str:
     for pattern in _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS:
         cleaned = pattern.sub("", cleaned)
     cleaned = _SKILL_PLAIN_FENCED_CODE_PATTERN.sub("", cleaned)
+    cleaned = _SKILL_PLAIN_FENCE_LINE_PATTERN.sub("", cleaned)
     for pattern in _SKILL_PLAIN_OUTPUT_LINE_PATTERNS:
         cleaned = pattern.sub("", cleaned)
 

@@ -94,6 +94,29 @@ A JSON object with page metadata and summary text.
 - Reject unsupported URL schemes.
 """
 
+_ORPHAN_FENCE_SKILL_OUTPUT = """\
+# project-plan-validator - Skill Definition
+
+## Name
+project_plan_validator
+
+## Purpose
+Validates a project plan and returns blockers, risks, and next steps.
+
+## Implementation
+1. Parse the plan.
+2. Identify blockers and risks.
+3. Return next steps.
+
+**Implementation Example**
+```json
+{"input": {"plan": "Ship v1"}, "output": {"blockers": [], "risks": [], "next_steps": ["Start delivery"]}}
+
+## Error Handling
+- Return empty lists when the plan is empty.
+```
+"""
+
 
 # Mock WorkerClient to avoid API calls
 @pytest.fixture
@@ -261,6 +284,15 @@ def test_sanitize_skill_definition_plain_removes_preview_style_markdown():
     assert "## Error Handling" in cleaned
 
 
+def test_sanitize_skill_definition_plain_removes_orphan_fence_after_example_cleanup():
+    cleaned = _sanitize_skill_definition_plain(_ORPHAN_FENCE_SKILL_OUTPUT)
+
+    _assert_plain_skill_output_is_clean(cleaned)
+    assert "Implementation Example" not in cleaned
+    assert "## Error Handling" in cleaned
+    assert cleaned.endswith("empty.")
+
+
 def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
@@ -275,20 +307,21 @@ def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
 
 def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
     with patch("api.main.hybrid_compiler") as mock_compiler:
-        mock_compiler.generate_skill.return_value = _PREVIEW_STYLE_SKILL_OUTPUT
+        mock_compiler.generate_skill.return_value = _ORPHAN_FENCE_SKILL_OUTPUT
 
         client = TestClient(app)
         response = client.post(
             "/skills-generator/generate",
-            json={"description": "Summarize a web page from a URL"},
+            json={"description": "Validate a project plan"},
         )
 
         assert response.status_code == 200
         skill_definition = response.json()["skill_definition"]
         _assert_plain_skill_output_is_clean(skill_definition)
-        assert "**Output Schema**" in skill_definition
+        assert "Implementation Example" not in skill_definition
+        assert "## Error Handling" in skill_definition
         mock_compiler.generate_skill.assert_called_with(
-            "Summarize a web page from a URL",
+            "Validate a project plan",
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
