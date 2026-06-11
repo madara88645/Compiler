@@ -59,18 +59,39 @@ _MULTI_AGENT_PATTERNS = [
     re.compile(r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE),
 ]
 
+_SKILL_PLAIN_SECTION_BOUNDARY = r"(?=^#{1,3} |\n\*\*[^*]+?\*\*|\Z)"
+
 _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS = [
-    re.compile(r"^## Examples\b.*?(?=^## |\Z)", flags=re.MULTILINE | re.DOTALL),
-    re.compile(r"^## Implementation Example\b.*?(?=^## |\Z)", flags=re.MULTILINE | re.DOTALL),
     re.compile(
-        r"^\*\*Examples:\*\*\s*\n.*?(?=^## |\n\*\*[^*]+:\*\*|\Z)",
+        rf"^## Examples\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}", flags=re.MULTILINE | re.DOTALL
+    ),
+    re.compile(
+        rf"^### Examples\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}", flags=re.MULTILINE | re.DOTALL
+    ),
+    re.compile(
+        rf"^Examples:\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
+        flags=re.MULTILINE | re.DOTALL,
+    ),
+    re.compile(
+        rf"^\*\*Examples:?\*\*\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
+        flags=re.MULTILINE | re.DOTALL,
+    ),
+    re.compile(
+        rf"^## Implementation Example\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
+        flags=re.MULTILINE | re.DOTALL,
+    ),
+    re.compile(
+        rf"^\*\*Implementation Example:?\*\*\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
         flags=re.MULTILINE | re.DOTALL,
     ),
 ]
 
+_SKILL_PLAIN_FENCED_CODE_PATTERN = re.compile(r"```[\w-]*\s*\r?\n[\s\S]*?```", flags=re.DOTALL)
+
 _SKILL_PLAIN_OUTPUT_LINE_PATTERNS = [
     re.compile(r"^- Input:.*?(?:→|->).*$", flags=re.MULTILINE),
-    re.compile(r"^- (?:Input|Output):\s*`?\{.*$", flags=re.MULTILINE),
+    re.compile(r"^- (?:Input|Output|Example):\s*`?\{.*$", flags=re.MULTILINE),
+    re.compile(r"^- (?:Input|Output|Example):\s*`?\[.*$", flags=re.MULTILINE),
 ]
 
 _SKILL_PATTERNS = [
@@ -99,9 +120,10 @@ def _sanitize_skill_definition_plain(text: str) -> str:
     if not text:
         return text
 
-    cleaned = re.sub(r"```[^\n]*\n.*?```", "", text, flags=re.DOTALL)
+    cleaned = text
     for pattern in _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS:
         cleaned = pattern.sub("", cleaned)
+    cleaned = _SKILL_PLAIN_FENCED_CODE_PATTERN.sub("", cleaned)
     for pattern in _SKILL_PLAIN_OUTPUT_LINE_PATTERNS:
         cleaned = pattern.sub("", cleaned)
 

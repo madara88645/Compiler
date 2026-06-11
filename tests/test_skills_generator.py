@@ -1,9 +1,24 @@
+import re
+
 import pytest
 from unittest.mock import MagicMock, patch
 from app.llm_engine.client import WorkerClient, _sanitize_skill_definition_plain
 from app.llm_engine.hybrid import HybridCompiler
 from api.main import app
 from fastapi.testclient import TestClient
+
+
+def _assert_plain_skill_output_is_clean(text: str) -> None:
+    assert "```" not in text
+    assert "**Examples**" not in text
+    assert "**Examples:**" not in text
+    assert "## Examples" not in text
+    assert "### Examples" not in text
+    assert re.search(r"^Examples:\s*$", text, flags=re.MULTILINE) is None
+    assert 'Input: `{"' not in text
+    assert "→ Output:" not in text
+    assert "-> Output:" not in text
+
 
 _SKILL_OUTPUT_WITH_EXAMPLES = """\
 # json-validator - Skill Definition
@@ -34,6 +49,49 @@ def run_skill(payload):
 
 ## Error Handling
 - Return a structured error when JSON is invalid.
+"""
+
+_PREVIEW_STYLE_SKILL_OUTPUT = """\
+# url-summarizer - Skill Definition
+
+## Name
+url_summarizer
+
+## Purpose
+**What:** Summarizes web page content from a URL.
+**When to use:** Use when a user provides a URL and wants a short summary.
+
+## Input Schema
+- `url` (str): Public HTTP or HTTPS URL.
+
+**Output Schema**
+A JSON object with page metadata and summary text.
+
+```json
+{
+  "title": "string",
+  "summary": "string"
+}
+```
+
+## Implementation
+1. Validate the URL scheme.
+2. Fetch and extract readable text.
+3. Return a concise summary.
+
+**Examples**
+
+```json
+{
+  "input": {"url": "https://example.com"},
+  "output": {"title": "Example Domain", "summary": "Illustrative example page."}
+}
+```
+
+- Input: `{"url": "https://example.com"}` → Output: `{"title": "Example Domain", "summary": "..."}`
+
+## Error Handling
+- Reject unsupported URL schemes.
 """
 
 
@@ -188,27 +246,73 @@ def test_worker_client_omits_skill_implementation_example_when_disabled():
 def test_sanitize_skill_definition_plain_removes_examples_and_code():
     cleaned = _sanitize_skill_definition_plain(_SKILL_OUTPUT_WITH_EXAMPLES)
 
-    assert "## Examples" not in cleaned
-    assert "**Examples:**" not in cleaned
+    _assert_plain_skill_output_is_clean(cleaned)
     assert "## Implementation Example" not in cleaned
-    assert "```" not in cleaned
-    assert "Input: `{" not in cleaned
     assert "## Error Handling" in cleaned
     assert "## Implementation" in cleaned
+
+
+def test_sanitize_skill_definition_plain_removes_preview_style_markdown():
+    cleaned = _sanitize_skill_definition_plain(_PREVIEW_STYLE_SKILL_OUTPUT)
+
+    _assert_plain_skill_output_is_clean(cleaned)
+    assert "**Output Schema**" in cleaned
+    assert "A JSON object with page metadata and summary text." in cleaned
+    assert "## Error Handling" in cleaned
 
 
 def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
 
-        with patch.object(client, "_call_api", return_value=_SKILL_OUTPUT_WITH_EXAMPLES):
+        with patch.object(client, "_call_api", return_value=_PREVIEW_STYLE_SKILL_OUTPUT):
             result = client.generate_skill("Test Skill", include_example_code=False)
 
-    assert "## Examples" not in result
-    assert "**Examples:**" not in result
-    assert "## Implementation Example" not in result
-    assert "```" not in result
+    _assert_plain_skill_output_is_clean(result)
+    assert "**Output Schema**" in result
     assert "## Error Handling" in result
+
+
+def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = _PREVIEW_STYLE_SKILL_OUTPUT
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Summarize a web page from a URL"},
+        )
+
+        assert response.status_code == 200
+        skill_definition = response.json()["skill_definition"]
+        _assert_plain_skill_output_is_clean(skill_definition)
+        assert "**Output Schema**" in skill_definition
+        mock_compiler.generate_skill.assert_called_with(
+            "Summarize a web page from a URL",
+            include_example_code=False,
+            repo_context=None,
+            repo_context_mode="full",
+        )
+
+
+def test_api_generate_skill_preserves_examples_when_example_code_enabled():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = _PREVIEW_STYLE_SKILL_OUTPUT
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={
+                "description": "Summarize a web page from a URL",
+                "include_example_code": True,
+            },
+        )
+
+        assert response.status_code == 200
+        skill_definition = response.json()["skill_definition"]
+        assert "```json" in skill_definition
+        assert "**Examples**" in skill_definition
+        assert 'Input: `{"url"' in skill_definition
 
 
 def test_generate_skill_preserves_examples_when_example_code_enabled():
