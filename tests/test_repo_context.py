@@ -163,6 +163,9 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -232,6 +235,9 @@ def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatc
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -293,6 +299,9 @@ def test_analyze_public_github_repo_forwards_ref_to_contents_api(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -351,6 +360,9 @@ def test_analyze_public_github_repo_walks_requested_subdir(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -389,7 +401,10 @@ def test_analyze_public_github_repo_forwards_promptc_github_token(monkeypatch):
 
     class HeaderCapturingClient:
         def __init__(self, *args, **kwargs):
-            captured_headers.update(dict(kwargs.get("headers") or {}))
+            self.headers = {}
+
+        def close(self):
+            pass
 
         def __enter__(self):
             return self
@@ -398,6 +413,7 @@ def test_analyze_public_github_repo_forwards_promptc_github_token(monkeypatch):
             return False
 
         def get(self, path):
+            captured_headers.update(self.headers)
             raise httpx.HTTPError("stop after header capture")
 
     monkeypatch.setattr("app.github_repo_context.httpx.Client", HeaderCapturingClient)
@@ -418,7 +434,10 @@ def test_analyze_public_github_repo_omits_authorization_when_no_token(monkeypatc
 
     class HeaderCapturingClient:
         def __init__(self, *args, **kwargs):
-            captured_headers.update(dict(kwargs.get("headers") or {}))
+            self.headers = {}
+
+        def close(self):
+            pass
 
         def __enter__(self):
             return self
@@ -427,6 +446,7 @@ def test_analyze_public_github_repo_omits_authorization_when_no_token(monkeypatc
             return False
 
         def get(self, path):
+            captured_headers.update(self.headers)
             raise httpx.HTTPError("stop after header capture")
 
     monkeypatch.setattr("app.github_repo_context.httpx.Client", HeaderCapturingClient)

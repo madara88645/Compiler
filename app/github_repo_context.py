@@ -30,6 +30,27 @@ SUMMARY_COMPACT_MAX_CHARS = 280
 _REPO_CACHE_MAXSIZE = 128
 _REPO_CACHE_DEFAULT_TTL_SECONDS = 600
 
+_GITHUB_HTTP_CLIENT: httpx.Client | None = None
+
+
+def get_github_http_client() -> httpx.Client:
+    global _GITHUB_HTTP_CLIENT
+    if _GITHUB_HTTP_CLIENT is None:
+        _GITHUB_HTTP_CLIENT = httpx.Client(
+            base_url=GITHUB_API_BASE,
+            timeout=10.0,
+            follow_redirects=True,
+        )
+    return _GITHUB_HTTP_CLIENT
+
+
+def close_github_http_client() -> None:
+    global _GITHUB_HTTP_CLIENT
+    if _GITHUB_HTTP_CLIENT is not None:
+        _GITHUB_HTTP_CLIENT.close()
+        _GITHUB_HTTP_CLIENT = None
+
+
 
 def _resolve_repo_cache_ttl() -> int:
     raw = os.environ.get("PROMPTC_REPO_CONTEXT_CACHE_TTL")
@@ -49,9 +70,12 @@ if _repo_cache_ttl > 0:
 
 
 def reset_repo_cache_for_tests() -> None:
-    global _REPO_CACHE
+    global _REPO_CACHE, _GITHUB_HTTP_CLIENT
     if _REPO_CACHE is not None:
         _REPO_CACHE.clear()
+    if _GITHUB_HTTP_CLIENT is not None:
+        _GITHUB_HTTP_CLIENT.close()
+        _GITHUB_HTTP_CLIENT = None
 
 
 class InvalidGitHubRepoUrl(ValueError):
@@ -172,93 +196,89 @@ def _fetch_public_github_repo_payload(
     requested_ref: str | None,
     requested_subdir: str | None,
 ) -> dict[str, Any]:
-    with httpx.Client(
-        base_url=GITHUB_API_BASE,
-        headers=_build_github_request_headers(),
-        timeout=10.0,
-        follow_redirects=True,
-    ) as client:
-        repo_meta = _get_json(client, f"/repos/{repo_full_name}")
-        listing_entries = _get_json(
+    client = get_github_http_client()
+    client.headers.update(_build_github_request_headers())
+    repo_meta = _get_json(client, f"/repos/{repo_full_name}")
+    listing_entries = _get_json(
+        client,
+        _contents_api_path(
+            repo_full_name,
+            requested_path=requested_subdir,
+            requested_ref=requested_ref,
+        ),
+    )
+    if not isinstance(listing_entries, list):
+        raise GitHubRepoAnalysisError("Unable to read the repository root directory.")
+
+    default_branch = repo_meta.get("default_branch")
+    readme_entry = _find_readme(listing_entries)
+    readme_text = _read_text_file(client, readme_entry) if readme_entry else ""
+    files_used: list[str] = []
+    if readme_entry:
+        files_used.append(readme_entry["path"])
+
+    manifests: dict[str, str] = {}
+    for manifest_name in MANIFEST_FILES:
+        entry = _find_entry(listing_entries, manifest_name)
+        if entry:
+            content = _read_text_file(client, entry)
+            if content:
+                manifests[entry["path"]] = content
+                files_used.append(entry["path"])
+
+    top_level_dirs = [entry["name"] for entry in listing_entries if entry.get("type") == "dir"]
+    candidate_dirs = [name for name in top_level_dirs if name in SCANNED_APP_DIRS][:2]
+
+    for directory in candidate_dirs:
+        nested_path = (
+            f"{requested_subdir.strip('/')}/{directory}" if requested_subdir else directory
+        )
+        nested_entries = _get_json(
             client,
             _contents_api_path(
                 repo_full_name,
-                requested_path=requested_subdir,
+                requested_path=nested_path,
                 requested_ref=requested_ref,
             ),
         )
-        if not isinstance(listing_entries, list):
-            raise GitHubRepoAnalysisError("Unable to read the repository root directory.")
-
-        default_branch = repo_meta.get("default_branch")
-        readme_entry = _find_readme(listing_entries)
-        readme_text = _read_text_file(client, readme_entry) if readme_entry else ""
-        files_used: list[str] = []
-        if readme_entry:
-            files_used.append(readme_entry["path"])
-
-        manifests: dict[str, str] = {}
+        if not isinstance(nested_entries, list):
+            continue
         for manifest_name in MANIFEST_FILES:
-            entry = _find_entry(listing_entries, manifest_name)
-            if entry:
+            entry = _find_entry(nested_entries, manifest_name)
+            if entry and entry["path"] not in manifests:
                 content = _read_text_file(client, entry)
                 if content:
                     manifests[entry["path"]] = content
                     files_used.append(entry["path"])
+        if len(_dedupe(files_used)) < MAX_FILES_USED:
+            nested_readme = _find_readme(nested_entries)
+            if nested_readme and nested_readme["path"] not in files_used:
+                nested_readme_text = _read_text_file(client, nested_readme)
+                if nested_readme_text:
+                    files_used.append(nested_readme["path"])
 
-        top_level_dirs = [entry["name"] for entry in listing_entries if entry.get("type") == "dir"]
-        candidate_dirs = [name for name in top_level_dirs if name in SCANNED_APP_DIRS][:2]
-
-        for directory in candidate_dirs:
-            nested_path = (
-                f"{requested_subdir.strip('/')}/{directory}" if requested_subdir else directory
-            )
-            nested_entries = _get_json(
-                client,
-                _contents_api_path(
-                    repo_full_name,
-                    requested_path=nested_path,
-                    requested_ref=requested_ref,
-                ),
-            )
-            if not isinstance(nested_entries, list):
-                continue
-            for manifest_name in MANIFEST_FILES:
-                entry = _find_entry(nested_entries, manifest_name)
-                if entry and entry["path"] not in manifests:
-                    content = _read_text_file(client, entry)
-                    if content:
-                        manifests[entry["path"]] = content
-                        files_used.append(entry["path"])
-            if len(_dedupe(files_used)) < MAX_FILES_USED:
-                nested_readme = _find_readme(nested_entries)
-                if nested_readme and nested_readme["path"] not in files_used:
-                    nested_readme_text = _read_text_file(client, nested_readme)
-                    if nested_readme_text:
-                        files_used.append(nested_readme["path"])
-
-        detected_stack = _detect_stack(repo_meta, manifests)
-        files_used = _dedupe(files_used)[:MAX_FILES_USED]
-        highlights = _build_highlights(
-            repo_meta=repo_meta,
-            detected_stack=detected_stack,
-            top_level_dirs=top_level_dirs,
-            files_used=files_used,
-            manifest_paths=list(manifests.keys()),
-        )[:MAX_HIGHLIGHTS]
-        summary = _build_summary(
-            repo_meta=repo_meta,
-            detected_stack=detected_stack,
-            top_level_dirs=top_level_dirs,
-            files_used=files_used,
-            manifest_paths=list(manifests.keys()),
-            readme_text=readme_text,
-        )
-        summary_compact = _build_summary_compact(
-            repo_meta=repo_meta,
-            detected_stack=detected_stack,
-            top_level_dirs=top_level_dirs,
-        )
+    detected_stack = _detect_stack(repo_meta, manifests)
+    files_used = _dedupe(files_used)[:MAX_FILES_USED]
+    highlights = _build_highlights(
+        repo_meta=repo_meta,
+        detected_stack=detected_stack,
+        top_level_dirs=top_level_dirs,
+        files_used=files_used,
+        manifest_paths=list(manifests.keys()),
+    )[:MAX_HIGHLIGHTS]
+    summary = _build_summary(
+        repo_meta=repo_meta,
+        detected_stack=detected_stack,
+        top_level_dirs=top_level_dirs,
+        files_used=files_used,
+        manifest_paths=list(manifests.keys()),
+        readme_text=readme_text,
+    )
+    summary_compact = _build_summary_compact(
+        repo_meta=repo_meta,
+        detected_stack=detected_stack,
+        top_level_dirs=top_level_dirs,
+    )
 
     return {
         "normalized_repo_url": normalized_url,
