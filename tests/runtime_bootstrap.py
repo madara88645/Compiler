@@ -11,6 +11,7 @@ from uuid import uuid4
 class TestRuntime:
     session_dir: Path
     temp_root: Path
+    pytest_temp_root: Path
     db_dir: Path
     env_updates: dict[str, str]
 
@@ -66,6 +67,8 @@ def prepare_test_runtime(
             session_dir = _create_session_dir(root)
             temp_root = (session_dir / "tmp").resolve()
             temp_root.mkdir(parents=True, exist_ok=True)
+            pytest_temp_root = (session_dir / "pytest-tmp").resolve()
+            pytest_temp_root.mkdir(parents=True, exist_ok=True)
             db_dir = (session_dir / "db").resolve()
             db_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,6 +81,7 @@ def prepare_test_runtime(
             return TestRuntime(
                 session_dir=session_dir,
                 temp_root=temp_root,
+                pytest_temp_root=pytest_temp_root,
                 db_dir=db_dir,
                 env_updates=env_updates,
             )
