@@ -318,19 +318,20 @@ export default function OptimizerPage() {
                         <PremiumSelect
                             id="optimizer-engine"
                             value={`${provider}:${model}`}
-                            onChange={(e) => {
-                                const [p, m] = e.target.value.split(":");
+                            onChange={(val) => {
+                                const [p, m] = val.split(":");
                                 setProvider(p);
                                 setModel(m);
                                 setOptimizationError(null);
                             }}
                             focusVariant="green"
                             selectClassName="bg-zinc-900 border border-white/10"
-                        >
-                            <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
-                            <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
-                            <option value="local:offline">Local Heuristics (Offline)</option>
-                        </PremiumSelect>
+                            options={[
+                                { value: "openrouter:openai/gpt-oss-20b", label: "OpenRouter GPT-OSS 20B (Cloud)" },
+                                { value: "openrouter:openai/gpt-oss-120b", label: "OpenRouter GPT-OSS 120B (Quality)" },
+                                { value: "local:offline", label: "Local Heuristics (Offline)" },
+                            ]}
+                        />
                     </div>
 
                     <div className="flex min-w-40 flex-col gap-1">

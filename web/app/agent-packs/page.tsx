@@ -443,15 +443,13 @@ export default function AgentPacksPage() {
                     <PremiumSelect
                       id="agent-pack-file-select"
                       value={currentFile?.path ?? activeGroup.files[0].path}
-                      onChange={(event) => setSelectedPath(event.target.value)}
+                      onChange={(val) => setSelectedPath(val)}
                       focusVariant="cyan"
-                    >
-                      {activeGroup.files.map((file) => (
-                        <option key={file.path} value={file.path}>
-                          {file.path}
-                        </option>
-                      ))}
-                    </PremiumSelect>
+                      options={activeGroup.files.map((file) => ({
+                        value: file.path,
+                        label: file.path,
+                      }))}
+                    />
                   </div>
                 )}
 

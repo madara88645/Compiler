@@ -282,23 +282,19 @@ export default function AgentGenerator() {
                 <PremiumSelect
                   id="agent-history"
                   focusVariant="green"
-                  defaultValue=""
-                  onChange={(e) => {
-                    const selected = history[Number(e.target.value)];
+                  value=""
+                  placeholder="-- Restore previous result --"
+                  onChange={(val) => {
+                    const selected = history[Number(val)];
                     if (selected) {
                       setResult(selected.prompt);
                     }
                   }}
-                >
-                  <option value="" disabled>
-                    -- Restore previous result --
-                  </option>
-                  {history.map((entry, index) => (
-                    <option key={`${entry.label}-${index}`} value={index}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </PremiumSelect>
+                  options={history.map((entry, index) => ({
+                    value: String(index),
+                    label: entry.label,
+                  }))}
+                />
               </div>
             )}
 

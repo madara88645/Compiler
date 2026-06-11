@@ -296,28 +296,21 @@ export default function BenchmarkPage() {
               <PremiumSelect
                 id="benchmark-model"
                 value={selectedModel}
-                onChange={(event) => setSelectedModel(event.target.value)}
+                onChange={(val) => setSelectedModel(val)}
                 focusVariant="yellow"
                 containerClassName="w-full sm:min-w-[240px]"
                 selectClassName="w-full rounded border-none bg-[#1a1a1a] px-2 py-1.5 text-xs text-zinc-200"
-              >
-                <option value="mock" className="bg-[#1a1a1a] text-zinc-200">
-                  Mock Engine — demo (fake scores)
-                </option>
-                {BENCHMARK_MODEL_GROUPS.map((group) => (
-                  <optgroup
-                    key={group.label}
-                    label={`-- ${group.label} --`}
-                    className="bg-[#1a1a1a] text-zinc-500"
-                  >
-                    {group.options.map((model) => (
-                      <option key={model.id} value={model.id} className="bg-[#1a1a1a] text-zinc-200">
-                        {`${model.label} [${model.badge}]`}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </PremiumSelect>
+                options={[
+                  { value: "mock", label: "Mock Engine — demo (fake scores)" },
+                  ...BENCHMARK_MODEL_GROUPS.flatMap((group) =>
+                    group.options.map((model) => ({
+                      value: model.id,
+                      label: `${model.label} [${model.badge}]`,
+                      group: group.label,
+                    }))
+                  ),
+                ]}
+              />
               <p
                 className={`px-2 pb-1 pt-2 text-xs ${selectedModel === "mock" ? "text-amber-300/80" : "text-zinc-500"}`}
               >

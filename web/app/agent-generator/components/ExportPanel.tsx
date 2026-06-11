@@ -275,15 +275,13 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
               <PremiumSelect
                 id="agent-export-file"
                 value={selectedFilePath ?? visibleFiles[0].path}
-                onChange={(event) => setSelectedFilePath(event.target.value)}
+                onChange={(val) => setSelectedFilePath(val)}
                 focusVariant="blue"
-              >
-                {visibleFiles.map((file) => (
-                  <option key={file.path} value={file.path}>
-                    {file.path}
-                  </option>
-                ))}
-              </PremiumSelect>
+                options={visibleFiles.map((file) => ({
+                  value: file.path,
+                  label: file.path,
+                }))}
+              />
             </div>
           )}
 
