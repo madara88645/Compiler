@@ -52,6 +52,7 @@ export function PremiumSelect({
   useEffect(() => {
     if (isOpen) {
       const idx = options.findIndex((opt) => opt.value === value);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveIndex(idx >= 0 ? idx : 0);
     }
   }, [isOpen, value, options]);
