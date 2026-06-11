@@ -142,6 +142,38 @@ describe("Skills Generator page", () => {
     });
   });
 
+  it("sends include_example_code true and keeps the toggle on after generation", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "# Skill With Example Code\n\n## Implementation Example",
+    });
+
+    render(<SkillsGeneratorPage />);
+
+    const exampleCodeToggle = screen.getByRole("switch", { name: "Include Example Code toggle" });
+    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("false");
+
+    fireEvent.click(exampleCodeToggle);
+    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Parse JSON and validate schemas with example code." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+    expect(apiJsonMock.mock.calls[0]?.[0]).toBe("/skills-generator/generate");
+    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
+      description: "Parse JSON and validate schemas with example code.",
+      include_example_code: true,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Skill With Example Code" })).toBeTruthy(),
+    );
+    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("With Example Code")).toBeTruthy();
+  });
+
   it("keeps the description textarea at a usable desktop height", () => {
     render(<SkillsGeneratorPage />);
 
