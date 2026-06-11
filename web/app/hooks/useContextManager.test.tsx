@@ -115,7 +115,7 @@ describe("useContextManager", () => {
   it("tracks upload progress and refreshes stats after successful uploads", async () => {
     const file = new File(["hello world"], "notes.md", { type: "text/markdown" });
 
-    let resolveUpload: any = null;
+    let resolveUpload: ((value: unknown) => void) | null = null;
 
     uploadContextFileMock.mockImplementationOnce(
       () =>
