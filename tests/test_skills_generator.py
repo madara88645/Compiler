@@ -1,9 +1,40 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from app.llm_engine.client import WorkerClient
+from app.llm_engine.client import WorkerClient, _sanitize_skill_definition_plain
 from app.llm_engine.hybrid import HybridCompiler
 from api.main import app
 from fastapi.testclient import TestClient
+
+_SKILL_OUTPUT_WITH_EXAMPLES = """\
+# json-validator - Skill Definition
+
+## Name
+json_validator
+
+## Purpose
+Validates JSON payloads.
+
+## Implementation
+1. Parse the payload.
+2. Validate against schema rules.
+
+## Examples
+- Input: `{"data": "x"}` → Output: `{"valid": true}`
+
+**Examples:**
+```json
+{"input": {"data": "x"}, "output": {"valid": true}}
+```
+
+## Implementation Example
+```python
+def run_skill(payload):
+    return {"valid": True}
+```
+
+## Error Handling
+- Return a structured error when JSON is invalid.
+"""
 
 
 # Mock WorkerClient to avoid API calls
@@ -152,6 +183,46 @@ def test_worker_client_omits_skill_implementation_example_when_disabled():
             "fenced code blocks" in message and "`## Implementation Example` section" in message
             for message in system_messages
         )
+
+
+def test_sanitize_skill_definition_plain_removes_examples_and_code():
+    cleaned = _sanitize_skill_definition_plain(_SKILL_OUTPUT_WITH_EXAMPLES)
+
+    assert "## Examples" not in cleaned
+    assert "**Examples:**" not in cleaned
+    assert "## Implementation Example" not in cleaned
+    assert "```" not in cleaned
+    assert "Input: `{" not in cleaned
+    assert "## Error Handling" in cleaned
+    assert "## Implementation" in cleaned
+
+
+def test_generate_skill_sanitizes_plain_output_when_example_code_disabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+        with patch.object(client, "_call_api", return_value=_SKILL_OUTPUT_WITH_EXAMPLES):
+            result = client.generate_skill("Test Skill", include_example_code=False)
+
+    assert "## Examples" not in result
+    assert "**Examples:**" not in result
+    assert "## Implementation Example" not in result
+    assert "```" not in result
+    assert "## Error Handling" in result
+
+
+def test_generate_skill_preserves_examples_when_example_code_enabled():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+        with patch.object(client, "_call_api", return_value=_SKILL_OUTPUT_WITH_EXAMPLES):
+            result = client.generate_skill("Test Skill", include_example_code=True)
+
+    assert "## Examples" in result
+    assert "**Examples:**" in result
+    assert "## Implementation Example" in result
+    assert "```json" in result
+    assert "```python" in result
 
 
 def test_worker_client_requests_skill_implementation_example_when_enabled():

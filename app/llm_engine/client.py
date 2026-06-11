@@ -59,6 +59,20 @@ _MULTI_AGENT_PATTERNS = [
     re.compile(r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE),
 ]
 
+_SKILL_PLAIN_OUTPUT_SECTION_PATTERNS = [
+    re.compile(r"^## Examples\b.*?(?=^## |\Z)", flags=re.MULTILINE | re.DOTALL),
+    re.compile(r"^## Implementation Example\b.*?(?=^## |\Z)", flags=re.MULTILINE | re.DOTALL),
+    re.compile(
+        r"^\*\*Examples:\*\*\s*\n.*?(?=^## |\n\*\*[^*]+:\*\*|\Z)",
+        flags=re.MULTILINE | re.DOTALL,
+    ),
+]
+
+_SKILL_PLAIN_OUTPUT_LINE_PATTERNS = [
+    re.compile(r"^- Input:.*?(?:→|->).*$", flags=re.MULTILINE),
+    re.compile(r"^- (?:Input|Output):\s*`?\{.*$", flags=re.MULTILINE),
+]
+
 _SKILL_PATTERNS = [
     re.compile(
         r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
@@ -78,6 +92,21 @@ _SKILL_PATTERNS = [
         flags=re.MULTILINE,
     ),
 ]
+
+
+def _sanitize_skill_definition_plain(text: str) -> str:
+    """Strip example/code artifacts from plain skill output when example code is disabled."""
+    if not text:
+        return text
+
+    cleaned = re.sub(r"```[^\n]*\n.*?```", "", text, flags=re.DOTALL)
+    for pattern in _SKILL_PLAIN_OUTPUT_SECTION_PATTERNS:
+        cleaned = pattern.sub("", cleaned)
+    for pattern in _SKILL_PLAIN_OUTPUT_LINE_PATTERNS:
+        cleaned = pattern.sub("", cleaned)
+
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 class WorkerClient:
@@ -732,6 +761,8 @@ class WorkerClient:
             future = executor.submit(self._call_api, messages, 3000, json_mode=False)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
+                if not include_example_code:
+                    content = _sanitize_skill_definition_plain(content)
                 return content
             except FuturesTimeoutError:
                 future.cancel()
