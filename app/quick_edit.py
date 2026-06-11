@@ -6,8 +6,6 @@ including text editing, metadata updates, and re-compilation.
 
 import os
 import shlex
-import subprocess
-import tempfile
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
