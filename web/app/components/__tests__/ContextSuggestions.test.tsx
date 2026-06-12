@@ -6,7 +6,7 @@ import ContextSuggestions from "../context/ContextSuggestions";
 describe("ContextSuggestions", () => {
   it("formats inserted context and does not submit surrounding forms", () => {
     const onInsertContext = vi.fn();
-    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
     render(
       <form onSubmit={onSubmit}>

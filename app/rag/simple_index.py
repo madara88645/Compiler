@@ -354,10 +354,11 @@ def _chunk_text_semantic(
         return [w.lower() for w in s.split() if len(w) > 2]
 
     # Document frequency
-    # Bolt Optimization: collections.Counter.update delegates to C-level _count_elements and is faster than manual loops
     doc_freq: Counter = Counter()
     for sent in sentences:
-        doc_freq.update(set(tokenize(sent)))
+        tokens = set(tokenize(sent))
+        for tok in tokens:
+            doc_freq[tok] += 1
 
     n_docs = len(sentences)
 

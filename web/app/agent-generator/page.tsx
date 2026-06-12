@@ -12,8 +12,6 @@ import InfoButton from "../components/InfoButton";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
 import GeneratorErrorState from "../components/GeneratorErrorState";
-import PremiumSelect from "../components/PremiumSelect";
-
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -279,22 +277,26 @@ export default function AgentGenerator() {
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
                 <label htmlFor="agent-history" className="text-xs font-medium text-zinc-300">Previous results</label>
-                <PremiumSelect
+                <select
                   id="agent-history"
-                  focusVariant="green"
-                  value=""
-                  placeholder="-- Restore previous result --"
-                  onChange={(val) => {
-                    const selected = history[Number(val)];
+                  className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500/50"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const selected = history[Number(e.target.value)];
                     if (selected) {
                       setResult(selected.prompt);
                     }
                   }}
-                  options={history.map((entry, index) => ({
-                    value: String(index),
-                    label: entry.label,
-                  }))}
-                />
+                >
+                  <option value="" disabled>
+                    -- Restore previous result --
+                  </option>
+                  {history.map((entry, index) => (
+                    <option key={`${entry.label}-${index}`} value={index}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 

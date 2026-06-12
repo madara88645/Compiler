@@ -5,7 +5,7 @@ import FileUploadZone from "../context/FileUploadZone";
 
 describe("FileUploadZone", () => {
   it("uses non-submit buttons for upload actions", () => {
-    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
     render(
       <form onSubmit={onSubmit}>

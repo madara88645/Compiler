@@ -61,18 +61,4 @@ describe("Offline compiler page", () => {
     expect(screen.queryByText("→")).toBeNull();
     expect(screen.queryByText("Ctrl/⌘ Enter")).toBeNull();
   });
-  it("prefills the prompt and restores focus when the example shortcut is used", () => {
-    render(<OfflinePage />);
-
-    const promptInput = screen.getByLabelText("Offline prompt input");
-    const exampleButton = screen.getByRole("button", { name: "or try an example" });
-
-    fireEvent.click(exampleButton);
-
-    expect((promptInput as HTMLTextAreaElement).value).toBe(
-      "Summarize the key points of this meeting transcript.",
-    );
-    expect(document.activeElement).toBe(promptInput);
-    expect(screen.queryByRole("button", { name: "or try an example" })).toBeNull();
-  });
 });

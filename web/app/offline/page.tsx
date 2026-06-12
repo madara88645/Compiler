@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { WifiOff } from "lucide-react";
 import ContextManager from "../components/ContextManager";
 import CopyButton from "../components/CopyButton";
@@ -13,7 +13,6 @@ import InfoButton from "../components/InfoButton";
 type OfflineOutputTab = "system" | "user" | "plan" | "expanded" | "json";
 
 const OFFLINE_MODE: CompileMode = "conservative";
-const OFFLINE_EXAMPLE_PROMPT = "Summarize the key points of this meeting transcript.";
 
 function getOfflineTabContent(result: CompileResponse, activeTab: OfflineOutputTab): string {
     if (activeTab === "system") {
@@ -38,7 +37,6 @@ export default function OfflinePage() {
     const [activeTab, setActiveTab] = useState<OfflineOutputTab>("system");
     const [lastError, setLastError] = useState<unknown>(null);
     const [lastRequest, setLastRequest] = useState("");
-    const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
 
     // Diagnostics ON by default
     const diagnostics = true;
@@ -132,7 +130,6 @@ export default function OfflinePage() {
                             <textarea
                                 id="offline-prompt"
                                 aria-label="Offline prompt input"
-                                ref={promptInputRef}
                                 className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 sm:min-h-44 md:min-h-0"
                                 placeholder="Enter prompt (offline heuristics active)..."
                                 value={prompt}
@@ -273,8 +270,11 @@ export default function OfflinePage() {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setPrompt(OFFLINE_EXAMPLE_PROMPT);
-                                                promptInputRef.current?.focus();
+                                                setPrompt("Summarize the key points of this meeting transcript.");
+                                                setTimeout(() => {
+                                                    const textarea = document.getElementById('offline-prompt');
+                                                    if (textarea) textarea.focus();
+                                                }, 0);
                                             }}
                                             className="mt-3 text-xs text-zinc-400/80 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500 rounded px-2 py-1 mx-auto block"
                                         >

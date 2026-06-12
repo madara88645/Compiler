@@ -187,6 +187,7 @@ _NUMBERED_LIST_PAT = re.compile(r"\n\s*\d+[.):]\s*")
 
 
 class LogicAnalyzer:
+
     """
     Advanced logic extractor for prompt analysis.
 

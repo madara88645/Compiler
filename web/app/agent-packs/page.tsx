@@ -5,7 +5,6 @@ import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles } 
 
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
-import PremiumSelect from "../components/PremiumSelect";
 import { showError } from "../lib/showError";
 import { agentPackProviders } from "./providerRegistry";
 import type {
@@ -440,16 +439,18 @@ export default function AgentPacksPage() {
                     <label htmlFor="agent-pack-file-select" className="sr-only">
                       Preview file
                     </label>
-                    <PremiumSelect
+                    <select
                       id="agent-pack-file-select"
                       value={currentFile?.path ?? activeGroup.files[0].path}
-                      onChange={(val) => setSelectedPath(val)}
-                      focusVariant="cyan"
-                      options={activeGroup.files.map((file) => ({
-                        value: file.path,
-                        label: file.path,
-                      }))}
-                    />
+                      onChange={(event) => setSelectedPath(event.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    >
+                      {activeGroup.files.map((file) => (
+                        <option key={file.path} value={file.path}>
+                          {file.path}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
