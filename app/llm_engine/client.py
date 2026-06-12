@@ -59,218 +59,13 @@ _MULTI_AGENT_PATTERNS = [
     re.compile(r"^- Only include a final `## Swarm Example Code .*?$\n?", flags=re.MULTILINE),
 ]
 
-_SKILL_PLAIN_SECTION_BOUNDARY = r"(?=^#{1,3} |\n\*\*[^*]+?\*\*|\Z)"
-
-_SKILL_PLAIN_OUTPUT_SECTION_PATTERNS = [
-    re.compile(
-        rf"^## Examples\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}", flags=re.MULTILINE | re.DOTALL
-    ),
-    re.compile(
-        rf"^### Examples\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}", flags=re.MULTILINE | re.DOTALL
-    ),
-    re.compile(
-        rf"^Examples:\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
-        flags=re.MULTILINE | re.DOTALL,
-    ),
-    re.compile(
-        rf"^\*\*Examples:?\*\*\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
-        flags=re.MULTILINE | re.DOTALL,
-    ),
-    re.compile(
-        rf"^## Implementation Example\b.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
-        flags=re.MULTILINE | re.DOTALL,
-    ),
-    re.compile(
-        rf"^\*\*Implementation Example:?\*\*\s*\n.*?{_SKILL_PLAIN_SECTION_BOUNDARY}",
-        flags=re.MULTILINE | re.DOTALL,
-    ),
-]
-
-_SKILL_PLAIN_FENCED_CODE_PATTERN = re.compile(r"```[\w-]*\s*\r?\n[\s\S]*?```", flags=re.DOTALL)
-_SKILL_PLAIN_FENCE_LINE_PATTERN = re.compile(r"(?m)^[ \t]*```[\w-]*[ \t]*\r?\n?")
-
-_SKILL_PLAIN_OUTPUT_LINE_PATTERNS = [
-    re.compile(r"^- Input:.*?(?:→|->).*$", flags=re.MULTILINE),
-    re.compile(r"^- (?:Input|Output|Example):\s*`?\{.*$", flags=re.MULTILINE),
-    re.compile(r"^- (?:Input|Output|Example):\s*`?\[.*$", flags=re.MULTILINE),
-]
-
-_SKILL_PLAIN_NAME_FENCE_PATTERN = re.compile(
-    r"(?im)^(?P<heading>\s*(?:#{1,3}\s+Name|Name:|\*\*Name:?\*\*)\s*)\r?\n"
-    r"[ \t]*```[^\r\n]*\r?\n"
-    r"(?P<name>[A-Za-z_][\w.-]*)\s*\r?\n"
-    r"[ \t]*```[ \t]*\r?\n?"
-)
-
-_SKILL_PLAIN_ATX_HEADING_PATTERN = re.compile(r"^\s{0,3}#{1,3}\s+(?P<heading>.+?)\s*#*\s*$")
-_SKILL_PLAIN_BOLD_HEADING_PATTERN = re.compile(r"^\s*\*\*(?P<heading>[^*]+?)\*\*:?\s*$")
-_SKILL_PLAIN_BRACKET_HEADING_PATTERN = re.compile(r"^\s*\[(?P<heading>[^\]]+?)\]\s*$")
-_SKILL_PLAIN_COLON_HEADING_PATTERN = re.compile(
-    r"^\s*(?P<heading>[A-Za-z][A-Za-z0-9 /_-]{0,60}):\s*$"
-)
-
-_SKILL_PLAIN_ALLOWED_SECTION_NAMES = {
-    "name",
-    "purpose",
-    "input schema",
-    "output schema",
-    "implementation",
-    "error handling",
-    "testing strategy",
-    "test strategy",
-    "notes",
-    "constraints",
-    "notes constraints",
-}
-
-_SKILL_PLAIN_JSON_SAMPLE_LINE_PATTERN = re.compile(
-    r"^\s*(?:[-*]\s*)?(?:Input|Output|Example)\s*:\s*(?:`?\s*)?(?:[\[{]|$)",
-    flags=re.IGNORECASE,
-)
-_SKILL_PLAIN_JSONISH_LINE_PATTERN = re.compile(
-    r"^\s*(?:[-*]\s*)?(?:`?\s*)?[\[{\]}]", flags=re.IGNORECASE
-)
-_SKILL_PLAIN_JSON_FIELD_LINE_PATTERN = re.compile(
-    r'^\s*(?:[-*]\s*)?"[^"]+"\s*:', flags=re.IGNORECASE
-)
-
 _SKILL_PATTERNS = [
     re.compile(
         r"\n## OPTIONAL IMPLEMENTATION EXAMPLE SECTION.*?(?=\n## INPUT HANDLING)",
         flags=re.DOTALL,
     ),
     re.compile(r"^- Only include an implementation example section.*\n", flags=re.MULTILINE),
-    re.compile(
-        r"\n## Examples\n\[At least one and at most three concrete invocations.*?\n- Input:.*?\n- Input:.*?\n",
-        flags=re.DOTALL,
-    ),
-    re.compile(
-        r"^- The skill must be idempotent and the Examples section must use inputs/outputs.*\n",
-        flags=re.MULTILINE,
-    ),
-    re.compile(
-        r"^- For uncertain details, prefer pseudo-code and explicit `TODO` comments over confident-looking guesses\.\n",
-        flags=re.MULTILINE,
-    ),
 ]
-
-
-def _normalize_skill_plain_heading(heading: str) -> str:
-    normalized = heading.strip().strip(":").strip("#").strip("[]").strip()
-    normalized = normalized.replace("&", " and ")
-    normalized = re.sub(r"[^A-Za-z0-9]+", " ", normalized)
-    return re.sub(r"\s+", " ", normalized).strip().lower()
-
-
-def _skill_plain_heading_name(line: str) -> str | None:
-    stripped = line.strip()
-    if not stripped:
-        return None
-
-    for pattern in (
-        _SKILL_PLAIN_ATX_HEADING_PATTERN,
-        _SKILL_PLAIN_BOLD_HEADING_PATTERN,
-        _SKILL_PLAIN_BRACKET_HEADING_PATTERN,
-        _SKILL_PLAIN_COLON_HEADING_PATTERN,
-    ):
-        match = pattern.match(stripped)
-        if match:
-            return _normalize_skill_plain_heading(match.group("heading"))
-    return None
-
-
-def _strip_skill_plain_fenced_blocks(text: str) -> str:
-    lines = text.splitlines()
-    cleaned_lines: list[str] = []
-    in_fence = False
-
-    for line in lines:
-        if _SKILL_PLAIN_FENCE_LINE_PATTERN.match(line):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            if _skill_plain_heading_name(line):
-                in_fence = False
-                cleaned_lines.append(line)
-            continue
-        cleaned_lines.append(line)
-
-    return "\n".join(cleaned_lines)
-
-
-def _is_skill_plain_sample_line(line: str) -> bool:
-    stripped = line.strip()
-    if not stripped:
-        return False
-    if _SKILL_PLAIN_JSON_SAMPLE_LINE_PATTERN.match(stripped):
-        return True
-    if _SKILL_PLAIN_JSONISH_LINE_PATTERN.match(stripped):
-        return True
-    if _SKILL_PLAIN_JSON_FIELD_LINE_PATTERN.match(stripped):
-        return True
-    if re.search(r"(?:→|->)\s*Output\s*:", stripped, flags=re.IGNORECASE):
-        return True
-    return False
-
-
-def _filter_skill_plain_allowed_sections(text: str) -> str:
-    cleaned_lines: list[str] = []
-    current_section_allowed = False
-
-    for line in text.splitlines():
-        heading_name = _skill_plain_heading_name(line)
-        if heading_name:
-            if "example" in heading_name:
-                current_section_allowed = False
-                continue
-            current_section_allowed = heading_name in _SKILL_PLAIN_ALLOWED_SECTION_NAMES
-            if current_section_allowed:
-                cleaned_lines.append(line)
-            continue
-
-        if current_section_allowed and not _is_skill_plain_sample_line(line):
-            cleaned_lines.append(line)
-
-    return "\n".join(cleaned_lines)
-
-
-def _skill_plain_heading_summary(text: str) -> tuple[bool, bool]:
-    has_allowed = False
-    has_forbidden = False
-    for line in text.splitlines():
-        heading_name = _skill_plain_heading_name(line)
-        if not heading_name:
-            continue
-        has_allowed = has_allowed or heading_name in _SKILL_PLAIN_ALLOWED_SECTION_NAMES
-        has_forbidden = has_forbidden or "example" in heading_name
-    return has_allowed, has_forbidden
-
-
-def _remove_skill_plain_remaining_fence_lines(text: str) -> str:
-    return "\n".join(line for line in text.splitlines() if "```" not in line)
-
-
-def _sanitize_skill_definition_plain(text: str) -> str:
-    """Strip example/code artifacts from plain skill output when example code is disabled."""
-    if not text:
-        return text
-
-    cleaned = _SKILL_PLAIN_NAME_FENCE_PATTERN.sub(
-        lambda match: f"{match.group('heading')}\n{match.group('name')}\n",
-        text.replace("\r\n", "\n").replace("\r", "\n"),
-    )
-    cleaned = _strip_skill_plain_fenced_blocks(cleaned)
-    has_allowed_heading, has_forbidden_heading = _skill_plain_heading_summary(cleaned)
-    filtered = _filter_skill_plain_allowed_sections(cleaned)
-    if filtered.strip() or has_allowed_heading or has_forbidden_heading:
-        cleaned = filtered
-    for pattern in _SKILL_PLAIN_OUTPUT_LINE_PATTERNS:
-        cleaned = pattern.sub("", cleaned)
-
-    cleaned = _SKILL_PLAIN_FENCE_LINE_PATTERN.sub("", cleaned)
-    cleaned = _remove_skill_plain_remaining_fence_lines(cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    return cleaned.strip()
 
 
 class WorkerClient:
@@ -503,12 +298,9 @@ class WorkerClient:
         prompt += (
             "\n\n## EXAMPLE CODE SETTING\n"
             "- Example code is disabled for this request.\n"
-            "- Omit `## Implementation Example` entirely from the final markdown.\n"
-            "- Omit `## Examples` entirely — no input/output JSON samples, arrow-form invocations, "
-            "or illustrative payloads.\n"
-            "- Keep `## Implementation` as a concise, code-free execution plan in plain language only.\n"
-            "- Do not include fenced code blocks (```), pseudo-code, or code snippets anywhere in the output.\n"
-            "- `## Input Schema` and `## Output Schema` must describe fields/types only — no sample JSON values."
+            "- Omit any `## Implementation Example` section from the final markdown.\n"
+            "- Keep `## Implementation` as a concise, code-free execution plan.\n"
+            "- Do not include fenced code blocks or pseudo-code unless the user explicitly asks for raw code."
         )
         return prompt
 
@@ -889,25 +681,14 @@ class WorkerClient:
             "- If implementation details are unknown, provide explicit TODO-oriented steps instead of fake certainty.\n"
             "- Keep the skill definition practical, modular, and implementation-ready."
         )
-        if include_example_code:
-            example_code_note = (
-                "Example code is enabled for this request. You MUST include:\n"
-                "1. A `## Examples` section with at least one `Input: ... → Output: ...` invocation "
-                "that matches the declared schemas.\n"
-                "2. A `## Implementation Example` section after `## Implementation` with a short fenced "
-                "code skeleton using TODO comments for unknown APIs.\n"
-                "Keep examples illustrative only — do not invent secrets, endpoints, or dependencies "
-                "not supported by context."
+        example_code_note = (
+            "Include a final `## Implementation Example` section with concise code only when explicitly requested."
+            if include_example_code
+            else (
+                "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
+                "Omit the entire `## Implementation Example` section from the generated output."
             )
-        else:
-            example_code_note = (
-                "Example code is disabled for this request. You MUST NOT include:\n"
-                "- fenced code blocks (```) or pseudo-code snippets\n"
-                "- a `## Examples` section or any input/output JSON samples\n"
-                "- arrow-form invocations such as `Input: {...} → Output: ...`\n"
-                "- a `## Implementation Example` section\n"
-                "Keep `## Implementation` code-free and limit schemas to field/type descriptions only."
-            )
+        )
         messages.insert(1, {"role": "system", "content": safety_note})
         messages.insert(2, {"role": "system", "content": example_code_note})
 
@@ -925,8 +706,6 @@ class WorkerClient:
             future = executor.submit(self._call_api, messages, 3000, json_mode=False)
             try:
                 content = future.result(timeout=HARD_TIMEOUT_SECONDS)
-                if not include_example_code:
-                    content = _sanitize_skill_definition_plain(content)
                 return content
             except FuturesTimeoutError:
                 future.cancel()

@@ -7,7 +7,6 @@ import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
 
 import InfoButton from "../components/InfoButton";
-import PremiumSelect from "../components/PremiumSelect";
 
 type OptimizeResponse = {
     text: string;
@@ -315,23 +314,21 @@ export default function OptimizerPage() {
                         <label htmlFor="optimizer-engine" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                             Optimizer Engine
                         </label>
-                        <PremiumSelect
+                        <select
                             id="optimizer-engine"
                             value={`${provider}:${model}`}
-                            onChange={(val) => {
-                                const [p, m] = val.split(":");
+                            onChange={(e) => {
+                                const [p, m] = e.target.value.split(":");
                                 setProvider(p);
                                 setModel(m);
                                 setOptimizationError(null);
                             }}
-                            focusVariant="green"
-                            selectClassName="bg-zinc-900 border border-white/10"
-                            options={[
-                                { value: "openrouter:openai/gpt-oss-20b", label: "OpenRouter GPT-OSS 20B (Cloud)" },
-                                { value: "openrouter:openai/gpt-oss-120b", label: "OpenRouter GPT-OSS 120B (Quality)" },
-                                { value: "local:offline", label: "Local Heuristics (Offline)" },
-                            ]}
-                        />
+                            className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                        >
+                            <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
+                            <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
+                            <option value="local:offline">Local Heuristics (Offline)</option>
+                        </select>
                     </div>
 
                     <div className="flex min-w-40 flex-col gap-1">
@@ -438,23 +435,6 @@ export default function OptimizerPage() {
                                 aria-label="Clear prompt"
                             >
                                 Clear
-                            </button>
-                        )}
-                        {!input && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const example = "I want you to act as a data analyst. You will write a Python script for me. The script needs to read a file called 'sales.csv'. It should group the data by the 'region' column. Then it should calculate the total 'revenue' for each region. Finally, it should print the results out to the console. Make sure to use the pandas library for this. Please include comments explaining what each part of the code does.";
-                                    setInput(example);
-                                    window.localStorage.setItem("promptc_optimizer_prompt", example);
-                                    setTimeout(() => {
-                                        const textarea = document.getElementById('original-prompt');
-                                        if (textarea) textarea.focus();
-                                    }, 0);
-                                }}
-                                className="absolute top-4 right-4 text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1"
-                            >
-                                or try an example
                             </button>
                         )}
                     </div>

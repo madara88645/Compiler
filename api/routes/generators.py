@@ -10,7 +10,6 @@ from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
-from app.llm_engine.client import _sanitize_skill_definition_plain
 from app.github_repo_context import (
     GitHubRepoAnalysisError,
     InvalidGitHubRepoUrl,
@@ -193,8 +192,6 @@ async def generate_skill_endpoint(
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
         )
-        if not req.include_example_code:
-            result = _sanitize_skill_definition_plain(result)
         return SkillGenResponse(skill_definition=result)
     except Exception as exc:
         logger.exception("skill generation failed")

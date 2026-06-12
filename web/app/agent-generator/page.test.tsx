@@ -137,38 +137,6 @@ describe("Agent Generator page", () => {
     });
   });
 
-  it("sends include_example_code true and keeps the toggle on after generation", async () => {
-    apiJsonMock.mockResolvedValueOnce({
-      system_prompt: "# Agent With Example Code\n\n## Example Code (Pseudo-code Skeleton)",
-    });
-
-    render(<AgentGeneratorPage />);
-
-    const exampleCodeToggle = screen.getByRole("switch", { name: "Include Example Code toggle" });
-    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("false");
-
-    fireEvent.click(exampleCodeToggle);
-    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("true");
-
-    fireEvent.change(screen.getByLabelText("Agent Description"), {
-      target: { value: "Build a code review agent with examples." },
-    });
-    fireEvent.click(screen.getAllByRole("button", { name: /Generate Agent/i })[0]!);
-
-    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
-    expect(apiJsonMock.mock.calls[0]?.[0]).toBe("/agent-generator/generate");
-    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
-      description: "Build a code review agent with examples.",
-      multi_agent: false,
-      include_example_code: true,
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Agent With Example Code" })).toBeTruthy(),
-    );
-    expect(exampleCodeToggle.getAttribute("aria-checked")).toBe("true");
-  });
-
   it("keeps the description textarea at a usable desktop height", () => {
     render(<AgentGeneratorPage />);
 

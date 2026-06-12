@@ -91,35 +91,6 @@ describe("RagSearchPanel", () => {
     expect(onInsertContext).toHaveBeenCalledWith("[Source: src/auth.ts]\nHandle session creation");
   });
 
-  it("strips search-highlight brackets when inserting a snippet into the prompt", () => {
-    const onInsertContext = vi.fn();
-
-    render(
-      <RagSearchPanel
-        query="launch date"
-        setQuery={vi.fn()}
-        searching={false}
-        results={[
-          { path: "docs/launch.md", snippet: "The [launch] [date] is confirmed", score: 0.5 },
-        ]}
-        onRunSearch={vi.fn()}
-        onInsertContext={onInsertContext}
-      />,
-    );
-
-    // The on-screen result keeps the highlighted snippet…
-    expect(screen.getByText("The [launch] [date] is confirmed")).toBeTruthy();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /insert snippet from docs\/launch\.md into prompt/i }),
-    );
-
-    // …but the inserted prompt text is clean (issue #773).
-    expect(onInsertContext).toHaveBeenCalledWith(
-      "[Source: docs/launch.md]\nThe launch date is confirmed",
-    );
-  });
-
   it("shows a clear no-results state when a query returns nothing", () => {
     render(
       <RagSearchPanel
@@ -138,7 +109,7 @@ describe("RagSearchPanel", () => {
   it("runs search on Enter and inserts formatted context safely", () => {
     const onRunSearch = vi.fn();
     const onInsertContext = vi.fn();
-    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
     render(
       <form onSubmit={onSubmit}>

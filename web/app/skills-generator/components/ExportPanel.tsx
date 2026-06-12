@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/config";
-import PremiumSelect from "../../components/PremiumSelect";
 
 type SkillTarget = "claude-tool" | "claude-mcp-tool" | "langchain-tool";
 type OutputMode = "python" | "json" | "files";
@@ -211,7 +210,6 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                 type="button"
                 key={item.id}
                 onClick={() => handleTargetClick(item.id)}
-                aria-pressed={target === item.id}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                   target === item.id ? item.activeColor : item.color
                 }`}
@@ -227,7 +225,6 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                 type="button"
                 key={tab.id}
                 onClick={() => handleOutputModeClick(tab.id)}
-                aria-pressed={outputMode === tab.id}
                 className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
                   outputMode === tab.id
                     ? "bg-white/10 text-zinc-100"
@@ -244,16 +241,18 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
               <label htmlFor="skill-export-file" className="sr-only">
                 Exported file
               </label>
-              <PremiumSelect
+              <select
                 id="skill-export-file"
                 value={selectedFilePath ?? visibleFiles[0].path}
-                onChange={(val) => setSelectedFilePath(val)}
-                focusVariant="blue"
-                options={visibleFiles.map((file) => ({
-                  value: file.path,
-                  label: file.path,
-                }))}
-              />
+                onChange={(event) => setSelectedFilePath(event.target.value)}
+                className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              >
+                {visibleFiles.map((file) => (
+                  <option key={file.path} value={file.path}>
+                    {file.path}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

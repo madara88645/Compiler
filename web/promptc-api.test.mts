@@ -162,23 +162,3 @@ test("formatSearchResultForPrompt includes path header", () => {
     }),
   ).toBe("[Source: docs/auth.md]\nUse API keys");
 });
-
-test("formatSearchResultForPrompt strips search-highlight brackets from the snippet", () => {
-  expect(
-    formatSearchResultForPrompt({
-      path: "docs/launch.md",
-      snippet: "The [launch] [date] is confirmed …",
-      score: 0.7,
-    }),
-  ).toBe("[Source: docs/launch.md]\nThe launch date is confirmed …");
-});
-
-test("formatSearchResultForPrompt keeps the source header when stripping highlights", () => {
-  expect(
-    formatSearchResultForPrompt({
-      path: "",
-      snippet: "[empty] highlights only",
-      score: 0.1,
-    }),
-  ).toBe("[Source: unknown]\nempty highlights only");
-});

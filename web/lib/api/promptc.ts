@@ -318,15 +318,9 @@ export function normalizeRagStats(value: unknown): RagStats {
   };
 }
 
-// The RAG backend highlights FTS matches by wrapping them in literal brackets
-// (e.g. "[launch] [date]"); keep them for on-screen display but strip them
-// from text inserted into the prompt.
-const FTS_HIGHLIGHT_PATTERN = /\[([^[\]]*)\]/g;
-
 export function formatSearchResultForPrompt(result: RagSearchResult): string {
   const location = result.path ? `[Source: ${result.path}]` : "[Source: unknown]";
-  const cleanSnippet = result.snippet.replace(FTS_HIGHLIGHT_PATTERN, "$1");
-  return `${location}\n${cleanSnippet}`.trim();
+  return `${location}\n${result.snippet}`.trim();
 }
 
 export function formatSearchScore(result: RagSearchResult): string {
