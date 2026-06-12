@@ -88,6 +88,11 @@ _COMBINED_PII_FAST_PATH: re.Pattern = re.compile(
 
 # Pre-compiled regex for fast word tokenization
 _WORD_PATTERN = re.compile(r"\w+")
+_MULTI_WORD_WEASEL_PATTERNS: Tuple[re.Pattern[str], ...] = (
+    re.compile(r"\btry to\b"),
+    re.compile(r"\bkind of\b"),
+    re.compile(r"\bsort of\b"),
+)
 
 # 4. Conflict Pairs (Mutually exclusive concepts)
 CONFLICT_PAIRS: List[Tuple[Set[str], Set[str]]] = [
@@ -183,13 +188,9 @@ class PromptLinter:
         # Bolt Optimization: C-level sum(map) with __contains__ is highly optimized and memory efficient
         weasel_count = sum(map(WEASEL_WORDS.__contains__, words))
 
-        # Check for multi-word weasels (e.g. "try to") - simple heuristic check
-        if "try to" in lower_text:
-            weasel_count += 1
-        if "kind of" in lower_text:
-            weasel_count += 1
-        if "sort of" in lower_text:
-            weasel_count += 1
+        # Count every repeated multi-word weasel phrase instead of only the first match.
+        for pattern in _MULTI_WORD_WEASEL_PATTERNS:
+            weasel_count += sum(1 for _ in pattern.finditer(lower_text))
 
         ambiguity_score = weasel_count / total_words if total_words > 0 else 0.0
 
