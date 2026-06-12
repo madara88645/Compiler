@@ -12,6 +12,8 @@ import ContextManager from "../components/ContextManager";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import SkillExportPanel from "./components/ExportPanel";
 import GeneratorErrorState from "../components/GeneratorErrorState";
+import PremiumSelect from "../components/PremiumSelect";
+
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -257,26 +259,22 @@ export default function SkillsGenerator() {
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
                 <label htmlFor="skill-history" className="text-xs font-medium text-zinc-300">Previous results</label>
-                <select
+                <PremiumSelect
                   id="skill-history"
-                  className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
-                  defaultValue=""
-                  onChange={(e) => {
-                    const selected = history[Number(e.target.value)];
+                  focusVariant="yellow"
+                  value=""
+                  placeholder="-- Restore previous result --"
+                  onChange={(val) => {
+                    const selected = history[Number(val)];
                     if (selected) {
                       setResult(selected.skill);
                     }
                   }}
-                >
-                  <option value="" disabled>
-                    -- Restore previous result --
-                  </option>
-                  {history.map((entry, index) => (
-                    <option key={`${entry.label}-${index}`} value={index}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </select>
+                  options={history.map((entry, index) => ({
+                    value: String(index),
+                    label: entry.label,
+                  }))}
+                />
               </div>
             )}
 

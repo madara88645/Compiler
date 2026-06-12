@@ -138,7 +138,7 @@ describe("RagSearchPanel", () => {
   it("runs search on Enter and inserts formatted context safely", () => {
     const onRunSearch = vi.fn();
     const onInsertContext = vi.fn();
-    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
 
     render(
       <form onSubmit={onSubmit}>

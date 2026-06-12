@@ -32,7 +32,9 @@ describe("Agent ExportPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Claude Project Pack" }));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
-    const [, options] = apiFetch.mock.calls.at(-1);
+    const lastCall = apiFetch.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    const [, options] = lastCall!;
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body).format).toBe("claude-project-pack");
   });
@@ -44,7 +46,9 @@ describe("Agent ExportPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "TypeScript" }));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
-    const [, options] = apiFetch.mock.calls.at(-1);
+    const lastCall = apiFetch.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    const [, options] = lastCall!;
     expect(JSON.parse(options.body).format).toBe("claude-agent-sdk-ts");
   });
 });

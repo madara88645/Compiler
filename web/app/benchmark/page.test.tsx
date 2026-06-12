@@ -101,7 +101,7 @@ describe("Benchmark page", () => {
 
     const [path, options] = apiJsonMock.mock.calls[0];
     expect(path).toBe("/benchmark/run");
-    expect(JSON.parse(options.body)).toEqual({
+    expect(JSON.parse((options?.body as string) ?? "{}")).toEqual({
       text: "Write a safer onboarding checklist.",
       model: "openai/gpt-oss-20b",
     });

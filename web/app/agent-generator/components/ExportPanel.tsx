@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/config";
+import PremiumSelect from "../../components/PremiumSelect";
 
 type ExportTarget =
   | "claude-agent-sdk"
@@ -271,18 +272,16 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
               <label htmlFor="agent-export-file" className="sr-only">
                 Exported file
               </label>
-              <select
+              <PremiumSelect
                 id="agent-export-file"
                 value={selectedFilePath ?? visibleFiles[0].path}
-                onChange={(event) => setSelectedFilePath(event.target.value)}
-                className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-              >
-                {visibleFiles.map((file) => (
-                  <option key={file.path} value={file.path}>
-                    {file.path}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedFilePath(val)}
+                focusVariant="blue"
+                options={visibleFiles.map((file) => ({
+                  value: file.path,
+                  label: file.path,
+                }))}
+              />
             </div>
           )}
 
