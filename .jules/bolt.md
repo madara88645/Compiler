@@ -197,4 +197,3 @@
 ## 2026-06-09 - Pre-compiling Regex Patterns inside Logic Analyzers
 **Learning:** In text parsing hot paths, such as the `_split_sentences` function in `app/heuristics/logic_analyzer.py` used during prompt logic evaluation, creating regex pattern objects on the fly with inline `re.sub(r"pattern", ...)` introduces significant, recurring compilation overhead. Pre-compiling the regex objects using `re.compile()` at the module level avoids redundant compilation on every function call.
 **Action:** Always extract static regular expression patterns to module-level constants using `re.compile()` if they are used within frequently executed logic analyzers and split functions.
-
