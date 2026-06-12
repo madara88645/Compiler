@@ -181,13 +181,12 @@ PROCESS_PATTERNS = [
 # ==============================================================================
 
 
-
 _SENTENCE_BOUNDARY_PAT = re.compile(r"([.!?])\s+")
 _BULLET_PAT = re.compile(r"\n\s*[-*•]\s*")
 _NUMBERED_LIST_PAT = re.compile(r"\n\s*\d+[.):]\s*")
 
-class LogicAnalyzer:
 
+class LogicAnalyzer:
     """
     Advanced logic extractor for prompt analysis.
 
