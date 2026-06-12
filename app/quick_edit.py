@@ -6,8 +6,7 @@ including text editing, metadata updates, and re-compilation.
 
 import os
 import shlex
-import subprocess
-import tempfile
+import click
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
@@ -140,29 +139,22 @@ class QuickEditor:
 
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as handle:
-            handle.write(text)
-            temp_path = handle.name
-
         try:
             editor_parts = self._parse_editor_command(self.get_editor())
             if not editor_parts:
                 return None
 
-            result = subprocess.run([*editor_parts, temp_path])
-            if result.returncode != 0:
-                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
+            try:
+                # `click.edit` securely creates temporary files and handles system
+                # calls via sensible-editor or explicit shell safely.
+                return click.edit(text, editor=shlex.join(editor_parts), require_save=True)
+            except click.ClickException as e:
+                console.print(f"[yellow]⚠️ Editor failed: {e}[/yellow]")
                 return None
 
-            with open(temp_path, "r", encoding="utf-8") as handle:
-                return handle.read()
-        finally:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+        except Exception as e:
+            console.print(f"[red]⚠️ Unexpected editor error: {e}[/red]")
+            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID."""
