@@ -256,7 +256,7 @@ class ReportGenerator:
             # Fallback scan
             best_candidate = max(
                 (c for gen in run.generations for c in gen),
-                key=operator.attrgetter('score'),
+                key=operator.attrgetter("score"),
                 default=baseline_candidate,
             )
 

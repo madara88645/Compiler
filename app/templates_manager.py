@@ -289,12 +289,14 @@ class TemplatesManager:
             }
 
         # Return overall stats
-        total_uses = sum(map(operator.attrgetter('use_count'), self._stats.values()))
+        total_uses = sum(map(operator.attrgetter("use_count"), self._stats.values()))
         templates_used = len(self._stats)
 
         most_used = []
         if self._stats:
-            sorted_stats = sorted(self._stats.values(), key=operator.attrgetter('use_count'), reverse=True)
+            sorted_stats = sorted(
+                self._stats.values(), key=operator.attrgetter("use_count"), reverse=True
+            )
             most_used = [
                 {
                     "template_id": s.template_id,
