@@ -154,9 +154,13 @@ class QuickEditor:
             else:
                 safe_editor = shlex.join(editor_parts)
 
-            return click.edit(text, editor=safe_editor, require_save=False)
+            try:
+                return click.edit(text, editor=safe_editor, require_save=True)
+            except click.ClickException as e:
+                console.print(f"[yellow]⚠️ Editor failed: {e}[/yellow]")
+                return None
         except Exception as exc:
-            console.print(f"[red]⚠️ Failed to open editor: {exc}[/red]")
+            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
             return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
