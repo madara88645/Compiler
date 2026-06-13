@@ -163,6 +163,9 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -171,7 +174,7 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
             call_log.append(path)
             if path.endswith("/repos/openai/openai-python"):
                 return FakeResponse(repo_meta)
@@ -232,6 +235,9 @@ def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatc
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -240,7 +246,7 @@ def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatc
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
             call_log.append(path)
             if path.endswith("/repos/openai/openai-python"):
                 return FakeResponse(repo_meta)
@@ -293,6 +299,9 @@ def test_analyze_public_github_repo_forwards_ref_to_contents_api(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -301,7 +310,7 @@ def test_analyze_public_github_repo_forwards_ref_to_contents_api(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
             call_log.append(path)
             if path.endswith("/repos/openai/openai-python"):
                 return FakeResponse(repo_meta)
@@ -351,6 +360,9 @@ def test_analyze_public_github_repo_walks_requested_subdir(monkeypatch):
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
+            self.headers = {}
+
+        def close(self):
             pass
 
         def __enter__(self):
@@ -359,7 +371,7 @@ def test_analyze_public_github_repo_walks_requested_subdir(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
             call_log.append(path)
             if path.endswith("/repos/vercel/next.js"):
                 return FakeResponse(repo_meta)
@@ -389,7 +401,10 @@ def test_analyze_public_github_repo_forwards_promptc_github_token(monkeypatch):
 
     class HeaderCapturingClient:
         def __init__(self, *args, **kwargs):
-            captured_headers.update(dict(kwargs.get("headers") or {}))
+            self.headers = {}
+
+        def close(self):
+            pass
 
         def __enter__(self):
             return self
@@ -397,7 +412,8 @@ def test_analyze_public_github_repo_forwards_promptc_github_token(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
+            captured_headers.update(headers or {})
             raise httpx.HTTPError("stop after header capture")
 
     monkeypatch.setattr("app.github_repo_context.httpx.Client", HeaderCapturingClient)
@@ -418,7 +434,10 @@ def test_analyze_public_github_repo_omits_authorization_when_no_token(monkeypatc
 
     class HeaderCapturingClient:
         def __init__(self, *args, **kwargs):
-            captured_headers.update(dict(kwargs.get("headers") or {}))
+            self.headers = {}
+
+        def close(self):
+            pass
 
         def __enter__(self):
             return self
@@ -426,7 +445,8 @@ def test_analyze_public_github_repo_omits_authorization_when_no_token(monkeypatc
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, path):
+        def get(self, path, headers=None, **kwargs):
+            captured_headers.update(headers or {})
             raise httpx.HTTPError("stop after header capture")
 
     monkeypatch.setattr("app.github_repo_context.httpx.Client", HeaderCapturingClient)
@@ -583,3 +603,54 @@ def test_repo_context_endpoint_returns_analyzed_repo_summary():
         "requested_subdir": None,
     }
     mock_analyze.assert_called_once_with("https://github.com/openai/openai-python")
+
+
+def test_analyze_public_github_repo_authorization_leakage_regression(monkeypatch):
+    reset_repo_cache_for_tests()
+
+    # 1. Aşama: Token varken istek yapıyoruz
+    monkeypatch.setenv("PROMPTC_GITHUB_TOKEN", "ghp_regression_token")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    captured_client_headers = []
+    captured_request_headers = []
+
+    def mock_get(self_client, path, *args, **kwargs):
+        captured_client_headers.append(dict(self_client.headers))
+        captured_request_headers.append(dict(kwargs.get("headers") or {}))
+        raise httpx.HTTPError("stop after first capture")
+
+    monkeypatch.setattr(httpx.Client, "get", mock_get)
+
+    with pytest.raises(GitHubRepoAnalysisError):
+        analyze_public_github_repo("https://github.com/openai/openai-python")
+
+    assert len(captured_client_headers) == 1
+    # Mevcut kodda (sızdıran durumda) global client headers'a token eklenir.
+    # Ancak düzeltilmiş kodda client.headers içinde Authorization olmamalı, request headers içinde olmalı.
+
+    # 2. Aşama: Token siliniyor ve aynı client ile tekrar istek yapılıyor
+    monkeypatch.delenv("PROMPTC_GITHUB_TOKEN", raising=False)
+
+    # Cache'i sıfırlayalım ki API isteği tekrar atılsın, ancak global client sıfırlanmasın
+    import app.github_repo_context
+
+    if app.github_repo_context._REPO_CACHE is not None:
+        app.github_repo_context._REPO_CACHE.clear()
+
+    with pytest.raises(GitHubRepoAnalysisError):
+        analyze_public_github_repo("https://github.com/openai/openai-python")
+
+    print("\n--- DEBUG START ---")
+    print("captured_client_headers:", captured_client_headers)
+    print("captured_request_headers:", captured_request_headers)
+    print("--- DEBUG END ---\n")
+
+    assert len(captured_client_headers) == 2
+
+    # Case-insensitive key checks for authorization header
+    has_auth_client = any(k.lower() == "authorization" for k in captured_client_headers[1])
+    has_auth_request = any(k.lower() == "authorization" for k in captured_request_headers[1])
+
+    assert not has_auth_client, f"Leakage detected: Authorization persisted in global client headers! Headers: {captured_client_headers[1]}"
+    assert not has_auth_request, f"Leakage detected: Authorization sent in second request! Headers: {captured_request_headers[1]}"
