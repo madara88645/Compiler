@@ -307,13 +307,15 @@ export default function AgentPacksPage() {
 
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-zinc-300">Pack Type</span>
-              <div className="grid gap-2">
+              <div className="grid gap-2" role="radiogroup" aria-label="Pack Type">
                 {PACK_OPTIONS.map((option) => {
                   const active = request.pack_type === option.id;
                   return (
                     <button
                       key={option.id}
                       type="button"
+                      role="radio"
+                      aria-checked={active}
                       onClick={() => handleFieldChange("pack_type", option.id)}
                       className={`rounded-2xl border px-4 py-3 text-left transition-all ${
                         active
@@ -331,13 +333,15 @@ export default function AgentPacksPage() {
 
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-zinc-300">Risk Mode</span>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Risk Mode">
                 {RISK_OPTIONS.map((option) => {
                   const active = request.risk_mode === option.id;
                   return (
                     <button
                       key={option.id}
                       type="button"
+                      role="radio"
+                      aria-checked={active}
                       onClick={() => handleFieldChange("risk_mode", option.id)}
                       className={`rounded-xl border px-4 py-3 text-left transition-all ${
                         active
