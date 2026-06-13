@@ -196,8 +196,8 @@ def _fetch_public_github_repo_payload(
     requested_subdir: str | None,
 ) -> dict[str, Any]:
     client = get_github_http_client()
-    client.headers.update(_build_github_request_headers())
-    repo_meta = _get_json(client, f"/repos/{repo_full_name}")
+    headers = _build_github_request_headers()
+    repo_meta = _get_json(client, f"/repos/{repo_full_name}", headers=headers)
     listing_entries = _get_json(
         client,
         _contents_api_path(
@@ -205,13 +205,14 @@ def _fetch_public_github_repo_payload(
             requested_path=requested_subdir,
             requested_ref=requested_ref,
         ),
+        headers=headers,
     )
     if not isinstance(listing_entries, list):
         raise GitHubRepoAnalysisError("Unable to read the repository root directory.")
 
     default_branch = repo_meta.get("default_branch")
     readme_entry = _find_readme(listing_entries)
-    readme_text = _read_text_file(client, readme_entry) if readme_entry else ""
+    readme_text = _read_text_file(client, readme_entry, headers=headers) if readme_entry else ""
     files_used: list[str] = []
     if readme_entry:
         files_used.append(readme_entry["path"])
@@ -220,7 +221,7 @@ def _fetch_public_github_repo_payload(
     for manifest_name in MANIFEST_FILES:
         entry = _find_entry(listing_entries, manifest_name)
         if entry:
-            content = _read_text_file(client, entry)
+            content = _read_text_file(client, entry, headers=headers)
             if content:
                 manifests[entry["path"]] = content
                 files_used.append(entry["path"])
@@ -239,20 +240,21 @@ def _fetch_public_github_repo_payload(
                 requested_path=nested_path,
                 requested_ref=requested_ref,
             ),
+            headers=headers,
         )
         if not isinstance(nested_entries, list):
             continue
         for manifest_name in MANIFEST_FILES:
             entry = _find_entry(nested_entries, manifest_name)
             if entry and entry["path"] not in manifests:
-                content = _read_text_file(client, entry)
+                content = _read_text_file(client, entry, headers=headers)
                 if content:
                     manifests[entry["path"]] = content
                     files_used.append(entry["path"])
         if len(_dedupe(files_used)) < MAX_FILES_USED:
             nested_readme = _find_readme(nested_entries)
             if nested_readme and nested_readme["path"] not in files_used:
-                nested_readme_text = _read_text_file(client, nested_readme)
+                nested_readme_text = _read_text_file(client, nested_readme, headers=headers)
                 if nested_readme_text:
                     files_used.append(nested_readme["path"])
 
@@ -293,9 +295,9 @@ def _fetch_public_github_repo_payload(
     }
 
 
-def _get_json(client: httpx.Client, path: str) -> Any:
+def _get_json(client: httpx.Client, path: str, headers: dict[str, str] | None = None) -> Any:
     try:
-        response = client.get(path)
+        response = client.get(path, headers=headers)
         if response.status_code == 404:
             raise GitHubRepoAnalysisError(
                 "Repository not found or not public. Only public GitHub repos are supported.",
@@ -313,12 +315,14 @@ def _get_json(client: httpx.Client, path: str) -> Any:
         raise GitHubRepoAnalysisError("GitHub repository analysis failed.") from exc
 
 
-def _read_text_file(client: httpx.Client, entry: dict[str, Any]) -> str:
+def _read_text_file(
+    client: httpx.Client, entry: dict[str, Any], headers: dict[str, str] | None = None
+) -> str:
     download_url = entry.get("download_url")
     if not download_url:
         return ""
     try:
-        response = client.get(download_url)
+        response = client.get(download_url, headers=headers)
         response.raise_for_status()
         return response.text
     except httpx.HTTPError:
