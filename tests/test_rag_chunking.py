@@ -295,3 +295,159 @@ def test_semantic_chunking_tfidf_regression_and_determinism():
     for chunk in chunks:
         assert isinstance(chunk, str)
         assert len(chunk.strip()) > 0
+
+
+def test_rag_search_ranking_and_top_k_regression():
+    """Verify that using the optimized semantic chunking yields the exact same search ranking and top-k order.
+
+    We build two parallel databases:
+    1. Using the legacy chunking mechanism (via monkeypatching _chunk_text_semantic).
+    2. Using the optimized chunking mechanism.
+    We run lexical, embedding, and hybrid searches on both, verifying that the output list of dicts (and order) matches exactly.
+    """
+    from collections import Counter
+    import math
+    import os
+    import tempfile
+    from unittest.mock import patch
+    from app.rag.simple_index import (
+        ingest_text,
+        search,
+        search_embed,
+        search_hybrid,
+    )
+
+    def tokenize(s):
+        return [w.lower() for w in s.split() if len(w) > 2]
+
+    # Legacy semantic chunker implementation to simulate old behavior
+    def legacy_chunk_text_semantic(text, chunk_size=500, similarity_threshold=0.2):
+        from app.rag.simple_index import _split_sentences
+
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        sentences = _split_sentences(text)
+        if not sentences:
+            return [text] if text.strip() else []
+        if len(sentences) == 1:
+            return sentences
+
+        doc_freq = Counter()
+        for sent in sentences:
+            tokens = set(tokenize(sent))
+            for tok in tokens:
+                doc_freq[tok] += 1
+
+        n_docs = len(sentences)
+        default_idf = math.log((n_docs + 1) / 1) + 1
+        idf_cache = {
+            tok: math.log((n_docs + 1) / (count + 1)) + 1 for tok, count in doc_freq.items()
+        }
+
+        def legacy_compute_tfidf(sentence):
+            tokens = tokenize(sentence)
+            tf = Counter(tokens)
+            tfidf = {}
+            tokens_len = len(tokens)
+            if tokens_len == 0:
+                return tfidf
+            for tok, count in tf.items():
+                idf = idf_cache.get(tok, default_idf)
+                tfidf[tok] = (count / tokens_len) * idf
+            return tfidf
+
+        def legacy_cosine_similarity(v1, v2):
+            if not v1 or not v2:
+                return 0.0
+            intersection = set(v1.keys()) & set(v2.keys())
+            dot = sum(v1[k] * v2[k] for k in intersection)
+            norm1 = math.hypot(*v1.values())
+            norm2 = math.hypot(*v2.values())
+            if norm1 == 0 or norm2 == 0:
+                return 0.0
+            return dot / (norm1 * norm2)
+
+        chunks = []
+        current_chunk = sentences[0]
+        anchor_tfidf = legacy_compute_tfidf(sentences[0])
+
+        for sent in sentences[1:]:
+            sent_tfidf = legacy_compute_tfidf(sent)
+            sim = legacy_cosine_similarity(anchor_tfidf, sent_tfidf)
+            test_chunk = current_chunk + " " + sent
+            if sim >= similarity_threshold and len(test_chunk) <= chunk_size:
+                current_chunk = test_chunk
+            else:
+                if current_chunk.strip():
+                    chunks.append(current_chunk.strip())
+                current_chunk = sent
+                anchor_tfidf = sent_tfidf
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+        return chunks
+
+    corpus = (
+        "Python is a high-level programming language. "
+        "It supports object-oriented, imperative and functional programming paradigms. "
+        "Python is designed to be highly readable. "
+        "It uses English keywords frequently whereas other languages use punctuation. "
+        "We are testing RAG semantic chunking. "
+        "This is a search ranking and top-k order regression test. "
+        "Verify that both legacy and optimized tfidf implementations produce identical search results."
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        legacy_db = os.path.join(tmpdir, "legacy.db").replace("\\", "/")
+        opt_db = os.path.join(tmpdir, "opt.db").replace("\\", "/")
+
+        # Ingest using legacy implementation
+        with patch(
+            "app.rag.simple_index._chunk_text_semantic", side_effect=legacy_chunk_text_semantic
+        ):
+            ingest_text(
+                "corpus.txt",
+                corpus,
+                db_path=legacy_db,
+                embed=True,
+                chunking_strategy="semantic",
+            )
+
+        # Ingest using optimized implementation (no patch)
+        ingest_text(
+            "corpus.txt",
+            corpus,
+            db_path=opt_db,
+            embed=True,
+            chunking_strategy="semantic",
+        )
+
+        queries = [
+            "python programming language",
+            "semantic chunking top-k regression",
+            "paradigms object-oriented",
+            "non-matching query",
+        ]
+
+        for query in queries:
+            # 1. Lexical Search
+            legacy_lexical = search(query, k=3, db_path=legacy_db)
+            opt_lexical = search(query, k=3, db_path=opt_db)
+            assert len(legacy_lexical) == len(opt_lexical)
+            for r1, r2 in zip(legacy_lexical, opt_lexical):
+                assert r1["snippet"] == r2["snippet"]
+                assert r1["doc_id"] == r2["doc_id"]
+
+            # 2. Embedding Search
+            legacy_embed = search_embed(query, k=3, db_path=legacy_db)
+            opt_embed = search_embed(query, k=3, db_path=opt_db)
+            assert len(legacy_embed) == len(opt_embed)
+            for r1, r2 in zip(legacy_embed, opt_embed):
+                assert r1["snippet"] == r2["snippet"]
+                assert r1["doc_id"] == r2["doc_id"]
+
+            # 3. Hybrid Search
+            legacy_hybrid = search_hybrid(query, k=3, db_path=legacy_db)
+            opt_hybrid = search_hybrid(query, k=3, db_path=opt_db)
+            assert len(legacy_hybrid) == len(opt_hybrid)
+            for r1, r2 in zip(legacy_hybrid, opt_hybrid):
+                assert r1["snippet"] == r2["snippet"]
+                assert r1["doc_id"] == r2["doc_id"]
