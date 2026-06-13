@@ -6,8 +6,7 @@ including text editing, metadata updates, and re-compilation.
 
 import os
 import shlex
-import subprocess
-import tempfile
+import click
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
@@ -140,29 +139,29 @@ class QuickEditor:
 
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as handle:
-            handle.write(text)
-            temp_path = handle.name
-
         try:
             editor_parts = self._parse_editor_command(self.get_editor())
             if not editor_parts:
                 return None
 
-            result = subprocess.run([*editor_parts, temp_path])
-            if result.returncode != 0:
-                console.print(f"[yellow]⚠️ Editor exited with code {result.returncode}[/yellow]")
-                return None
+            # Reconstruct the editor string safely for cross-platform click.edit
+            # shlex.join uses POSIX quotes which break Windows click.edit parsing
+            if os.name == "nt":
+                # For Windows, manually quote parts with spaces using double quotes
+                safe_editor = " ".join(
+                    f'"{part}"' if " " in part else part for part in editor_parts
+                )
+            else:
+                safe_editor = shlex.join(editor_parts)
 
-            with open(temp_path, "r", encoding="utf-8") as handle:
-                return handle.read()
-        finally:
             try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+                return click.edit(text, editor=safe_editor, require_save=True)
+            except click.ClickException as e:
+                console.print(f"[yellow]⚠️ Editor failed: {e}[/yellow]")
+                return None
+        except Exception as exc:
+            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
+            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID."""
