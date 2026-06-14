@@ -356,6 +356,7 @@ def _chunk_text_semantic(
     # Document frequency
     # Bolt Optimization: chain.from_iterable is ~2x faster than a nested Python loop for building the Counter
     from itertools import chain
+
     doc_freq: Counter = Counter(chain.from_iterable(set(tokenize(sent)) for sent in sentences))
 
     n_docs = len(sentences)
