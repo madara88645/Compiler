@@ -82,7 +82,7 @@ describe("Agent Generator page", () => {
     await screen.findByText("openai/openai-python");
     expect(screen.getByText("Python SDK repo with a compact README and clear manifest signals.")).toBeTruthy();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Generate Agent/i })[0]!);
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
 
     await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(2));
 
@@ -127,7 +127,7 @@ describe("Agent Generator page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Analyze Repo" }));
     expect(await screen.findByText("Repository analysis failed")).toBeTruthy();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Generate Agent/i })[0]!);
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
 
     await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(apiJsonMock.mock.calls[1]?.[1]?.body))).toEqual({
@@ -155,7 +155,7 @@ describe("Agent Generator page", () => {
     fireEvent.change(screen.getByLabelText("Agent Description"), {
       target: { value: "Build a code review agent." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Generate Agent/i })[0]!);
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
 
     expect(await screen.findByText("Agent generation failed")).toBeTruthy();
     expect(screen.getByText("The service is temporarily unavailable.")).toBeTruthy();
@@ -165,5 +165,41 @@ describe("Agent Generator page", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Reviewer" })).toBeTruthy());
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("toggles both switches from label clicks and preserves payload values", async () => {
+    apiJsonMock.mockResolvedValueOnce({ system_prompt: "# Swarm Agent" });
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a collaborative agent." },
+    });
+
+    fireEvent.click(screen.getByText("Multi-Agent Swarm"));
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
+      description: "Build a collaborative agent.",
+      multi_agent: true,
+      include_example_code: true,
+    });
+  });
+
+  it("supports keyboard activation for the switch row", () => {
+    render(<AgentGeneratorPage />);
+
+    const multiAgentSwitch = screen.getByRole("switch", { name: "Multi-Agent Swarm toggle" });
+    expect(multiAgentSwitch.tagName).toBe("BUTTON");
+    expect(multiAgentSwitch.getAttribute("type")).toBe("button");
+    expect(multiAgentSwitch.getAttribute("aria-checked")).toBe("false");
+
+    multiAgentSwitch.focus();
+    expect(document.activeElement).toBe(multiAgentSwitch);
+
+    fireEvent.click(multiAgentSwitch);
+    expect(multiAgentSwitch.getAttribute("aria-checked")).toBe("true");
   });
 });

@@ -171,4 +171,38 @@ describe("Skills Generator page", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "json-validator" })).toBeTruthy());
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
+
+  it("toggles the example-code switch from its label and preserves payload values", async () => {
+    apiJsonMock.mockResolvedValueOnce({ skill_definition: "## example-skill" });
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Generate a code-heavy skill." },
+    });
+
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
+      description: "Generate a code-heavy skill.",
+      include_example_code: true,
+    });
+  });
+
+  it("supports keyboard activation for the switch row", () => {
+    render(<SkillsGeneratorPage />);
+
+    const exampleCodeSwitch = screen.getByRole("switch", { name: "Include Example Code toggle" });
+    expect(exampleCodeSwitch.tagName).toBe("BUTTON");
+    expect(exampleCodeSwitch.getAttribute("type")).toBe("button");
+    expect(exampleCodeSwitch.getAttribute("aria-checked")).toBe("false");
+
+    exampleCodeSwitch.focus();
+    expect(document.activeElement).toBe(exampleCodeSwitch);
+
+    fireEvent.click(exampleCodeSwitch);
+    expect(exampleCodeSwitch.getAttribute("aria-checked")).toBe("true");
+  });
 });

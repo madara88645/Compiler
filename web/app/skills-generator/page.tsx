@@ -235,24 +235,27 @@ export default function SkillsGenerator() {
               />
             </div>
 
-            <div className="flex shrink-0 items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={includeExampleCode}
-                aria-label="Include Example Code toggle"
-                onClick={() => setIncludeExampleCode((v) => !v)}
-                className={`w-10 h-6 rounded-full flex items-center p-1 cursor-pointer transition-colors ${includeExampleCode ? "bg-blue-500" : "bg-zinc-700"} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none`}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={includeExampleCode}
+              aria-label="Include Example Code toggle"
+              onClick={() => setIncludeExampleCode((v) => !v)}
+              className="flex shrink-0 items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-3 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-6 w-10 items-center rounded-full p-1 transition-colors ${includeExampleCode ? "bg-blue-500" : "bg-zinc-700"}`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${includeExampleCode ? "translate-x-4" : "translate-x-0"}`} />
-              </button>
-              <div className="flex min-w-0 flex-col">
+                <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${includeExampleCode ? "translate-x-4" : "translate-x-0"}`} />
+              </span>
+              <span className="flex min-w-0 flex-col">
                 <span className="text-xs font-medium text-zinc-200">Example Code?</span>
                 <span className="text-xs text-zinc-500">
                   Yes = include implementation code, No = keep it code-free
                 </span>
-              </div>
-            </div>
+              </span>
+            </button>
 
             {history.length > 0 && (
               <div className="flex flex-col gap-2">
