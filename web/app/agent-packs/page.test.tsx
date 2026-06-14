@@ -72,7 +72,7 @@ describe("Agent Packs page", () => {
   test("submits the selected pack type and renders grouped preview output", async () => {
     render(<AgentPacksPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /PR Reviewer/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /PR Reviewer/i }));
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Review pull requests for secret leaks and missing tests." },
     });
