@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
@@ -150,6 +150,13 @@ export default function AgentPacksPage() {
     setTimeout(() => setCopiedState(null), 1800);
   };
 
+  const handleClosePreview = () => {
+    setManifest(null);
+    setActiveKind(null);
+    setSelectedPath(null);
+    setCopiedState(null);
+  };
+
   const handleDownload = async () => {
     if (!request.goal.trim()) return;
 
@@ -270,25 +277,39 @@ export default function AgentPacksPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-zinc-300">Project Type</span>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="agent-pack-project-type" className="text-sm font-medium text-zinc-300">
+                  Project Type
+                </label>
+                <p id="agent-pack-project-type-hint" className="text-xs leading-relaxed text-zinc-500">
+                  The kind of app you&apos;re building — this shapes the tone and sensible defaults of the generated files.
+                </p>
                 <input
+                  id="agent-pack-project-type"
+                  aria-describedby="agent-pack-project-type-hint"
                   value={request.project_type}
                   onChange={(event) => handleFieldChange("project_type", event.target.value)}
                   className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
                   placeholder="SaaS, CLI, internal tool..."
                 />
-              </label>
+              </div>
 
-              <label className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-zinc-300">Stack</span>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="agent-pack-stack" className="text-sm font-medium text-zinc-300">
+                  Stack
+                </label>
+                <p id="agent-pack-stack-hint" className="text-xs leading-relaxed text-zinc-500">
+                  Your main languages or frameworks, so the generated files match your setup.
+                </p>
                 <input
+                  id="agent-pack-stack"
+                  aria-describedby="agent-pack-stack-hint"
                   value={request.stack}
                   onChange={(event) => handleFieldChange("stack", event.target.value)}
                   className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
                   placeholder="React, FastAPI, Node..."
                 />
-              </label>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -414,6 +435,15 @@ export default function AgentPacksPage() {
                     >
                       <Download size={14} aria-hidden="true" />
                       {downloading ? "Preparing..." : "Download Pack"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClosePreview}
+                      aria-label="Close pack preview"
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                    >
+                      <X size={14} aria-hidden="true" />
+                      Close
                     </button>
                   </div>
                 </div>
