@@ -173,4 +173,35 @@ describe("Agent Packs page", () => {
       await screen.findByText("The service is temporarily unavailable or still waking up. Please retry in a few seconds."),
     ).toBeTruthy();
   });
+
+  test("explains the Project Type and Stack fields for first-time users", () => {
+    render(<AgentPacksPage />);
+
+    // Both fields are properly labelled (and therefore focusable by label click).
+    expect(screen.getByLabelText("Project Type")).toBeTruthy();
+    expect(screen.getByLabelText("Stack")).toBeTruthy();
+
+    // Inline guidance text is present for first-time users.
+    expect(screen.getByText(/shapes the tone and sensible defaults/i)).toBeTruthy();
+    expect(screen.getByText(/so the generated files match your setup/i)).toBeTruthy();
+  });
+
+  test("closing the preview clears the generated pack and its labels", async () => {
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Create a full project pack." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+
+    expect(await screen.findByText("Pack Preview")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "CLAUDE.md" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /close pack preview/i }));
+
+    // The preview and its stale file-group labels are gone; the empty state returns.
+    await waitFor(() => expect(screen.queryByText("Pack Preview")).toBeNull());
+    expect(screen.queryByRole("button", { name: "CLAUDE.md" })).toBeNull();
+    expect(screen.getByText("Single-click pack generation")).toBeTruthy();
+  });
 });
