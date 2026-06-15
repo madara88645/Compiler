@@ -37,6 +37,12 @@ vi.mock("../lib/showError", () => ({
 }));
 
 const apiJsonMock = vi.mocked(apiJson);
+const plainAgentResponse = {
+  system_prompt: "# Plain Agent",
+  example_code_requested: false,
+  example_code_present: false,
+  example_code_warning: null,
+};
 
 describe("Agent Generator page", () => {
   beforeEach(() => {
@@ -66,6 +72,9 @@ describe("Agent Generator page", () => {
       })
       .mockResolvedValueOnce({
         system_prompt: "# Repo-aware Agent",
+        example_code_requested: false,
+        example_code_present: false,
+        example_code_warning: null,
       });
 
     render(<AgentGeneratorPage />);
@@ -111,9 +120,7 @@ describe("Agent Generator page", () => {
   it("shows a warning when repo analysis fails but still generates without repo context", async () => {
     apiJsonMock
       .mockRejectedValueOnce(new Error("Repository analysis failed"))
-      .mockResolvedValueOnce({
-        system_prompt: "# Plain Agent",
-      });
+      .mockResolvedValueOnce(plainAgentResponse);
 
     render(<AgentGeneratorPage />);
 
@@ -160,15 +167,25 @@ describe("Agent Generator page", () => {
     expect(await screen.findByText("Agent generation failed")).toBeTruthy();
     expect(screen.getByText("The service is temporarily unavailable.")).toBeTruthy();
 
-    apiJsonMock.mockResolvedValueOnce({ system_prompt: "# Reviewer" });
+    apiJsonMock.mockResolvedValueOnce({
+      system_prompt: "# Reviewer",
+      example_code_requested: false,
+      example_code_present: false,
+      example_code_warning: null,
+    });
     fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Reviewer" })).toBeTruthy());
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
-  it("toggles both switches from label clicks and preserves payload values", async () => {
-    apiJsonMock.mockResolvedValueOnce({ system_prompt: "# Swarm Agent" });
+  it("keeps example-code enabled after generation and preserves payload values", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      system_prompt: "# Swarm Agent",
+      example_code_requested: true,
+      example_code_present: true,
+      example_code_warning: null,
+    });
 
     render(<AgentGeneratorPage />);
 
@@ -186,6 +203,70 @@ describe("Agent Generator page", () => {
       multi_agent: true,
       include_example_code: true,
     });
+    expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.getByText("With Example Code")).toBeTruthy();
+  });
+
+  it("shows a warning when example code is requested but missing", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      system_prompt: "# Text Only Agent",
+      example_code_requested: true,
+      example_code_present: false,
+      example_code_warning:
+        "Example Code was requested, but the generator returned a text-only prompt. You can still use this result or try generating again.",
+    });
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a collaborative agent." },
+    });
+
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+    expect(
+      await screen.findByText(
+        "Example Code was requested, but the generator returned a text-only prompt. You can still use this result or try generating again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Example Code Missing")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Text Only Agent" })).toBeTruthy();
+  });
+
+  it("restores warning metadata when loading a previous result from history", async () => {
+    apiJsonMock
+      .mockResolvedValueOnce({
+        system_prompt: "# Warning Agent",
+        example_code_requested: true,
+        example_code_present: false,
+        example_code_warning:
+          "Example Code was requested, but the generator returned a text-only prompt. You can still use this result or try generating again.",
+      })
+      .mockResolvedValueOnce(plainAgentResponse);
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a collaborative agent." },
+    });
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+    await screen.findByRole("heading", { name: "Warning Agent" });
+
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+    await screen.findByRole("heading", { name: "Plain Agent" });
+    expect(screen.queryByText("Example Code Missing")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Previous results"), {
+      target: { value: "1" },
+    });
+
+    expect(await screen.findByText("Example Code Missing")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Warning Agent" })).toBeTruthy();
   });
 
   it("supports keyboard activation for the switch row", () => {

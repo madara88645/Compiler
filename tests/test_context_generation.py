@@ -116,7 +116,7 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
 
     # Test generate_agent with context
     compiler.generate_agent("Test Agent", repo_context=repo_context)
-    compiler.context_strategist.process.assert_called_with("Test Agent")
+    compiler.context_strategist.process.assert_called_with("Test Agent", expand_with_llm=False)
     mock_worker_client.generate_agent.assert_called_with(
         "Test Agent",
         context={
@@ -133,7 +133,7 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
 
     # Test generate_skill with context
     compiler.generate_skill("Test Skill", repo_context=repo_context)
-    compiler.context_strategist.process.assert_called_with("Test Skill")
+    compiler.context_strategist.process.assert_called_with("Test Skill", expand_with_llm=False)
     mock_worker_client.generate_skill.assert_called_with(
         "Test Skill",
         context={
@@ -186,7 +186,12 @@ def test_api_endpoints_integration():
             json={"description": "Test Agent", "repo_context": repo_context},
         )
         assert resp_agent.status_code == 200
-        assert resp_agent.json() == {"system_prompt": "# Mock API Agent"}
+        assert resp_agent.json() == {
+            "system_prompt": "# Mock API Agent",
+            "example_code_requested": False,
+            "example_code_present": False,
+            "example_code_warning": None,
+        }
         mock_compiler.generate_agent.assert_called_with(
             "Test Agent",
             multi_agent=False,
@@ -205,7 +210,12 @@ def test_api_endpoints_integration():
             },
         )
         assert resp_skill.status_code == 200
-        assert resp_skill.json() == {"skill_definition": "# Mock API Skill"}
+        assert resp_skill.json() == {
+            "skill_definition": "# Mock API Skill",
+            "example_code_requested": False,
+            "example_code_present": False,
+            "example_code_warning": None,
+        }
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill",
             include_example_code=False,

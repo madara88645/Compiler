@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
-import type { GitHubRepoContextPayload } from "@/lib/api/types";
+import type { GitHubRepoContextPayload, SkillGeneratorResponse } from "@/lib/api/types";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import InfoButton from "../components/InfoButton";
@@ -18,6 +18,29 @@ function isSupportedGitHubRepoRootUrl(value: string): boolean {
   return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value.trim());
 }
 
+type SkillGenerationView = {
+  content: string;
+  exampleCodeRequested: boolean;
+  exampleCodePresent: boolean;
+  exampleCodeWarning: string | null;
+};
+
+function toSkillGenerationView(response: SkillGeneratorResponse): SkillGenerationView {
+  return {
+    content: response.skill_definition,
+    exampleCodeRequested: response.example_code_requested,
+    exampleCodePresent: response.example_code_present,
+    exampleCodeWarning: response.example_code_warning,
+  };
+}
+
+function getExampleCodeStatusLabel(result: SkillGenerationView): string {
+  if (!result.exampleCodeRequested) {
+    return "Plain";
+  }
+  return result.exampleCodePresent ? "With Example Code" : "Example Code Missing";
+}
+
 export default function SkillsGenerator() {
   const [description, setDescription] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -26,10 +49,10 @@ export default function SkillsGenerator() {
   const [repoAnalysisWarning, setRepoAnalysisWarning] = useState<string | null>(null);
   const [repoContextDirty, setRepoContextDirty] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<SkillGenerationView | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
-  const [history, setHistory] = useState<{ label: string; skill: string }[]>([]);
+  const [history, setHistory] = useState<{ label: string; result: SkillGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
 
   const isGeneratingRef = useRef(false);
@@ -74,7 +97,7 @@ export default function SkillsGenerator() {
     setResult(null);
 
     try {
-      const data = await apiJson<{ skill_definition: string }>("/skills-generator/generate", {
+      const data = await apiJson<SkillGeneratorResponse>("/skills-generator/generate", {
         method: "POST",
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -84,11 +107,12 @@ export default function SkillsGenerator() {
         }),
       });
 
-      setResult(data.skill_definition);
+      const nextResult = toSkillGenerationView(data);
+      setResult(nextResult);
       setHistory((prev) => [
         {
           label: description.slice(0, 40) + (includeExampleCode ? " [code]" : " [plain]"),
-          skill: data.skill_definition,
+          result: nextResult,
         },
         ...prev,
       ].slice(0, 5));
@@ -103,7 +127,7 @@ export default function SkillsGenerator() {
 
   const copyToClipboard = () => {
     if (result) {
-      navigator.clipboard.writeText(result);
+      navigator.clipboard.writeText(result.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -267,7 +291,7 @@ export default function SkillsGenerator() {
                   onChange={(e) => {
                     const selected = history[Number(e.target.value)];
                     if (selected) {
-                      setResult(selected.skill);
+                      setResult(selected.result);
                     }
                   }}
                 >
@@ -323,14 +347,19 @@ export default function SkillsGenerator() {
                 <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
                   <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">Skill Definition</h2>
                   <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                    {includeExampleCode ? "With Example Code" : "Plain"}
+                    {getExampleCodeStatusLabel(result)}
                   </span>
                 </div>
 
                 <div className="relative flex-1 min-h-0 overflow-hidden">
                   <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-yellow-300 prose-pre:bg-zinc-900">
-                    <ReactMarkdown>{result}</ReactMarkdown>
-                    <SkillExportPanel skillDefinition={result} />
+                    {result.exampleCodeWarning ? (
+                      <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100 not-prose">
+                        {result.exampleCodeWarning}
+                      </div>
+                    ) : null}
+                    <ReactMarkdown>{result.content}</ReactMarkdown>
+                    <SkillExportPanel skillDefinition={result.content} />
                   </div>
 
                   <button

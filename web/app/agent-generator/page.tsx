@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
-import type { GitHubRepoContextPayload } from "@/lib/api/types";
+import type { AgentGeneratorResponse, GitHubRepoContextPayload } from "@/lib/api/types";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import ContextManager from "../components/ContextManager";
@@ -18,6 +18,34 @@ function isSupportedGitHubRepoRootUrl(value: string): boolean {
   return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value.trim());
 }
 
+type AgentGenerationView = {
+  content: string;
+  multiAgent: boolean;
+  exampleCodeRequested: boolean;
+  exampleCodePresent: boolean;
+  exampleCodeWarning: string | null;
+};
+
+function toAgentGenerationView(
+  response: AgentGeneratorResponse,
+  multiAgent: boolean,
+): AgentGenerationView {
+  return {
+    content: response.system_prompt,
+    multiAgent,
+    exampleCodeRequested: response.example_code_requested,
+    exampleCodePresent: response.example_code_present,
+    exampleCodeWarning: response.example_code_warning,
+  };
+}
+
+function getExampleCodeStatusLabel(result: AgentGenerationView): string {
+  if (!result.exampleCodeRequested) {
+    return "Plain";
+  }
+  return result.exampleCodePresent ? "With Example Code" : "Example Code Missing";
+}
+
 export default function AgentGenerator() {
   const [description, setDescription] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -26,11 +54,11 @@ export default function AgentGenerator() {
   const [repoAnalysisWarning, setRepoAnalysisWarning] = useState<string | null>(null);
   const [repoContextDirty, setRepoContextDirty] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<AgentGenerationView | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
   const [multiAgent, setMultiAgent] = useState(false);
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
-  const [history, setHistory] = useState<{ label: string; prompt: string }[]>([]);
+  const [history, setHistory] = useState<{ label: string; result: AgentGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
 
   const isGeneratingRef = useRef(false);
@@ -75,7 +103,7 @@ export default function AgentGenerator() {
     setResult(null);
 
     try {
-      const data = await apiJson<{ system_prompt: string }>("/agent-generator/generate", {
+      const data = await apiJson<AgentGeneratorResponse>("/agent-generator/generate", {
         method: "POST",
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -86,11 +114,12 @@ export default function AgentGenerator() {
         }),
       });
 
-      setResult(data.system_prompt);
+      const nextResult = toAgentGenerationView(data, multiAgent);
+      setResult(nextResult);
       setHistory((prev) => [
         {
           label: description.slice(0, 40) + (multiAgent ? " [swarm]" : " [single]"),
-          prompt: data.system_prompt,
+          result: nextResult,
         },
         ...prev,
       ].slice(0, 5));
@@ -105,7 +134,7 @@ export default function AgentGenerator() {
 
   const copyToClipboard = () => {
     if (result) {
-      navigator.clipboard.writeText(result);
+      navigator.clipboard.writeText(result.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -290,7 +319,7 @@ export default function AgentGenerator() {
                   onChange={(e) => {
                     const selected = history[Number(e.target.value)];
                     if (selected) {
-                      setResult(selected.prompt);
+                      setResult(selected.result);
                     }
                   }}
                 >
@@ -345,15 +374,21 @@ export default function AgentGenerator() {
               <div className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20 flex flex-col">
                 <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
                   <h2 className="text-sm font-semibold text-zinc-200 tracking-tight">System Prompt</h2>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                    {multiAgent ? "Multi-Agent Swarm" : "Single Agent"}
-                  </span>
+                  <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                    <span>{result.multiAgent ? "Multi-Agent Swarm" : "Single Agent"}</span>
+                    <span>{getExampleCodeStatusLabel(result)}</span>
+                  </div>
                 </div>
 
                 <div className="relative flex-1 min-h-0 overflow-hidden">
                   <div className="absolute inset-0 overflow-y-auto p-6 pb-24 prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-li:text-zinc-300 prose-code:text-green-400 prose-pre:bg-zinc-900">
-                    <ReactMarkdown>{result}</ReactMarkdown>
-                    <ExportPanel systemPrompt={result} isMultiAgent={multiAgent} />
+                    {result.exampleCodeWarning ? (
+                      <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100 not-prose">
+                        {result.exampleCodeWarning}
+                      </div>
+                    ) : null}
+                    <ReactMarkdown>{result.content}</ReactMarkdown>
+                    <ExportPanel systemPrompt={result.content} isMultiAgent={result.multiAgent} />
                   </div>
 
                   <button

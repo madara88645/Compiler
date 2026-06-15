@@ -128,20 +128,6 @@ describe("Next backend proxy route wiring", () => {
       expectedUrl: "http://127.0.0.1:8080/repo-context/github",
     },
     {
-      name: "agent generation",
-      handler: agentGenerateRoute,
-      requestUrl: "http://localhost:3000/agent-generator/generate",
-      requestBody: { description: "review this PR" },
-      expectedUrl: "http://127.0.0.1:8080/agent-generator/generate",
-    },
-    {
-      name: "skills generation",
-      handler: skillsGenerateRoute,
-      requestUrl: "http://localhost:3000/skills-generator/generate",
-      requestBody: { description: "search docs" },
-      expectedUrl: "http://127.0.0.1:8080/skills-generator/generate",
-    },
-    {
       name: "benchmark run",
       handler: benchmarkRunRoute,
       requestUrl: "http://localhost:3000/benchmark/run",
@@ -200,6 +186,45 @@ describe("Next backend proxy route wiring", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
     await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it.each<RouteCase>([
+    {
+      name: "agent generation",
+      handler: agentGenerateRoute,
+      requestUrl: "http://localhost:3000/agent-generator/generate",
+      requestBody: { description: "review this PR" },
+      expectedUrl: "http://127.0.0.1:8080/agent-generator/generate",
+    },
+    {
+      name: "skills generation",
+      handler: skillsGenerateRoute,
+      requestUrl: "http://localhost:3000/skills-generator/generate",
+      requestBody: { description: "search docs" },
+      expectedUrl: "http://127.0.0.1:8080/skills-generator/generate",
+    },
+  ])("does not retry $name requests after a transient backend connection failure", async ({
+    handler,
+    requestUrl,
+    requestBody,
+    expectedUrl,
+  }) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fetch failed"));
+
+    const response = await handler(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+    expect(response.status).toBe(502);
   });
 
   it.each<RouteCase>([

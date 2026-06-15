@@ -219,7 +219,7 @@ class HybridCompiler:
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text),
+                self.context_strategist.process(text, expand_with_llm=False),
                 repo_context,
                 repo_context_mode,
             )
@@ -246,7 +246,7 @@ class HybridCompiler:
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text),
+                self.context_strategist.process(text, expand_with_llm=False),
                 repo_context,
                 repo_context_mode,
             )

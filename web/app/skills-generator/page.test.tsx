@@ -37,6 +37,12 @@ vi.mock("../lib/showError", () => ({
 }));
 
 const apiJsonMock = vi.mocked(apiJson);
+const plainSkillResponse = {
+  skill_definition: "## Plain Skill",
+  example_code_requested: false,
+  example_code_present: false,
+  example_code_warning: null,
+};
 
 describe("Skills Generator page", () => {
   beforeEach(() => {
@@ -66,6 +72,9 @@ describe("Skills Generator page", () => {
       })
       .mockResolvedValueOnce({
         skill_definition: "# Repo-aware Skill",
+        example_code_requested: false,
+        example_code_present: false,
+        example_code_warning: null,
       });
 
     render(<SkillsGeneratorPage />);
@@ -111,9 +120,7 @@ describe("Skills Generator page", () => {
         files_used: ["README.md"],
         detected_stack: ["Python"],
       })
-      .mockResolvedValueOnce({
-        skill_definition: "# Plain Skill",
-      });
+      .mockResolvedValueOnce(plainSkillResponse);
 
     render(<SkillsGeneratorPage />);
 
@@ -165,15 +172,25 @@ describe("Skills Generator page", () => {
     expect(await screen.findByText("Skill generation failed")).toBeTruthy();
     expect(screen.getByText("The service is temporarily unavailable.")).toBeTruthy();
 
-    apiJsonMock.mockResolvedValueOnce({ skill_definition: "## json-validator" });
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "## json-validator",
+      example_code_requested: false,
+      example_code_present: false,
+      example_code_warning: null,
+    });
     fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "json-validator" })).toBeTruthy());
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
-  it("toggles the example-code switch from its label and preserves payload values", async () => {
-    apiJsonMock.mockResolvedValueOnce({ skill_definition: "## example-skill" });
+  it("keeps example-code enabled after generation and preserves payload values", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "## example-skill",
+      example_code_requested: true,
+      example_code_present: true,
+      example_code_warning: null,
+    });
 
     render(<SkillsGeneratorPage />);
 
@@ -189,6 +206,37 @@ describe("Skills Generator page", () => {
       description: "Generate a code-heavy skill.",
       include_example_code: true,
     });
+    expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.getByText("With Example Code")).toBeTruthy();
+  });
+
+  it("shows a warning when example code is requested but missing", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "## text-only-skill",
+      example_code_requested: true,
+      example_code_present: false,
+      example_code_warning:
+        "Example Code was requested, but the generator returned a text-only skill definition. You can still use this result or try generating again.",
+    });
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Generate a code-heavy skill." },
+    });
+
+    fireEvent.click(screen.getByText("Example Code?"));
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    expect(
+      await screen.findByText(
+        "Example Code was requested, but the generator returned a text-only skill definition. You can still use this result or try generating again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Example Code Missing")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "text-only-skill" })).toBeTruthy();
   });
 
   it("supports keyboard activation for the switch row", () => {

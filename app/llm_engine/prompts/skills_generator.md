@@ -84,10 +84,10 @@ The output must strictly follow this Markdown structure:
 - Technical, precise, and modular.
 - The generated skill should be ready to be implemented as a function or tool for an LLM.
 - Focus on robustness and clarity.
-- Only include an implementation example section if a later instruction explicitly asks for example code.
+- Only include an implementation example section when a later instruction explicitly enables example code. When enabled, the section is mandatory and must include a fenced code block.
 
 ## OPTIONAL IMPLEMENTATION EXAMPLE SECTION
-When explicitly requested, append this section after `## Implementation`:
+When explicitly enabled by a later instruction, you MUST append this section after `## Implementation` and include at least one fenced code block:
 
 ```markdown
 ## Implementation Example

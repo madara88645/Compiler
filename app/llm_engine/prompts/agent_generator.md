@@ -103,10 +103,10 @@ The output must strictly follow this Markdown structure:
 - Use technical terminology appropriate for the domain.
 - The generated prompt should be ready to copy-paste into an LLM configuration.
 - Keep code examples explicitly non-final when key details are unknown.
-- Only include an example-code section if a later instruction explicitly asks for example code. Otherwise omit that section entirely.
+- Only include an example-code section when a later instruction explicitly enables example code. When enabled, the section is mandatory and must include a fenced pseudo-code block.
 
 ## OPTIONAL EXAMPLE CODE SECTION
-When explicitly requested, append this section after `## Example Interaction`:
+When explicitly enabled by a later instruction, you MUST append this section after `## Example Interaction` and include at least one fenced pseudo-code block:
 
 ```markdown
 ## Example Code (Pseudo-code Skeleton)
