@@ -44,6 +44,7 @@ def test_jules_reply_endpoint_uses_latest_agent_message():
     assert kwargs["latest_agent_message"] == "Latest question"
     assert kwargs["instruction"] == "Be concise"
     mock_client.send_message.assert_called_once_with("session-123", "Short automated answer")
+    mock_client.close.assert_called_once()
 
 
 @pytest.mark.auth_required
@@ -53,6 +54,21 @@ def test_jules_sources_endpoint_requires_auth():
     response = client.get("/jules/sources")
 
     assert response.status_code == 403
+
+
+def test_jules_sources_endpoint_closes_client_after_success():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.list_sources.return_value = {"sources": [{"name": "sources/github/acme/repo"}]}
+
+        client = TestClient(app)
+        response = client.get("/jules/sources", headers=_auth_headers())
+
+    assert response.status_code == 200, response.text
+    assert response.json()["sources"][0]["name"] == "sources/github/acme/repo"
+    mock_client.close.assert_called_once()
 
 
 def test_jules_reply_endpoint_supports_plan_generated_activities():
@@ -165,6 +181,7 @@ def test_jules_reply_endpoint_missing_agent_activity():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "No agent message found in session activities."
+    mock_client.close.assert_called_once()
 
 
 def test_jules_reply_endpoint_client_runtime_error():
@@ -183,6 +200,7 @@ def test_jules_reply_endpoint_client_runtime_error():
 
     assert response.status_code == 500
     assert response.json()["detail"] == "An internal error occurred."
+    mock_client.close.assert_called_once()
 
 
 def test_jules_reply_endpoint_client_generic_error():
@@ -201,3 +219,4 @@ def test_jules_reply_endpoint_client_generic_error():
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Failed to reply to Jules session."
+    mock_client.close.assert_called_once()
