@@ -29,7 +29,7 @@ describe("Agent ExportPanel", () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Claude Project Pack" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude Project Pack" }));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
     const [, options] = apiFetch.mock.calls.at(-1);
@@ -41,7 +41,7 @@ describe("Agent ExportPanel", () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
-    fireEvent.click(screen.getByRole("button", { name: "TypeScript" }));
+    fireEvent.click(screen.getByRole("radio", { name: "TypeScript" }));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
     const [, options] = apiFetch.mock.calls.at(-1);

@@ -29,7 +29,7 @@ describe("Skill ExportPanel", () => {
     render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
 
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Claude MCP Tool" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude MCP Tool" }));
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
     const [, options] = apiFetch.mock.calls.at(-1);
