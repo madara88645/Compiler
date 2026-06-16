@@ -50,7 +50,9 @@ class TestMockProvider:
     def test_close_propagates_client_close_errors_and_allows_retry(self):
         provider = MockProvider(ProviderConfig())
 
-        with patch.object(provider.client, "close", side_effect=[RuntimeError("boom"), None]) as close_mock:
+        with patch.object(
+            provider.client, "close", side_effect=[RuntimeError("boom"), None]
+        ) as close_mock:
             with pytest.raises(RuntimeError, match="boom"):
                 provider.close()
 
