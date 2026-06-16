@@ -32,27 +32,27 @@ describe("Skill ExportPanel", () => {
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
 
-    const claudeToolButton = screen.getByRole("button", { name: "Claude Tool" });
-    const mcpToolButton = screen.getByRole("button", { name: "Claude MCP Tool" });
-    const jsonButton = screen.getByRole("button", { name: "JSON" });
-    const pythonButton = screen.getByRole("button", { name: "Python" });
+    const claudeToolButton = screen.getByRole("radio", { name: "Claude Tool" });
+    const mcpToolButton = screen.getByRole("radio", { name: "Claude MCP Tool" });
+    const jsonButton = screen.getByRole("radio", { name: "JSON" });
+    const pythonButton = screen.getByRole("radio", { name: "Python" });
 
-    expect(claudeToolButton.getAttribute("aria-pressed")).toBe("true");
-    expect(mcpToolButton.getAttribute("aria-pressed")).toBe("false");
-    expect(jsonButton.getAttribute("aria-pressed")).toBe("true");
-    expect(pythonButton.getAttribute("aria-pressed")).toBe("false");
+    expect(claudeToolButton.getAttribute("aria-checked")).toBe("true");
+    expect(mcpToolButton.getAttribute("aria-checked")).toBe("false");
+    expect(jsonButton.getAttribute("aria-checked")).toBe("true");
+    expect(pythonButton.getAttribute("aria-checked")).toBe("false");
 
     fireEvent.click(mcpToolButton);
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
 
-    expect(claudeToolButton.getAttribute("aria-pressed")).toBe("false");
-    expect(mcpToolButton.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.queryByRole("button", { name: "JSON" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Python" })).toBeNull();
+    expect(claudeToolButton.getAttribute("aria-checked")).toBe("false");
+    expect(mcpToolButton.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("radio", { name: "JSON" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Python" })).toBeNull();
 
-    const filesButton = screen.getByRole("button", { name: "Files" });
-    expect(filesButton.getAttribute("aria-pressed")).toBe("true");
+    const filesButton = screen.getByRole("radio", { name: "Files" });
+    expect(filesButton.getAttribute("aria-checked")).toBe("true");
   });
 
   test("requests the Claude MCP tool export", async () => {

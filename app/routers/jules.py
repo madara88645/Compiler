@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -11,6 +11,14 @@ from app.integrations.jules_client import JulesClient
 from app.llm_engine.client import WorkerClient
 
 router = APIRouter(prefix="/jules", tags=["jules"])
+
+
+def _with_jules_client(operation: Callable[[JulesClient], Any]) -> Any:
+    client = JulesClient()
+    try:
+        return operation(client)
+    finally:
+        client.close()
 
 
 class CreateSessionRequest(BaseModel):
@@ -126,7 +134,7 @@ def generate_jules_reply(
 def list_sources(api_key: APIKey = Depends(verify_api_key)):
     del api_key
     try:
-        return JulesClient().list_sources()
+        return _with_jules_client(lambda client: client.list_sources())
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
@@ -150,7 +158,7 @@ def create_session(req: CreateSessionRequest, api_key: APIKey = Depends(verify_a
         payload["title"] = req.title
 
     try:
-        return JulesClient().create_session(payload)
+        return _with_jules_client(lambda client: client.create_session(payload))
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
@@ -161,7 +169,7 @@ def create_session(req: CreateSessionRequest, api_key: APIKey = Depends(verify_a
 def get_session(session_id: str, api_key: APIKey = Depends(verify_api_key)):
     del api_key
     try:
-        return JulesClient().get_session(session_id)
+        return _with_jules_client(lambda client: client.get_session(session_id))
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
@@ -176,7 +184,9 @@ def get_session_activities(
 ):
     del api_key
     try:
-        return JulesClient().list_activities(session_id, page_size=page_size)
+        return _with_jules_client(
+            lambda client: client.list_activities(session_id, page_size=page_size)
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
@@ -191,26 +201,29 @@ def reply_to_session(
 ):
     del api_key
     try:
-        client = JulesClient()
-        session_data = client.get_session(session_id)
-        activity_payload = client.list_activities(session_id, page_size=req.page_size)
-        activities = activity_payload.get("activities", [])
-        latest_activity = _latest_agent_activity(activities)
-        latest_message = _extract_activity_text(latest_activity)
-        reply = generate_jules_reply(
-            latest_agent_message=latest_message,
-            instruction=req.instruction,
-            session_title=session_data.get("title"),
-            session_prompt=session_data.get("prompt"),
-        )
-        client.send_message(session_id, reply)
-        return {
-            "session_id": session_id,
-            "activity_id": latest_activity.get("id"),
-            "latest_agent_message": latest_message,
-            "reply": reply,
-            "sent": True,
-        }
+
+        def _reply(client: JulesClient) -> dict[str, Any]:
+            session_data = client.get_session(session_id)
+            activity_payload = client.list_activities(session_id, page_size=req.page_size)
+            activities = activity_payload.get("activities", [])
+            latest_activity = _latest_agent_activity(activities)
+            latest_message = _extract_activity_text(latest_activity)
+            reply = generate_jules_reply(
+                latest_agent_message=latest_message,
+                instruction=req.instruction,
+                session_title=session_data.get("title"),
+                session_prompt=session_data.get("prompt"),
+            )
+            client.send_message(session_id, reply)
+            return {
+                "session_id": session_id,
+                "activity_id": latest_activity.get("id"),
+                "latest_agent_message": latest_message,
+                "reply": reply,
+                "sent": True,
+            }
+
+        return _with_jules_client(_reply)
     except HTTPException:
         raise
     except RuntimeError as exc:
