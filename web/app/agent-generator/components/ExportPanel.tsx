@@ -232,11 +232,13 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
 
       {isOpen && (
         <div id={panelId} className="mt-3 rounded-2xl border border-white/8 bg-black/30 overflow-hidden">
-          <div className="flex gap-1 p-3 border-b border-white/5 flex-wrap">
+          <div className="flex gap-1 p-3 border-b border-white/5 flex-wrap" role="radiogroup" aria-label="Export Target">
             {TARGETS.map((item) => (
               <button
                 type="button"
                 key={item.id}
+                role="radio"
+                aria-checked={target === item.id}
                 onClick={() => handleTargetClick(item.id)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                   target === item.id ? item.activeColor : item.color
@@ -247,11 +249,13 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
             ))}
           </div>
 
-          <div className="flex gap-1 px-3 pt-3 flex-wrap">
+          <div className="flex gap-1 px-3 pt-3 flex-wrap" role="radiogroup" aria-label="Output Format">
             {outputTabs.map((tab) => (
               <button
                 type="button"
                 key={tab.id}
+                role="radio"
+                aria-checked={outputMode === tab.id}
                 onClick={() => handleOutputModeClick(tab.id)}
                 className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
                   outputMode === tab.id
