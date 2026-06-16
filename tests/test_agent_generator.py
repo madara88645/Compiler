@@ -90,8 +90,7 @@ def test_worker_client_requests_example_code_section_when_enabled():
         ]
         assert "## Example Code (Pseudo-code Skeleton)" in system_messages[0]
         assert any(
-            "You MUST include a final `## Example Code (Pseudo-code Skeleton)` section"
-            in message
+            "You MUST include a final `## Example Code (Pseudo-code Skeleton)` section" in message
             for message in system_messages
         )
 

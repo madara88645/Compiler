@@ -45,7 +45,9 @@ def _section_contains_fenced_code(markdown: str, section_pattern: re.Pattern[str
     return _FENCED_CODE_BLOCK_RE.search(section_body) is not None
 
 
-def inspect_agent_example_code(markdown: str, *, multi_agent: bool, requested: bool) -> ExampleCodeInspection:
+def inspect_agent_example_code(
+    markdown: str, *, multi_agent: bool, requested: bool
+) -> ExampleCodeInspection:
     if not requested:
         return ExampleCodeInspection(
             example_code_requested=False,
