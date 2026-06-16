@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 from dataclasses import dataclass, field
+import itertools
 
 
 # ==============================================================================
@@ -347,9 +348,10 @@ class LogicAnalyzer:
         seen = set()
 
         # Check combined pairs of sentences for spanning dependencies instead of all concatenated
+        # Bolt Optimization: map and zip with islice runs entirely in C,
+        # avoiding slow Python loops and list appends
         all_texts = list(sentences)
-        for i in range(len(sentences) - 1):
-            all_texts.append(sentences[i] + " " + sentences[i + 1])
+        all_texts.extend(map(" ".join, zip(sentences, itertools.islice(sentences, 1, None))))
 
         for text in all_texts:
             if not _DEPENDENCY_FAST_PATH_RE.search(text):
