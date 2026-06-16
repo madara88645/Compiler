@@ -39,7 +39,7 @@ def test_ci_workflow_aligns_codecov_with_canonical_coverage_upload():
             step
             for step in steps
             if step.get("name") == "Upload coverage to Codecov"
-            and step.get("uses") == "codecov/codecov-action@v6"
+            and step.get("uses") == "codecov/codecov-action@v7"
         ),
         None,
     )
