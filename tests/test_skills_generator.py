@@ -3,6 +3,7 @@ import re
 import pytest
 from unittest.mock import MagicMock, patch
 from app.llm_engine.client import WorkerClient, _sanitize_skill_definition_plain
+from app.llm_engine.example_code import SKILL_EXAMPLE_CODE_WARNING, inspect_skill_example_code
 from app.llm_engine.hybrid import HybridCompiler
 from api.main import app
 from fastapi.testclient import TestClient
@@ -254,7 +255,12 @@ def test_api_generate_skill_endpoint():
         )
 
         assert response.status_code == 200
-        assert response.json() == {"skill_definition": "# Mock API Skill"}
+        assert response.json() == {
+            "skill_definition": "# Mock API Skill",
+            "example_code_requested": False,
+            "example_code_present": False,
+            "example_code_warning": None,
+        }
         mock_compiler.generate_skill.assert_called_with(
             "Test Skill Request",
             include_example_code=False,
@@ -270,6 +276,33 @@ def test_api_generate_skill_endpoint():
 
 def test_api_generate_skill_endpoint_with_example_code_enabled():
     with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = (
+            "# Mock API Skill\n\n## Implementation Example\n```python\npass\n```"
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request", "include_example_code": True},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "skill_definition": "# Mock API Skill\n\n## Implementation Example\n```python\npass\n```",
+            "example_code_requested": True,
+            "example_code_present": True,
+            "example_code_warning": None,
+        }
+        mock_compiler.generate_skill.assert_called_with(
+            "Test Skill Request",
+            include_example_code=True,
+            repo_context=None,
+            repo_context_mode="full",
+        )
+
+
+def test_api_generate_skill_endpoint_warns_when_example_code_is_missing():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_skill.return_value = "# Mock API Skill"
 
         client = TestClient(app)
@@ -279,13 +312,12 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
         )
 
         assert response.status_code == 200
-        assert response.json() == {"skill_definition": "# Mock API Skill"}
-        mock_compiler.generate_skill.assert_called_with(
-            "Test Skill Request",
-            include_example_code=True,
-            repo_context=None,
-            repo_context_mode="full",
-        )
+        assert response.json() == {
+            "skill_definition": "# Mock API Skill",
+            "example_code_requested": True,
+            "example_code_present": False,
+            "example_code_warning": SKILL_EXAMPLE_CODE_WARNING,
+        }
 
 
 def test_skill_prompt_omits_examples_section_when_disabled():
@@ -307,7 +339,7 @@ def test_worker_client_omits_skill_implementation_example_when_disabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode):
+        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
             captured["messages"] = messages
             return "# Skill Definition"
 
@@ -446,7 +478,7 @@ def test_worker_client_requests_skill_implementation_example_when_enabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode):
+        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
             captured["messages"] = messages
             return "# Skill Definition"
 
@@ -465,3 +497,33 @@ def test_worker_client_requests_skill_implementation_example_when_enabled():
             for message in system_messages
         )
         assert any("`## Implementation Example` section" in message for message in system_messages)
+
+
+def test_inspect_skill_example_code_detects_valid_section():
+    inspection = inspect_skill_example_code(
+        "# Skill\n\n## Implementation Example\n```python\npass\n```",
+        requested=True,
+    )
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is True
+    assert inspection.example_code_warning is None
+
+
+def test_inspect_skill_example_code_rejects_missing_section_even_with_fenced_code():
+    inspection = inspect_skill_example_code("# Skill\n\n```python\npass\n```", requested=True)
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is False
+    assert inspection.example_code_warning == SKILL_EXAMPLE_CODE_WARNING
+
+
+def test_inspect_skill_example_code_rejects_section_without_fenced_code():
+    inspection = inspect_skill_example_code(
+        "# Skill\n\n## Implementation Example\nTODO",
+        requested=True,
+    )
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is False
+    assert inspection.example_code_warning == SKILL_EXAMPLE_CODE_WARNING

@@ -133,6 +133,17 @@ def test_process_end_to_end(strategist):
     assert len(result["snippets"]) == 2
 
 
+def test_process_can_skip_llm_query_expansion(mock_db):
+    mock_llm = MagicMock()
+    strategist = ContextStrategist(mock_db, mock_llm)
+
+    result = strategist.process("fix login", expand_with_llm=False)
+
+    mock_llm.expand_query_intent.assert_not_called()
+    mock_db.search.assert_called_once_with("fix login", limit=5)
+    assert result["retrieved_files"] == ["app/main.py", "app/utils.py"]
+
+
 def test_mock_vector_db():
     db = MockVectorDB()
     assert db.search("anything") == []

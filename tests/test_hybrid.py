@@ -236,7 +236,7 @@ def test_generate_agent_success(compiler):
     res = compiler.generate_agent(text, multi_agent=True, include_example_code=True)
 
     assert res == "Agent System Prompt"
-    compiler.context_strategist.process.assert_called_once_with(text)
+    compiler.context_strategist.process.assert_called_once_with(text, expand_with_llm=False)
     compiler.worker.generate_agent.assert_called_once_with(
         text, context="Mock agent context", multi_agent=True, include_example_code=True
     )
@@ -259,7 +259,7 @@ def test_generate_skill_success(compiler):
     res = compiler.generate_skill(text, include_example_code=True)
 
     assert res == "Skill Definition"
-    compiler.context_strategist.process.assert_called_once_with(text)
+    compiler.context_strategist.process.assert_called_once_with(text, expand_with_llm=False)
     compiler.worker.generate_skill.assert_called_once_with(
         text, context="Mock skill context", include_example_code=True
     )

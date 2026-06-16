@@ -16,6 +16,7 @@ from app.github_repo_context import (
     InvalidGitHubRepoUrl,
     analyze_public_github_repo,
 )
+from app.llm_engine.example_code import inspect_agent_example_code, inspect_skill_example_code
 
 
 def _safe_repo_full_name(repo_url: str) -> str | None:
@@ -111,6 +112,9 @@ class SkillGenRequest(BaseModel):
 
 class SkillGenResponse(BaseModel):
     skill_definition: str
+    example_code_requested: bool
+    example_code_present: bool
+    example_code_warning: str | None
 
 
 class AgentGenRequest(BaseModel):
@@ -126,6 +130,9 @@ class AgentGenRequest(BaseModel):
 
 class AgentGenResponse(BaseModel):
     system_prompt: str
+    example_code_requested: bool
+    example_code_present: bool
+    example_code_warning: str | None
 
 
 @router.post("/repo-context/github", response_model=GitHubRepoContextPayload)
@@ -195,7 +202,8 @@ async def generate_skill_endpoint(
         )
         if not req.include_example_code:
             result = _sanitize_skill_definition_plain(result)
-        return SkillGenResponse(skill_definition=result)
+        inspection = inspect_skill_example_code(result, requested=req.include_example_code)
+        return SkillGenResponse(skill_definition=result, **inspection.__dict__)
     except Exception as exc:
         logger.exception("skill generation failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
@@ -216,7 +224,12 @@ async def generate_agent_endpoint(
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
         )
-        return AgentGenResponse(system_prompt=result)
+        inspection = inspect_agent_example_code(
+            result,
+            multi_agent=req.multi_agent,
+            requested=req.include_example_code,
+        )
+        return AgentGenResponse(system_prompt=result, **inspection.__dict__)
     except Exception as exc:
         logger.exception("agent generation failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc

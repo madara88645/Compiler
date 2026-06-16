@@ -157,3 +157,17 @@ export type GitHubRepoContextPayload = {
   files_used: string[];
   detected_stack: string[];
 };
+
+export type GeneratorExampleCodeMetadata = {
+  example_code_requested: boolean;
+  example_code_present: boolean;
+  example_code_warning: string | null;
+};
+
+export type AgentGeneratorResponse = GeneratorExampleCodeMetadata & {
+  system_prompt: string;
+};
+
+export type SkillGeneratorResponse = GeneratorExampleCodeMetadata & {
+  skill_definition: string;
+};

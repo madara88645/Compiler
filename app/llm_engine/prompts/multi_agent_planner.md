@@ -59,10 +59,10 @@ After the last agent, add a swarm-level stop-conditions block:
   → Passes `{parsed issue list (JSON array)}` to Agent 2 via `{shared state object}`.
   Acceptable mechanisms: shared state object, message queue, direct function call, HTTP endpoint, file system. Do NOT use vague phrases like "notify" or "pass" alone.
 - **I/O Contracts**: Handoff arrows must reference the producing agent's declared `## Outputs` shape — do not invent new fields that aren't in that schema.
-- Only include a final swarm example-code section if a later instruction explicitly asks for example code. Otherwise omit that section entirely.
+- Only include a final swarm example-code section when a later instruction explicitly enables example code. When enabled, the section is mandatory and must include a fenced pseudo-code block.
 
 ## OPTIONAL SWARM EXAMPLE CODE SECTION
-When explicitly requested, append this section after the Swarm Stop Conditions block:
+When explicitly enabled by a later instruction, you MUST append this section after the Swarm Stop Conditions block and include at least one fenced pseudo-code block:
 
 ## Swarm Example Code (Pseudo-code Skeleton)
 ```python

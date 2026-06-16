@@ -327,6 +327,37 @@ class WorkerClient:
 
         return headers
 
+    def _call_api_with_timeout(
+        self,
+        messages: list,
+        *,
+        max_tokens: int,
+        timeout_seconds: int,
+        json_mode: bool = True,
+        model_override: Optional[str] = None,
+        max_workers: int = 3,
+        usage_sink: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Run an LLM call with a timeout that does not block on executor shutdown."""
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        future = executor.submit(
+            self._call_api,
+            messages,
+            max_tokens,
+            json_mode,
+            model_override,
+            usage_sink=usage_sink,
+        )
+        timed_out = False
+        try:
+            return future.result(timeout=timeout_seconds)
+        except FuturesTimeoutError:
+            timed_out = True
+            future.cancel()
+            raise
+        finally:
+            executor.shutdown(wait=not timed_out, cancel_futures=timed_out)
+
     def _is_openrouter_request(self) -> bool:
         return "openrouter.ai" in (self.base_url or "").lower()
 
@@ -534,20 +565,19 @@ class WorkerClient:
             {"role": "user", "content": self._tagged_block("user_input", user_text)},
         ]
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        try:
             # Increased max tokens to prevent JSON truncation (reliability > speed cap)
-            future = executor.submit(self._call_api, messages, max_tokens=3000)
-            try:
-                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(
-                    f"LLM API did not respond within {HARD_TIMEOUT_SECONDS} seconds."
-                )
-            except APIError as e:
-                raise RuntimeError(f"LLM API failed: {e}") from e
-            except Exception as e:
-                raise RuntimeError(f"LLM error: {e}") from e
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=3000,
+                timeout_seconds=HARD_TIMEOUT_SECONDS,
+            )
+        except FuturesTimeoutError:
+            raise RuntimeError(f"LLM API did not respond within {HARD_TIMEOUT_SECONDS} seconds.")
+        except APIError as e:
+            raise RuntimeError(f"LLM API failed: {e}") from e
+        except Exception as e:
+            raise RuntimeError(f"LLM error: {e}") from e
 
         response = WorkerResponse.model_validate_json(content)
 
@@ -603,15 +633,16 @@ class WorkerClient:
             {"role": "user", "content": self._tagged_block("prompt_under_review", user_text)},
         ]
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            future = executor.submit(self._call_api, messages, 1024)
-            try:
-                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Quality analysis timed out after {COACH_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Quality analysis error: {e}") from e
+        try:
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=1024,
+                timeout_seconds=COACH_TIMEOUT_SECONDS,
+            )
+        except FuturesTimeoutError:
+            raise RuntimeError(f"Quality analysis timed out after {COACH_TIMEOUT_SECONDS}s.")
+        except Exception as e:
+            raise RuntimeError(f"Quality analysis error: {e}") from e
 
         return QualityReport.model_validate_json(content)
 
@@ -647,24 +678,20 @@ class WorkerClient:
         ]
 
         usage_sink: Dict[str, Any] = {}
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            api_max_tokens = max_tokens if max_tokens else 2048
-            future = executor.submit(
-                self._call_api,
+        api_max_tokens = max_tokens if max_tokens else 2048
+        try:
+            content = self._call_api_with_timeout(
                 messages,
-                api_max_tokens,
-                False,  # json_mode: optimizer output is text
-                None,  # model_override
+                max_tokens=api_max_tokens,
+                timeout_seconds=COACH_TIMEOUT_SECONDS,
+                json_mode=False,
                 usage_sink=usage_sink,
             )
-            try:
-                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
-                return content.strip(), (usage_sink or None)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Optimization timed out after {COACH_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Optimization error: {e}") from e
+            return content.strip(), (usage_sink or None)
+        except FuturesTimeoutError:
+            raise RuntimeError(f"Optimization timed out after {COACH_TIMEOUT_SECONDS}s.")
+        except Exception as e:
+            raise RuntimeError(f"Optimization error: {e}") from e
 
     def fix_prompt(self, user_text: str) -> LLMFixResponse:
         """Auto-fix prompt using LLM Editor."""
@@ -679,15 +706,16 @@ class WorkerClient:
             {"role": "user", "content": self._tagged_block("prompt_to_fix", user_text)},
         ]
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            future = executor.submit(self._call_api, messages, 1500)
-            try:
-                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Auto-fix timed out after {COACH_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Auto-fix error: {e}") from e
+        try:
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=1500,
+                timeout_seconds=COACH_TIMEOUT_SECONDS,
+            )
+        except FuturesTimeoutError:
+            raise RuntimeError(f"Auto-fix timed out after {COACH_TIMEOUT_SECONDS}s.")
+        except Exception as e:
+            raise RuntimeError(f"Auto-fix error: {e}") from e
 
         return LLMFixResponse.model_validate_json(content)
 
@@ -728,26 +756,22 @@ class WorkerClient:
         ]
 
         usage_sink: Dict[str, Any] = {}
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            api_max_tokens = max_tokens if max_tokens else 2048
-            future = executor.submit(
-                self._call_api,
+        api_max_tokens = max_tokens if max_tokens else 2048
+        try:
+            content = self._call_api_with_timeout(
                 messages,
-                api_max_tokens,
-                False,
-                None,
+                max_tokens=api_max_tokens,
+                timeout_seconds=COACH_TIMEOUT_SECONDS,
+                json_mode=False,
                 usage_sink=usage_sink,
             )
-            try:
-                content = future.result(timeout=COACH_TIMEOUT_SECONDS)
-                return content.strip(), (usage_sink or None)
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(
-                    f"English variant optimization timed out after {COACH_TIMEOUT_SECONDS}s."
-                )
-            except Exception as e:
-                raise RuntimeError(f"English variant optimization error: {e}") from e
+            return content.strip(), (usage_sink or None)
+        except FuturesTimeoutError:
+            raise RuntimeError(
+                f"English variant optimization timed out after {COACH_TIMEOUT_SECONDS}s."
+            )
+        except Exception as e:
+            raise RuntimeError(f"English variant optimization error: {e}") from e
 
     def expand_query_intent(self, user_text: str) -> Dict[str, Any]:
         """Expand user query into semantic search terms."""
@@ -766,12 +790,15 @@ class WorkerClient:
         ]
 
         try:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(self._call_api, messages, 500, json_mode=True)
-                content = future.result(timeout=10)  # Fast timeout for query expansion
-                import json
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=500,
+                timeout_seconds=10,
+                max_workers=1,
+            )
+            import json
 
-                return json.loads(content)
+            return json.loads(content)
         except Exception as e:
             logger.debug("Query expansion failed: %s", e)
             return {"queries": [user_text]}
@@ -807,7 +834,8 @@ class WorkerClient:
         )
         if multi_agent:
             example_code_note = (
-                "Include a final `## Swarm Example Code (Pseudo-code Skeleton)` section with concise pseudo-code only when it reduces ambiguity."
+                "You MUST include a final `## Swarm Example Code (Pseudo-code Skeleton)` section in the generated output. "
+                "That section MUST contain at least one fenced pseudo-code block, even when some integration details are TODOs."
                 if include_example_code
                 else (
                     "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
@@ -816,7 +844,8 @@ class WorkerClient:
             )
         else:
             example_code_note = (
-                "Include a final `## Example Code (Pseudo-code Skeleton)` section with concise pseudo-code only when it reduces ambiguity."
+                "You MUST include a final `## Example Code (Pseudo-code Skeleton)` section in the generated output. "
+                "That section MUST contain at least one fenced pseudo-code block, even when some integration details are TODOs."
                 if include_example_code
                 else (
                     "Do not include any example code snippets, pseudo-code, or fenced code blocks. "
@@ -835,37 +864,39 @@ class WorkerClient:
                 },
             )
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        try:
             # json_mode=False because we want Markdown text back
-            future = executor.submit(self._call_api, messages, 4000, json_mode=False)
-            try:
-                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
-                if multi_agent:
-                    import logging
-                    import re
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=4000,
+                timeout_seconds=HARD_TIMEOUT_SECONDS,
+                json_mode=False,
+            )
+            if multi_agent:
+                import logging
+                import re
 
-                    # Count top-level agent headers: lines matching "# Agent N:" or "# Agent N "
-                    agent_headers = re.findall(
-                        r"^#\s+Agent\s+\d+", content, re.MULTILINE | re.IGNORECASE
+                # Count top-level agent headers: lines matching "# Agent N:" or "# Agent N "
+                agent_headers = re.findall(
+                    r"^#\s+Agent\s+\d+", content, re.MULTILINE | re.IGNORECASE
+                )
+                agent_count = len(agent_headers)
+                if agent_count > 4:
+                    logging.warning(
+                        f"[AgentGenerator] Multi-agent output exceeded limit: "
+                        f"{agent_count} agents detected (max 4). "
+                        f"Consider strengthening the multi_agent_planner prompt."
                     )
-                    agent_count = len(agent_headers)
-                    if agent_count > 4:
-                        logging.warning(
-                            f"[AgentGenerator] Multi-agent output exceeded limit: "
-                            f"{agent_count} agents detected (max 4). "
-                            f"Consider strengthening the multi_agent_planner prompt."
-                        )
-                    elif agent_count == 0:
-                        logging.warning(
-                            "[AgentGenerator] Multi-agent output contains no '# Agent N:' headers. "
-                            "Output may be malformed."
-                        )
-                return content
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Agent generation error: {e}") from e
+                elif agent_count == 0:
+                    logging.warning(
+                        "[AgentGenerator] Multi-agent output contains no '# Agent N:' headers. "
+                        "Output may be malformed."
+                    )
+            return content
+        except FuturesTimeoutError:
+            raise RuntimeError(f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+        except Exception as e:
+            raise RuntimeError(f"Agent generation error: {e}") from e
 
     def generate_skill(
         self,
@@ -920,16 +951,18 @@ class WorkerClient:
                 },
             )
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        try:
             # json_mode=False because we want Markdown text back
-            future = executor.submit(self._call_api, messages, 3000, json_mode=False)
-            try:
-                content = future.result(timeout=HARD_TIMEOUT_SECONDS)
-                if not include_example_code:
-                    content = _sanitize_skill_definition_plain(content)
-                return content
-            except FuturesTimeoutError:
-                future.cancel()
-                raise RuntimeError(f"Skill generation timed out after {HARD_TIMEOUT_SECONDS}s.")
-            except Exception as e:
-                raise RuntimeError(f"Skill generation error: {e}") from e
+            content = self._call_api_with_timeout(
+                messages,
+                max_tokens=3000,
+                timeout_seconds=HARD_TIMEOUT_SECONDS,
+                json_mode=False,
+            )
+            if not include_example_code:
+                content = _sanitize_skill_definition_plain(content)
+            return content
+        except FuturesTimeoutError:
+            raise RuntimeError(f"Skill generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+        except Exception as e:
+            raise RuntimeError(f"Skill generation error: {e}") from e

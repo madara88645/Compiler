@@ -1,6 +1,8 @@
 import pytest
+import time
 from unittest.mock import MagicMock, patch
 from app.llm_engine.client import WorkerClient
+from app.llm_engine.example_code import AGENT_EXAMPLE_CODE_WARNING, inspect_agent_example_code
 from app.llm_engine.hybrid import HybridCompiler
 from api.main import app
 from fastapi.testclient import TestClient
@@ -51,7 +53,7 @@ def test_worker_client_omits_example_code_section_when_disabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode):
+        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
             captured["messages"] = messages
             return "# Agent System Prompt"
 
@@ -75,7 +77,7 @@ def test_worker_client_requests_example_code_section_when_enabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode):
+        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
             captured["messages"] = messages
             return "# Agent System Prompt"
 
@@ -88,9 +90,28 @@ def test_worker_client_requests_example_code_section_when_enabled():
         ]
         assert "## Example Code (Pseudo-code Skeleton)" in system_messages[0]
         assert any(
-            "Include a final `## Example Code (Pseudo-code Skeleton)` section" in message
+            "You MUST include a final `## Example Code (Pseudo-code Skeleton)` section" in message
             for message in system_messages
         )
+
+
+def test_worker_client_generate_agent_timeout_returns_quickly():
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    def slow_call_api(*args, **kwargs):
+        time.sleep(0.2)
+        return "# Agent System Prompt"
+
+    with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
+        client, "_call_api", side_effect=slow_call_api
+    ):
+        started_at = time.perf_counter()
+        with pytest.raises(RuntimeError, match="Agent generation timed out after 0.01s."):
+            client.generate_agent("Test Agent")
+        elapsed = time.perf_counter() - started_at
+
+    assert elapsed < 0.15
 
 
 def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
@@ -110,7 +131,7 @@ def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
             "detected_stack": ["Python"],
         }
 
-        def fake_call_api(messages, max_tokens, json_mode):
+        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
             captured["messages"] = messages
             return "# Agent System Prompt"
 
@@ -145,7 +166,12 @@ def test_api_generate_agent_endpoint():
         )
 
         assert response.status_code == 200
-        assert response.json() == {"system_prompt": "# Mock API Agent"}
+        assert response.json() == {
+            "system_prompt": "# Mock API Agent",
+            "example_code_requested": False,
+            "example_code_present": False,
+            "example_code_warning": None,
+        }
         mock_compiler.generate_agent.assert_called_with(
             "Test Agent Request",
             multi_agent=False,
@@ -157,6 +183,34 @@ def test_api_generate_agent_endpoint():
 
 def test_api_generate_agent_endpoint_with_example_code_enabled():
     with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = (
+            "# Mock API Agent\n\n## Example Code (Pseudo-code Skeleton)\n```python\npass\n```"
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request", "include_example_code": True},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "system_prompt": "# Mock API Agent\n\n## Example Code (Pseudo-code Skeleton)\n```python\npass\n```",
+            "example_code_requested": True,
+            "example_code_present": True,
+            "example_code_warning": None,
+        }
+        mock_compiler.generate_agent.assert_called_with(
+            "Test Agent Request",
+            multi_agent=False,
+            include_example_code=True,
+            repo_context=None,
+            repo_context_mode="full",
+        )
+
+
+def test_api_generate_agent_endpoint_warns_when_example_code_is_missing():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = "# Mock API Agent"
 
         client = TestClient(app)
@@ -166,14 +220,12 @@ def test_api_generate_agent_endpoint_with_example_code_enabled():
         )
 
         assert response.status_code == 200
-        assert response.json() == {"system_prompt": "# Mock API Agent"}
-        mock_compiler.generate_agent.assert_called_with(
-            "Test Agent Request",
-            multi_agent=False,
-            include_example_code=True,
-            repo_context=None,
-            repo_context_mode="full",
-        )
+        assert response.json() == {
+            "system_prompt": "# Mock API Agent",
+            "example_code_requested": True,
+            "example_code_present": False,
+            "example_code_warning": AGENT_EXAMPLE_CODE_WARNING,
+        }
 
 
 # ── New section-coverage regression tests ─────────────────────────────────────
@@ -235,3 +287,39 @@ def test_example_code_strip_still_works():
     assert "## Swarm Example Code (Pseudo-code Skeleton)" not in multi_no_code
     assert "## Inputs" in multi_no_code
     assert "## Swarm Stop Conditions" in multi_no_code
+
+
+def test_inspect_agent_example_code_detects_valid_single_agent_section():
+    inspection = inspect_agent_example_code(
+        "# Agent\n\n## Example Code (Pseudo-code Skeleton)\n```python\npass\n```",
+        multi_agent=False,
+        requested=True,
+    )
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is True
+    assert inspection.example_code_warning is None
+
+
+def test_inspect_agent_example_code_rejects_missing_section_even_with_fenced_code():
+    inspection = inspect_agent_example_code(
+        "# Agent\n\n```python\npass\n```",
+        multi_agent=False,
+        requested=True,
+    )
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is False
+    assert inspection.example_code_warning == AGENT_EXAMPLE_CODE_WARNING
+
+
+def test_inspect_agent_example_code_rejects_section_without_fenced_code():
+    inspection = inspect_agent_example_code(
+        "# Agent\n\n## Swarm Example Code (Pseudo-code Skeleton)\nTODO",
+        multi_agent=True,
+        requested=True,
+    )
+
+    assert inspection.example_code_requested is True
+    assert inspection.example_code_present is False
+    assert inspection.example_code_warning == AGENT_EXAMPLE_CODE_WARNING

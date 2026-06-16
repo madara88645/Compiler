@@ -146,8 +146,12 @@ class ContextStrategist:
 
         return selected
 
-    def process(self, user_text: str) -> Dict[str, Any]:
-        queries = self.expand_query(user_text)
+    def process(self, user_text: str, *, expand_with_llm: bool = True) -> Dict[str, Any]:
+        queries = (
+            self.expand_query(user_text)
+            if expand_with_llm
+            else self._normalize_queries([], user_text)
+        )
         raw_snippets = self.retrieve(queries)
         final_snippets = self.rank_and_prune(raw_snippets)
 
