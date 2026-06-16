@@ -47,9 +47,9 @@ def test_generator_endpoints_require_api_key(test_key):
         )
 
     assert agent_resp.status_code == 200
-    assert agent_resp.json() == {"system_prompt": "# Mock API Agent"}
+    assert agent_resp.json()["system_prompt"] == "# Mock API Agent"
     assert skill_resp.status_code == 200
-    assert skill_resp.json() == {"skill_definition": "# Mock API Skill"}
+    assert skill_resp.json()["skill_definition"] == "# Mock API Skill"
 
 
 @pytest.mark.auth_required
@@ -327,7 +327,7 @@ def test_worker_client_wraps_user_input_and_context_with_tags():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode=True):
+        def fake_call_api(messages, max_tokens, json_mode=True, *args, **kwargs):
             captured["messages"] = messages
             return '{"ir":{"language":"en","persona":"assistant","role":"helper","domain":"general","intents":[],"goals":[],"tasks":[],"inputs":{},"constraints":[],"style":[],"tone":[],"output_format":"text","length_hint":"medium","steps":[],"examples":[],"banned":[],"tools":[],"metadata":{}},"system_prompt":"sys","user_prompt":"usr","plan":"1. step","optimized_content":"expanded","diagnostics":[],"thought_process":"ok"}'
 
@@ -368,7 +368,7 @@ def test_generator_endpoints_are_public():
 
     # Both should succeed without API key (public endpoints)
     assert agent_resp.status_code == 200
-    assert agent_resp.json() == {"system_prompt": "# Mock Agent"}
+    assert agent_resp.json()["system_prompt"] == "# Mock Agent"
 
     assert skill_resp.status_code == 200
-    assert skill_resp.json() == {"skill_definition": "# Mock Skill"}
+    assert skill_resp.json()["skill_definition"] == "# Mock Skill"

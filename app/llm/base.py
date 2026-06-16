@@ -34,6 +34,7 @@ class LLMProvider(ABC):
         self.config = config
 
         self.client = httpx.Client(timeout=config.timeout)
+        self._client_closed = False
 
     @abstractmethod
     def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> LLMResponse:
@@ -50,9 +51,15 @@ class LLMProvider(ABC):
         """
         pass
 
+    def close(self) -> None:
+        if self._client_closed:
+            return
+
+        self.client.close()
+        self._client_closed = True
+
     def __del__(self):
-        if hasattr(self, "client"):
-            try:
-                self.client.close()
-            except Exception:
-                pass
+        try:
+            self.close()
+        except Exception:
+            pass
