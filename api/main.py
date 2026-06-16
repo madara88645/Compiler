@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import get_build_info
+from app.github_repo_context import close_github_http_client
 
 from api.shared import is_meta_leaked, logger
 
@@ -31,6 +32,7 @@ def get_compiler():
 async def lifespan(app: FastAPI):
     logger.info("Application startup complete", extra={"version": get_build_info()["version"]})
     yield
+    close_github_http_client()
 
 
 app = FastAPI(title="Prompt Compiler API", lifespan=lifespan)

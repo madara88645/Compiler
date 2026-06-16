@@ -190,7 +190,8 @@ class PromptLinter:
 
         # Count every repeated multi-word weasel phrase instead of only the first match.
         for pattern in _MULTI_WORD_WEASEL_PATTERNS:
-            weasel_count += sum(1 for _ in pattern.finditer(lower_text))
+            # Bolt Optimization: len(pattern.findall) runs entirely in C and avoids generator setup overhead
+            weasel_count += len(pattern.findall(lower_text))
 
         ambiguity_score = weasel_count / total_words if total_words > 0 else 0.0
 

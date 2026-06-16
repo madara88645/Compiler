@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import AgentPacksPage from "./page";
 
@@ -61,6 +61,10 @@ describe("Agent Packs page", () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test("surfaces beta messaging", () => {
     render(<AgentPacksPage />);
 
@@ -72,7 +76,7 @@ describe("Agent Packs page", () => {
   test("submits the selected pack type and renders grouped preview output", async () => {
     render(<AgentPacksPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /PR Reviewer/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /PR Reviewer/i }));
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Review pull requests for secret leaks and missing tests." },
     });
@@ -130,6 +134,54 @@ describe("Agent Packs page", () => {
     );
   });
 
+  test("shows a visible error and does not start a download when the pack response is empty", async () => {
+    const originalCreateElement = document.createElement.bind(document);
+    const clickSpy = vi.fn();
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", {
+          configurable: true,
+          value: clickSpy,
+        });
+      }
+      return element;
+    });
+
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Create a full project pack." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+
+    await screen.findByText("Pack Preview");
+
+    apiFetch.mockResolvedValueOnce(
+      new Response(new Blob([]), {
+        status: 200,
+        headers: {
+          "content-disposition": 'attachment; filename="saas-pr-reviewer-claude.zip"',
+          "content-type": "application/zip",
+        },
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
+
+    expect(
+      await screen.findByText("The agent pack download was empty. Please try generating it again."),
+    ).toBeTruthy();
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
+        "Download Pack",
+      ),
+    );
+  });
+
   test("shows a visible error and resets the button when download fails", async () => {
     render(<AgentPacksPage />);
 
@@ -172,5 +224,36 @@ describe("Agent Packs page", () => {
     expect(
       await screen.findByText("The service is temporarily unavailable or still waking up. Please retry in a few seconds."),
     ).toBeTruthy();
+  });
+
+  test("explains the Project Type and Stack fields for first-time users", () => {
+    render(<AgentPacksPage />);
+
+    // Both fields are properly labelled (and therefore focusable by label click).
+    expect(screen.getByLabelText("Project Type")).toBeTruthy();
+    expect(screen.getByLabelText("Stack")).toBeTruthy();
+
+    // Inline guidance text is present for first-time users.
+    expect(screen.getByText(/shapes the tone and sensible defaults/i)).toBeTruthy();
+    expect(screen.getByText(/so the generated files match your setup/i)).toBeTruthy();
+  });
+
+  test("closing the preview clears the generated pack and its labels", async () => {
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Create a full project pack." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+
+    expect(await screen.findByText("Pack Preview")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "CLAUDE.md" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /close pack preview/i }));
+
+    // The preview and its stale file-group labels are gone; the empty state returns.
+    await waitFor(() => expect(screen.queryByText("Pack Preview")).toBeNull());
+    expect(screen.queryByRole("button", { name: "CLAUDE.md" })).toBeNull();
+    expect(screen.getByText("Single-click pack generation")).toBeTruthy();
   });
 });
