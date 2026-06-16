@@ -184,7 +184,9 @@ def get_session_activities(
 ):
     del api_key
     try:
-        return _with_jules_client(lambda client: client.list_activities(session_id, page_size=page_size))
+        return _with_jules_client(
+            lambda client: client.list_activities(session_id, page_size=page_size)
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
     except Exception as exc:
@@ -199,6 +201,7 @@ def reply_to_session(
 ):
     del api_key
     try:
+
         def _reply(client: JulesClient) -> dict[str, Any]:
             session_data = client.get_session(session_id)
             activity_payload = client.list_activities(session_id, page_size=req.page_size)
