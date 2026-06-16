@@ -25,7 +25,8 @@ def test_health_does_not_initialize_compiler_on_startup(monkeypatch):
 def test_health_request_emits_completion_log(monkeypatch):
     stream = io.StringIO()
     for handler in api_logger.handlers:
-        monkeypatch.setattr(handler, "stream", stream)
+        if hasattr(handler, "stream"):
+            monkeypatch.setattr(handler, "stream", stream)
 
     with TestClient(app) as client:
         response = client.get("/health", headers={"user-agent": "pytest-agent"})
