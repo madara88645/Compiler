@@ -316,6 +316,7 @@ export default function AgentPacksPage() {
               <label htmlFor="agent-pack-goal" className="text-sm font-medium text-zinc-300">
                 What should Claude do?
               </label>
+              <div className="relative group">
               <textarea
                 id="agent-pack-goal"
                 aria-label="Agent Pack Goal"
@@ -324,6 +325,19 @@ export default function AgentPacksPage() {
                 className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 placeholder="e.g. Review PRs for prompt leakage, unsafe settings, and missing regression tests."
               />
+
+            {request.goal && (
+              <button
+                type="button"
+                onClick={() => handleFieldChange("goal", "")}
+                className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500/50"
+                title="Clear input"
+                aria-label="Clear input"
+              >
+                Clear
+              </button>
+            )}
+            </div>
             </div>
 
             <div className="flex flex-col gap-2">
