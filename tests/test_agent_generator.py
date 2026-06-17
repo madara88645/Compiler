@@ -289,6 +289,18 @@ def test_example_code_strip_still_works():
     assert "## Swarm Stop Conditions" in multi_no_code
 
 
+def test_single_agent_example_section_not_wrapped_in_outer_fence():
+    """Issue #763: the enabled example-code section must NOT be wrapped in an outer
+    ```markdown fence. When it is, the LLM reproduces the wrapper and emits a stray
+    code fence that swallows the heading and breaks the rendered output."""
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    rendered = client._single_agent_prompt(include_example_code=True)
+    assert "## Example Code (Pseudo-code Skeleton)" in rendered
+    assert "```markdown\n## Example Code (Pseudo-code Skeleton)" not in rendered
+
+
 def test_inspect_agent_example_code_detects_valid_single_agent_section():
     inspection = inspect_agent_example_code(
         "# Agent\n\n## Example Code (Pseudo-code Skeleton)\n```python\npass\n```",

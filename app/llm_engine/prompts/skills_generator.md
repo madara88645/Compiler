@@ -87,18 +87,17 @@ The output must strictly follow this Markdown structure:
 - Only include an implementation example section when a later instruction explicitly enables example code. When enabled, the section is mandatory and must include a fenced code block.
 
 ## OPTIONAL IMPLEMENTATION EXAMPLE SECTION
-When explicitly enabled by a later instruction, you MUST append this section after `## Implementation` and include at least one fenced code block:
+When explicitly enabled by a later instruction, you MUST append this section after `## Implementation` and include at least one fenced code block. Output the heading and the code block directly — do NOT wrap them in an outer code fence:
 
-```markdown
 ## Implementation Example
 [Short, practical code example aligned with the declared schemas and dependencies.]
+
 ```python
 def run_skill(input_payload):
     # TODO: Validate input based on Input Schema
     # TODO: Execute core skill logic
     # TODO: Return Output Schema-compliant response
     return {"status": "not_implemented"}
-```
 ```
 
 ## INPUT HANDLING

@@ -106,11 +106,11 @@ The output must strictly follow this Markdown structure:
 - Only include an example-code section when a later instruction explicitly enables example code. When enabled, the section is mandatory and must include a fenced pseudo-code block.
 
 ## OPTIONAL EXAMPLE CODE SECTION
-When explicitly enabled by a later instruction, you MUST append this section after `## Example Interaction` and include at least one fenced pseudo-code block:
+When explicitly enabled by a later instruction, you MUST append this section after `## Example Interaction` and include at least one fenced pseudo-code block. Output the heading and the code block directly — do NOT wrap them in an outer code fence:
 
-```markdown
 ## Example Code (Pseudo-code Skeleton)
 [Provide a short, realistic skeleton only. Use comments and TODO markers where integration details are unknown.]
+
 ```python
 # Pseudo-code only. Replace TODO items with real project APIs.
 
@@ -119,7 +119,6 @@ def run_agent_task(payload):
     # TODO: Call real project services or APIs confirmed in context.
     # TODO: Handle errors, retries, and logging with existing project utilities.
     return {"status": "not_implemented"}
-```
 ```
 
 ## INPUT HANDLING

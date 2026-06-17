@@ -333,6 +333,18 @@ def test_skill_prompt_omits_examples_section_when_disabled():
     assert "Do not include fenced code blocks" in rendered
 
 
+def test_skill_implementation_example_not_wrapped_in_outer_fence():
+    """Issue #763: the enabled implementation-example section must NOT be wrapped in an
+    outer ```markdown fence. When it is, the LLM reproduces the wrapper and emits a stray
+    code fence that swallows the heading and breaks the rendered output."""
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    rendered = client._skill_prompt(include_example_code=True)
+    assert "## Implementation Example" in rendered
+    assert "```markdown\n## Implementation Example" not in rendered
+
+
 def test_worker_client_omits_skill_implementation_example_when_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
