@@ -13,3 +13,6 @@
 ## 2024-06-03 - Mutually Exclusive Button ARIA Grouping
 **Learning:** When using standard `<button>` tags to create mutually exclusive selection groups (like toggle groups or choice cards), relying solely on visual styling is insufficient for accessibility. Screen readers will treat them as independent, unrelated buttons without state.
 **Action:** Always wrap the buttons in a container with `role="radiogroup"` and a descriptive `aria-label`, and add `role="radio"` and `aria-checked={active}` to each button. This ensures the component is properly announced as a radio group and communicates selection state correctly.
+## 2024-06-17 - Add Clear Button to Input Forms
+**Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. Users have to manually select all text and delete it.
+**Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability.

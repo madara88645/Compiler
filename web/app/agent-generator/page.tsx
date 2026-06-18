@@ -265,6 +265,18 @@ export default function AgentGenerator() {
                   }
                 }}
               />
+
+            {description && (
+              <button
+                type="button"
+                onClick={() => setDescription("")}
+                className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500/50"
+                title="Clear input"
+                aria-label="Clear input"
+              >
+                Clear
+              </button>
+            )}
             </div>
 
             <button
