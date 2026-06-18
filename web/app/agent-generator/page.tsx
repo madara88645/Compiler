@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
@@ -135,6 +137,7 @@ export default function AgentGenerator() {
   const copyToClipboard = () => {
     if (result) {
       navigator.clipboard.writeText(result.content);
+      toast.success("Copied to clipboard");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

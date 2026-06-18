@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles, X } from "lucide-react";
 
@@ -139,6 +141,7 @@ export default function AgentPacksPage() {
   const handleCopyCurrent = async () => {
     if (!currentFile) return;
     await navigator.clipboard.writeText(currentFile.content);
+    toast.success("Copied to clipboard");
     setCopiedState("single");
     setTimeout(() => setCopiedState(null), 1800);
   };
@@ -146,6 +149,7 @@ export default function AgentPacksPage() {
   const handleCopyAll = async () => {
     if (!manifest) return;
     await navigator.clipboard.writeText(bundleFiles(manifest.files));
+    toast.success("Copied to clipboard");
     setCopiedState("all");
     setTimeout(() => setCopiedState(null), 1800);
   };
