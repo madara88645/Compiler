@@ -243,6 +243,7 @@ export default function SkillsGenerator() {
             ) : null}
 
             <div className="relative shrink-0 group">
+              <label htmlFor="skill-description" className="sr-only">Skill Description</label>
               <textarea
                 id="skill-description"
                 aria-label="Skill Description"

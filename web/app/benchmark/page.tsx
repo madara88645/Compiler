@@ -344,6 +344,7 @@ export default function BenchmarkPage() {
         <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
           <div className="z-20 flex w-full flex-col gap-4 border-b border-white/5 bg-black/20 p-4 sm:p-5 md:w-[350px] md:shrink-0 md:border-b-0 md:border-r">
             <div className="group relative flex-1">
+              <label htmlFor="benchmark-prompt" className="sr-only">Benchmark prompt input</label>
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
               <textarea
                 id="benchmark-prompt"

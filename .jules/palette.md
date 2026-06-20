@@ -16,3 +16,6 @@
 ## 2024-06-17 - Add Clear Button to Input Forms
 **Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. Users have to manually select all text and delete it.
 **Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability.
+## 2026-06-20 - Adding Hidden Associated Labels to Textareas
+**Learning:** Next.js pages often use `aria-label` directly on `<textarea>` elements without associated DOM `<label>` elements. This violates complete semantic structure for some screen reader setups. Adding an explicit `<label htmlFor="...">` with the `sr-only` class satisfies accessibility criteria without disrupting the visual layout.
+**Action:** When auditing or implementing inputs/textareas, always ensure a corresponding DOM `<label>` exists. Use `sr-only` for visually hidden but programmatically associated labels.

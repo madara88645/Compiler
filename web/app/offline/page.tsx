@@ -127,6 +127,7 @@ export default function OfflinePage() {
                     <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/20 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
 
                         <div className="flex-1 flex flex-col relative group">
+                            <label htmlFor="offline-prompt" className="sr-only">Offline prompt input</label>
                             <textarea
                                 id="offline-prompt"
                                 aria-label="Offline prompt input"
