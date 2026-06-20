@@ -285,7 +285,7 @@ class LogicAnalyzer:
                     seen.add(sentence)
 
                     # Strip negation to create anti-pattern
-                    stripped = self._strip_negation(sentence, negation_word)
+                    stripped = self._strip_negation(sentence, pattern)
                     anti_pattern = self._create_anti_pattern(stripped, negation_word)
 
                     negations.append(
@@ -300,10 +300,10 @@ class LogicAnalyzer:
 
         return negations
 
-    def _strip_negation(self, sentence: str, negation_word: str) -> str:
+    def _strip_negation(self, sentence: str, pattern: re.Pattern) -> str:
         """Remove negation word from sentence."""
-        # Bolt Optimization: Single regex substitution avoids multiple recompilations in loop
-        result = re.sub(rf"\b{re.escape(negation_word)}\b", " ", sentence, flags=re.IGNORECASE)
+        # Bolt Optimization: Use the already compiled pattern.sub instead of re-compiling dynamically in the loop
+        result = pattern.sub(" ", sentence)
         return " ".join(result.split())  # Normalize whitespace
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:

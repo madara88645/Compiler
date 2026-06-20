@@ -200,3 +200,7 @@
 ## 2024-05-18 - C-level Map, Zip, and Islice for Sequence Pairs
 **Learning:** When generating overlapping string pairs from a list (e.g., combining adjacent sentences), replacing a manual `for` loop that uses `list.append` and string concatenation with `list.extend(map(" ".join, zip(seq, itertools.islice(seq, 1, None))))` shifts execution entirely to C. In our heuristics logic analyzer, this provided a 35%+ speedup by avoiding Python bytecode loop overhead.
 **Action:** Always prefer `zip` with `itertools.islice` combined with `map` or list comprehensions for sliding window or adjacent element operations over manual `for` loop indexing.
+
+## 2024-05-31 - Maintaining functional parity during Regex optimizations
+**Learning:** When refactoring dynamic regex replacements (`re.sub`) to use pre-compiled patterns (`pattern.sub`) to avoid recompilation overhead in tight loops, it is critical to observe the default behaviors of the arguments. Python's `re.sub` replaces *all* occurrences by default. Adding an explicit `count=1` when migrating to `pattern.sub` will inadvertently change the behavior from global replace to single replace, introducing a functional regression while trying to optimize for speed.
+**Action:** When migrating `re.sub` calls to `pattern.sub` for performance, strictly maintain the original arguments (specifically avoiding adding limits like `count=1` unless it was present originally) to ensure performance optimizations don't break existing functionality.
