@@ -1,7 +1,6 @@
 """Unit tests for app.text_utils — pure token estimation and text compression."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from app.text_utils import compress_text_block, estimate_tokens
 

@@ -1,7 +1,6 @@
 """Unit tests for app.token_optimizer — pure text-optimization helpers."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from app.token_optimizer import (
     OptimizeStats,
@@ -168,7 +167,7 @@ class TestOptimizeText:
     def test_consecutive_duplicate_lines_deduplicated(self):
         text = "Hello\nHello\nWorld"
         out, _ = optimize_text(text)
-        lines = [l for l in out.split("\n") if l.strip()]
+        lines = [line for line in out.split("\n") if line.strip()]
         assert lines.count("Hello") == 1
 
     def test_multiple_blank_lines_collapsed(self):
