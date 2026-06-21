@@ -565,7 +565,9 @@ export default function OptimizerPage() {
                             </div>
 
                             <div className="mt-3 flex flex-col gap-3">
+                                <label htmlFor="english-variant-output" className="sr-only">English compact suggestion</label>
                                 <textarea
+                                    id="english-variant-output"
                                     readOnly
                                     value={englishVariant}
                                     aria-label="English compact suggestion"
