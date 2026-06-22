@@ -302,8 +302,9 @@ class LogicAnalyzer:
 
     def _strip_negation(self, sentence: str, pattern: re.Pattern) -> str:
         """Remove negation word from sentence."""
-        # Bolt Optimization: Use the already compiled pattern.sub instead of re-compiling dynamically in the loop
-        result = pattern.sub(" ", sentence)
+        # Preserve later negations in the same sentence so anti-pattern guidance
+        # only flips the clause that matched this detection.
+        result = pattern.sub(" ", sentence, count=1)
         return " ".join(result.split())  # Normalize whitespace
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:
