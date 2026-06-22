@@ -51,8 +51,11 @@ export default function FileUploadZone({ ingesting, uploadProgress, onUploadFile
                 ${ingesting ? "pointer-events-none opacity-50" : ""}
             `}
         >
-            <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
+            <label htmlFor="file-upload" className="sr-only">Upload Files</label>
+            <input id="file-upload" ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
+            <label htmlFor="directory-upload" className="sr-only">Upload Folder</label>
             <input
+                id="directory-upload"
                 ref={directoryInputRef}
                 type="file"
                 multiple
