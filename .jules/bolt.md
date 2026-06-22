@@ -204,3 +204,8 @@
 ## 2024-05-31 - Maintaining functional parity during Regex optimizations
 **Learning:** When refactoring dynamic regex replacements (`re.sub`) to use pre-compiled patterns (`pattern.sub`) to avoid recompilation overhead in tight loops, it is critical to observe the default behaviors of the arguments. Python's `re.sub` replaces *all* occurrences by default. Adding an explicit `count=1` when migrating to `pattern.sub` will inadvertently change the behavior from global replace to single replace, introducing a functional regression while trying to optimize for speed.
 **Action:** When migrating `re.sub` calls to `pattern.sub` for performance, strictly maintain the original arguments (specifically avoiding adding limits like `count=1` unless it was present originally) to ensure performance optimizations don't break existing functionality.
+
+
+## 2024-06-22 - Optimize regex finditer loops by eliminating inner-loop conditionals
+**Learning:** When using `pattern.finditer()` just to count matches and capture the first match's start index, putting a conditional check `if first_match_start < 0:` inside the loop forces an evaluation on every single match. Fetching the first element with `next(iterator, None)` and then summing the rest of the iterator avoids the inner-loop conditional branch entirely and provides a slight performance benefit without the memory overhead of `findall`.
+**Action:** When iterating over regex matches to find the first position and the total count, avoid checking for the first element inside the loop. Use `first_match = next(matches, None)` and count the rest with `sum(1 for _ in matches)`.
