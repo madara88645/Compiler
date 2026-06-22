@@ -88,8 +88,35 @@ describe("Agent Packs page", () => {
     expect(JSON.parse(options.body).pack_type).toBe("pr-reviewer");
 
     expect(await screen.findByText("Pack Preview")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Install & review checklist" })).toBeTruthy();
+    expect(screen.getByText("Review before use")).toBeTruthy();
     expect(screen.getByRole("button", { name: "CLAUDE.md" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "agents" })).toBeTruthy();
+  });
+
+  test("renders pack-specific checklist guidance for project-pack output", async () => {
+    apiJson.mockResolvedValueOnce({
+      provider: "claude",
+      pack_type: "project-pack",
+      download_name: "saas-project-pack-claude",
+      preview_order: ["claude_md", "settings", "workflow"],
+      files: [
+        { path: "CLAUDE.md", content: "# Memory", kind: "claude_md" },
+        { path: ".claude/settings.json", content: "{}", kind: "settings" },
+        { path: ".github/workflows/claude.yml", content: "name: Claude", kind: "workflow" },
+      ],
+    });
+
+    render(<AgentPacksPage />);
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Bootstrap a full Claude project pack." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+
+    expect(await screen.findByText("Install & review checklist")).toBeTruthy();
+    expect(screen.getByText(/Merge \.claude\/settings\.json carefully/i)).toBeTruthy();
+    expect(screen.getByText(/GitHub workflow YAML permissions/i)).toBeTruthy();
   });
 
   test("downloads the generated pack through the Claude download route", async () => {
@@ -121,6 +148,7 @@ describe("Agent Packs page", () => {
     expect(path).toBe("/agent-packs/claude/download");
     expect(JSON.parse(options.body).goal).toBe("Create a full project pack.");
     expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Downloaded")).toBeTruthy();
 
     // The blob URL is created for the download and cleaned up afterwards.
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
@@ -251,8 +279,9 @@ describe("Agent Packs page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /close pack preview/i }));
 
-    // The preview and its stale file-group labels are gone; the empty state returns.
+    // The preview, checklist, and stale file-group labels are gone; the empty state returns.
     await waitFor(() => expect(screen.queryByText("Pack Preview")).toBeNull());
+    expect(screen.queryByRole("heading", { name: "Install & review checklist" })).toBeNull();
     expect(screen.queryByRole("button", { name: "CLAUDE.md" })).toBeNull();
     expect(screen.getByText("Single-click pack generation")).toBeTruthy();
   });
