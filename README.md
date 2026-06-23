@@ -9,19 +9,29 @@
 
 **Prompt Compiler** turns vague requests into structured prompts, execution plans, and policy-checked workflows — so you can go from idea to safe, usable AI output in seconds.
 
-Try it now at [prcompiler.com](https://prcompiler.com) | [PR Safety report](docs/pr-safety.md) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
+It also ships a **PR Safety / Merge Readiness Layer**: paste an AI-agent PR and get a clear verdict — **merge, hold, split, or rebase** — before you merge it.
+
+Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
 
 ---
 
 ## What It Does
 
-Type any request — a feature idea, a bug report, a research question — and Prompt Compiler produces:
+**Compile a request.** Type any request — a feature idea, a bug report, a research question — and Prompt Compiler produces:
 
 - **System Prompt** — persona, role, constraints, output format
 - **User Prompt** — structured task definition
 - **Execution Plan** — step-by-step decomposition
 - **Expanded Prompt** — ready to paste into any LLM
 - **Policy Layer** — risk level, allowed tools, execution mode, data sensitivity
+
+**Check a pull request.** Paste an AI-agent PR's title, description, and changed files into **PR Safety** and get a deterministic merge-readiness report:
+
+- **Verdict** — `merge` · `hold` · `split` · `rebase`
+- **Signals** — risky areas, test coverage, branch freshness, scope match
+- **Recommendations** — plus a GitHub-ready Markdown export you can paste into the PR
+
+It runs fully offline (no GitHub API, no AI calls, no sign-in) and never blocks a merge — it's advice for the human in the loop.
 
 ---
 
@@ -46,9 +56,20 @@ Switch between the output tabs in the UI to inspect each layer, and copy any res
 
 ### PR Safety — Merge Readiness Layer
 
-Before you merge an AI-agent PR, **PR Safety** tells you whether it's safe to **merge, hold, split, or rebase** — based on scope, changed files, risky areas, test coverage, and branch freshness. It's an offline, deterministic advisory (no GitHub API, no AI, no sign-in) and never blocks a merge.
+AI PR review bots create comments. **PR Safety** answers the question a human actually has: **should I merge this PR, or not?**
 
-Open **PR Safety** in the sidebar (or visit `/pr-safety`), paste a PR's details, and copy a GitHub-ready Markdown report. See the [PR Safety guide](docs/pr-safety.md).
+Paste a PR's title, description, and changed files (plus an optional "commits behind" value) and get a deterministic verdict with the signals behind it:
+
+| Verdict | Meaning |
+|---|---|
+| **merge** | No blocking safety signals — proceed with normal review |
+| **hold** | Risky area, missing tests, or scope mismatch — address before merging |
+| **split** | Too large / spans too many top-level areas — break into smaller PRs |
+| **rebase** | Branch is stale (far behind base) — update before merging |
+
+Every report also surfaces **risky areas**, a **test-coverage** signal, **branch freshness**, **scope match**, and concrete **recommendations** — and can be copied or downloaded as a **GitHub-ready Markdown** report to drop straight into the PR (no auto-commenting; you stay in control).
+
+**v1 is an offline, deterministic advisory.** It runs only on what you paste — no GitHub API, no AI calls, no sign-in — and never blocks a merge. Open it in the sidebar or at [`/pr-safety`](https://prcompiler.com/pr-safety); the [PR Safety guide](docs/pr-safety.md) has worked examples (docs-only, auth-risk, stale branch, split-needed), a `curl` recipe for `POST /pr-safety/report`, and an advisory [GitHub Action sketch](docs/pr-safety-github-action.md).
 
 ---
 
@@ -140,6 +161,7 @@ What the beta means in practice:
 - **Fast scaffolding, not blind automation** - expect useful repo memory, settings, agents, and workflow files, then adjust them for your own policies and edge cases.
 - **Best for early repo setup and internal experimentation** - especially when you want to bootstrap Claude Code conventions without hand-writing every asset.
 - **Human review is required** - check prompts, permissions, deny rules, CI assumptions, and generated documentation before shipping.
+- **A built-in install & review checklist** - after generation the UI shows a step-by-step checklist for placing each file in your repo and reviewing sensitive ones before you commit.
 - **No Prompt Compiler API key prompts for visitors** - public web flows are meant to work without asking end users for `x-api-key`, `PROMPTC_SERVER_API_KEY`, or similar internal knobs.
 
 Four pack types are available out of the box, all served from a single Claude-first endpoint:
@@ -335,6 +357,8 @@ Open [http://localhost:3000](http://localhost:3000).
 5. If the task is sensitive, inspect the policy layer before using the result downstream.
 6. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
 
+To check a pull request instead, open **PR Safety** in the sidebar, paste the PR's title, description, and changed files, then **Analyze PR** and read the verdict — copy the Markdown report into the PR if it's useful.
+
 ---
 
 ## Project Structure
@@ -347,12 +371,15 @@ app/
   models_v2.py      IR v2 and policy contract
   llm_engine/       HybridCompiler and provider logic
   heuristics/       Offline parsing, safety, risk, and policy inference
+  pr_safety/        Offline PR Safety analyzer (verdict + signals)
   rag/              SQLite FTS5 RAG index and retrieval
   testing/          Regression runner
   github_artifacts.py
 web/
   app/
     page.tsx                    Main compiler UI
+    pr-safety/                  PR Safety page + report proxy + Markdown export
+    agent-packs/                Claude Agent Packs generator + install checklist
     agent-generator/            Agent Generator page
     skills-generator/           Skill Generator page
     benchmark/                  Benchmark Playground
@@ -370,6 +397,8 @@ docs/           Product, pattern, and workflow docs
 
 ## Docs
 
+- [`docs/pr-safety.md`](docs/pr-safety.md) — PR Safety usage guide, examples, and `curl` recipe
+- [`docs/pr-safety-github-action.md`](docs/pr-safety-github-action.md) — advisory CI integration sketch
 - [`docs/pattern-library.md`](docs/pattern-library.md)
 - [`docs/promptc-safe-workflows.md`](docs/promptc-safe-workflows.md)
 - [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml)
