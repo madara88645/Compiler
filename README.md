@@ -7,14 +7,11 @@
   <img src="docs/images/cover.jpg" alt="Prompt Compiler Cover" width="100%">
 </p>
 
-**Prompt Compiler** does two things for people who build with AI:
+**Prompt Compiler** turns vague requests into structured prompts, execution plans, and policy-checked workflows — so you can go from idea to safe, usable AI output in seconds.
 
-1. **Compiles** vague requests into structured prompts, execution plans, and policy-checked workflows — so you go from idea to safe, usable AI output in seconds.
-2. **Checks AI-agent pull requests before you merge them.** Its built-in **PR Safety / Merge Readiness Layer** reads a PR's scope, changed files, risky areas, tests, and branch freshness, then tells you whether to **merge, hold, split, or rebase**.
+It also ships a **PR Safety / Merge Readiness Layer**: paste an AI-agent PR and get a clear verdict — **merge, hold, split, or rebase** — before you merge it.
 
-> AI review bots leave comments. Prompt Compiler tells the human whether the PR is actually safe to merge.
-
-Try it now at [**prcompiler.com**](https://prcompiler.com) — compile a prompt, or open [**PR Safety**](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
+Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
 
 ---
 
