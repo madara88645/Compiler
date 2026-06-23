@@ -1,0 +1,82 @@
+# PR Safety — advisory report (EXAMPLE / SKETCH, not an active workflow)
+#
+# This file lives under examples/ on purpose: it does NOT run in this repo.
+# To try it, copy it to .github/workflows/ in your own project.
+#
+# It is ADVISORY ONLY:
+#   - posts the offline PR Safety report to the GitHub job summary
+#   - never blocks a merge, never fails the build on a "hold"/"split" verdict
+#   - needs no secrets, no GitHub App, no OAuth, no provider keys
+#
+# v0 runs the in-repo offline analyzer (app.pr_safety.analyzer) on the PR's
+# own metadata. Nothing leaves the runner.
+name: PR Safety (advisory)
+
+on:
+  pull_request:
+
+# Read-only; advisory summaries do not need write access.
+permissions:
+  contents: read
+
+jobs:
+  pr-safety:
+    runs-on: ubuntu-latest
+    # Advisory: a non-green verdict must never fail the job.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Generate offline PR Safety report
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, subprocess
+          from app.pr_safety.analyzer import analyze_pr_safety
+
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+
+          changed = subprocess.run(
+              ["git", "diff", "--name-only", f"{base}...{head}"],
+              capture_output=True, text=True, check=True,
+          ).stdout.split()
+
+          # How far HEAD is behind base (advisory branch-freshness signal).
+          commits_behind = int(subprocess.run(
+              ["git", "rev-list", "--count", f"{head}..{base}"],
+              capture_output=True, text=True, check=True,
+          ).stdout.strip() or "0")
+
+          report = analyze_pr_safety(
+              os.environ.get("PR_TITLE", ""),
+              os.environ.get("PR_BODY", "") or "(no description)",
+              changed or ["(no files)"],
+              commits_behind=commits_behind,
+          )
+
+          print("## PR Safety — advisory report")
+          print()
+          print(f"**Verdict:** `{report.verdict}`")
+          print(f"**Changed files:** {report.changed_files.total}")
+          print()
+          if report.recommendations:
+              print("### Recommendations")
+              for rec in report.recommendations:
+                  print(f"- {rec}")
+          print()
+          print("_Offline heuristic advisory — not a merge gate._")
+          PY
