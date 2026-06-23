@@ -8,6 +8,8 @@ import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles, X
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
+import InstallChecklist from "./components/InstallChecklist";
+import { buildInstallChecklist } from "./installChecklist";
 import { agentPackProviders } from "./providerRegistry";
 import type {
   AgentPackFile,
@@ -85,6 +87,7 @@ export default function AgentPacksPage() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
+  const [downloaded, setDownloaded] = useState(false);
 
   const requestHeaders = useMemo(
     () => buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
@@ -108,6 +111,11 @@ export default function AgentPacksPage() {
     activeGroup?.files[0] ??
     null;
 
+  const installChecklist = useMemo(() => {
+    if (!manifest) return [];
+    return buildInstallChecklist(manifest, { downloaded });
+  }, [manifest, downloaded]);
+
   const handleFieldChange = <K extends keyof AgentPackRequest>(key: K, value: AgentPackRequest[K]) => {
     setRequest((prev) => ({ ...prev, [key]: value }));
   };
@@ -120,6 +128,7 @@ export default function AgentPacksPage() {
     setManifest(null);
     setActiveKind(null);
     setSelectedPath(null);
+    setDownloaded(false);
 
     try {
       const data = await apiJson<AgentPackManifest>("/agent-packs/claude", {
@@ -159,6 +168,7 @@ export default function AgentPacksPage() {
     setActiveKind(null);
     setSelectedPath(null);
     setCopiedState(null);
+    setDownloaded(false);
   };
 
   const handleDownload = async () => {
@@ -197,6 +207,7 @@ export default function AgentPacksPage() {
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(href), 0);
+      setDownloaded(true);
     } catch (err: unknown) {
       showError(err);
       setError(describeRequestError(err, { fallback: "Failed to download agent pack." }));
@@ -275,9 +286,8 @@ export default function AgentPacksPage() {
 
             <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-100/90">
               <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Experimental Feature</div>
-              Agent Packs is in active development and may produce incomplete or incorrect output for your specific project.
-              The generated files — Claude settings, agent definitions, and CI workflows — are a useful starting point,
-              but review and adjust each file carefully before committing. Some features may not work as expected in your repo.
+              Agent Packs is in beta and gives you a starting point, not a finished install. After generation, follow the
+              install checklist on the right, review sensitive files, then commit only what you trust.
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -465,6 +475,8 @@ export default function AgentPacksPage() {
                     </button>
                   </div>
                 </div>
+
+                <InstallChecklist sections={installChecklist} downloaded={downloaded} />
 
                 <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3 sm:px-6">
                   {previewGroups.map((group) => (
