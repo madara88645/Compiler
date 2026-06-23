@@ -9,7 +9,7 @@
 
 **Prompt Compiler** turns vague requests into structured prompts, execution plans, and policy-checked workflows — so you can go from idea to safe, usable AI output in seconds.
 
-Try it now at [prcompiler.com](https://prcompiler.com) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
+Try it now at [prcompiler.com](https://prcompiler.com) | [PR Safety report](docs/pr-safety.md) | [VS Code extension](integrations/vscode-extension) | [GitHub artifacts](docs/pattern-library.md)
 
 ---
 
@@ -41,6 +41,14 @@ Switch between the output tabs in the UI to inspect each layer, and copy any res
 <p align="center">
   <img src="docs/images/comp1.PNG" alt="Prompt Compiler - Main View" width="100%">
 </p>
+
+---
+
+### PR Safety — Merge Readiness Layer
+
+Before you merge an AI-agent PR, **PR Safety** tells you whether it's safe to **merge, hold, split, or rebase** — based on scope, changed files, risky areas, test coverage, and branch freshness. It's an offline, deterministic advisory (no GitHub API, no AI, no sign-in) and never blocks a merge.
+
+Open **PR Safety** in the sidebar (or visit `/pr-safety`), paste a PR's details, and copy a GitHub-ready Markdown report. See the [PR Safety guide](docs/pr-safety.md).
 
 ---
 
