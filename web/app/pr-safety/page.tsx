@@ -2,29 +2,14 @@
 
 import { useRef, useState } from "react";
 import { ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
 import InfoButton from "../components/InfoButton";
 import GeneratorErrorState from "../components/GeneratorErrorState";
-
-type Verdict = "merge" | "hold" | "split" | "rebase";
-type SignalStatus = "ok" | "gap" | "mismatch" | "stale" | "unknown" | "hit";
-
-type FileGroup = { name: string; files: string[] };
-type RiskyAreaHit = { category: string; file: string; reason: string };
-type TestGap = { file: string; reason: string };
-
-type PrSafetyReport = {
-  verdict: Verdict;
-  title: string;
-  changed_files: { total: number; groups: FileGroup[] };
-  risky_areas: { status: SignalStatus; hits: RiskyAreaHit[] };
-  test_coverage: { status: SignalStatus; gaps: TestGap[]; test_files: string[] };
-  branch_freshness: { status: SignalStatus; commits_behind: number | null; notes: string[] };
-  scope_match: { status: SignalStatus; notes: string[] };
-  recommendations: string[];
-};
+import { reportToMarkdown } from "./markdown";
+import type { PrSafetyReport, SignalStatus, Verdict } from "./types";
 
 type Tone = "green" | "amber" | "blue" | "violet" | "zinc";
 
@@ -109,6 +94,7 @@ export default function PrSafetyPage() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<PrSafetyReport | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const [copied, setCopied] = useState(false);
 
   const isAnalyzingRef = useRef(false);
 
@@ -170,6 +156,27 @@ export default function PrSafetyPage() {
     setCommitsBehindText(EXAMPLE.commitsBehind);
     setReport(null);
     setLastError(null);
+  };
+
+  const copyMarkdown = () => {
+    if (!report) return;
+    void navigator.clipboard.writeText(reportToMarkdown(report));
+    toast.success("Copied report as Markdown");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadMarkdown = () => {
+    if (!report) return;
+    const blob = new Blob([reportToMarkdown(report)], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "pr-safety-report.md";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
   const verdictView = report ? VERDICT_VIEW[report.verdict] : null;
@@ -318,9 +325,27 @@ export default function PrSafetyPage() {
                     </div>
                     <p className="mt-2 text-xs text-zinc-400">{verdictView.hint}</p>
                   </div>
-                  <div className="text-right text-xs text-zinc-500">
-                    {report.changed_files.total} file
-                    {report.changed_files.total === 1 ? "" : "s"} changed
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <div className="text-xs text-zinc-500">
+                      {report.changed_files.total} file
+                      {report.changed_files.total === 1 ? "" : "s"} changed
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={copyMarkdown}
+                        className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-500/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                      >
+                        {copied ? "Copied!" : "Copy as Markdown"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadMarkdown}
+                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                      >
+                        Download .md
+                      </button>
+                    </div>
                   </div>
                 </div>
 

@@ -22,6 +22,10 @@ vi.mock("../lib/showError", () => ({
   showError,
 }));
 
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
 const SAMPLE_REPORT = {
   verdict: "hold",
   title: "Add login endpoint",
@@ -80,6 +84,10 @@ describe("PR Safety page", () => {
     apiJson.mockReset();
     showError.mockReset();
     apiJson.mockResolvedValue(SAMPLE_REPORT);
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   afterEach(() => {
@@ -160,6 +168,22 @@ describe("PR Safety page", () => {
     expect(
       screen.getByText("Hold merge until the flagged safety signals are addressed"),
     ).toBeTruthy();
+  });
+
+  test("copies the rendered report as GitHub-ready Markdown", async () => {
+    render(<PrSafetyPage />);
+
+    fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: /analyze pr/i }));
+
+    await screen.findByTestId("pr-verdict");
+    fireEvent.click(screen.getByRole("button", { name: /copy as markdown/i }));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+    const md = (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(md).toContain("# PR Safety Report");
+    expect(md).toMatch(/HOLD/);
+    expect(md).toContain("## Recommendations");
   });
 
   test("surfaces request failures through showError", async () => {
