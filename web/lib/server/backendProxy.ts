@@ -1,5 +1,10 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 25_000;
+// Agent Pack generation runs a single LLM `generate_agent` call (max_tokens=4000)
+// that legitimately takes ~24s, while the backend's own hard LLM timeout is 30s
+// (and up to 99s in production). The 25s default proxy budget cuts that off before
+// the backend even finishes, so these routes get a larger, route-scoped budget.
+export const AGENT_PACK_UPSTREAM_TIMEOUT_MS = 60_000;
 const NETWORK_ERROR_DETAIL =
   "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
 const TIMEOUT_ERROR_DETAIL =

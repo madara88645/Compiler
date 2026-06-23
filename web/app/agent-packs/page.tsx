@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 
 import { useMemo, useState } from "react";
-import { Bot, Copy, Download, FileCode2, FolderArchive, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
@@ -427,7 +427,27 @@ export default function AgentPacksPage() {
           </section>
 
           <section className="relative flex min-h-[380px] w-full flex-col bg-black/20 md:min-h-0 md:w-[62%]">
-            {manifest ? (
+            {loading ? (
+              <div
+                className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-cyan-500/30 blur-[45px]" />
+                  <div className="relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/10 bg-gradient-to-br from-zinc-900 to-black shadow-2xl">
+                    <Loader2 size={40} className="animate-spin text-cyan-300/80" aria-hidden="true" />
+                  </div>
+                </div>
+                <div className="max-w-sm space-y-2">
+                  <h3 className="text-lg font-medium text-zinc-200">Generating your agent pack…</h3>
+                  <p className="text-sm leading-relaxed text-zinc-500">
+                    Claude is drafting and assembling your repo-ready files. This usually takes around
+                    20–30 seconds — keep this tab open while it finishes.
+                  </p>
+                </div>
+              </div>
+            ) : manifest ? (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex flex-col gap-3 border-b border-white/5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div>
