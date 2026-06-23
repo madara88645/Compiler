@@ -6,8 +6,6 @@ no model imports) and are safe to call in isolation.
 
 from __future__ import annotations
 
-import pytest
-
 from app.emitters import (
     _clean_domain_suggestion_text,
     _contains_any_marker,
@@ -131,7 +129,7 @@ class TestCleanDomainSuggestionText:
 
     def test_whitespace_normalized(self) -> None:
         result = _clean_domain_suggestion_text("  Review   the code  ")
-        assert result == "Review   the code"
+        assert result == "Review the code"
 
     def test_ok_prefix_stripped_before_use(self) -> None:
         assert _clean_domain_suggestion_text("Ok: Use type hints") == "Use type hints"
