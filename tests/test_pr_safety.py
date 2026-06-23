@@ -110,9 +110,54 @@ def test_matching_test_files_clear_test_gap():
     assert report.test_coverage.status == "ok"
     assert report.test_coverage.test_files == ["tests/test_auth.py"]
     assert report.test_coverage.gaps == []
-    assert report.verdict in {"merge", "hold"}
-    if report.verdict == "hold":
-        assert report.risky_areas.hits
+    assert report.verdict == "hold"
+    assert report.risky_areas.hits
+
+
+def test_non_risky_source_without_tests_recommends_hold():
+    report = analyze_pr_safety(
+        title="refactor: tweak emitter output",
+        description="Adjust formatting in the emitter module.",
+        changed_files=["app/emitters.py"],
+    )
+
+    assert report.test_coverage.status == "gap"
+    assert {gap.file for gap in report.test_coverage.gaps} == {"app/emitters.py"}
+    assert report.risky_areas.status == "ok"
+    assert report.scope_match.status == "ok"
+    assert report.verdict == "hold"
+    assert any("tests" in item.lower() for item in report.recommendations)
+
+
+def test_colocated_tsx_test_file_clears_coverage_gap():
+    report = analyze_pr_safety(
+        title="fix: pr safety page copy",
+        description="Adjust PR Safety page wording.",
+        changed_files=[
+            "web/app/pr-safety/page.tsx",
+            "web/app/pr-safety/page.test.tsx",
+        ],
+    )
+
+    assert report.test_coverage.status == "ok"
+    assert report.test_coverage.test_files == ["web/app/pr-safety/page.test.tsx"]
+    assert report.test_coverage.gaps == []
+    assert report.verdict == "merge"
+
+
+def test_hyphenated_test_name_clears_gap_for_underscored_module():
+    report = analyze_pr_safety(
+        title="refactor: user profile helper",
+        description="Clean up profile helper utilities.",
+        changed_files=[
+            "app/user_profile.py",
+            "tests/test_user-profile.py",
+        ],
+    )
+
+    assert report.test_coverage.status == "ok"
+    assert report.test_coverage.gaps == []
+    assert report.verdict == "merge"
 
 
 def test_scope_mismatch_when_description_focus_is_missing_from_files():
