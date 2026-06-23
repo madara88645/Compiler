@@ -118,7 +118,9 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
                 <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">
                     …or paste a path to a local file/folder
                 </p>
+                <label htmlFor="file-path" className="sr-only">Path to file or folder</label>
                 <input
+                    id="file-path"
                     type="text"
                     aria-label="Path to file or folder..."
                     className="w-full rounded-lg border border-white/5 bg-black/30 p-2 text-xs font-mono transition-colors placeholder-zinc-600 focus:border-blue-500/30 focus:outline-none"

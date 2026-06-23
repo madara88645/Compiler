@@ -31,7 +31,9 @@ export default function RagSearchPanel({
         <div className="flex flex-col gap-2">
             <div className="flex gap-2">
                 <div className="relative flex-1" onClick={focusInput}>
+                    <label htmlFor="search-context" className="sr-only">Search context...</label>
                     <input
+                        id="search-context"
                         ref={inputRef}
                         type="text"
                         aria-label="Search context..."
