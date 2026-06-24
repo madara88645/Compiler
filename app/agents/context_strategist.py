@@ -4,10 +4,13 @@ Responsible for semantic retrieval, query expansion, and context re-ranking.
 """
 import json
 import re
-import sys
 from typing import List, Dict, Any, Optional
 from app.rag.simple_index import search_hybrid
 from app.llm_engine.client import WorkerClient
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ContextStrategist:
@@ -98,7 +101,7 @@ class ContextStrategist:
             data = json.loads(response)
             return self._normalize_queries(data, prompt)
         except Exception as e:
-            print(f"[STRATEGIST] Query expansion failed: {e}", file=sys.stderr)
+            logger.debug("Query expansion failed: %s", e)
             return self._normalize_queries([], prompt)
 
     _ARTIFACT_LIKE_RE = re.compile(
