@@ -193,19 +193,20 @@ describe("Next backend proxy route wiring", () => {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestMethod: "GET",
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestMethod: "GET",
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
     },
   ])("gives $name requests the longer upstream timeout budget", async ({
     handler,
     requestUrl,
+    requestMethod,
     requestBody,
   }) => {
     vi.useFakeTimers();
@@ -231,12 +232,12 @@ describe("Next backend proxy route wiring", () => {
 
       const responsePromise = handler(
         new Request(requestUrl, {
-          method: "POST",
+          method: requestMethod || "POST",
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(requestBody),
+          body: requestBody ? JSON.stringify(requestBody) : undefined,
         }),
       );
 
@@ -247,9 +248,23 @@ describe("Next backend proxy route wiring", () => {
       expect(abortSignals[0]?.aborted).toBe(false);
 
       await vi.advanceTimersByTimeAsync(35_000);
+      expect(abortSignals[0]?.aborted).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(abortSignals).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(abortSignals[1]?.aborted).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(abortSignals).toHaveLength(3);
+
+      await vi.advanceTimersByTimeAsync(60_000);
       const response = await responsePromise;
 
-      expect(abortSignals[0]?.aborted).toBe(true);
+      expect(abortSignals[2]?.aborted).toBe(true);
       expect(response.status).toBe(504);
       await expect(response.json()).resolves.toEqual({
         detail: "The backend did not respond within the upstream timeout. Please retry shortly.",
@@ -257,7 +272,7 @@ describe("Next backend proxy route wiring", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  }, 15_000);
 
   it.each<RouteCase>([
     {
