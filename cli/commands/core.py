@@ -41,6 +41,7 @@ from app.resources import get_ir_schema_json
 
 from app import get_version
 from app.analytics import AnalyticsManager, create_record_from_ir
+from cli.render import get_console, render_summary_card, render_prompt_sections
 # from app.history import get_history_manager
 
 
@@ -195,21 +196,17 @@ def _run_compile(
     if json_only and quiet:
         quiet = False
     system_prompt = (
-        emit_system_prompt(ir)
-        if ir
-        else (emit_system_prompt_v2(ir2) if (ir2 and render_v2) else "")
+        emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if ir2 else "")
     )
     if quiet:
         print(system_prompt)
         return
-    user_prompt = (
-        emit_user_prompt(ir) if ir else (emit_user_prompt_v2(ir2) if (ir2 and render_v2) else "")
-    )
-    plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if (ir2 and render_v2) else "")
+    user_prompt = emit_user_prompt(ir) if ir else (emit_user_prompt_v2(ir2) if ir2 else "")
+    plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if ir2 else "")
     expanded = (
         emit_expanded_prompt(ir, diagnostics=diagnostics)
         if ir
-        else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if (ir2 and render_v2) else "")
+        else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if ir2 else "")
     )
     if json_only:
         data = ir_json
@@ -229,7 +226,7 @@ def _run_compile(
             payload = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode("utf-8")
             default_name = "ir.json"
         if out or out_dir:
-            if fmt_l == "md" and (ir or (ir2 and render_v2)):
+            if fmt_l == "md" and (ir or ir2):
                 # Support --format md to save prompts as Markdown (v1 or v2 rendering)
                 md_parts = []
                 if system_prompt:
@@ -252,7 +249,7 @@ def _run_compile(
         # Print to console
         if fmt_l in {"yaml", "yml"} and yaml is not None:
             typer.echo(payload)
-        elif fmt_l == "md" and (ir or (ir2 and render_v2)):
+        elif fmt_l == "md" and (ir or ir2):
             # Print a minimal markdown block to console when requested
             md_parts = []
             if system_prompt:
@@ -272,19 +269,13 @@ def _run_compile(
         else:
             typer.echo(payload)
         return
-    if ir:
-        print(f"[bold white]Persona:[/bold white] {ir.persona} (heuristics v{HEURISTIC_VERSION})")
-        print(f"[bold white]Role:[/bold white] {ir.role}")
-    else:
-        print(f"[bold white]IR v2[/bold white] (heuristics v{HEURISTIC2_VERSION})")
-    print("\n[bold blue]IR JSON:[/bold blue]")
-    ir_json = ir_json
+    # Phase 2: human-first console output is rendered below (after the save branch).
     # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization
     rendered = orjson.dumps(ir_json, option=orjson.OPT_INDENT_2).decode("utf-8")
     if out or out_dir:
         fmt_l = (fmt or "json").lower()
         # Support --format md to save prompts as Markdown (v1 or v2 rendering)
-        if fmt_l == "md" and (ir or (ir2 and render_v2)):
+        if fmt_l == "md" and (ir or ir2):
             md_parts = []
             if system_prompt:
                 md_parts.append("# System Prompt\n\n" + system_prompt)
@@ -307,12 +298,13 @@ def _run_compile(
             return
         _write_output(rendered, out, out_dir, default_name="ir.json")
         return
-    print(rendered)
-    if ir or (ir2 and render_v2):
-        print("\n[bold green]System Prompt:[/bold green]\n" + system_prompt)
-        print("\n[bold magenta]User Prompt:[/bold magenta]\n" + user_prompt)
-        print("\n[bold yellow]Plan:[/bold yellow]\n" + plan)
-        print("\n[bold cyan]Expanded Prompt:[/bold cyan]\n" + expanded)
+    console = get_console()
+    if ir:
+        print(f"[bold white]Persona:[/bold white] {ir.persona} (heuristics v{HEURISTIC_VERSION})")
+        print(f"[bold white]Role:[/bold white] {ir.role}")
+    else:
+        render_summary_card(console, ir_json)
+    render_prompt_sections(console, system_prompt, user_prompt, plan, expanded)
 
     # Save to history - DISABLED (legacy module removed)
     # try:
