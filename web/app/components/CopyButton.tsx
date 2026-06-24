@@ -38,6 +38,7 @@ export default function CopyButton({
       className={`${baseClasses} ${variantClasses} ${className}`}
       title={copied ? "Copied!" : label}
       aria-label={copied ? "Copied" : label}
+      aria-live="polite"
     >
       {copied ? (
         <>
