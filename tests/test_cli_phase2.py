@@ -78,3 +78,10 @@ def test_pack_md_includes_metadata_header():
     assert result.exit_code == 0
     assert "Domain:" in result.stdout
     assert "IR version:" in result.stdout
+
+
+def test_compile_json_only_format_md_emits_markdown():
+    result = _runner.invoke(_app, ["compile", "write a haiku", "--json-only", "--format", "md"])
+    assert result.exit_code == 0
+    assert "# System Prompt" in result.stdout
+    assert "# IR JSON" in result.stdout

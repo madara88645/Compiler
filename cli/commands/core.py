@@ -386,7 +386,9 @@ def compile_cmd(
     ),
     v1: bool = typer.Option(False, "--v1", help="Use legacy IR v1 output and render prompts"),
     render_v2: bool = typer.Option(
-        False, "--render-v2", help="Render prompts using IR v2 emitters"
+        False,
+        "--render-v2",
+        help="Deprecated for compile (IR v2 prompts now render by default); still used by batch --format md.",
     ),
     out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
     out_dir: Path = typer.Option(
