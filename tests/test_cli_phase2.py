@@ -10,3 +10,34 @@ def test_strategist_expansion_failure_is_silent(capsys):
     captured = capsys.readouterr()
     assert "[STRATEGIST]" not in captured.err
     assert isinstance(result, list)
+
+
+from rich.console import Console
+
+from cli.render import render_summary_card, render_prompt_sections
+
+
+def test_summary_card_shows_key_fields():
+    console = Console(record=True, width=80)
+    ir = {
+        "persona": "assistant",
+        "domain": "software",
+        "output_format": "text",
+        "goals": ["g1"],
+        "constraints": ["c1", "c2"],
+        "metadata": {"policy_summary": {"risk_level": "low"}},
+    }
+    render_summary_card(console, ir)
+    out = console.export_text()
+    assert "assistant" in out
+    assert "software" in out
+    assert "low" in out
+
+
+def test_prompt_sections_preserve_bracket_tokens():
+    console = Console(record=True, width=80)
+    render_prompt_sections(console, "Use [clarify] and [policy] here", "", "", "")
+    out = console.export_text()
+    assert "[clarify]" in out
+    assert "[policy]" in out
+    assert "System Prompt" in out
