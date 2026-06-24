@@ -280,6 +280,25 @@ API keys are stored in VS Code secret storage, not workspace settings.
 
 ## Installation
 
+### CLI (pip / pipx)
+
+Install the command-line compiler from PyPI:
+
+```bash
+pipx install prcompiler        # recommended — isolated install
+# or
+pip install prcompiler
+```
+
+Then compile a prompt:
+
+```bash
+promptc compile "write a haiku about the sea"
+promptc --version
+```
+
+### From source (development)
+
 ```bash
 git clone https://github.com/madara88645/Compiler.git
 cd Compiler
