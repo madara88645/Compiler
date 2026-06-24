@@ -48,8 +48,33 @@ from app.analytics import AnalyticsManager, create_record_from_ir
 HEURISTIC_VERSION = "1.0.0"
 HEURISTIC2_VERSION = "2.0.0"
 
-app = typer.Typer(help="Core compiler and utility commands")
+app = typer.Typer(no_args_is_help=True)
 console = Console()
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(get_version())
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show the prcompiler version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """
+    prcompiler — turn messy natural-language requests into structured prompts,
+    plans, and exportable artifacts.
+
+    Example: promptc compile "write a haiku about the sea"
+    """
 
 
 def _write_output(

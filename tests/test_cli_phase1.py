@@ -12,3 +12,12 @@ def test_help_lists_no_deprecated_commands():
     assert result.exit_code == 0
     for name in DEPRECATED:
         assert name not in result.stdout, f"deprecated command still listed: {name}"
+
+
+from app import get_version
+
+
+def test_version_flag_prints_version():
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == get_version()
