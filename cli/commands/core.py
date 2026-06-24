@@ -195,9 +195,7 @@ def _run_compile(
     # Resolve quiet vs json_only
     if json_only and quiet:
         quiet = False
-    system_prompt = (
-        emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if ir2 else "")
-    )
+    system_prompt = emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if ir2 else "")
     if quiet:
         print(system_prompt)
         return
@@ -963,9 +961,7 @@ def pack_command(
         _risk = ((_ir2_json.get("metadata") or {}).get("policy_summary") or {}).get(
             "risk_level"
         ) or "—"
-    pack_header = (
-        f"Domain: {_domain} | Persona: {_persona} | Risk: {_risk} | IR version: {ir_ver}"
-    )
+    pack_header = f"Domain: {_domain} | Persona: {_persona} | Risk: {_risk} | IR version: {ir_ver}"
     fmt_l = (format or "md").lower()
     if fmt_l in {"md", "markdown"}:
         payload = _render_prompt_pack_md(
