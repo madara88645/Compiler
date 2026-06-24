@@ -11,7 +11,7 @@ try:  # Prefer installed distribution metadata
     from importlib.metadata import version, PackageNotFoundError  # type: ignore
 
     try:
-        __version__ = version("promptc")  # Distribution name as defined in pyproject
+        __version__ = version("prcompiler")  # Distribution name as defined in pyproject
     except PackageNotFoundError:
         __version__ = "0.0.0-dev"
 except Exception:  # pragma: no cover - extremely defensive
