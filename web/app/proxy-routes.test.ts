@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AGENT_PACK_UPSTREAM_TIMEOUT_MS } from "../lib/server/backendProxy";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
 import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
@@ -193,20 +194,19 @@ describe("Next backend proxy route wiring", () => {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestMethod: "GET",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestMethod: "GET",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
     },
   ])("gives $name requests the longer upstream timeout budget", async ({
     handler,
     requestUrl,
-    requestMethod,
     requestBody,
   }) => {
     vi.useFakeTimers();
@@ -230,38 +230,38 @@ describe("Next backend proxy route wiring", () => {
         });
       });
 
-      const responsePromise = handler(
-        new Request(requestUrl, {
-          method: requestMethod || "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: requestBody ? JSON.stringify(requestBody) : undefined,
-        }),
-      );
+      const request = new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      const bufferedBody = new TextEncoder().encode(JSON.stringify(requestBody)).buffer;
+      const requestArrayBufferSpy = vi.spyOn(request, "arrayBuffer").mockResolvedValue(bufferedBody);
+
+      const responsePromise = handler(request);
+
+      await Promise.resolve();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(abortSignals).toHaveLength(1);
 
-      await vi.advanceTimersByTimeAsync(25_000);
+      await vi.advanceTimersByTimeAsync(AGENT_PACK_UPSTREAM_TIMEOUT_MS - 1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(abortSignals[0]?.aborted).toBe(false);
 
-      await vi.advanceTimersByTimeAsync(35_000);
+      await vi.advanceTimersByTimeAsync(1);
       expect(abortSignals[0]?.aborted).toBe(true);
 
-      await vi.advanceTimersByTimeAsync(1_000);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(abortSignals).toHaveLength(2);
-
-      await vi.advanceTimersByTimeAsync(60_000);
-      expect(abortSignals[1]?.aborted).toBe(true);
-
-      await vi.advanceTimersByTimeAsync(2_000);
+      await vi.runAllTimersAsync();
       expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(abortSignals).toHaveLength(3);
-
-      await vi.advanceTimersByTimeAsync(60_000);
+      expect(requestArrayBufferSpy).toHaveBeenCalledTimes(1);
+      for (const [, init] of fetchMock.mock.calls) {
+        expect(init?.body).toBe(bufferedBody);
+      }
       const response = await responsePromise;
 
       expect(abortSignals[2]?.aborted).toBe(true);
