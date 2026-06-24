@@ -190,6 +190,77 @@ describe("Next backend proxy route wiring", () => {
 
   it.each<RouteCase>([
     {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+    },
+  ])("gives $name requests the longer upstream timeout budget", async ({
+    handler,
+    requestUrl,
+    requestBody,
+  }) => {
+    vi.useFakeTimers();
+    try {
+      const abortSignals: AbortSignal[] = [];
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+        const signal = init?.signal as AbortSignal | undefined;
+        if (signal) {
+          abortSignals.push(signal);
+        }
+        return new Promise((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              const err = new Error("aborted");
+              err.name = "AbortError";
+              reject(err);
+            },
+            { once: true },
+          );
+        });
+      });
+
+      const responsePromise = handler(
+        new Request(requestUrl, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }),
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(abortSignals).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(abortSignals[0]?.aborted).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(35_000);
+      const response = await responsePromise;
+
+      expect(abortSignals[0]?.aborted).toBe(true);
+      expect(response.status).toBe(504);
+      await expect(response.json()).resolves.toEqual({
+        detail: "The backend did not respond within the upstream timeout. Please retry shortly.",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each<RouteCase>([
+    {
       name: "agent generation",
       handler: agentGenerateRoute,
       requestUrl: "http://localhost:3000/agent-generator/generate",
