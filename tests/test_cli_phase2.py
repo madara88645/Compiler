@@ -1,3 +1,14 @@
+import json as _json
+
+from rich.console import Console
+from typer.testing import CliRunner
+
+from cli.main import app as _app
+from cli.render import render_prompt_sections, render_summary_card
+
+_runner = CliRunner()
+
+
 def test_strategist_expansion_failure_is_silent(capsys):
     from app.agents.context_strategist import ContextStrategist
 
@@ -10,11 +21,6 @@ def test_strategist_expansion_failure_is_silent(capsys):
     captured = capsys.readouterr()
     assert "[STRATEGIST]" not in captured.err
     assert isinstance(result, list)
-
-
-from rich.console import Console
-
-from cli.render import render_summary_card, render_prompt_sections
 
 
 def test_summary_card_shows_key_fields():
@@ -41,15 +47,6 @@ def test_prompt_sections_preserve_bracket_tokens():
     assert "[clarify]" in out
     assert "[policy]" in out
     assert "System Prompt" in out
-
-
-import json as _json
-
-from typer.testing import CliRunner
-
-from cli.main import app as _app
-
-_runner = CliRunner()
 
 
 def test_compile_default_shows_rendered_sections_not_raw_ir():
