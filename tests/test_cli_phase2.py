@@ -71,3 +71,10 @@ def test_compile_quiet_emits_nonempty_system_prompt():
     result = _runner.invoke(_app, ["compile", "write a haiku", "--quiet"])
     assert result.exit_code == 0
     assert result.stdout.strip() != ""
+
+
+def test_pack_md_includes_metadata_header():
+    result = _runner.invoke(_app, ["pack", "build a rest api", "--format", "md"])
+    assert result.exit_code == 0
+    assert "Domain:" in result.stdout
+    assert "IR version:" in result.stdout

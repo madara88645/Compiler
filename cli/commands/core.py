@@ -950,12 +950,30 @@ def pack_command(
         heur = HEURISTIC2_VERSION
         ir_ver = "v2"
 
+    if v1:
+        _domain = "—"
+        _persona = getattr(ir, "persona", "—")
+        _risk = "—"
+    else:
+        _ir2_json = ir2.model_dump()
+        _domain = _ir2_json.get("domain") or "—"
+        _persona = _ir2_json.get("persona") or "—"
+        _risk = ((_ir2_json.get("metadata") or {}).get("policy_summary") or {}).get(
+            "risk_level"
+        ) or "—"
+    pack_header = (
+        f"Domain: {_domain} | Persona: {_persona} | Risk: {_risk} | IR version: {ir_ver}"
+    )
     fmt_l = (format or "md").lower()
     if fmt_l in {"md", "markdown"}:
-        payload = _render_prompt_pack_md(system_prompt, user_prompt, plan, expanded)
+        payload = _render_prompt_pack_md(
+            system_prompt, user_prompt, plan, expanded, header=pack_header
+        )
         default_name = "prompt_pack.md"
     elif fmt_l == "txt":
-        payload = _render_prompt_pack_txt(system_prompt, user_prompt, plan, expanded)
+        payload = _render_prompt_pack_txt(
+            system_prompt, user_prompt, plan, expanded, header=pack_header
+        )
         default_name = "prompt_pack.txt"
     elif fmt_l == "json":
         # Bolt Optimization: orjson.dumps is significantly faster than json.dumps for CLI output serialization

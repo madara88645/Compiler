@@ -7,9 +7,12 @@ def _render_prompt_pack_md(
     plan: str,
     expanded: str,
     title: str = "Prompt Pack",
+    header: str = "",
 ) -> str:
     """Render a prompt pack in Markdown format."""
     parts = [f"# {title}"]
+    if header:
+        parts.append(f"\n\n{header}")
     if system_prompt:
         parts.append(f"\n\n## System Prompt\n\n{system_prompt}")
     if user_prompt:
@@ -21,9 +24,17 @@ def _render_prompt_pack_md(
     return "".join(parts).strip()
 
 
-def _render_prompt_pack_txt(system_prompt: str, user_prompt: str, plan: str, expanded: str) -> str:
+def _render_prompt_pack_txt(
+    system_prompt: str,
+    user_prompt: str,
+    plan: str,
+    expanded: str,
+    header: str = "",
+) -> str:
     """Render a prompt pack in Plain Text format."""
     parts = []
+    if header:
+        parts.append(f"{header}\n")
     if system_prompt:
         parts.append(f"--- System Prompt ---\n{system_prompt}")
     if user_prompt:
