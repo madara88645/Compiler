@@ -25,6 +25,28 @@ type RouteCase = {
   expectedUrl: string;
 };
 
+const AGENT_PACK_REQUEST_BODY = {
+  project_type: "SaaS",
+  stack: "FastAPI",
+  goal: "Generate a project pack",
+  pack_type: "project-pack",
+};
+
+function mockHangingFetch() {
+  return vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+    const signal = init?.signal as AbortSignal | undefined;
+    return new Promise((_, reject) => {
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          const err = new Error("aborted");
+          err.name = "AbortError";
+          reject(err);
+        });
+      }
+    });
+  });
+}
+
 describe("Next backend proxy route wiring", () => {
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
@@ -110,14 +132,106 @@ describe("Next backend proxy route wiring", () => {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+    },
+  ])("keeps $name requests alive past the default timeout and only aborts at the extended agent-pack budget", async ({
+    handler,
+    requestUrl,
+    requestBody,
+    expectedUrl,
+  }) => {
+    vi.useFakeTimers();
+
+    try {
+      const fetchMock = mockHangingFetch();
+      const responsePromise = handler(
+        new Request(requestUrl, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }),
+      );
+      let settled = false;
+      void responsePromise.finally(() => {
+        settled = true;
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(35_000);
+      const response = await responsePromise;
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+      expect(response.status).toBe(504);
+      expect(response.headers.get("x-promptc-proxy-timed-out")).toBe("1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps compile requests on the default timeout budget", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const fetchMock = mockHangingFetch();
+      const responsePromise = compileRoute(
+        new Request("http://localhost:3000/compile", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: "summarize this" }),
+        }),
+      );
+      let settled = false;
+      void responsePromise.finally(() => {
+        settled = true;
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(24_999);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      const response = await responsePromise;
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/compile");
+      expect(response.status).toBe(504);
+      expect(response.headers.get("x-promptc-proxy-timed-out")).toBe("1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each<RouteCase>([
+    {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
     },
     {
@@ -276,14 +390,14 @@ describe("Next backend proxy route wiring", () => {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "https://api.memo.dev/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "https://api.memo.dev/agent-packs/claude/download",
     },
     {
