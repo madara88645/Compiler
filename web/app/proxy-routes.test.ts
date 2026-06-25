@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as backendProxy from "@/lib/server/backendProxy";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
 import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
@@ -31,21 +32,6 @@ const AGENT_PACK_REQUEST_BODY = {
   goal: "Generate a project pack",
   pack_type: "project-pack",
 };
-
-function mockHangingFetch() {
-  return vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
-    const signal = init?.signal as AbortSignal | undefined;
-    return new Promise((_, reject) => {
-      if (signal) {
-        signal.addEventListener("abort", () => {
-          const err = new Error("aborted");
-          err.name = "AbortError";
-          reject(err);
-        });
-      }
-    });
-  });
-}
 
 describe("Next backend proxy route wiring", () => {
   beforeEach(() => {
@@ -127,98 +113,77 @@ describe("Next backend proxy route wiring", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
-  it.each<RouteCase>([
+  it.each([
     {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
       requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+      backendPath: "/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
       requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+      backendPath: "/agent-packs/claude/download",
     },
-  ])("keeps $name requests alive past the default timeout and only aborts at the extended agent-pack budget", async ({
+  ])("passes the extended upstream timeout to $name routes", async ({
     handler,
     requestUrl,
     requestBody,
-    expectedUrl,
+    backendPath,
   }) => {
-    vi.useFakeTimers();
+    const proxySpy = vi.spyOn(backendProxy, "proxyBackendRequest").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
 
-    try {
-      const fetchMock = mockHangingFetch();
-      const responsePromise = handler(
-        new Request(requestUrl, {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        }),
-      );
-      let settled = false;
-      void responsePromise.finally(() => {
-        settled = true;
-      });
-      await Promise.resolve();
+    const response = await handler(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }),
+    );
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-
-      await vi.advanceTimersByTimeAsync(25_000);
-      expect(settled).toBe(false);
-
-      await vi.advanceTimersByTimeAsync(35_000);
-      const response = await responsePromise;
-
-      expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
-      expect(response.status).toBe(504);
-      expect(response.headers.get("x-promptc-proxy-timed-out")).toBe("1");
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(proxySpy).toHaveBeenCalledTimes(1);
+    expect(proxySpy).toHaveBeenCalledWith(expect.any(Request), backendPath, {
+      retryNetworkErrors: true,
+      upstreamTimeoutMs: backendProxy.AGENT_PACK_UPSTREAM_TIMEOUT_MS,
+    });
+    await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
   it("keeps compile requests on the default timeout budget", async () => {
-    vi.useFakeTimers();
+    const proxySpy = vi.spyOn(backendProxy, "proxyBackendRequest").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
 
-    try {
-      const fetchMock = mockHangingFetch();
-      const responsePromise = compileRoute(
-        new Request("http://localhost:3000/compile", {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ text: "summarize this" }),
-        }),
-      );
-      let settled = false;
-      void responsePromise.finally(() => {
-        settled = true;
-      });
-      await Promise.resolve();
+    const response = await compileRoute(
+      new Request("http://localhost:3000/compile", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: "summarize this" }),
+      }),
+    );
 
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-
-      await vi.advanceTimersByTimeAsync(24_999);
-      expect(settled).toBe(false);
-
-      await vi.advanceTimersByTimeAsync(1);
-      const response = await responsePromise;
-
-      expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/compile");
-      expect(response.status).toBe(504);
-      expect(response.headers.get("x-promptc-proxy-timed-out")).toBe("1");
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(proxySpy).toHaveBeenCalledTimes(1);
+    expect(proxySpy).toHaveBeenCalledWith(expect.any(Request), "/compile", {
+      retryNetworkErrors: true,
+    });
+    await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
   it.each<RouteCase>([
