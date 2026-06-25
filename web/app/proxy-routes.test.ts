@@ -166,6 +166,7 @@ describe("Next backend proxy route wiring", () => {
       void responsePromise.finally(() => {
         settled = true;
       });
+      await Promise.resolve();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -202,6 +203,7 @@ describe("Next backend proxy route wiring", () => {
       void responsePromise.finally(() => {
         settled = true;
       });
+      await Promise.resolve();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
