@@ -52,6 +52,7 @@ from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
 from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
+from app.repo_context import coerce_repo_context_envelope
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,38 @@ def _mk_id(text: str) -> str:
     return hashlib.sha1(text.strip().lower().encode("utf-8")).hexdigest()[:10]
 
 
-def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
+def _attach_repo_context_metadata(
+    ir2: IRv2,
+    repo_context: dict[str, Any] | None,
+    *,
+    repo_context_mode: str = "compact",
+) -> None:
+    envelope = coerce_repo_context_envelope(repo_context)
+    if envelope is None:
+        return
+
+    mode = (repo_context_mode or "compact").strip().lower()
+    if mode not in {"full", "compact"}:
+        mode = "compact"
+    payload = envelope.model_dump(mode="json")
+    payload["mode"] = mode
+    ir2.metadata["repo_context"] = payload
+    ir2.diagnostics.append(
+        DiagnosticItem(
+            severity="info",
+            message="Repository context attached",
+            suggestion="Repo context is opt-in and rendered through the path-safe context layer.",
+            category="context",
+        )
+    )
+
+
+def compile_text_v2(
+    text: str,
+    offline_only: bool = False,
+    repo_context: dict[str, Any] | None = None,
+    repo_context_mode: str = "compact",
+) -> IRv2:
     # Reuse v1 heuristics to keep behavior; map to richer IRv2 model
     ir1 = compile_text(text)
 
@@ -316,36 +348,7 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
     # Run Schema Sanitizer to fix any generated schema types
     SchemaSanitizerHandler().handle(ir2, ir1)
 
-    # -------------------------------------------------------------------------
-    # -------------------------------------------------------------------------
-    # NEW: Agent 6 - The Context Strategist
-    # -------------------------------------------------------------------------
-    if not offline_only:
-        try:
-            from app.agents.context_strategist import ContextStrategist
-
-            # Initialize Strategist (uses WorkerClient internally)
-            strategist = ContextStrategist()
-            context_results = strategist.retrieve(text, limit=3)
-
-            if context_results:
-                ir2.metadata["context_snippets"] = context_results
-                # Notify user via diagnostics
-                snippet_files = [r.get("path", "unknown").split("/")[-1] for r in context_results]
-                ir2.diagnostics.append(
-                    DiagnosticItem(
-                        severity="info",
-                        message=f"Strategist retrieved {len(context_results)} relevant sources",
-                        suggestion=f"Sources: {', '.join(snippet_files)}",
-                        category="context",
-                    )
-                )
-        except Exception:
-            logger.exception(
-                "Context Strategist failed; continuing without retrieved context",
-                extra={"offline_only": offline_only, "text_length": len(text)},
-            )
-    # -------------------------------------------------------------------------
+    _attach_repo_context_metadata(ir2, repo_context, repo_context_mode=repo_context_mode)
 
     plugin_ctx = PluginContext(
         text=text,

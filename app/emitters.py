@@ -4,6 +4,18 @@ import itertools
 import os
 from .models import IR
 from .models_v2 import IRv2, ConstraintV2, StepV2
+from app.repo_context import rag_results_to_envelope, render_repo_context_for_llm
+
+
+def _render_repo_context_metadata(ir: IRv2, *, mode: str) -> str:
+    metadata = ir.metadata or {}
+    repo_context = metadata.get("repo_context")
+    if repo_context:
+        return render_repo_context_for_llm(repo_context, mode=mode)
+    context_snippets = metadata.get("context_snippets")
+    if context_snippets:
+        return render_repo_context_for_llm(rag_results_to_envelope(context_snippets), mode=mode)
+    return ""
 
 
 def emit_system_prompt(ir: IR) -> str:
@@ -505,15 +517,9 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
     if ir.banned:
         parts.append("Avoid: " + ", ".join(ir.banned))
 
-    # --- Agent 6: The Strategist (Render Context) ---
-    context_snippets = (ir.metadata or {}).get("context_snippets")
-    if context_snippets:
-        parts.append("\n### Context (Code & Knowledge)")
-        for i, snippet in enumerate(context_snippets, 1):
-            path = snippet.get("path", "unknown")
-            content = snippet.get("snippet", "").strip()
-            parts.append(f"#### File: {path}\n```\n{content}\n```")
-    # ------------------------------------------------
+    repo_context_block = _render_repo_context_metadata(ir, mode="full")
+    if repo_context_block:
+        parts.append("\n" + repo_context_block)
     return "\n".join(parts)
 
 
@@ -668,25 +674,9 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         for suggestion in optional_suggestions:
             ctx_lines.append(f"- {suggestion}")
 
-    # --- Agent 6: Context Injection ---
-    context_snippets = (ir.metadata or {}).get("context_snippets")
-    if context_snippets:
-        header = (
-            "Bağlam (Kod ve Bilgi)"
-            if lang == "tr"
-            else (
-                "Contexto (Código y Conocimiento)" if lang == "es" else "Context (Code & Knowledge)"
-            )
-        )
-        ctx_lines.append(f"{header}:")
-        for s in context_snippets:
-            path = s.get("path", "unknown").split("/")[-1]  # Short filename
-            content = s.get("snippet", "").strip().replace("\n", " ")  # Flatten for compactness
-            # Truncate if too long to avoid bloating the prompt
-            if len(content) > 300:
-                content = content[:300] + "..."
-            ctx_lines.append(f"- {path}: {content}")
-    # ----------------------------------
+    repo_context_block = _render_repo_context_metadata(ir, mode="compact")
+    if repo_context_block:
+        ctx_lines.append(repo_context_block)
 
     fmt_line = (
         f"Biçim: {ir.output_format}, Uzunluk: {ir.length_hint}"

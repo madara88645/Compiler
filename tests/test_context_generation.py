@@ -100,7 +100,6 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
     compiler = HybridCompiler()
     # Mock context strategist
     compiler.context_strategist = MagicMock()
-    compiler.context_strategist.process.return_value = {"file1.py": "content"}
     repo_context = {
         "normalized_repo_url": "https://github.com/openai/openai-python",
         "repo_full_name": "openai/openai-python",
@@ -116,15 +115,32 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
 
     # Test generate_agent with context
     compiler.generate_agent("Test Agent", repo_context=repo_context)
-    compiler.context_strategist.process.assert_called_with("Test Agent", expand_with_llm=False)
+    compiler.context_strategist.process.assert_not_called()
     mock_worker_client.generate_agent.assert_called_with(
         "Test Agent",
         context={
-            "file1.py": "content",
             "repo_context": {
-                "source": "github_public_repo",
+                "source_type": "github_public",
                 "mode": "full",
-                **repo_context,
+                "repo_identity": {
+                    "name": "openai/openai-python",
+                    "url": "https://github.com/openai/openai-python",
+                    "default_branch": "main",
+                    "ref": None,
+                },
+                "summary": {"full": "Python SDK repository.", "compact": None},
+                "detected_stack": ["Python"],
+                "files_used": ["README.md"],
+                "snippets": [
+                    {
+                        "display_path": "repo highlights",
+                        "content": "README present",
+                        "score": None,
+                        "source_label": "GitHub brief",
+                    }
+                ],
+                "budget": {"max_chars": 4000, "used_chars": 0, "truncated": False},
+                "safety": {"path_safe": True, "contains_absolute_paths": False},
             },
         },
         multi_agent=False,
@@ -133,15 +149,32 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
 
     # Test generate_skill with context
     compiler.generate_skill("Test Skill", repo_context=repo_context)
-    compiler.context_strategist.process.assert_called_with("Test Skill", expand_with_llm=False)
+    compiler.context_strategist.process.assert_not_called()
     mock_worker_client.generate_skill.assert_called_with(
         "Test Skill",
         context={
-            "file1.py": "content",
             "repo_context": {
-                "source": "github_public_repo",
+                "source_type": "github_public",
                 "mode": "full",
-                **repo_context,
+                "repo_identity": {
+                    "name": "openai/openai-python",
+                    "url": "https://github.com/openai/openai-python",
+                    "default_branch": "main",
+                    "ref": None,
+                },
+                "summary": {"full": "Python SDK repository.", "compact": None},
+                "detected_stack": ["Python"],
+                "files_used": ["README.md"],
+                "snippets": [
+                    {
+                        "display_path": "repo highlights",
+                        "content": "README present",
+                        "score": None,
+                        "source_label": "GitHub brief",
+                    }
+                ],
+                "budget": {"max_chars": 4000, "used_chars": 0, "truncated": False},
+                "safety": {"path_safe": True, "contains_absolute_paths": False},
             },
         },
         include_example_code=False,

@@ -4,7 +4,7 @@ import time
 import functools
 import uuid
 import anyio
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
@@ -19,7 +19,13 @@ from api.shared import (
     safety_refusal_prompt_fields,
 )
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
-from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
+from app.compiler import (
+    _attach_repo_context_metadata,
+    compile_text,
+    compile_text_v2,
+    generate_trace,
+    optimize_ir,
+)
 from app.emitters import (
     emit_expanded_prompt,
     emit_expanded_prompt_v2,
@@ -39,6 +45,12 @@ from app.optimizer.language_costs import (
     estimate_prompt_cost,
 )
 from app.optimizer.postprocess import strip_wrapper_labels
+from app.repo_context import (
+    RepoContextInput,
+    RepoContextMode,
+    rag_results_to_envelope,
+    render_repo_context_for_llm,
+)
 from app.validator import validate_prompt
 
 router = APIRouter(tags=["compile"])
@@ -74,6 +86,14 @@ class CompileRequest(BaseModel):
         max_length=40,
         description='Optional prompt compiler mode, e.g. "conservative" or "default".',
     )
+    repo_context: RepoContextInput | None = Field(
+        default=None,
+        description="Optional path-safe repository context. Omitted by default.",
+    )
+    repo_context_mode: RepoContextMode = Field(
+        default="compact",
+        description="How much optional repository context to render when repo_context is supplied.",
+    )
 
     @field_validator("tags")
     @classmethod
@@ -84,6 +104,16 @@ class CompileRequest(BaseModel):
         if any(len(t) > 100 for t in normalized):
             raise ValueError("Tag length must not exceed 100 characters")
         return normalized[:20]
+
+
+def _repo_context_payload(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return value
+    return None
 
 
 class CompileResponse(BaseModel):
@@ -356,7 +386,13 @@ def compile_endpoint(
 
     ir = optimize_ir(compile_text(req.text))
     trace_lines = generate_trace(ir) if req.trace else None
-    ir2 = compile_text_v2(req.text, offline_only=not req.v2)
+    repo_context_payload = _repo_context_payload(req.repo_context)
+    ir2 = compile_text_v2(
+        req.text,
+        offline_only=not req.v2,
+        repo_context=repo_context_payload,
+        repo_context_mode=req.repo_context_mode,
+    )
 
     # The heuristic v2 pipeline runs the SafetyHandler (injection / secret-exfiltration
     # scan). The LLM worker path below rebuilds ir2 and does NOT run that scan, so capture
@@ -371,8 +407,19 @@ def compile_endpoint(
     if req.v2:
         try:
             compiler = _get_compiler()
-            worker_res = compiler.compile(req.text, mode=mode)
+            worker_res = compiler.compile(
+                req.text,
+                mode=mode,
+                repo_context=repo_context_payload,
+                repo_context_mode=req.repo_context_mode,
+            )
             ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
+            if ir2 is not None:
+                _attach_repo_context_metadata(
+                    ir2,
+                    repo_context_payload,
+                    repo_context_mode=req.repo_context_mode,
+                )
 
             # Re-apply the heuristic safety verdict — the worker IR does not run the
             # SafetyHandler, so without this an unsafe prompt would lose its
@@ -424,13 +471,15 @@ def compile_endpoint(
 
             critic = CriticAgent()
             context_str = ""
-            if ir2 and ir2.metadata.get("context_snippets"):
-                snippets = ir2.metadata["context_snippets"]
-                context_str = "\n\n".join(
-                    [
-                        f"--- File: {item.get('path')} ---\n{item.get('snippet', '')}"
-                        for item in snippets
-                    ]
+            if ir2 and ir2.metadata.get("repo_context"):
+                context_str = render_repo_context_for_llm(
+                    ir2.metadata["repo_context"],
+                    mode=req.repo_context_mode,
+                )
+            elif ir2 and ir2.metadata.get("context_snippets"):
+                context_str = render_repo_context_for_llm(
+                    rag_results_to_envelope(ir2.metadata["context_snippets"]),
+                    mode=req.repo_context_mode,
                 )
             critique_result = critic.critique(
                 user_request=req.text,
@@ -637,8 +686,7 @@ async def optimize_endpoint(
 
         if optimized_cost.tokens > source_cost.tokens > 0:
             warnings.append(
-                "Optimized output uses more tokens than the input; "
-                "consider keeping the original."
+                "Optimized output uses more tokens than the input; consider keeping the original."
             )
 
         english_variant = ""

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import time
-from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth import rate_limit_by_ip
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from api.shared import logger
 from app.llm_engine.client import _sanitize_skill_definition_plain
@@ -17,6 +16,7 @@ from app.github_repo_context import (
     analyze_public_github_repo,
 )
 from app.llm_engine.example_code import inspect_agent_example_code, inspect_skill_example_code
+from app.repo_context import GitHubRepoContextPayload, RepoContextInput, RepoContextMode
 
 
 def _safe_repo_full_name(repo_url: str) -> str | None:
@@ -66,33 +66,6 @@ def _get_compiler():
     return api_main.get_compiler()
 
 
-RepoContextMode = Literal["full", "compact"]
-
-
-class GitHubRepoContextPayload(BaseModel):
-    normalized_repo_url: str = Field(..., min_length=1, max_length=500)
-    repo_full_name: str = Field(..., min_length=1, max_length=255)
-    requested_ref: str | None = Field(default=None, max_length=255)
-    requested_subdir: str | None = Field(default=None, max_length=500)
-    default_branch: str | None = Field(default=None, max_length=255)
-    summary: str = Field(..., min_length=1, max_length=1_500)
-    summary_compact: str | None = Field(default=None, max_length=400)
-    highlights: list[str] = Field(default_factory=list, max_length=6)
-    files_used: list[str] = Field(default_factory=list, max_length=6)
-    detected_stack: list[str] = Field(default_factory=list, max_length=6)
-
-    # Security: Enforce strict length limits on list elements to prevent DoS via massive strings
-    @field_validator("highlights", "files_used", "detected_stack", mode="after")
-    @classmethod
-    def validate_list_items_length(cls, items: list[str]) -> list[str]:
-        if not items:
-            return items
-        for item in items:
-            if len(item) > 1024:
-                raise ValueError("Item in list exceeds maximum length of 1024 characters")
-        return items
-
-
 class GitHubRepoContextRequest(BaseModel):
     repo_url: str = Field(..., min_length=1, max_length=500)
 
@@ -103,7 +76,7 @@ class SkillGenRequest(BaseModel):
         default=False,
         description="Whether generated skill definition should include implementation example code",
     )
-    repo_context: GitHubRepoContextPayload | None = None
+    repo_context: RepoContextInput | None = None
     repo_context_mode: RepoContextMode = Field(
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",
@@ -121,7 +94,7 @@ class AgentGenRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=_MAX_DESCRIPTION_CHARS)
     multi_agent: bool = Field(default=False, description="Generate a multi-agent swarm if true")
     include_example_code: bool = Field(default=False, description="Include pseudo-code example")
-    repo_context: GitHubRepoContextPayload | None = None
+    repo_context: RepoContextInput | None = None
     repo_context_mode: RepoContextMode = Field(
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",

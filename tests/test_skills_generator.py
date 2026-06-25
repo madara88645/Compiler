@@ -227,11 +227,15 @@ def test_hybrid_compiler_generate_skill(mock_worker_client):
     args, kwargs = mock_worker_client.generate_skill.call_args
     assert args == ("Test Skill",)
     assert kwargs["include_example_code"] is False
-    assert kwargs["context"]["repo_context"] == {
-        "source": "github_public_repo",
-        "mode": "full",
-        **repo_context,
+    assert kwargs["context"]["repo_context"]["source_type"] == "github_public"
+    assert kwargs["context"]["repo_context"]["mode"] == "full"
+    assert kwargs["context"]["repo_context"]["repo_identity"] == {
+        "name": "openai/openai-python",
+        "url": "https://github.com/openai/openai-python",
+        "default_branch": "main",
+        "ref": None,
     }
+    assert kwargs["context"]["repo_context"]["summary"]["full"] == "Python SDK repository."
 
 
 def test_api_generate_skill_endpoint():
@@ -272,6 +276,37 @@ def test_api_generate_skill_endpoint():
             },
             repo_context_mode="full",
         )
+
+
+def test_api_generate_skill_endpoint_accepts_repo_context_envelope():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = "# Mock API Skill"
+        repo_context = {
+            "source_type": "manual",
+            "repo_identity": {"name": "foo/bar", "url": "https://github.com/foo/bar"},
+            "summary": {"full": "Manual repo context.", "compact": "Manual context."},
+            "files_used": ["README.md"],
+            "snippets": [
+                {
+                    "display_path": "skills/example.py",
+                    "content": "Example skill implementation.",
+                    "source_label": "manual",
+                }
+            ],
+        }
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request", "repo_context": repo_context},
+        )
+
+        assert response.status_code == 200
+        kwargs = mock_compiler.generate_skill.call_args.kwargs
+        assert kwargs["repo_context"]["source_type"] == "manual"
+        assert kwargs["repo_context"]["repo_identity"]["name"] == "foo/bar"
+        assert kwargs["repo_context"]["summary"]["compact"] == "Manual context."
+        assert kwargs["repo_context_mode"] == "full"
 
 
 def test_api_generate_skill_endpoint_with_example_code_enabled():
