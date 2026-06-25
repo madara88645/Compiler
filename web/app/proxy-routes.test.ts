@@ -153,10 +153,14 @@ describe("Next backend proxy route wiring", () => {
     );
 
     expect(proxySpy).toHaveBeenCalledTimes(1);
-    expect(proxySpy).toHaveBeenCalledWith(expect.any(Request), backendPath, {
-      retryNetworkErrors: true,
-      upstreamTimeoutMs: backendProxy.AGENT_PACK_UPSTREAM_TIMEOUT_MS,
-    });
+    const [, proxiedPath, proxyOptions] = proxySpy.mock.calls[0]!;
+    expect(proxiedPath).toBe(backendPath);
+    expect(proxyOptions).toEqual(
+      expect.objectContaining({
+        retryNetworkErrors: true,
+        upstreamTimeoutMs: 60_000,
+      }),
+    );
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
@@ -180,9 +184,10 @@ describe("Next backend proxy route wiring", () => {
     );
 
     expect(proxySpy).toHaveBeenCalledTimes(1);
-    expect(proxySpy).toHaveBeenCalledWith(expect.any(Request), "/compile", {
-      retryNetworkErrors: true,
-    });
+    const [, proxiedPath, proxyOptions] = proxySpy.mock.calls[0]!;
+    expect(proxiedPath).toBe("/compile");
+    expect(proxyOptions).toEqual(expect.objectContaining({ retryNetworkErrors: true }));
+    expect(proxyOptions).not.toHaveProperty("upstreamTimeoutMs");
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
