@@ -17,7 +17,7 @@ jobs:
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: ${{ env.SNYK_TOKEN != '' }}
       - uses: actions/setup-python@v5
         if: ${{ env.SNYK_TOKEN != '' }}
