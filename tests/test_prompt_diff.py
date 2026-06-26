@@ -258,3 +258,90 @@ def test_generate_side_by_side_diff_empty(comparator):
     diff_other_empty = comparator.generate_side_by_side_diff("", "Line 1")
     assert len(diff_other_empty) == 1
     assert diff_other_empty[0] == ("+", "", "Line 1")
+
+
+class MockEntry:
+    def __init__(self, prompt_id, prompt_text):
+        self.id = prompt_id
+        self.prompt_id = prompt_id
+        self.prompt_text = prompt_text
+
+
+def test_get_prompt_text():
+    from unittest.mock import MagicMock
+
+    comp = PromptComparison.__new__(PromptComparison)
+    comp.history = MagicMock()
+    comp.favorites = MagicMock()
+
+    # Setup mock data
+    history_entry = MockEntry("hist1", "history text content")
+    favorite_entry = MockEntry("fav1", "favorite text content")
+
+    comp.history.get_by_id.side_effect = lambda x: history_entry if x == "hist1" else None
+    comp.favorites.get_by_id.side_effect = lambda x: favorite_entry if x == "fav1" else None
+    comp.favorites.entries = [favorite_entry]
+
+    # Test auto source - favorites first
+    success, text, src = comp.get_prompt_text("fav1")
+    assert success is True
+    assert text == "favorite text content"
+    assert src == "favorites"
+
+    # Test auto source - history fallback
+    success, text, src = comp.get_prompt_text("hist1")
+    assert success is True
+    assert text == "history text content"
+    assert src == "history"
+
+    # Test explicit favorites source
+    success, text, src = comp.get_prompt_text("fav1", source="favorites")
+    assert success is True
+    assert text == "favorite text content"
+
+    # Test explicit history source
+    success, text, src = comp.get_prompt_text("hist1", source="history")
+    assert success is True
+    assert text == "history text content"
+
+    # Test not found
+    success, text, src = comp.get_prompt_text("nonexistent")
+    assert success is False
+    assert "not found" in text
+    assert src == "none"
+
+
+def test_display_comparison(capsys):
+    from unittest.mock import MagicMock
+
+    comp = PromptComparison.__new__(PromptComparison)
+    comp.history = MagicMock()
+    comp.favorites = MagicMock()
+    comp.console = MagicMock()
+
+    # Setup mock data: only id1 and id2 exist
+    entry1 = MockEntry("id1", "hello\nworld")
+    entry2 = MockEntry("id2", "hello\nthere\nworld")
+
+    comp.favorites.get_by_id.side_effect = (
+        lambda x: entry1 if x == "id1" else entry2 if x == "id2" else None
+    )
+    comp.favorites.entries = [entry1, entry2]
+
+    comp.history.get_by_id.return_value = None  # Ensure history queries default to None
+
+    # Test side-by-side display success
+    res = comp.display_comparison("id1", "id2", show_side_by_side=True)
+    assert res is True
+
+    # Test unified display success
+    res2 = comp.display_comparison("id1", "id2", show_side_by_side=False)
+    assert res2 is True
+
+    # Test failure on first id
+    res_fail1 = comp.display_comparison("nonexistent", "id2")
+    assert res_fail1 is False
+
+    # Test failure on second id
+    res_fail2 = comp.display_comparison("id1", "nonexistent")
+    assert res_fail2 is False
