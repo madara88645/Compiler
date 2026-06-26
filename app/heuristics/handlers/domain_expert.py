@@ -831,12 +831,11 @@ class DomainHandler(BaseHandler):
             # Because we only need the count and the first match start index,
             # we can use finditer and next() for the first match, and then sum() for the rest.
             # This avoids the inner-loop conditional check for first_match_start on every iteration.
-            matches = pattern_obj.finditer(text_lower)
-            first_match = next(matches, None)
-            if first_match is None:
+            matches = pattern_obj.findall(text_lower)
+            if not matches:
                 continue
-            first_match_start = first_match.start()
-            match_count = 1 + sum(1 for _ in matches)
+            first_match_start = pattern_obj.search(text_lower).start()
+            match_count = len(matches)
             if match_count:
                 # Base score 0.6, +0.1 for each extra occurrence, max 0.9
                 score = min(0.9, 0.6 + (match_count - 1) * 0.1)
