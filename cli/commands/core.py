@@ -14,5 +14,6 @@ from cli.commands import compile_cmd as _compile_cmd  # noqa: F401,E402
 from cli.commands import validation as _validation  # noqa: F401,E402
 from cli.commands import transform as _transform  # noqa: F401,E402
 from cli.commands import json_tools as _json_tools  # noqa: F401,E402
+from cli.commands import pr_safety as _pr_safety  # noqa: F401,E402
 
 __all__ = ["app", "console"]
