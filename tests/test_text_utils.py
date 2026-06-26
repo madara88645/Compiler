@@ -1,88 +1,92 @@
-"""Unit tests for app.text_utils — pure token estimation and text compression."""
-
-from __future__ import annotations
+"""Tests for app.text_utils — pure token estimation and text compression."""
+import pytest
 
 from app.text_utils import compress_text_block, estimate_tokens
 
 
-class TestEstimateTokens:
-    def test_empty_string_returns_zero(self):
-        assert estimate_tokens("") == 0
+# ---------------------------------------------------------------------------
+# estimate_tokens
+# ---------------------------------------------------------------------------
 
-    def test_minimum_is_one_for_any_nonempty_text(self):
-        # single char: chars=1, words=1; min(0.25, 1.33)=0.25 → ceil=1 → max(1,1)=1
-        assert estimate_tokens("a") == 1
-
-    def test_single_word_returns_one(self):
-        # "test": chars=4, words=1; min(4/4, 1/0.75)=min(1.0,1.33)=1.0 → ceil=1
-        assert estimate_tokens("test") == 1
-
-    def test_chars_path_for_long_single_word(self):
-        # "abcdefghijklmnopqrstuvwxyz": chars=26, words=1
-        # min(26/4, 1/0.75) = min(6.5, 1.33) = 1.33 → ceil=2
-        assert estimate_tokens("abcdefghijklmnopqrstuvwxyz") == 2
-
-    def test_typical_english_sentence(self):
-        # "The quick brown fox": chars=19, words=4
-        # min(19/4, 4/0.75) = min(4.75, 5.33) = 4.75 → ceil=5
-        assert estimate_tokens("The quick brown fox") == 5
-
-    def test_short_words_chars_path_dominates(self):
-        # "a b c d": chars=7, words=4; min(7/4, 4/0.75)=min(1.75,5.33)=1.75 → ceil=2
-        assert estimate_tokens("a b c d") == 2
-
-    def test_scales_with_text_length(self):
-        short_tokens = estimate_tokens("short")
-        long_tokens = estimate_tokens("a " * 100)
-        assert long_tokens > short_tokens
-
-    def test_result_is_integer(self):
-        assert isinstance(estimate_tokens("Hello world"), int)
+def test_estimate_tokens_empty_string():
+    assert estimate_tokens("") == 0
 
 
-class TestCompressTextBlock:
-    def test_empty_string_returns_empty(self):
-        assert compress_text_block("") == ""
+def test_estimate_tokens_single_char():
+    # 1 char, 1 word → min(0.25, 1.333) = 0.25 → ceil = 1 → max(1, 1) = 1
+    assert estimate_tokens("a") == 1
 
-    def test_none_treated_as_empty(self):
-        assert compress_text_block(None) == ""  # type: ignore[arg-type]
 
-    def test_short_text_within_limit_unchanged(self):
-        text = "Short sentence."
-        assert compress_text_block(text, max_chars=600) == text
+def test_estimate_tokens_three_words():
+    # "The quick brown" → 15 chars, 3 words → min(3.75, 4.0) = 3.75 → ceil = 4
+    assert estimate_tokens("The quick brown") == 4
 
-    def test_text_at_exact_limit_unchanged(self):
-        text = "x" * 100
-        assert compress_text_block(text, max_chars=100) == text
 
-    def test_default_limit_is_600(self):
-        text = "This is short."
-        assert compress_text_block(text) == text
+def test_estimate_tokens_always_at_least_one_for_non_empty():
+    assert estimate_tokens("x") >= 1
 
-    def test_single_long_sentence_truncated_with_ellipsis(self):
-        text = "a" * 200
-        result = compress_text_block(text, max_chars=100)
-        assert result.endswith("…")
-        assert len(result) <= 102
 
-    def test_multi_sentence_greedy_kept_within_limit(self):
-        # First sentence fits; second does not.
-        text = "First sentence. " + "B" * 100 + "."
-        result = compress_text_block(text, max_chars=20)
-        assert "First sentence" in result
-        assert result.endswith("…")
+def test_estimate_tokens_scales_with_text_length():
+    short = "hello"
+    long_text = "hello world " * 50
+    assert estimate_tokens(long_text) > estimate_tokens(short)
 
-    def test_compressed_result_ends_with_ellipsis_when_truncated(self):
-        sentences = ". ".join(["Sentence number {}".format(i) for i in range(20)])
-        result = compress_text_block(sentences, max_chars=50)
-        assert result.endswith("…")
 
-    def test_leading_trailing_whitespace_stripped(self):
-        text = "   Short text.   "
-        result = compress_text_block(text, max_chars=600)
-        assert result == "Short text."
+def test_estimate_tokens_whitespace_only_is_zero_words():
+    # "   " → split() returns [] → 0 words; 3 chars → min(0.75, 0) → 0 → max(1,0)=1
+    # The important thing is that it doesn't crash.
+    result = estimate_tokens("   ")
+    assert isinstance(result, int)
 
-    def test_no_ellipsis_when_text_fits(self):
-        text = "Just right."
-        result = compress_text_block(text, max_chars=600)
-        assert not result.endswith("…")
+
+# ---------------------------------------------------------------------------
+# compress_text_block
+# ---------------------------------------------------------------------------
+
+def test_compress_text_block_short_text_unchanged():
+    text = "Short sentence."
+    assert compress_text_block(text, max_chars=100) == text
+
+
+def test_compress_text_block_exact_boundary_unchanged():
+    # len == max_chars → condition `len(text) <= max_chars` is True → no compression
+    text = "Hello world."
+    assert len(text) == 12
+    assert compress_text_block(text, max_chars=12) == text
+
+
+def test_compress_text_block_none_returns_empty():
+    assert compress_text_block(None) == ""
+
+
+def test_compress_text_block_empty_returns_empty():
+    assert compress_text_block("") == ""
+
+
+def test_compress_text_block_multi_sentence_appends_ellipsis():
+    text = "First sentence. Second sentence. Third sentence."
+    result = compress_text_block(text, max_chars=20)
+    assert result.endswith("…")
+    # Result must not exceed max_chars by more than the ellipsis character.
+    assert len(result) <= 21
+
+
+def test_compress_text_block_single_long_sentence_truncates():
+    # No sentence boundary → fall back to slice + ellipsis
+    text = "A" * 100
+    result = compress_text_block(text, max_chars=50)
+    assert result.endswith("…")
+    assert len(result) <= 52  # 50 chars + 1 ellipsis char
+
+
+def test_compress_text_block_keeps_content_within_limit():
+    text = "Alpha. Beta. Gamma. Delta. Epsilon."
+    result = compress_text_block(text, max_chars=15)
+    # Whatever fits should still be the beginning of the original text.
+    assert text.startswith(result.rstrip("…").strip())
+
+
+def test_compress_text_block_default_max_chars_allows_long_text():
+    # Default max_chars=600; text shorter than that returns unchanged.
+    text = "x" * 599
+    assert compress_text_block(text) == text

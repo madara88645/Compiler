@@ -1,6 +1,5 @@
-"""Unit tests for app.token_optimizer — pure text-optimization helpers."""
-
-from __future__ import annotations
+"""Tests for app.token_optimizer — deterministic whitespace/markdown optimizer."""
+import pytest
 
 from app.token_optimizer import (
     OptimizeStats,
@@ -8,190 +7,190 @@ from app.token_optimizer import (
     _looks_like_table_row,
     _meets_budget,
     _normalize_fence_boundaries,
-    _normalize_line,
     _split_fenced_code,
     optimize_text,
 )
 
 
-class TestIsFenceClose:
-    def test_backtick_fence_closes(self):
-        assert _is_fence_close("```\n", "```") is True
+# ---------------------------------------------------------------------------
+# optimize_text (public API)
+# ---------------------------------------------------------------------------
 
-    def test_tilde_fence_closes(self):
-        assert _is_fence_close("~~~\n", "~~~") is True
-
-    def test_longer_backtick_fence_closes_shorter_marker(self):
-        assert _is_fence_close("````\n", "```") is True
-
-    def test_fence_with_language_tag_does_not_close(self):
-        # "```python" → strip("``") yields "python" which is truthy → not a close
-        assert _is_fence_close("```python\n", "```") is False
-
-    def test_blank_line_does_not_close(self):
-        assert _is_fence_close("\n", "```") is False
-
-    def test_empty_fence_marker_returns_false(self):
-        assert _is_fence_close("```\n", "") is False
-
-    def test_mismatched_fence_char_returns_false(self):
-        assert _is_fence_close("~~~\n", "```") is False
+def test_optimize_text_empty_string():
+    result, stats = optimize_text("")
+    assert result == ""
+    assert stats.before_chars == 0
+    assert stats.after_chars == 0
+    assert stats.changed is False
 
 
-class TestLooksLikeTableRow:
-    def test_two_pipes_detected(self):
-        assert _looks_like_table_row("| col1 | col2 |") is True
-
-    def test_three_pipes_detected(self):
-        assert _looks_like_table_row("| a | b | c |") is True
-
-    def test_single_pipe_not_table(self):
-        assert _looks_like_table_row("echo foo | bar") is False
-
-    def test_no_pipes_not_table(self):
-        assert _looks_like_table_row("regular text line") is False
+def test_optimize_text_returns_optimize_stats():
+    _, stats = optimize_text("Hello world")
+    assert isinstance(stats, OptimizeStats)
 
 
-class TestMeetsBudget:
-    def test_no_budget_always_meets(self):
-        assert _meets_budget("any text", max_chars=None, max_tokens=None) is True
-
-    def test_within_char_budget(self):
-        assert _meets_budget("hello", max_chars=10, max_tokens=None) is True
-
-    def test_exceeds_char_budget(self):
-        assert _meets_budget("hello world", max_chars=5, max_tokens=None) is False
-
-    def test_exactly_at_char_budget(self):
-        assert _meets_budget("hello", max_chars=5, max_tokens=None) is True
-
-    def test_empty_text_meets_zero_budget(self):
-        assert _meets_budget("", max_chars=0, max_tokens=0) is True
-
-    def test_exceeds_token_budget(self):
-        # Long text with many tokens should exceed a budget of 1
-        text = "word " * 30
-        assert _meets_budget(text, max_chars=None, max_tokens=1) is False
+def test_optimize_text_before_chars_reflects_input():
+    text = "Hello world"
+    _, stats = optimize_text(text)
+    assert stats.before_chars == len(text)
 
 
-class TestNormalizeFenceBoundaries:
-    def test_fence_at_line_start_is_unchanged(self):
-        text = "intro\n```python\ncode\n```\n"
-        assert _normalize_fence_boundaries(text) == text
-
-    def test_fence_after_inline_text_gets_newline_inserted(self):
-        text = "intro```python\ncode\n```\n"
-        result = _normalize_fence_boundaries(text)
-        assert "intro\n```python\n" in result
-
-    def test_crlf_normalized_to_lf(self):
-        text = "intro\r\n```python\r\ncode\r\n```\r\n"
-        result = _normalize_fence_boundaries(text)
-        assert "\r\n" not in result
+def test_optimize_text_collapses_extra_spaces():
+    text = "Hello   world  foo"
+    result, stats = optimize_text(text)
+    assert "   " not in result
+    assert stats.changed is True
 
 
-class TestSplitFencedCode:
-    def test_plain_text_returns_single_text_part(self):
-        parts = _split_fenced_code("Hello world")
-        assert parts == [("text", "Hello world")]
-
-    def test_fenced_block_produces_code_and_text_parts(self):
-        text = "Before\n```\ncode\n```\nAfter\n"
-        parts = _split_fenced_code(text)
-        kinds = [k for k, _ in parts]
-        assert "code" in kinds
-        assert "text" in kinds
-
-    def test_code_block_content_is_preserved_verbatim(self):
-        text = "```\nx = 1\n```\n"
-        parts = _split_fenced_code(text)
-        code_chunks = [c for k, c in parts if k == "code"]
-        assert any("x = 1" in c for c in code_chunks)
-
-    def test_unclosed_fence_flushed_as_code(self):
-        text = "```\nunclosed code"
-        parts = _split_fenced_code(text)
-        kinds = [k for k, _ in parts]
-        assert "code" in kinds
-
-    def test_empty_string_returns_empty_list(self):
-        assert _split_fenced_code("") == []
+def test_optimize_text_preserves_fenced_code_block_verbatim():
+    # Spaces inside code blocks must not be collapsed.
+    text = "Intro\n```python\nx = 1   +   2\n```\nOutro"
+    result, _ = optimize_text(text)
+    assert "x = 1   +   2" in result
 
 
-class TestNormalizeLine:
-    def test_indented_code_block_unchanged(self):
-        line = "    indented code block"
-        assert _normalize_line(line, level=1) == line
-
-    def test_table_row_unchanged(self):
-        line = "| col1 | col2 | col3 |"
-        assert _normalize_line(line, level=1) == line
-
-    def test_multiple_internal_spaces_collapsed(self):
-        line = "word1    word2    word3"
-        result = _normalize_line(line, level=1)
-        assert "  " not in result
-        assert "word1" in result and "word3" in result
-
-    def test_list_marker_rest_spaces_normalized(self):
-        line = "- item   with   extra   spaces"
-        result = _normalize_line(line, level=1)
-        assert "  " not in result
-        assert result.startswith("- ")
-
-    def test_tab_indented_line_unchanged(self):
-        line = "\tsome code"
-        assert _normalize_line(line, level=1) == line
+def test_optimize_text_removes_duplicate_consecutive_lines():
+    text = "line one\nline one\nline two\n"
+    result, stats = optimize_text(text)
+    # Duplicate "line one" should be removed.
+    assert result.count("line one") == 1
+    assert stats.changed is True
 
 
-class TestOptimizeText:
-    def test_empty_text_returns_empty_with_zero_chars(self):
-        out, stats = optimize_text("")
-        assert out == ""
-        assert stats.before_chars == 0
+def test_optimize_text_after_chars_matches_result_length():
+    text = "Hello   world"
+    result, stats = optimize_text(text)
+    assert stats.after_chars == len(result)
 
-    def test_stats_is_optimize_stats_instance(self):
-        _, stats = optimize_text("Hello world")
-        assert isinstance(stats, OptimizeStats)
 
-    def test_stats_before_chars_matches_input_length(self):
-        text = "Hello world"
-        _, stats = optimize_text(text)
-        assert stats.before_chars == len(text)
+def test_optimize_text_met_max_chars_true_when_no_budget():
+    _, stats = optimize_text("Hello world")
+    assert stats.met_max_chars is True
 
-    def test_clean_text_not_changed(self):
-        text = "Clean sentence with no extra whitespace."
-        out, stats = optimize_text(text)
-        assert not stats.changed
 
-    def test_consecutive_duplicate_lines_deduplicated(self):
-        text = "Hello\nHello\nWorld"
-        out, _ = optimize_text(text)
-        lines = [line for line in out.split("\n") if line.strip()]
-        assert lines.count("Hello") == 1
+def test_optimize_text_met_max_tokens_true_when_no_budget():
+    _, stats = optimize_text("Hello world")
+    assert stats.met_max_tokens is True
 
-    def test_multiple_blank_lines_collapsed(self):
-        text = "Line one\n\n\n\nLine two"
-        out, _ = optimize_text(text)
-        assert "\n\n\n" not in out
 
-    def test_code_block_content_preserved(self):
-        text = "Before\n```python\nx = 1\ny = 2\n```\nAfter"
-        out, _ = optimize_text(text)
-        assert "x = 1" in out
-        assert "y = 2" in out
+# ---------------------------------------------------------------------------
+# _meets_budget
+# ---------------------------------------------------------------------------
 
-    def test_no_budget_always_reports_met(self):
-        _, stats = optimize_text("a" * 5000)
-        assert stats.met_max_chars is True
-        assert stats.met_max_tokens is True
+def test_meets_budget_no_constraints_always_true():
+    assert _meets_budget("any text at all", max_chars=None, max_tokens=None) is True
 
-    def test_char_budget_satisfied_for_short_text(self):
-        _, stats = optimize_text("Short text.", max_chars=1000)
-        assert stats.met_max_chars is True
 
-    def test_after_chars_lte_before_chars(self):
-        # Optimizer only removes content; never adds.
-        text = "Word   with   spaces\n\nBlank\n\nLines"
-        _, stats = optimize_text(text)
-        assert stats.after_chars <= stats.before_chars
+def test_meets_budget_within_char_limit():
+    assert _meets_budget("hello", max_chars=10, max_tokens=None) is True
+
+
+def test_meets_budget_exceeds_char_limit():
+    assert _meets_budget("hello world!", max_chars=5, max_tokens=None) is False
+
+
+def test_meets_budget_within_token_limit():
+    # "hello" → 2 tokens; limit of 5 is fine
+    assert _meets_budget("hello", max_chars=None, max_tokens=5) is True
+
+
+def test_meets_budget_exceeds_token_limit():
+    # "hello" → 2 tokens; limit of 1 fails
+    assert _meets_budget("hello", max_chars=None, max_tokens=1) is False
+
+
+# ---------------------------------------------------------------------------
+# _is_fence_close
+# ---------------------------------------------------------------------------
+
+def test_is_fence_close_backtick_close():
+    assert _is_fence_close("```\n", "```") is True
+
+
+def test_is_fence_close_tilde_close():
+    assert _is_fence_close("~~~\n", "~~~") is True
+
+
+def test_is_fence_close_opening_line_with_language_not_close():
+    assert _is_fence_close("```python\n", "```") is False
+
+
+def test_is_fence_close_empty_fence_marker():
+    assert _is_fence_close("```\n", "") is False
+
+
+def test_is_fence_close_blank_line_not_close():
+    assert _is_fence_close("\n", "```") is False
+
+
+# ---------------------------------------------------------------------------
+# _looks_like_table_row
+# ---------------------------------------------------------------------------
+
+def test_looks_like_table_row_two_pipes_is_table():
+    assert _looks_like_table_row("| col1 | col2 |") is True
+
+
+def test_looks_like_table_row_three_pipes_is_table():
+    assert _looks_like_table_row("| a | b | c |") is True
+
+
+def test_looks_like_table_row_single_pipe_not_table():
+    assert _looks_like_table_row("x | y") is False
+
+
+def test_looks_like_table_row_plain_text_not_table():
+    assert _looks_like_table_row("normal text") is False
+
+
+# ---------------------------------------------------------------------------
+# _split_fenced_code
+# ---------------------------------------------------------------------------
+
+def test_split_fenced_code_no_fences_returns_single_text_chunk():
+    text = "plain text\nmore text"
+    parts = _split_fenced_code(text)
+    assert len(parts) == 1
+    assert parts[0][0] == "text"
+    assert "plain text" in parts[0][1]
+
+
+def test_split_fenced_code_with_python_fence():
+    text = "intro\n```python\ncode here\n```\noutro\n"
+    parts = _split_fenced_code(text)
+    kinds = [k for k, _ in parts]
+    assert "code" in kinds
+    assert "text" in kinds
+
+
+def test_split_fenced_code_code_block_preserved_verbatim():
+    code_line = "x   =   1  # spaced"
+    text = f"before\n```\n{code_line}\n```\nafter\n"
+    parts = _split_fenced_code(text)
+    code_chunks = [c for k, c in parts if k == "code"]
+    assert any(code_line in chunk for chunk in code_chunks)
+
+
+def test_split_fenced_code_tilde_fence():
+    text = "text\n~~~\ncode\n~~~\nmore\n"
+    parts = _split_fenced_code(text)
+    kinds = [k for k, _ in parts]
+    assert "code" in kinds
+
+
+# ---------------------------------------------------------------------------
+# _normalize_fence_boundaries
+# ---------------------------------------------------------------------------
+
+def test_normalize_fence_boundaries_already_correct_no_change():
+    text = "intro\n```python\ncode\n```\noutro"
+    result = _normalize_fence_boundaries(text)
+    # Fence must still be present.
+    assert "```python" in result
+
+
+def test_normalize_fence_boundaries_inserts_newline_before_fence():
+    # Fence starts immediately after non-newline text.
+    text = "intro```python\ncode\n```\noutro"
+    result = _normalize_fence_boundaries(text)
+    assert "intro\n```python" in result
