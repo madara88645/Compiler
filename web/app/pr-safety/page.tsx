@@ -335,6 +335,7 @@ export default function PrSafetyPage() {
                         type="button"
                         onClick={copyMarkdown}
                         className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-500/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
+                        aria-live="polite"
                       >
                         {copied ? "Copied!" : "Copy as Markdown"}
                       </button>

@@ -139,6 +139,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title={copiedRaw ? "Copied!" : "Copy raw output"}
                             aria-label={copiedRaw ? "Copied" : "Copy raw output"}
+                            aria-live="polite"
                         >
                             {copiedRaw ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -170,6 +171,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title={copiedCompiled ? "Copied!" : "Copy compiled output"}
                             aria-label={copiedCompiled ? "Copied" : "Copy compiled output"}
+                            aria-live="polite"
                         >
                             {copiedCompiled ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
