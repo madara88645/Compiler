@@ -151,11 +151,45 @@ export type RagStats = {
 export type GitHubRepoContextPayload = {
   normalized_repo_url: string;
   repo_full_name: string;
+  requested_ref?: string | null;
+  requested_subdir?: string | null;
   default_branch: string | null;
   summary: string;
+  summary_compact?: string | null;
   highlights: string[];
   files_used: string[];
   detected_stack: string[];
+};
+
+export type RepoContextEnvelope = {
+  source_type: "github_public" | "rag_index" | "local_upload" | "manual";
+  repo_identity?: {
+    name?: string | null;
+    url?: string | null;
+    default_branch?: string | null;
+    ref?: string | null;
+  };
+  summary?: {
+    full?: string;
+    compact?: string | null;
+  };
+  detected_stack?: string[];
+  files_used?: string[];
+  snippets?: Array<{
+    display_path: string;
+    content: string;
+    score?: number | null;
+    source_label?: string | null;
+  }>;
+  budget?: {
+    max_chars: number;
+    used_chars: number;
+    truncated: boolean;
+  };
+  safety?: {
+    path_safe: boolean;
+    contains_absolute_paths: boolean;
+  };
 };
 
 export type GeneratorExampleCodeMetadata = {

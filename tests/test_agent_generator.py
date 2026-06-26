@@ -38,8 +38,7 @@ def test_hybrid_compiler_generate_agent(mock_worker_client):
 
     result = compiler.generate_agent("Test Agent")
     assert result == "# Mock Agent System Prompt"
-    # HybridCompiler now injects context, so we expect the context argument
-    # We can use ANY for the context content since it depends on the mock vector db
+    # The worker call keeps the context argument, but default generation remains opt-in.
     from unittest.mock import ANY
 
     mock_worker_client.generate_agent.assert_called_with(
@@ -103,8 +102,9 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
         time.sleep(0.2)
         return "# Agent System Prompt"
 
-    with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
-        client, "_call_api", side_effect=slow_call_api
+    with (
+        patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01),
+        patch.object(client, "_call_api", side_effect=slow_call_api),
     ):
         started_at = time.perf_counter()
         with pytest.raises(RuntimeError, match="Agent generation timed out after 0.01s."):
@@ -181,6 +181,37 @@ def test_api_generate_agent_endpoint():
         )
 
 
+def test_api_generate_agent_endpoint_accepts_repo_context_envelope():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# Mock API Agent"
+        repo_context = {
+            "source_type": "manual",
+            "repo_identity": {"name": "foo/bar", "url": "https://github.com/foo/bar"},
+            "summary": {"full": "Manual repo context.", "compact": "Manual context."},
+            "files_used": ["README.md"],
+            "snippets": [
+                {
+                    "display_path": "app/main.py",
+                    "content": "FastAPI app entrypoint.",
+                    "source_label": "manual",
+                }
+            ],
+        }
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request", "repo_context": repo_context},
+        )
+
+        assert response.status_code == 200
+        kwargs = mock_compiler.generate_agent.call_args.kwargs
+        assert kwargs["repo_context"]["source_type"] == "manual"
+        assert kwargs["repo_context"]["repo_identity"]["name"] == "foo/bar"
+        assert kwargs["repo_context"]["summary"]["compact"] == "Manual context."
+        assert kwargs["repo_context_mode"] == "full"
+
+
 def test_api_generate_agent_endpoint_with_example_code_enabled():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = (
@@ -239,15 +270,15 @@ def test_single_agent_template_includes_new_sections():
     # Both enabled and disabled example-code modes should include the new sections.
     for include_example_code in (True, False):
         rendered = client._single_agent_prompt(include_example_code)
-        assert (
-            "## Tools & Integrations" in rendered
-        ), f"Missing '## Tools & Integrations' (include_example_code={include_example_code})"
-        assert (
-            "## Stop Conditions" in rendered
-        ), f"Missing '## Stop Conditions' (include_example_code={include_example_code})"
-        assert (
-            "## Self-Verification" in rendered
-        ), f"Missing '## Self-Verification' (include_example_code={include_example_code})"
+        assert "## Tools & Integrations" in rendered, (
+            f"Missing '## Tools & Integrations' (include_example_code={include_example_code})"
+        )
+        assert "## Stop Conditions" in rendered, (
+            f"Missing '## Stop Conditions' (include_example_code={include_example_code})"
+        )
+        assert "## Self-Verification" in rendered, (
+            f"Missing '## Self-Verification' (include_example_code={include_example_code})"
+        )
 
 
 def test_multi_agent_template_includes_topology_and_io():
@@ -257,18 +288,18 @@ def test_multi_agent_template_includes_topology_and_io():
 
     for include_example_code in (True, False):
         rendered = client._multi_agent_prompt(include_example_code)
-        assert (
-            "> **Topology:**" in rendered
-        ), f"Missing '> **Topology:**' declaration guidance (include_example_code={include_example_code})"
-        assert (
-            "## Inputs" in rendered
-        ), f"Missing '## Inputs' (include_example_code={include_example_code})"
-        assert (
-            "## Outputs" in rendered
-        ), f"Missing '## Outputs' (include_example_code={include_example_code})"
-        assert (
-            "## Swarm Stop Conditions" in rendered
-        ), f"Missing '## Swarm Stop Conditions' (include_example_code={include_example_code})"
+        assert "> **Topology:**" in rendered, (
+            f"Missing '> **Topology:**' declaration guidance (include_example_code={include_example_code})"
+        )
+        assert "## Inputs" in rendered, (
+            f"Missing '## Inputs' (include_example_code={include_example_code})"
+        )
+        assert "## Outputs" in rendered, (
+            f"Missing '## Outputs' (include_example_code={include_example_code})"
+        )
+        assert "## Swarm Stop Conditions" in rendered, (
+            f"Missing '## Swarm Stop Conditions' (include_example_code={include_example_code})"
+        )
 
 
 def test_example_code_strip_still_works():

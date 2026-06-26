@@ -59,7 +59,7 @@ def test_compile_cache_hit(compiler):
         optimized_content="content",
     )
     # Manually seed cache
-    compiler.cache[(text, "conservative")] = res1
+    compiler.cache[(text, "conservative", "")] = res1
 
     # Compile
     res2 = compiler.compile(text)
@@ -86,17 +86,13 @@ def test_compile_success(mock_detect_risk_flags, compiler):
     )
 
     compiler.worker.process.return_value = mock_res
-    compiler.context_strategist.process.return_value = "Mock context"
-
     res = compiler.compile(text)
 
     assert res is mock_res
-    compiler.context_strategist.process.assert_called_once_with(text)
-    compiler.worker.process.assert_called_once_with(
-        text, context="Mock context", mode="conservative"
-    )
+    compiler.context_strategist.process.assert_not_called()
+    compiler.worker.process.assert_called_once_with(text, context=None, mode="conservative")
     # Verify cached
-    assert compiler.cache[(text, "conservative")] is mock_res
+    assert compiler.cache[(text, "conservative", "")] is mock_res
 
 
 @patch("app.llm_engine.hybrid.detect_risk_flags")
@@ -115,15 +111,14 @@ def test_compile_retries_worker_exception_then_succeeds(mock_detect_risk_flags, 
         ir=mock_ir, diagnostics=[], thought_process="Success", optimized_content="Optimized."
     )
 
-    compiler.context_strategist.process.return_value = "Mock context"
     compiler.worker.process.side_effect = [Exception("temporary worker error"), mock_res]
 
     res = compiler.compile(text)
 
     assert res is mock_res
-    compiler.context_strategist.process.assert_called_once_with(text)
+    compiler.context_strategist.process.assert_not_called()
     assert compiler.worker.process.call_count == 2
-    compiler.worker.process.assert_called_with(text, context="Mock context", mode="conservative")
+    compiler.worker.process.assert_called_with(text, context=None, mode="conservative")
 
 
 @patch("app.llm_engine.hybrid.detect_risk_flags")
@@ -182,7 +177,6 @@ def test_compile_worker_failure_fallback(compiler):
 
 def test_compile_logs_context_and_falls_back_after_two_worker_failures(compiler, caplog):
     text = "fail me twice"
-    compiler.context_strategist.process.return_value = "Mock context"
     compiler.worker.process.side_effect = [Exception("first error"), Exception("second error")]
 
     with patch("app.llm_engine.hybrid.compile_text_v2") as mock_compile_v2:
@@ -208,9 +202,45 @@ def test_compile_logs_context_and_falls_back_after_two_worker_failures(compiler,
         and record.attempts == 2
         and record.mode == "conservative"
         and record.text_length == len(text)
-        and record.rag_context_available is True
+        and record.repo_context_available is False
         for record in caplog.records
     )
+
+
+@patch("app.llm_engine.hybrid.detect_risk_flags")
+def test_compile_with_explicit_repo_context(mock_detect_risk_flags, compiler):
+    mock_detect_risk_flags.return_value = []
+    text = "compile with repo context"
+    mock_ir = IRv2(
+        language="en",
+        persona="expert",
+        role="tester",
+        domain="general",
+        output_format="text",
+        length_hint="medium",
+    )
+    mock_res = WorkerResponse(
+        ir=mock_ir, diagnostics=[], thought_process="Success", optimized_content="Optimized."
+    )
+    compiler.worker.process.return_value = mock_res
+
+    compiler.compile(
+        text,
+        repo_context={
+            "normalized_repo_url": "https://github.com/openai/openai-python",
+            "repo_full_name": "openai/openai-python",
+            "default_branch": "main",
+            "summary": "Python SDK repository.",
+            "highlights": ["README present"],
+            "files_used": ["README.md"],
+            "detected_stack": ["Python"],
+        },
+    )
+
+    compiler.context_strategist.process.assert_not_called()
+    _, kwargs = compiler.worker.process.call_args
+    assert kwargs["context"]["repo_context"]["source_type"] == "github_public"
+    assert kwargs["context"]["repo_context"]["repo_identity"]["name"] == "openai/openai-python"
 
 
 def test_compile_absolute_worst_case_fallback(compiler):
@@ -230,15 +260,14 @@ def test_compile_absolute_worst_case_fallback(compiler):
 
 def test_generate_agent_success(compiler):
     text = "make an agent"
-    compiler.context_strategist.process.return_value = "Mock agent context"
     compiler.worker.generate_agent.return_value = "Agent System Prompt"
 
     res = compiler.generate_agent(text, multi_agent=True, include_example_code=True)
 
     assert res == "Agent System Prompt"
-    compiler.context_strategist.process.assert_called_once_with(text, expand_with_llm=False)
+    compiler.context_strategist.process.assert_not_called()
     compiler.worker.generate_agent.assert_called_once_with(
-        text, context="Mock agent context", multi_agent=True, include_example_code=True
+        text, context=None, multi_agent=True, include_example_code=True
     )
 
 
@@ -253,15 +282,14 @@ def test_generate_agent_failure(compiler):
 
 def test_generate_skill_success(compiler):
     text = "make a skill"
-    compiler.context_strategist.process.return_value = "Mock skill context"
     compiler.worker.generate_skill.return_value = "Skill Definition"
 
     res = compiler.generate_skill(text, include_example_code=True)
 
     assert res == "Skill Definition"
-    compiler.context_strategist.process.assert_called_once_with(text, expand_with_llm=False)
+    compiler.context_strategist.process.assert_not_called()
     compiler.worker.generate_skill.assert_called_once_with(
-        text, context="Mock skill context", include_example_code=True
+        text, context=None, include_example_code=True
     )
 
 

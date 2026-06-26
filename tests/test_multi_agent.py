@@ -19,19 +19,20 @@ def test_hybrid_compiler_multi_agent(mock_worker_client):
     compiler.worker = mock_worker_client
     # Mock context strategist
     compiler.context_strategist = MagicMock()
-    compiler.context_strategist.process.return_value = {}
 
     # Test single agent
     compiler.generate_agent("Task 1", multi_agent=False)
     mock_worker_client.generate_agent.assert_called_with(
-        "Task 1", context={}, multi_agent=False, include_example_code=False
+        "Task 1", context=None, multi_agent=False, include_example_code=False
     )
+    compiler.context_strategist.process.assert_not_called()
 
     # Test multi agent
     compiler.generate_agent("Task 2", multi_agent=True)
     mock_worker_client.generate_agent.assert_called_with(
-        "Task 2", context={}, multi_agent=True, include_example_code=False
+        "Task 2", context=None, multi_agent=True, include_example_code=False
     )
+    compiler.context_strategist.process.assert_not_called()
 
 
 def test_api_multi_agent_flag():

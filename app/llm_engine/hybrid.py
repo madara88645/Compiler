@@ -10,6 +10,7 @@ from cachetools import TTLCache
 
 from .rag import ContextStrategist, SQLiteVectorDB
 import os
+from app.repo_context.adapters import coerce_repo_context_envelope, repo_context_cache_fingerprint
 
 logger = logging.getLogger("promptc.llm.hybrid")
 _WORKER_MAX_ATTEMPTS = 2
@@ -33,9 +34,15 @@ class HybridCompiler:
         # Cache: 100 items, expires in 1 hour
         self.cache = TTLCache(maxsize=100, ttl=3600)
 
-    def compile(self, text: str, mode: Optional[str] = None) -> WorkerResponse:
+    def compile(
+        self,
+        text: str,
+        mode: Optional[str] = None,
+        repo_context: dict[str, Any] | None = None,
+        repo_context_mode: str = "compact",
+    ) -> WorkerResponse:
         """
-        Attempt to compile using the Worker LLM with RAG context.
+        Attempt to compile using the Worker LLM with optional repo context.
         Falls back to local heuristics if LLM fails.
         """
         # 1. Fast Checks (Heuristic Guardrails)
@@ -43,22 +50,29 @@ class HybridCompiler:
             return self._fallback(text, "Input was empty")
 
         # 2. Check Cache
-        cache_key = (text, (mode or self.default_mode or "conservative").strip().lower())
+        context_fingerprint = repo_context_cache_fingerprint(repo_context)
+        cache_key = (
+            text,
+            (mode or self.default_mode or "conservative").strip().lower(),
+            context_fingerprint,
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         # 3. Worker LLM (Slow but Smart)
         try:
-            # --- RAG: Context Strategist ---
-            # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            normalized_context = self._merge_generator_context(
+                None,
+                repo_context,
+                repo_context_mode,
+            )
 
             # Pass context to Worker. Retry once for transient worker/API failures before
             # dropping to the deterministic heuristic fallback.
             resolved_mode = mode or self.default_mode
             for attempt in range(1, _WORKER_MAX_ATTEMPTS + 1):
                 try:
-                    res = self.worker.process(text, context=rag_context, mode=resolved_mode)
+                    res = self.worker.process(text, context=normalized_context, mode=resolved_mode)
                     break
                 except Exception as e:
                     if attempt < _WORKER_MAX_ATTEMPTS:
@@ -70,7 +84,7 @@ class HybridCompiler:
                                 "text_length": len(text),
                                 "attempt": attempt,
                                 "max_attempts": _WORKER_MAX_ATTEMPTS,
-                                "rag_context_available": bool(rag_context),
+                                "repo_context_available": bool(normalized_context),
                             },
                         )
                         continue
@@ -82,7 +96,7 @@ class HybridCompiler:
                             "mode": resolved_mode,
                             "text_length": len(text),
                             "attempts": attempt,
-                            "rag_context_available": bool(rag_context),
+                            "repo_context_available": bool(normalized_context),
                         },
                     )
                     return self._fallback(text, f"{e} after {attempt} attempts")
@@ -148,7 +162,7 @@ class HybridCompiler:
                     "mode": mode or self.default_mode,
                     "text_length": len(text),
                     "attempts": 0,
-                    "rag_context_available": False,
+                    "repo_context_available": False,
                 },
             )
             return self._fallback(text, str(e))
@@ -219,7 +233,7 @@ class HybridCompiler:
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text, expand_with_llm=False),
+                None,
                 repo_context,
                 repo_context_mode,
             )
@@ -246,7 +260,7 @@ class HybridCompiler:
         try:
             # Retrieve relevant code context using Agent 6
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text, expand_with_llm=False),
+                None,
                 repo_context,
                 repo_context_mode,
             )
@@ -266,23 +280,22 @@ class HybridCompiler:
         repo_context_mode: str = "full",
     ) -> Any:
         """
-        Merge an optional repo_context payload into the existing RAG context.
+        Merge an optional repo_context payload into an existing context object.
 
-        rag_context is whatever ``ContextStrategist.process`` returned and may be a
-        dict, a string, or None depending on configuration. When no repo_context
-        is supplied this method passes rag_context through unchanged so existing
-        non-dict callers keep working; only when wrapping repo_context do we coerce
-        rag_context into a dict.
+        When no repo_context is supplied this method passes the original context
+        through unchanged so existing non-dict callers keep working; only when
+        wrapping repo_context do we coerce the context into a dict.
         """
         if not repo_context:
+            return rag_context
+        envelope = coerce_repo_context_envelope(repo_context)
+        if envelope is None:
             return rag_context
         merged: dict[str, Any] = dict(rag_context) if isinstance(rag_context, dict) else {}
         mode = (repo_context_mode or "full").strip().lower()
         if mode not in {"full", "compact"}:
             mode = "full"
-        merged["repo_context"] = {
-            "source": "github_public_repo",
-            "mode": mode,
-            **repo_context,
-        }
+        payload = envelope.model_dump(mode="json")
+        payload["mode"] = mode
+        merged["repo_context"] = payload
         return merged
