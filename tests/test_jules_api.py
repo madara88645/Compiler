@@ -220,3 +220,176 @@ def test_jules_reply_endpoint_client_generic_error():
     assert response.status_code == 502
     assert response.json()["detail"] == "Failed to reply to Jules session."
     mock_client.close.assert_called_once()
+
+
+def test_jules_create_session_success():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.create_session.return_value = {"id": "s-new-123"}
+
+        client = TestClient(app)
+        response = client.post(
+            "/jules/sessions",
+            json={
+                "prompt": "build a script",
+                "source": "sources/github/acme/repo",
+                "automation_mode": "full",
+                "title": "automated task",
+                "require_plan_approval": True,
+            },
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"id": "s-new-123"}
+        mock_client.create_session.assert_called_once_with(
+            {
+                "prompt": "build a script",
+                "sourceContext": {
+                    "source": "sources/github/acme/repo",
+                    "githubRepoContext": {"startingBranch": "main"},
+                },
+                "requirePlanApproval": True,
+                "automationMode": "full",
+                "title": "automated task",
+            }
+        )
+        mock_client.close.assert_called_once()
+
+
+def test_jules_create_session_errors():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+
+        # 1. Runtime Error -> 500
+        mock_client.create_session.side_effect = RuntimeError("network fail")
+        client = TestClient(app)
+        res1 = client.post(
+            "/jules/sessions", json={"prompt": "abc", "source": "src"}, headers=_auth_headers()
+        )
+        assert res1.status_code == 500
+
+        # 2. Generic Exception -> 502
+        mock_client.create_session.side_effect = Exception("generic fail")
+        res2 = client.post(
+            "/jules/sessions", json={"prompt": "abc", "source": "src"}, headers=_auth_headers()
+        )
+        assert res2.status_code == 502
+
+
+def test_jules_get_session_success():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.get_session.return_value = {"id": "s1", "title": "my title"}
+
+        client = TestClient(app)
+        response = client.get("/jules/sessions/s1", headers=_auth_headers())
+        assert response.status_code == 200
+        assert response.json()["title"] == "my title"
+        mock_client.get_session.assert_called_once_with("s1")
+
+
+def test_jules_get_session_errors():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+
+        mock_client.get_session.side_effect = RuntimeError("err")
+        client = TestClient(app)
+        assert client.get("/jules/sessions/s1", headers=_auth_headers()).status_code == 500
+
+        mock_client.get_session.side_effect = Exception("err")
+        assert client.get("/jules/sessions/s1", headers=_auth_headers()).status_code == 502
+
+
+def test_jules_get_session_activities_success():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.list_activities.return_value = {"activities": []}
+
+        client = TestClient(app)
+        response = client.get("/jules/sessions/s1/activities?page_size=40", headers=_auth_headers())
+        assert response.status_code == 200
+        mock_client.list_activities.assert_called_once_with("s1", page_size=40)
+
+
+def test_jules_get_session_activities_errors():
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+
+        mock_client.list_activities.side_effect = RuntimeError("err")
+        client = TestClient(app)
+        assert (
+            client.get("/jules/sessions/s1/activities", headers=_auth_headers()).status_code == 500
+        )
+
+        mock_client.list_activities.side_effect = Exception("err")
+        assert (
+            client.get("/jules/sessions/s1/activities", headers=_auth_headers()).status_code == 502
+        )
+
+
+def test_generate_jules_reply_fallback_mode():
+    # If OPENROUTER_API_KEY is not set, it should return context bits formatted as fallback
+    from app.routers.jules import generate_jules_reply
+
+    with patch.dict("os.environ", {}, clear=True):
+        reply = generate_jules_reply(
+            latest_agent_message="agent msg",
+            instruction="my instruction",
+            session_title="my title",
+            session_prompt="my prompt",
+        )
+        assert "my instruction" in reply
+        assert "my title" in reply
+        assert "my prompt" in reply
+        assert "agent msg" in reply
+
+
+def test_generate_jules_reply_api_call():
+    from app.routers.jules import generate_jules_reply
+
+    with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}, clear=False), patch(
+        "app.routers.jules.WorkerClient"
+    ) as mock_worker_cls:
+        mock_worker = mock_worker_cls.return_value
+        mock_worker._call_api.return_value = " LLM generated reply \n"
+
+        reply = generate_jules_reply(
+            latest_agent_message="agent msg",
+            instruction="my instruction",
+            session_title="my title",
+            session_prompt="my prompt",
+        )
+        assert reply == "LLM generated reply"
+        mock_worker._call_api.assert_called_once()
+
+
+def test_extract_activity_text_edge_cases():
+    from app.routers.jules import _extract_activity_text
+
+    # 1. progressUpdated with description only (no title)
+    act1 = {"progressUpdated": {"description": "Working on it "}}
+    assert _extract_activity_text(act1) == "Working on it"
+
+    # 2. planGenerated with steps with description only (no title)
+    act2 = {"planGenerated": {"plan": {"steps": [{"description": "Step 1 desc "}]}}}
+    assert _extract_activity_text(act2) == "Step 1 desc"
+
+    # 3. sessionCompleted payload with title
+    act3 = {"sessionCompleted": {"title": " Done "}}
+    assert _extract_activity_text(act3) == "Done"
+
+    # 4. Empty/invalid
+    assert _extract_activity_text({}) == ""
