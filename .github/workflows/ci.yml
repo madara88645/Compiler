@@ -16,7 +16,7 @@ jobs:
     name: Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
@@ -78,7 +78,7 @@ jobs:
     name: VS Code Extension
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -111,7 +111,7 @@ jobs:
     needs: [smoke]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
@@ -140,12 +140,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-14]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         with:
           fetch-depth: 0
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.12'
 
       - uses: actions/setup-python@v6
