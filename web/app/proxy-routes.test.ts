@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as backendProxy from "@/lib/server/backendProxy";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
 import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
@@ -23,6 +24,13 @@ type RouteCase = {
   requestMethod?: string;
   requestBody?: Record<string, unknown>;
   expectedUrl: string;
+};
+
+const AGENT_PACK_REQUEST_BODY = {
+  project_type: "SaaS",
+  stack: "FastAPI",
+  goal: "Generate a project pack",
+  pack_type: "project-pack",
 };
 
 describe("Next backend proxy route wiring", () => {
@@ -105,19 +113,97 @@ describe("Next backend proxy route wiring", () => {
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
   });
 
+  it.each([
+    {
+      name: "agent packs",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      backendPath: "/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      backendPath: "/agent-packs/claude/download",
+    },
+  ])("passes the extended upstream timeout to $name routes", async ({
+    handler,
+    requestUrl,
+    requestBody,
+    backendPath,
+  }) => {
+    const proxySpy = vi.spyOn(backendProxy, "proxyBackendRequest").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await handler(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }),
+    );
+
+    expect(proxySpy).toHaveBeenCalledTimes(1);
+    const [, proxiedPath, proxyOptions] = proxySpy.mock.calls[0]!;
+    expect(proxiedPath).toBe(backendPath);
+    expect(proxyOptions).toEqual(
+      expect.objectContaining({
+        retryNetworkErrors: true,
+        upstreamTimeoutMs: 60_000,
+      }),
+    );
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("keeps compile requests on the default timeout budget", async () => {
+    const proxySpy = vi.spyOn(backendProxy, "proxyBackendRequest").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await compileRoute(
+      new Request("http://localhost:3000/compile", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: "summarize this" }),
+      }),
+    );
+
+    expect(proxySpy).toHaveBeenCalledTimes(1);
+    const [, proxiedPath, proxyOptions] = proxySpy.mock.calls[0]!;
+    expect(proxiedPath).toBe("/compile");
+    expect(proxyOptions).toEqual(expect.objectContaining({ retryNetworkErrors: true }));
+    expect(proxyOptions).not.toHaveProperty("upstreamTimeoutMs");
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
   it.each<RouteCase>([
     {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
     },
     {
@@ -276,14 +362,14 @@ describe("Next backend proxy route wiring", () => {
       name: "agent packs",
       handler: agentPacksClaudeRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "https://api.memo.dev/agent-packs/claude",
     },
     {
       name: "agent pack download",
       handler: agentPacksClaudeDownloadRoute,
       requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: { project_type: "SaaS", stack: "FastAPI", goal: "Generate a project pack", pack_type: "project-pack" },
+      requestBody: AGENT_PACK_REQUEST_BODY,
       expectedUrl: "https://api.memo.dev/agent-packs/claude/download",
     },
     {
