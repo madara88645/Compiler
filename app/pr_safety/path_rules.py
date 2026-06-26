@@ -210,7 +210,11 @@ def normalize_paths(paths: list[str]) -> list[str]:
 
 
 def _matches_any_pattern(path: str, patterns: tuple[str, ...]) -> bool:
-    return any(fnmatch(path, pattern) for pattern in patterns)
+    # Bolt Optimization: Replace any() generator expression with explicit loop
+    for pattern in patterns:
+        if fnmatch(path, pattern):
+            return True
+    return False
 
 
 def is_test_file(path: str) -> bool:
