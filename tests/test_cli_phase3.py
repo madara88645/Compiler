@@ -22,6 +22,7 @@ EXPECTED_TOP_LEVEL_COMMANDS = {
     "fix",
     "json-path",
     "pack",
+    "pr-safety",
     "validate",
     "version",
 }
