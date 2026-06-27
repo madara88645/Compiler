@@ -22,7 +22,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip
+from api.auth import rate_limit_by_ip, verify_api_key
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -294,6 +294,7 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 async def benchmark_run(
     req: BenchmarkRequest,
     _: None = Depends(rate_limit_by_ip),
+    api_key=Depends(verify_api_key),
 ):
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.
