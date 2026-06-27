@@ -47,3 +47,9 @@ def test_turkish_request_is_not_noise():
 def test_questions_capped_at_three():
     report = analyze_readiness("make it better, faster, nicer, cleaner, and improve it")
     assert len(report.questions) <= 3
+
+
+def test_hash_map_is_not_risky():
+    # "hash"/"salt" as generic CS/cooking words must not trigger the security signal
+    assert analyze_readiness("build a hash map in Python and return it").verdict == "ready"
+    assert analyze_readiness("add salt to taste and serve the dish").verdict != "risky"

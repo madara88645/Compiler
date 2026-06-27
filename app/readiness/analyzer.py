@@ -21,8 +21,8 @@ VAGUE_WORDS = frozenset(
 
 # Auth/security patterns not covered by detect_risk_flags but clearly sensitive.
 _AUTH_SECURITY_RE = re.compile(
-    r"\b(password|hashing|hash|authentication|authoriz|session\s+auth|oauth|jwt|token\s+auth"
-    r"|bcrypt|argon2|pbkdf2|scrypt|salting|salt)\b",
+    r"\b(password|authentication|authoriz|session\s+auth|token\s+auth"
+    r"|oauth|jwt|bcrypt|argon2|pbkdf2|scrypt)\b",
     re.IGNORECASE,
 )
 
