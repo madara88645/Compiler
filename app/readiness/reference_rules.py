@@ -48,6 +48,8 @@ KNOWN_TECH = frozenset(
 )
 
 # "AcmeCloud SDK", "FooBar API", "Baz CLI" — a name followed by a product suffix.
+# The name must start [A-Z][a-z] so all-caps acronyms (REST/JSON/HTTP) are NOT
+# treated as product names ("REST API" is a generic phrase, not an unknown tool).
 _SUFFIX_RE = re.compile(r"\b([A-Z][a-z][a-zA-Z0-9]*)\s+(SDK|API|CLI|Cloud|Platform|Service)\b")
 # Standalone CamelCase product tokens like "AcmeCloud", "FooBarHub".
 _CAMEL_RE = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-zA-Z0-9]+)+)\b")
@@ -64,6 +66,8 @@ def detect_unverifiable_references(text: str) -> list[str]:
         tok = m.group(1)
         if tok.lower() in KNOWN_TECH:
             continue
+        # Skip a bare token already covered by a suffix phrase, e.g. don't add
+        # "AcmeCloud" when "AcmeCloud SDK" is already flagged.
         if any(tok in f for f in found):
             continue
         found.append(tok)
