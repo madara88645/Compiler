@@ -122,10 +122,12 @@ def _has_related_test_file(source_file: str, test_files: list[str]) -> bool:
         f"{module}_test",
     }
 
+    # Bolt Optimization: Replace any() generator expression with explicit fast-path loop
     for test_file in test_files:
         test_name = test_file.rsplit("/", 1)[-1].lower()
-        if any(candidate and candidate.lower() in test_name for candidate in candidates):
-            return True
+        for candidate in candidates:
+            if candidate and candidate.lower() in test_name:
+                return True
         if source_file.rsplit("/", 1)[-1] in test_file:
             return True
 
@@ -164,11 +166,16 @@ def _build_scope_match(title: str, description: str, files: list[str]) -> ScopeM
     terms = extract_scope_terms(title, description)
     focus_terms = [term for term in terms if term in _SCOPE_FOCUS_TERMS]
 
-    missing_terms = [
-        term
-        for term in focus_terms
-        if not any(path_reflects_scope_term(path, term) for path in files)
-    ]
+    # Bolt Optimization: Replace any() generator expression with fast-path loop
+    missing_terms = []
+    for term in focus_terms:
+        found = False
+        for path in files:
+            if path_reflects_scope_term(path, term):
+                found = True
+                break
+        if not found:
+            missing_terms.append(term)
     notes: list[str] = []
 
     if missing_terms:
