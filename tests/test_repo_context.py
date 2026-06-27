@@ -654,3 +654,227 @@ def test_analyze_public_github_repo_authorization_leakage_regression(monkeypatch
 
     assert not has_auth_client, f"Leakage detected: Authorization persisted in global client headers! Headers: {captured_client_headers[1]}"
     assert not has_auth_request, f"Leakage detected: Authorization sent in second request! Headers: {captured_request_headers[1]}"
+
+
+def test_close_github_http_client():
+    from app.github_repo_context import get_github_http_client, close_github_http_client
+    import app.github_repo_context
+
+    client = get_github_http_client()
+    assert client is not None
+    assert app.github_repo_context._GITHUB_HTTP_CLIENT is not None
+
+    close_github_http_client()
+    assert app.github_repo_context._GITHUB_HTTP_CLIENT is None
+
+
+def test_resolve_repo_cache_ttl_variants(monkeypatch):
+    from app.github_repo_context import _resolve_repo_cache_ttl
+
+    # 1. Negative TTL
+    monkeypatch.setenv("PROMPTC_REPO_CONTEXT_CACHE_TTL", "-5")
+    assert _resolve_repo_cache_ttl() == 0
+
+    # 2. Empty TTL
+    monkeypatch.setenv("PROMPTC_REPO_CONTEXT_CACHE_TTL", "   ")
+    assert _resolve_repo_cache_ttl() == 600
+
+    # 3. Invalid TTL
+    monkeypatch.setenv("PROMPTC_REPO_CONTEXT_CACHE_TTL", "invalid-int")
+    assert _resolve_repo_cache_ttl() == 600
+
+
+def test_normalize_public_github_repo_url_edge_cases():
+    from app.github_repo_context import normalize_public_github_repo_url
+
+    # Empty URL
+    with pytest.raises(InvalidGitHubRepoUrl, match="URL is required"):
+        normalize_public_github_repo_url("")
+
+    # Invalid scheme / host
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only public https://github.com"):
+        normalize_public_github_repo_url("http://github.com/a/b")
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only public https://github.com"):
+        normalize_public_github_repo_url("https://gitlab.com/a/b")
+
+    # Query or fragment
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only root repository URLs are supported"):
+        normalize_public_github_repo_url("https://github.com/a/b?ref=main")
+
+    # Too few segments
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only root repository URLs are supported"):
+        normalize_public_github_repo_url("https://github.com/a")
+
+    # Invalid characters in owner/repo
+    with pytest.raises(InvalidGitHubRepoUrl, match="contains unsupported characters"):
+        normalize_public_github_repo_url("https://github.com/owner$/repo")
+
+    # Tree segment but empty ref
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only root repository URLs are supported"):
+        normalize_public_github_repo_url("https://github.com/a/b/tree/")
+
+    # Invalid segment structure (not tree)
+    with pytest.raises(InvalidGitHubRepoUrl, match="Only root repository URLs are supported"):
+        normalize_public_github_repo_url("https://github.com/a/b/blob")
+
+
+def test_analyze_public_github_repo_no_cache(monkeypatch):
+    import app.github_repo_context
+    from app.github_repo_context import analyze_public_github_repo
+
+    # Temporarily set _REPO_CACHE to None
+    monkeypatch.setattr(app.github_repo_context, "_REPO_CACHE", None)
+
+    # Mock fetch payload
+    mock_payload = {"normalized_repo_url": "url"}
+    with patch(
+        "app.github_repo_context._fetch_public_github_repo_payload", return_value=mock_payload
+    ):
+        res = analyze_public_github_repo("https://github.com/owner/repo")
+        assert res == mock_payload
+
+
+def test_resolve_github_token_variants(monkeypatch):
+    from app.github_repo_context import _resolve_github_token
+
+    # 1. GITHUB_TOKEN present
+    monkeypatch.setenv("GITHUB_TOKEN", "token1")
+    monkeypatch.delenv("PROMPTC_GITHUB_TOKEN", raising=False)
+    assert _resolve_github_token() == "token1"
+
+    # 2. Both empty/whitespace
+    monkeypatch.setenv("GITHUB_TOKEN", "  ")
+    assert _resolve_github_token() is None
+
+
+def test_get_json_exceptions():
+    from app.github_repo_context import _get_json
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock(spec=httpx.Client)
+
+    # 1. Status 500 error
+    mock_response_500 = MagicMock()
+    mock_response_500.status_code = 500
+    mock_client.get.return_value = mock_response_500
+    mock_response_500.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Err", request=MagicMock(), response=mock_response_500
+    )
+
+    with pytest.raises(GitHubRepoAnalysisError, match="repository analysis failed"):
+        _get_json(mock_client, "/path")
+
+    # 2. HTTPError
+    mock_client.get.side_effect = httpx.HTTPError("Network failure")
+    with pytest.raises(GitHubRepoAnalysisError, match="repository analysis failed"):
+        _get_json(mock_client, "/path")
+
+
+def test_read_text_file_exceptions():
+    from app.github_repo_context import _read_text_file
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock(spec=httpx.Client)
+
+    # 1. Missing download url
+    assert _read_text_file(mock_client, {}) == ""
+
+    # 2. HTTPError during download
+    mock_client.get.side_effect = httpx.HTTPError("Err")
+    assert _read_text_file(mock_client, {"download_url": "url"}) == ""
+
+
+def test_find_entry_not_found():
+    from app.github_repo_context import _find_entry
+
+    assert _find_entry([], "target") is None
+
+
+def test_find_readme_not_found():
+    from app.github_repo_context import _find_readme
+
+    assert _find_readme([{"name": "not-readme", "type": "file"}]) is None
+    assert _find_readme([{"name": "readme.md", "type": "dir"}]) is None
+
+
+def test_detect_stack_exceptions_and_frameworks():
+    from app.github_repo_context import _detect_stack
+
+    # 1. Missing language
+    res1 = _detect_stack({}, {})
+    assert res1 == []
+
+    # 2. package.json invalid json syntax
+    res2 = _detect_stack({"language": "JavaScript"}, {"package.json": "invalid-json"})
+    assert "Node.js" in res2
+    assert "React" not in res2
+
+    # 3. All other stack frameworks (split into two groups to avoid MAX_STACK_ITEMS truncation)
+    group1 = {
+        "django_file": "django framework",
+        "flask_file": "flask framework",
+        "cargo.toml": "Rust cargo.toml",
+    }
+    res_group1 = _detect_stack({"language": "Python"}, group1)
+    for framework in ["Django", "Flask", "Rust"]:
+        assert framework in res_group1
+
+    group2 = {
+        "go.mod": "Go go.mod",
+        "pom.xml": "Java pom.xml",
+        "composer.json": "PHP composer.json",
+        "gemfile": "Ruby gemfile",
+    }
+    res_group2 = _detect_stack({}, group2)
+    for framework in ["Go", "Java", "PHP", "Ruby"]:
+        assert framework in res_group2
+
+
+def test_build_highlights_edge_cases():
+    from app.github_repo_context import _build_highlights
+
+    # Empty metadata/paths/files
+    res = _build_highlights(
+        repo_meta={},
+        detected_stack=[],
+        top_level_dirs=[],
+        files_used=[],
+        manifest_paths=[],
+    )
+    assert len(res) == 1
+    assert "This repository" in res[0]
+
+
+def test_build_summary_budget_exceeded():
+    from app.github_repo_context import _build_summary
+
+    long_readme = "readme " * 500
+    res = _build_summary(
+        repo_meta={"full_name": "owner/repo", "description": "desc " * 300},
+        detected_stack=["Python"],
+        top_level_dirs=["src"],
+        files_used=["README.md"],
+        manifest_paths=["pyproject.toml"],
+        readme_text=long_readme,
+    )
+    assert len(res) <= 1200
+    assert res.endswith("...")
+
+
+def test_build_summary_compact_budget_exceeded():
+    from app.github_repo_context import _build_summary_compact
+
+    res = _build_summary_compact(
+        repo_meta={"full_name": "owner/repo", "description": "description " * 100},
+        detected_stack=["Python", "FastAPI"],
+        top_level_dirs=["src"],
+    )
+    assert len(res) <= 280
+    assert res.endswith("...")
+
+
+def test_extract_readme_signal_empty():
+    from app.github_repo_context import _extract_readme_signal
+
+    res = _extract_readme_signal("")
+    assert "README content was unavailable" in res
