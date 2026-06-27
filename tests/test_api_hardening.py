@@ -214,7 +214,7 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 
 
 @pytest.mark.auth_required
-@pytest.mark.skip(reason='Security enhancement: benchmark now requires auth')
+@pytest.mark.skip(reason="Security enhancement: benchmark now requires auth")
 def test_benchmark_is_public_endpoint():
     """
     /benchmark/run should be accessible without API key (public endpoint).

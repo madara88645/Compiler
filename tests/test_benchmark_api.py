@@ -6,7 +6,6 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api.auth import verify_api_key
-from fastapi import Depends
 
 
 @pytest.fixture

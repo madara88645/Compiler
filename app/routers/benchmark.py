@@ -294,7 +294,7 @@ def _heuristic_judge(raw_output: str, compiled_output: str) -> dict:
 async def benchmark_run(
     req: BenchmarkRequest,
     _: None = Depends(rate_limit_by_ip),
-    api_key = Depends(verify_api_key),
+    api_key=Depends(verify_api_key),
 ):
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.

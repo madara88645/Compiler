@@ -29,7 +29,7 @@ def client_without_auth_override():
 
 
 @pytest.mark.auth_required
-@pytest.mark.skip(reason='Security enhancement: benchmark now requires auth')
+@pytest.mark.skip(reason="Security enhancement: benchmark now requires auth")
 def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
     """
     /benchmark/run should work without API key authentication.
