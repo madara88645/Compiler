@@ -48,6 +48,8 @@ def _is_noise(text: str) -> bool:
 
 
 def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
+    # `ir` is accepted for forward compatibility (the compile endpoint passes the
+    # IR v2) but is not yet used by any deterministic signal in this slice.
     if _is_noise(text):
         return ReadinessReport(
             verdict="noise",
