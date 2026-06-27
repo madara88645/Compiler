@@ -15,7 +15,7 @@ def test_swarm_analyzer_report_structure_placeholder():
     pass
 
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import json
 from app.analyzer.test_scenarios import ScenariosGenerator
 from app.llm_engine.schemas import QualityReport
@@ -147,3 +147,133 @@ def test_swarm_analyzer_efficiency_check():
 
     res = analyzer.analyze_swarm(agents, "Task", run_tests=True)
     assert any("high coordination overhead" in issue.lower() for issue in res.issues)
+
+
+def test_swarm_analyzer_has_planner_and_reviewer():
+    from app.llm_engine.schemas import EvaluationResults
+
+    client = MagicMock()
+    client.analyze_prompt.return_value = QualityReport(score=85)
+    analyzer = SwarmAnalyzer(client)
+
+    agents = [
+        {"role": "Coordinator Planner", "prompt": "p1"},
+        {"role": "Reviewer Critic", "prompt": "p2"},
+        {"role": "Developer Assistant", "prompt": "p3"},
+    ]
+
+    mock_test_results = EvaluationResults(
+        scenarios_run=1,
+        success_rate=90.0,
+        coordination_overhead="low",
+        failure_modes=[],
+        coverage_metrics={"scenario_1": 90.0},
+    )
+
+    with patch.object(analyzer.test_generator, "test_swarm", return_value=mock_test_results):
+        res = analyzer.analyze_swarm(agents, "Task", run_tests=True)
+        assert res.quality_score > 0
+        assert not any("Missing a coordinating" in issue for issue in res.issues)
+        assert not any("Missing a review" in issue for issue in res.issues)
+
+
+def test_swarm_analyzer_short_agents_list():
+    client = MagicMock()
+    client.analyze_prompt.return_value = QualityReport(score=85)
+    analyzer = SwarmAnalyzer(client)
+
+    agents = [
+        {"role": "Developer", "prompt": "p1"},
+        {"role": "Tester", "prompt": "p2"},
+    ]
+
+    res = analyzer.analyze_swarm(agents, "Task", run_tests=False)
+    assert not any("coordinating/planning" in issue for issue in res.issues)
+    assert not any("review or validation" in issue for issue in res.issues)
+
+
+def test_swarm_analyzer_prompt_analysis_exception():
+    client = MagicMock()
+    client.analyze_prompt.side_effect = Exception("Analysis failed")
+    analyzer = SwarmAnalyzer(client)
+
+    agents = [{"role": "Developer", "prompt": "p1"}]
+    res = analyzer.analyze_swarm(agents, "Task", run_tests=False)
+    assert res.prompt_quality_score == 50.0
+    assert len(res.per_agent_reports) == 1
+    assert res.per_agent_reports[0].quality_report.score == 50
+
+
+def test_swarm_analyzer_low_success_rate_and_high_overhead():
+    from app.llm_engine.schemas import EvaluationResults
+
+    client = MagicMock()
+    client.analyze_prompt.return_value = QualityReport(score=80)
+    analyzer = SwarmAnalyzer(client)
+
+    agents = [{"role": "Developer", "prompt": "p1"}]
+
+    mock_test_results = EvaluationResults(
+        scenarios_run=1,
+        success_rate=40.0,
+        coordination_overhead="high",
+        failure_modes=["simulation error"],
+        coverage_metrics={"scenario_1": 40.0},
+    )
+
+    with patch.object(analyzer.test_generator, "test_swarm", return_value=mock_test_results):
+        res = analyzer.analyze_swarm(agents, "Task", run_tests=True)
+        assert "simulation error" in res.issues
+        assert any("Address Test Failures" in imp.title for imp in res.improvements)
+
+
+def test_scenarios_generator_dict_format():
+    client = MagicMock()
+    client._call_api.return_value = json.dumps({"scenarios": ["edge 1", "edge 2", "edge 3"]})
+
+    generator = ScenariosGenerator(client)
+    scenarios = generator.generate_scenarios("Task")
+    assert scenarios == ["edge 1", "edge 2", "edge 3"]
+
+
+def test_scenarios_generator_test_swarm_has_validator():
+    client = MagicMock()
+    client._call_api.side_effect = [
+        json.dumps(["scenario 1"]),
+        json.dumps({"success": True, "coordination_overhead": "low", "coverage_score": 95.0}),
+    ]
+
+    generator = ScenariosGenerator(client)
+    agents = [{"role": "System Validator", "prompt": "p1"}]
+    res = generator.test_swarm(agents, "Task")
+    assert res.success_rate == 100.0
+    assert not any("Missing conflict resolution" in f for f in res.failure_modes)
+
+
+def test_scenarios_generator_test_swarm_api_exception():
+    client = MagicMock()
+    client._call_api.side_effect = [
+        json.dumps(["scenario 1"]),
+        Exception("Eval API failed"),
+    ]
+
+    generator = ScenariosGenerator(client)
+    agents = [{"role": "Developer", "prompt": "p1"}]
+    res = generator.test_swarm(agents, "Task")
+    assert "LLM Evaluation failed to determine success." in res.failure_modes
+    assert res.success_rate == 0.0
+
+
+def test_scenarios_generator_test_swarm_missing_success_and_failure_mode():
+    client = MagicMock()
+    client._call_api.side_effect = [
+        json.dumps(["scenario 1"]),
+        json.dumps({"coordination_overhead": "medium", "coverage_score": 60.0}),
+    ]
+
+    generator = ScenariosGenerator(client)
+    agents = [{"role": "Developer", "prompt": "p1"}]
+    res = generator.test_swarm(agents, "Task")
+    assert res.success_rate == 0.0
+    assert len(res.failure_modes) == 1
+    assert "Missing conflict resolution" in res.failure_modes[0]
