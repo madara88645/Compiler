@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReadinessReport, ReadinessVerdict } from "../../lib/api/types";
 
 const VERDICT_META: Record<ReadinessVerdict, { title: string; tone: string }> = {
@@ -16,7 +18,7 @@ export default function ReadinessBanner({ report }: { report?: ReadinessReport |
       {report.signals.length > 0 && (
         <ul className="mt-2 space-y-1">
           {report.signals.map((s, i) => (
-            <li key={i} className="text-xs text-zinc-200">{s.message}</li>
+            <li key={`${s.kind}-${i}`} className="text-xs text-zinc-200">{s.message}</li>
           ))}
         </ul>
       )}
@@ -25,7 +27,7 @@ export default function ReadinessBanner({ report }: { report?: ReadinessReport |
           <div className="text-[11px] uppercase tracking-wide opacity-70">Clarify first</div>
           <ul className="mt-1 space-y-1">
             {report.questions.map((q, i) => (
-              <li key={i} className="text-xs text-zinc-100">· {q}</li>
+              <li key={`q-${i}`} className="text-xs text-zinc-100">· {q}</li>
             ))}
           </ul>
         </div>
