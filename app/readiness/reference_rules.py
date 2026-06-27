@@ -48,7 +48,7 @@ KNOWN_TECH = frozenset(
 )
 
 # "AcmeCloud SDK", "FooBar API", "Baz CLI" — a name followed by a product suffix.
-_SUFFIX_RE = re.compile(r"\b([A-Z][a-zA-Z0-9]+)\s+(SDK|API|CLI|Cloud|Platform|Service)\b")
+_SUFFIX_RE = re.compile(r"\b([A-Z][a-z][a-zA-Z0-9]*)\s+(SDK|API|CLI|Cloud|Platform|Service)\b")
 # Standalone CamelCase product tokens like "AcmeCloud", "FooBarHub".
 _CAMEL_RE = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-zA-Z0-9]+)+)\b")
 

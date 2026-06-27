@@ -18,3 +18,9 @@ def test_known_tech_not_flagged():
 
 def test_plain_text_no_false_positive():
     assert detect_unverifiable_references("make my app faster") == []
+
+
+def test_allcaps_protocol_acronyms_not_flagged():
+    assert detect_unverifiable_references("Build a REST API for users") == []
+    assert detect_unverifiable_references("Create a JSON API endpoint") == []
+    assert detect_unverifiable_references("Expose an HTTP API") == []
