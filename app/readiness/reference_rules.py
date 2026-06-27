@@ -83,7 +83,11 @@ KNOWN_TECH = frozenset(
 # treated as product names ("REST API" is a generic phrase, not an unknown tool).
 _SUFFIX_RE = re.compile(r"\b([A-Z][a-z][a-zA-Z0-9]*)\s+(SDK|API|CLI|Cloud|Platform|Service)\b")
 # Standalone CamelCase product tokens like "AcmeCloud", "FooBarHub".
-_CAMEL_RE = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-zA-Z0-9]+)+)\b")
+# Each later hump is [A-Z][a-z0-9]* (no uppercase in the inner class) so an
+# uppercase letter can only START a hump, never be swallowed by the previous
+# one. That removes the ambiguity that would otherwise allow exponential
+# backtracking (ReDoS) on inputs like "Aa" + "B" * n.
+_CAMEL_RE = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b")
 
 
 def detect_unverifiable_references(text: str) -> list[str]:

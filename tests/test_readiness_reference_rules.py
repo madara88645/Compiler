@@ -37,3 +37,20 @@ def test_well_known_platforms_not_flagged():
         "search vectors in the Pinecone API",
     ]:
         assert detect_unverifiable_references(text) == [], text
+
+
+def test_camelcase_pattern_is_not_redos_vulnerable():
+    # The CamelCase pattern previously backtracked exponentially (CodeQL py/redos)
+    # on inputs like "Aa" + "B" * n. It must now run in linear time.
+    import time
+
+    evil = "Aa" + "B" * 4000 + "_"
+    start = time.perf_counter()
+    detect_unverifiable_references(evil)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_camelcase_still_matches_after_redos_fix():
+    # Behaviour must be preserved by the ReDoS fix.
+    assert detect_unverifiable_references("connect to FooBarHub and sync") == ["FooBarHub"]
+    assert detect_unverifiable_references("use the AcmeCloud SDK") == ["AcmeCloud SDK"]
