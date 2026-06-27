@@ -152,7 +152,8 @@ this is the regression net proving the review's failures are now caught:
 - `make my app faster` → `clarify`, vagueness signal + questions.
 - `asdf1234!!!!****` → `noise`.
 - `Uygulamam çok yavaş, hızlandırmak için ne yapmalıyım?` → language guard keeps
-  output in Turkish; verdict `clarify`.
+  output in Turkish; verdict is not `noise`. (Cross-language vagueness scoring is
+  out of scope for this slice, so the Turkish verdict is not pinned to `clarify`.)
 - A clear concrete request (e.g. the FastAPI endpoint prompt) → `ready`.
 - A request touching auth/db → `risky`.
 
