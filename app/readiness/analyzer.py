@@ -21,7 +21,7 @@ VAGUE_WORDS = frozenset(
 
 # Auth/security patterns not covered by detect_risk_flags but clearly sensitive.
 _AUTH_SECURITY_RE = re.compile(
-    r"\b(password|authentication|authoriz|session\s+auth|token\s+auth"
+    r"\b(password|authentication|authoriz\w*|session\s+auth|token\s+auth"
     r"|oauth|jwt|bcrypt|argon2|pbkdf2|scrypt)\b",
     re.IGNORECASE,
 )
@@ -84,7 +84,7 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
     ambiguous = [
         t for t in ambiguous_raw if re.search(r"\b" + re.escape(t) + r"\b", text, re.IGNORECASE)
     ]
-    lower_words = set(text.lower().split())
+    lower_words = set(re.findall(r"\b\w+\b", text.lower()))
     is_vague = bool(ambiguous) or bool(lower_words & VAGUE_WORDS)
     if is_vague:
         signals.append(

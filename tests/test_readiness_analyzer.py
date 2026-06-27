@@ -53,3 +53,12 @@ def test_hash_map_is_not_risky():
     # "hash"/"salt" as generic CS/cooking words must not trigger the security signal
     assert analyze_readiness("build a hash map in Python and return it").verdict == "ready"
     assert analyze_readiness("add salt to taste and serve the dish").verdict != "risky"
+
+
+def test_vague_with_trailing_punctuation_is_clarify():
+    assert analyze_readiness("make my app faster.").verdict == "clarify"
+    assert analyze_readiness("please make it better, ok?").verdict == "clarify"
+
+
+def test_authorization_request_is_risky():
+    assert analyze_readiness("add user authorization checks to the admin panel").verdict == "risky"
