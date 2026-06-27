@@ -69,6 +69,19 @@ export type Critique = {
   feedback: string;
 };
 
+export type ReadinessVerdict = "ready" | "clarify" | "risky" | "noise";
+
+export type ReadinessSignal = {
+  kind: "unverifiable_reference" | "vagueness" | "risk" | "noise";
+  message: string;
+};
+
+export type ReadinessReport = {
+  verdict: ReadinessVerdict;
+  signals: ReadinessSignal[];
+  questions: string[];
+};
+
 export type CompileResponse = {
   system_prompt: string;
   user_prompt: string;
@@ -86,6 +99,7 @@ export type CompileResponse = {
   heuristic2_version?: string;
   trace?: string[];
   critique?: Critique | null;
+  readiness?: ReadinessReport | null;
 };
 
 export type CompileMode = "conservative" | "default";
