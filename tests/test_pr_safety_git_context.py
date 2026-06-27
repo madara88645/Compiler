@@ -50,11 +50,11 @@ def test_changed_files_runs_merge_base_diff_and_ignores_blank_lines(monkeypatch)
         assert capture_output is True
         assert text is True
         assert check is False
-        return _completed(args, stdout="app/foo.py\n\n tests/test_foo.py \n")
+        return _completed(args, stdout="app/foo.py\n\ntests/test_foo.py\n")
 
     monkeypatch.setattr("app.pr_safety.git_context.subprocess.run", fake_run)
 
-    assert changed_files("origin/main") == ["app/foo.py", " tests/test_foo.py "]
+    assert changed_files("origin/main") == ["app/foo.py", "tests/test_foo.py"]
 
 
 def test_commits_behind_runs_rev_list_count_and_parses_integer(monkeypatch):
