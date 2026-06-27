@@ -5,6 +5,8 @@ Tests for the Benchmark API router.
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
+from api.auth import verify_api_key
+from fastapi import Depends
 
 
 @pytest.fixture
@@ -14,6 +16,7 @@ def client():
     from app.routers.benchmark import router
 
     test_app = FastAPI()
+    test_app.dependency_overrides[verify_api_key] = lambda: None
     test_app.include_router(router)
 
     return TestClient(test_app)
