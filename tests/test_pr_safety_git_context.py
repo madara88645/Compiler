@@ -12,6 +12,7 @@ import pytest
 
 from app.pr_safety.git_context import (
     GitContextError,
+    _ref_exists,
     _run_git,
     changed_files,
     commits_behind,
@@ -22,6 +23,28 @@ from app.pr_safety.git_context import (
 
 def _completed(args: list[str], *, stdout: str = "", stderr: str = "", returncode: int = 0):
     return subprocess.CompletedProcess(args, returncode, stdout, stderr)
+
+
+def test_ref_exists_uses_git_verify_commit_lookup(monkeypatch):
+    def fake_run(args, capture_output, text, check):
+        assert args == ["git", "rev-parse", "--verify", "--quiet", "origin/main^{commit}"]
+        assert capture_output is True
+        assert text is True
+        assert check is True
+        return _completed(args)
+
+    monkeypatch.setattr("app.pr_safety.git_context.subprocess.run", fake_run)
+
+    assert _ref_exists("origin/main") is True
+
+
+def test_ref_exists_returns_false_when_git_cannot_resolve_ref(monkeypatch):
+    def fake_run(args, capture_output, text, check):
+        raise subprocess.CalledProcessError(returncode=1, cmd=args)
+
+    monkeypatch.setattr("app.pr_safety.git_context.subprocess.run", fake_run)
+
+    assert _ref_exists("origin/missing") is False
 
 
 def test_resolve_base_ref_prefers_first_available_candidate(monkeypatch):
