@@ -43,6 +43,50 @@ def test_compile_empty_input(compiler):
     assert any("Input was empty" in d.message for d in res.diagnostics)
 
 
+def _worker_response():
+    return WorkerResponse(
+        ir=IRv2(
+            language="en",
+            persona="assistant",
+            role="test",
+            domain="general",
+            output_format="text",
+            length_hint="short",
+        ),
+        diagnostics=[],
+        thought_process="ok",
+        optimized_content="content",
+    )
+
+
+def test_worker_compile_does_not_retrieve_rag_by_default(compiler):
+    """Worker path must NOT query the local RAG index unless explicitly enabled (leak guard)."""
+    compiler.worker.process.return_value = _worker_response()
+
+    compiler.compile("make a login form")
+
+    # Local index never queried...
+    compiler.context_strategist.process.assert_not_called()
+    # ...and no local context is transmitted to the worker LLM.
+    _, kwargs = compiler.worker.process.call_args
+    assert kwargs.get("context") is None
+
+
+def test_worker_compile_retrieves_rag_when_enabled(compiler):
+    compiler.worker.process.return_value = _worker_response()
+    compiler.context_strategist.process.return_value = {
+        "snippets": [{"file": "app/auth.py", "content": "def login(): pass"}]
+    }
+
+    compiler.compile("make a login form", enable_context_retrieval=True)
+
+    compiler.context_strategist.process.assert_called_once_with("make a login form")
+    _, kwargs = compiler.worker.process.call_args
+    assert kwargs.get("context") == {
+        "snippets": [{"file": "app/auth.py", "content": "def login(): pass"}]
+    }
+
+
 def test_compile_cache_hit(compiler):
     text = "test query"
     res1 = WorkerResponse(
@@ -88,7 +132,7 @@ def test_compile_success(mock_detect_risk_flags, compiler):
     compiler.worker.process.return_value = mock_res
     compiler.context_strategist.process.return_value = "Mock context"
 
-    res = compiler.compile(text)
+    res = compiler.compile(text, enable_context_retrieval=True)
 
     assert res is mock_res
     compiler.context_strategist.process.assert_called_once_with(text)
@@ -118,7 +162,7 @@ def test_compile_retries_worker_exception_then_succeeds(mock_detect_risk_flags, 
     compiler.context_strategist.process.return_value = "Mock context"
     compiler.worker.process.side_effect = [Exception("temporary worker error"), mock_res]
 
-    res = compiler.compile(text)
+    res = compiler.compile(text, enable_context_retrieval=True)
 
     assert res is mock_res
     compiler.context_strategist.process.assert_called_once_with(text)
@@ -197,7 +241,7 @@ def test_compile_logs_context_and_falls_back_after_two_worker_failures(compiler,
         mock_compile_v2.return_value = mock_ir
 
         with caplog.at_level("WARNING", logger="promptc.llm.hybrid"):
-            res = compiler.compile(text)
+            res = compiler.compile(text, enable_context_retrieval=True)
 
     assert compiler.worker.process.call_count == 2
     assert res.ir is mock_ir
