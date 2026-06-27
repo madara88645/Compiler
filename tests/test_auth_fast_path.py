@@ -585,3 +585,150 @@ def test_public_routes_ignore_invalid_keys_even_when_global_enforcement_enabled(
 
     oversized_response = client.get("/rag/stats", headers={"x-api-key": "x" * 257})
     assert oversized_response.status_code == 200
+
+
+def test_ensure_private_file_os_error(tmp_path):
+    from api.auth import _ensure_private_file
+
+    with patch("os.chmod", side_effect=OSError("Permission denied")):
+        _ensure_private_file(tmp_path / "test_file.db")
+
+
+def test_get_db():
+    from api.auth import get_db
+
+    db_gen = get_db()
+    db_session = next(db_gen)
+    assert db_session is not None
+    with pytest.raises(StopIteration):
+        next(db_gen)
+
+
+def test_resolve_client_ip_plausible():
+    from api.auth import _resolve_client_ip
+
+    # 1. Forwarded header plausible
+    req_forwarded = MagicMock(spec=Request)
+    req_forwarded.headers = {"x-forwarded-for": "192.168.1.1, 10.0.0.1"}
+    assert _resolve_client_ip(req_forwarded) == "192.168.1.1"
+
+    # 2. Client host plausible
+    req_client = MagicMock(spec=Request)
+    req_client.headers = {}
+    req_client.client = MagicMock()
+    req_client.client.host = "172.16.0.1"
+    assert _resolve_client_ip(req_client) == "172.16.0.1"
+
+    # 3. Anon when not plausible
+    req_anon = MagicMock(spec=Request)
+    req_anon.headers = {"x-forwarded-for": "not-an-ip"}
+    req_anon.client = MagicMock()
+    req_anon.client.host = "also-not-an-ip"
+    assert _resolve_client_ip(req_anon) == "anon"
+
+    # 4. Anon when client is None
+    req_no_client = MagicMock(spec=Request)
+    req_no_client.headers = {}
+    req_no_client.client = None
+    assert _resolve_client_ip(req_no_client) == "anon"
+
+
+def test_rate_limit_cleanup_store():
+    import time
+    from api.auth import _maybe_cleanup_rate_limit_store, RATE_LIMIT_STORE
+
+    now = time.time()
+    RATE_LIMIT_STORE["stale_key"] = [now - 100]
+    RATE_LIMIT_STORE["active_key"] = [now - 10]
+
+    _maybe_cleanup_rate_limit_store(now)
+
+    assert "stale_key" not in RATE_LIMIT_STORE
+    assert "active_key" in RATE_LIMIT_STORE
+    assert len(RATE_LIMIT_STORE["active_key"]) == 1
+
+
+def test_enforce_rate_limit_triggers_cleanup(monkeypatch):
+    import time
+    import api.auth
+    from api.auth import _enforce_rate_limit
+
+    monkeypatch.setattr(api.auth, "_rate_limit_cleanup_counter", 1005)
+
+    cleanup_called = False
+
+    def mock_cleanup(now):
+        nonlocal cleanup_called
+        cleanup_called = True
+
+    monkeypatch.setattr("api.auth._maybe_cleanup_rate_limit_store", mock_cleanup)
+    _enforce_rate_limit("test_key", 5, time.time())
+
+    assert api.auth._rate_limit_cleanup_counter == 0
+    assert cleanup_called is True
+
+
+def test_verify_api_key_empty_or_too_long():
+    req = MagicMock(spec=Request)
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key(req, "")
+    assert exc_info.value.status_code == 403
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key(req, "k" * 257)
+    assert exc_info.value.status_code == 400
+
+
+def test_verify_api_key_admin_matches(monkeypatch):
+    req = MagicMock(spec=Request)
+    req.state = MagicMock()
+
+    monkeypatch.setenv("ADMIN_API_KEY", "super-secret-admin-key")
+    res = verify_api_key(req, "super-secret-admin-key")
+    assert res.owner == "admin"
+    assert req.state.api_key_owner == "admin"
+
+
+def test_verify_api_key_not_found_and_inactive(test_key):
+    req = MagicMock(spec=Request)
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key(req, "non-existent-key")
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Invalid API Key."
+
+    from api.auth import SessionLocal
+
+    db = SessionLocal()
+    db_key = db.query(APIKey).filter(APIKey.key == test_key).first()
+    db_key.is_active = False
+    db.commit()
+
+    try:
+        with pytest.raises(HTTPException) as exc_info:
+            verify_api_key(req, test_key)
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "API Key is inactive"
+    finally:
+        db_key.is_active = True
+        db.commit()
+        db.close()
+
+
+def test_verify_api_key_if_required_scenarios(monkeypatch, test_key):
+    from api.auth import verify_api_key_if_required
+
+    req = MagicMock(spec=Request)
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key_if_required(req, "k" * 257)
+    assert exc_info.value.status_code == 400
+
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "false")
+    assert verify_api_key_if_required(req, "some-key") is None
+
+    monkeypatch.setenv("PROMPTC_REQUIRE_API_KEY_FOR_ALL", "true")
+    res = verify_api_key_if_required(req, test_key)
+    assert res is not None
+    assert res.key == test_key
