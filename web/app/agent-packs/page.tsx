@@ -462,8 +462,8 @@ export default function AgentPacksPage() {
                       type="button"
                       onClick={handleCopyCurrent}
                       className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                      aria-live="polite"
                     >
+                      <span className="sr-only" aria-live="polite">{copiedState === "single" ? "Copied to clipboard" : ""}</span>
                       <Copy size={14} aria-hidden="true" />
                       {copiedState === "single" ? "Copied" : "Copy"}
                     </button>
@@ -471,8 +471,8 @@ export default function AgentPacksPage() {
                       type="button"
                       onClick={handleCopyAll}
                       className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                      aria-live="polite"
                     >
+                      <span className="sr-only" aria-live="polite">{copiedState === "all" ? "Copied All to clipboard" : ""}</span>
                       <FileCode2 size={14} aria-hidden="true" />
                       {copiedState === "all" ? "Copied All" : "Copy All"}
                     </button>
