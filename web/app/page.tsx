@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
+import ReadinessBanner from "./components/ReadinessBanner";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
@@ -227,7 +228,7 @@ export default function Home() {
               <span className="flex flex-col items-start leading-none">
                 <span>Conservative</span>
                 <span className="mt-1 text-[10px] font-normal opacity-75">
-                  {conservativeMode ? "No hallucinations" : "Aggressive optimize"}
+                  {conservativeMode ? "Conservative mode" : "Aggressive optimize"}
                 </span>
               </span>
             </button>
@@ -340,6 +341,7 @@ export default function Home() {
               <OutputSkeleton />
             ) : result ? (
               <>
+                {result?.readiness && <ReadinessBanner report={result.readiness} />}
                 {/* Tabs + policy verdict */}
                 <div className="flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
