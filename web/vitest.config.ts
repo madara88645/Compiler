@@ -8,6 +8,7 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     passWithNoTests: true,
+    setupFiles: ["./vitest.setup.ts"],
     exclude: ["**/*.test.mts", "node_modules/**"],
   },
   resolve: {

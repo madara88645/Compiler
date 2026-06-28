@@ -224,7 +224,9 @@ def _mk_id(text: str) -> str:
     return hashlib.sha1(text.strip().lower().encode("utf-8")).hexdigest()[:10]
 
 
-def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
+def compile_text_v2(
+    text: str, offline_only: bool = False, enable_context_retrieval: bool = False
+) -> IRv2:
     # Reuse v1 heuristics to keep behavior; map to richer IRv2 model
     ir1 = compile_text(text)
 
@@ -320,7 +322,7 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
     # -------------------------------------------------------------------------
     # NEW: Agent 6 - The Context Strategist
     # -------------------------------------------------------------------------
-    if not offline_only:
+    if enable_context_retrieval:
         try:
             from app.agents.context_strategist import ContextStrategist
 
@@ -343,7 +345,10 @@ def compile_text_v2(text: str, offline_only: bool = False) -> IRv2:
         except Exception:
             logger.exception(
                 "Context Strategist failed; continuing without retrieved context",
-                extra={"offline_only": offline_only, "text_length": len(text)},
+                extra={
+                    "enable_context_retrieval": enable_context_retrieval,
+                    "text_length": len(text),
+                },
             )
     # -------------------------------------------------------------------------
 

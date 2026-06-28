@@ -39,6 +39,8 @@ from app.optimizer.language_costs import (
     estimate_prompt_cost,
 )
 from app.optimizer.postprocess import strip_wrapper_labels
+from app.readiness.analyzer import analyze_readiness
+from app.readiness.language_guard import output_language_mismatch
 from app.validator import validate_prompt
 
 router = APIRouter(tags=["compile"])
@@ -65,6 +67,7 @@ class CompileRequest(BaseModel):
     trace: bool = False
     v2: bool = True
     render_v2_prompts: bool = False
+    enable_context_retrieval: bool = False
     record_analytics: bool = False
     user_level: str = Field(default="intermediate", max_length=100)
     task_type: str = Field(default="general", max_length=100)
@@ -103,6 +106,7 @@ class CompileResponse(BaseModel):
     heuristic2_version: str | None = None
     trace: list[str] | None = None
     critique: dict | None = None
+    readiness: dict | None = None
 
 
 class OptimizeRequest(BaseModel):
@@ -356,7 +360,11 @@ def compile_endpoint(
 
     ir = optimize_ir(compile_text(req.text))
     trace_lines = generate_trace(ir) if req.trace else None
-    ir2 = compile_text_v2(req.text, offline_only=not req.v2)
+    ir2 = compile_text_v2(
+        req.text,
+        offline_only=not req.v2,
+        enable_context_retrieval=req.enable_context_retrieval,
+    )
 
     # The heuristic v2 pipeline runs the SafetyHandler (injection / secret-exfiltration
     # scan). The LLM worker path below rebuilds ir2 and does NOT run that scan, so capture
@@ -371,7 +379,9 @@ def compile_endpoint(
     if req.v2:
         try:
             compiler = _get_compiler()
-            worker_res = compiler.compile(req.text, mode=mode)
+            worker_res = compiler.compile(
+                req.text, mode=mode, enable_context_retrieval=req.enable_context_retrieval
+            )
             ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
 
             # Re-apply the heuristic safety verdict — the worker IR does not run the
@@ -417,6 +427,14 @@ def compile_endpoint(
         plan_v2 = plan_v2 or emit_plan_v2(ir2)
         exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
+    if ir2 is not None and output_language_mismatch(
+        req.text, " ".join(filter(None, [sys_v2, user_v2, exp_v2]))
+    ):
+        sys_v2 = emit_system_prompt_v2(ir2)
+        user_v2 = emit_user_prompt_v2(ir2)
+        plan_v2 = emit_plan_v2(ir2)
+        exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+
     critique_result = None
     if sys_v2:
         try:
@@ -451,6 +469,7 @@ def compile_endpoint(
                 extra={"request_id": rid},
             )
 
+    readiness = analyze_readiness(req.text, ir2).model_dump()
     elapsed = int((time.time() - t0) * 1000)
 
     # Block compilation ONLY when the safety scan flags the input as unsafe
@@ -478,6 +497,7 @@ def compile_endpoint(
             heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
             trace=trace_lines,
             critique=critique_result,
+            readiness=readiness,
         )
 
     return CompileResponse(
@@ -501,6 +521,7 @@ def compile_endpoint(
         heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
         trace=trace_lines,
         critique=critique_result,
+        readiness=readiness,
     )
 
 
