@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth import rate_limit_by_ip
 
-from api.shared import logger
+from api.shared import _get_compiler, logger
 from app.adapters.agent_packs import (
     AGENT_PACK_ADAPTERS,
     AgentPackManifest,
@@ -13,12 +13,6 @@ from app.adapters.agent_packs import (
 )
 
 router = APIRouter(tags=["agent-packs"])
-
-
-def _get_compiler():
-    from api import main as api_main
-
-    return api_main.get_compiler()
 
 
 @router.post("/agent-packs/claude", response_model=AgentPackManifest)

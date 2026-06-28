@@ -107,3 +107,19 @@ def test_commits_behind_rejects_non_integer_output(
     monkeypatch.setattr(git_context_mod, "_run_git", lambda _args: "not-a-number")
     with pytest.raises(GitContextError, match="unexpected rev-list output"):
         commits_behind("main")
+
+
+def test_changed_files_empty_when_branch_matches_base(git_repo: Path) -> None:
+    _git(git_repo, "checkout", "-b", "feature")
+    assert changed_files("main") == []
+
+
+def test_commits_behind_zero_when_up_to_date(git_repo: Path) -> None:
+    _git(git_repo, "checkout", "-b", "feature")
+    assert commits_behind("main") == 0
+
+
+def test_head_commit_message_handles_subject_only_commit(git_repo: Path) -> None:
+    subject, body = head_commit_message()
+    assert subject == "initial commit"
+    assert body == ""

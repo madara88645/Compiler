@@ -94,6 +94,12 @@ def safety_refusal_prompt_fields() -> dict[str, str]:
     }
 
 
+def _get_compiler():
+    from api import main as api_main
+
+    return api_main.get_compiler()
+
+
 def forced_minimal_expanded_prompt(
     text: str, ir2: IRv2 | None, diagnostics: bool = False
 ) -> str | None:

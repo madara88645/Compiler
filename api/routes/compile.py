@@ -12,6 +12,7 @@ from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import (
+    _get_compiler,
     forced_minimal_expanded_prompt,
     is_meta_leaked,
     logger,
@@ -47,12 +48,6 @@ router = APIRouter(tags=["compile"])
 
 _MAX_PROMPT_CHARS = 20_000
 _FAST_WORKER_MAX_ATTEMPTS = 2
-
-
-def _get_compiler():
-    from api import main as api_main
-
-    return api_main.get_compiler()
 
 
 class ValidateRequest(BaseModel):
