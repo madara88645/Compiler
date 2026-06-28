@@ -382,10 +382,11 @@ export default function SkillsGenerator() {
                     type="button"
                     onClick={copyToClipboard}
                     className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
-                    title={copied ? "Copied!" : "Copy to Clipboard"}
-                    aria-label={copied ? "Copied" : "Copy Markdown"}
+                    title="Copy to Clipboard"
+                    aria-label="Copy Markdown"
                   >
-                    <span className="text-xs font-bold">{copied ? "Copied!" : "Copy Markdown"}</span>
+                    <span className="sr-only" aria-live="polite">{copied ? "Copied to clipboard" : ""}</span>
+                    <span className="text-xs font-bold" aria-hidden="true">{copied ? "Copied!" : "Copy Markdown"}</span>
                     {copied ? (
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     ) : (

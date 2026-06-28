@@ -16,6 +16,9 @@
 ## 2024-06-17 - Add Clear Button to Input Forms
 **Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. Users have to manually select all text and delete it.
 **Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability.
+## 2024-05-14 - Use visually hidden element for aria-live instead of button state change
+**Learning:** Placing `aria-live="polite"` directly on a button whose label changes (e.g., "Copy" to "Copied!") can lead to flaky screen reader announcements. The screen reader may only read the static `aria-label` or fail to notice the internal text mutation correctly because the focus is on the element being mutated.
+**Action:** The most robust way to announce a copy status change is to use a separate, visually hidden element (e.g., `<span className="sr-only" aria-live="polite">{copied ? 'Copied to clipboard' : ''}</span>`) rather than placing `aria-live` directly on the mutating button. Additionally, ensure that buttons do not have static `aria-labels` that override dynamic content unless intentionally designed that way.
 ## 2024-06-27 - Add Clear Button to Input Forms (Re-applied)
 **Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. This applies to multiple areas of the app, like the PR Safety feature.
 **Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability. Make sure to wrap the `<textarea>` in a `<div className="relative group">` to allow absolute positioning of the clear button inside it.
