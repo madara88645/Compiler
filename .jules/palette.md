@@ -16,3 +16,6 @@
 ## 2024-06-17 - Add Clear Button to Input Forms
 **Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. Users have to manually select all text and delete it.
 **Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability.
+## 2024-06-27 - Add Clear Button to Input Forms (Re-applied)
+**Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. This applies to multiple areas of the app, like the PR Safety feature.
+**Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability. Make sure to wrap the `<textarea>` in a `<div className="relative group">` to allow absolute positioning of the clear button inside it.

@@ -226,6 +226,7 @@ export default function PrSafetyPage() {
               <label htmlFor="pr-description" className="text-sm font-medium text-zinc-300">
                 PR Description
               </label>
+              <div className="relative group">
               <textarea
                 id="pr-description"
                 aria-label="PR Description"
@@ -234,6 +235,18 @@ export default function PrSafetyPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
+              {description && (
+                <button
+                  type="button"
+                  onClick={() => setDescription("")}
+                  className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500/50"
+                  title="Clear input"
+                  aria-label="Clear input"
+                >
+                  Clear
+                </button>
+              )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -241,6 +254,7 @@ export default function PrSafetyPage() {
                 Changed Files
               </label>
               <p className="text-xs text-zinc-500">One file path per line.</p>
+              <div className="relative group">
               <textarea
                 id="pr-changed-files"
                 aria-label="Changed Files"
@@ -249,6 +263,18 @@ export default function PrSafetyPage() {
                 value={changedFilesText}
                 onChange={(e) => setChangedFilesText(e.target.value)}
               />
+              {changedFilesText && (
+                <button
+                  type="button"
+                  onClick={() => setChangedFilesText("")}
+                  className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500/50"
+                  title="Clear input"
+                  aria-label="Clear input"
+                >
+                  Clear
+                </button>
+              )}
+              </div>
               <p className="text-[11px] text-zinc-600">
                 {parsedFiles.length} file{parsedFiles.length === 1 ? "" : "s"} detected
               </p>
