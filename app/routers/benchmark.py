@@ -22,7 +22,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import rate_limit_by_ip
+from api.auth import rate_limit_by_ip, enforce_benchmark_daily_cap
 from pydantic import BaseModel, Field, field_validator
 
 from api.shared import logger
@@ -298,6 +298,9 @@ async def benchmark_run(
     """
     Run an A/B benchmark comparing raw vs compiled prompt quality.
     """
+    # Global daily backstop against anonymous Denial-of-Wallet abuse.
+    enforce_benchmark_daily_cap()
+
     t0 = time.time()
 
     # --- Step A: Generate with raw prompt ---------------------------------

@@ -2,6 +2,7 @@ import ipaddress
 import logging
 import time
 import secrets
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Dict
@@ -85,6 +86,7 @@ def _get_route_group(path: str) -> str:
         "/agent-generator",
         "/skills-generator",
         "/repo-context",
+        "/benchmark",
     ]
     for r in heavy_routes:
         if path.startswith(r):
@@ -97,6 +99,53 @@ def _get_route_group_and_limit(path: str) -> tuple[str, int]:
     if group == "heavy":
         return group, HEAVY_RATE_LIMIT_MAX_REQUESTS
     return group, RATE_LIMIT_MAX_REQUESTS
+
+
+# --- Benchmark Denial-of-Wallet backstop -----------------------------------
+# /benchmark/run is public (no API key) but triggers server-side LLM calls.
+# Per-IP rate limiting can be bypassed by rotating IPs, so we add a global
+# daily cap on the total number of benchmark runs across all callers.
+DEFAULT_BENCHMARK_DAILY_RUN_LIMIT = 500
+_BENCHMARK_DAILY_LOCK = Lock()
+_BENCHMARK_DAILY_STATE = {
+    "date": datetime.now(timezone.utc).date().isoformat(),
+    "count": 0,
+}
+
+
+def _benchmark_daily_limit() -> int:
+    raw = os.environ.get("BENCHMARK_DAILY_RUN_LIMIT", "").strip()
+    if not raw:
+        return DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+    return value if value > 0 else DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+
+
+def reset_benchmark_daily_state() -> None:
+    """Reset the global benchmark daily-cap counter (day rollover and tests)."""
+    with _BENCHMARK_DAILY_LOCK:
+        _BENCHMARK_DAILY_STATE["date"] = datetime.now(timezone.utc).date().isoformat()
+        _BENCHMARK_DAILY_STATE["count"] = 0
+
+
+def enforce_benchmark_daily_cap() -> None:
+    """Raise HTTP 429 once the global daily benchmark-run budget is exhausted."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    with _BENCHMARK_DAILY_LOCK:
+        if _BENCHMARK_DAILY_STATE["date"] != today:
+            _BENCHMARK_DAILY_STATE["date"] = today
+            _BENCHMARK_DAILY_STATE["count"] = 0
+
+        if _BENCHMARK_DAILY_STATE["count"] >= _benchmark_daily_limit():
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Daily benchmark limit reached. Please try again tomorrow.",
+            )
+
+        _BENCHMARK_DAILY_STATE["count"] += 1
 
 
 def _is_plausible_ip(value: str) -> bool:
