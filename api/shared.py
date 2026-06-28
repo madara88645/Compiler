@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import Request
 
 from app.emitters import _is_trivial_input, emit_expanded_prompt_v2
+from app.models_v2 import IRv2
 
 
 logger = logging.getLogger("promptc.api")
@@ -93,7 +94,9 @@ def safety_refusal_prompt_fields() -> dict[str, str]:
     }
 
 
-def forced_minimal_expanded_prompt(text: str, ir2, diagnostics: bool = False) -> str | None:
+def forced_minimal_expanded_prompt(
+    text: str, ir2: IRv2 | None, diagnostics: bool = False
+) -> str | None:
     if ir2 is None:
         return None
     complexity = (ir2.metadata or {}).get("complexity") or ""

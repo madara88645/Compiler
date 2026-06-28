@@ -13,7 +13,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
-# from app.history import get_history_manager
 from app.favorites import get_favorites_manager
 
 
