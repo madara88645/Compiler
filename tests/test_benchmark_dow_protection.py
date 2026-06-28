@@ -5,9 +5,12 @@ The benchmark endpoint is intentionally public (no API key) but triggers
 server-side LLM generation, so it must be protected from anonymous abuse
 WITHOUT requiring end-user credentials. Two layers:
 
-1. Per-IP rate limiting: /benchmark belongs to the "heavy" route group.
-2. A global daily cap on benchmark runs (a backstop that per-IP limits
-   cannot provide, since an attacker can rotate IPs).
+1. Per-IP rate limiting: /benchmark has its own dedicated route group with a
+   generous limit (no human hits it; it only protects the daily pool from a
+   single flooding IP), decoupled from the shared "heavy" bucket.
+2. A high global daily cap on benchmark runs (a catastrophic backstop that
+   per-IP limits cannot provide, since an attacker can rotate IPs). Tuned so a
+   legitimate visitor essentially never hits it.
 """
 
 from datetime import datetime, timezone
@@ -46,11 +49,21 @@ def _post(client, ip: str):
     )
 
 
-def test_benchmark_route_is_in_heavy_rate_limit_group():
-    """/benchmark/run must be classified 'heavy' so its per-IP limit is the strict one."""
-    from api.auth import _get_route_group
+def test_benchmark_has_dedicated_rate_limit_group():
+    """/benchmark has its own per-IP group, decoupled from the shared 'heavy' bucket (e.g. /compile)."""
+    from api.auth import _get_route_group, _public_rate_limit_for, PUBLIC_BENCHMARK_RATE_LIMIT
 
-    assert _get_route_group("/benchmark/run") == "heavy"
+    assert _get_route_group("/benchmark/run") == "benchmark"
+    assert _get_route_group("/compile") == "heavy"
+    assert _public_rate_limit_for("benchmark") == PUBLIC_BENCHMARK_RATE_LIMIT
+
+
+def test_benchmark_daily_default_allows_high_legitimate_use(monkeypatch):
+    """The default daily cap is a catastrophic backstop, not a normal-traffic limiter — keep it high."""
+    monkeypatch.delenv("BENCHMARK_DAILY_RUN_LIMIT", raising=False)
+    from api.auth import _benchmark_daily_limit
+
+    assert _benchmark_daily_limit() >= 1000
 
 
 def test_benchmark_daily_cap_blocks_globally_after_limit(client, monkeypatch, reset_daily_cap):
