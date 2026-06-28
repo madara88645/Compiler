@@ -2,6 +2,7 @@ import ipaddress
 import logging
 import time
 import secrets
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Dict
@@ -73,11 +74,17 @@ RATE_LIMIT_MAX_REQUESTS = 10
 HEAVY_RATE_LIMIT_MAX_REQUESTS = 2
 PUBLIC_HEAVY_RATE_LIMIT = 20
 PUBLIC_DEFAULT_RATE_LIMIT = 60
+# Benchmark gets its own generous per-IP bucket (no human reaches it; it only
+# stops a single IP from draining the global daily pool), decoupled from the
+# shared "heavy" bucket so heavy /compile use never blocks benchmarking.
+PUBLIC_BENCHMARK_RATE_LIMIT = 30
 
 _rate_limit_cleanup_counter = 0
 
 
 def _get_route_group(path: str) -> str:
+    if path.startswith("/benchmark"):
+        return "benchmark"
     heavy_routes = [
         "/compile",
         "/optimize",
@@ -97,6 +104,65 @@ def _get_route_group_and_limit(path: str) -> tuple[str, int]:
     if group == "heavy":
         return group, HEAVY_RATE_LIMIT_MAX_REQUESTS
     return group, RATE_LIMIT_MAX_REQUESTS
+
+
+def _public_rate_limit_for(group: str) -> int:
+    """Per-IP request budget for a public route group (reads live module constants)."""
+    if group == "benchmark":
+        return PUBLIC_BENCHMARK_RATE_LIMIT
+    if group == "heavy":
+        return PUBLIC_HEAVY_RATE_LIMIT
+    return PUBLIC_DEFAULT_RATE_LIMIT
+
+
+# --- Benchmark Denial-of-Wallet backstop -----------------------------------
+# /benchmark/run is public (no API key) but triggers server-side LLM calls.
+# Per-IP rate limiting can be bypassed by rotating IPs, so we add a global
+# daily cap on the total number of benchmark runs across all callers. This is a
+# catastrophic backstop, not a normal-traffic limiter: set high enough that a
+# legitimate visitor essentially never hits it, while still bounding worst-case
+# spend from large-scale abuse. Tunable via BENCHMARK_DAILY_RUN_LIMIT.
+DEFAULT_BENCHMARK_DAILY_RUN_LIMIT = 10000
+_BENCHMARK_DAILY_LOCK = Lock()
+_BENCHMARK_DAILY_STATE = {
+    "date": datetime.now(timezone.utc).date().isoformat(),
+    "count": 0,
+}
+
+
+def _benchmark_daily_limit() -> int:
+    raw = os.environ.get("BENCHMARK_DAILY_RUN_LIMIT", "").strip()
+    if not raw:
+        return DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+    return value if value > 0 else DEFAULT_BENCHMARK_DAILY_RUN_LIMIT
+
+
+def reset_benchmark_daily_state() -> None:
+    """Reset the global benchmark daily-cap counter (day rollover and tests)."""
+    with _BENCHMARK_DAILY_LOCK:
+        _BENCHMARK_DAILY_STATE["date"] = datetime.now(timezone.utc).date().isoformat()
+        _BENCHMARK_DAILY_STATE["count"] = 0
+
+
+def enforce_benchmark_daily_cap() -> None:
+    """Raise HTTP 429 once the global daily benchmark-run budget is exhausted."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    with _BENCHMARK_DAILY_LOCK:
+        if _BENCHMARK_DAILY_STATE["date"] != today:
+            _BENCHMARK_DAILY_STATE["date"] = today
+            _BENCHMARK_DAILY_STATE["count"] = 0
+
+        if _BENCHMARK_DAILY_STATE["count"] >= _benchmark_daily_limit():
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Daily benchmark limit reached. Please try again tomorrow.",
+            )
+
+        _BENCHMARK_DAILY_STATE["count"] += 1
 
 
 def _is_plausible_ip(value: str) -> bool:
@@ -157,7 +223,7 @@ def rate_limit_by_ip(request: Request) -> None:
     """Public-route rate limiter keyed by (client_ip, route_group)."""
     now = time.time()
     route_group = _get_route_group(request.url.path)
-    max_requests = PUBLIC_HEAVY_RATE_LIMIT if route_group == "heavy" else PUBLIC_DEFAULT_RATE_LIMIT
+    max_requests = _public_rate_limit_for(route_group)
     client_ip = _resolve_client_ip(request)
     store_key = f"ip:{client_ip}:{route_group}"
     _enforce_rate_limit(store_key, max_requests, now)
