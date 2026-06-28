@@ -14,7 +14,6 @@ from sqlalchemy import create_engine, Column, String, Boolean, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # --- Database ---
-import os as _os
 
 logger = logging.getLogger("promptc.auth")
 
@@ -24,12 +23,12 @@ def _ensure_private_file(path: Path) -> None:
     if not path.exists():
         path.touch()
     try:
-        _os.chmod(path, 0o600)
+        os.chmod(path, 0o600)
     except OSError:
         pass
 
 
-_db_dir = Path(_os.environ.get("DB_DIR", ".")).expanduser().resolve()
+_db_dir = Path(os.environ.get("DB_DIR", ".")).expanduser().resolve()
 _db_path = _db_dir / "users.db"
 _ensure_private_file(_db_path)
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{_db_path}"

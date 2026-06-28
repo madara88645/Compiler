@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.auth import rate_limit_by_ip
 from pydantic import BaseModel, Field, field_validator
 
-from api.shared import logger
+from api.shared import _get_compiler, logger
 from app.llm_engine.client import _sanitize_skill_definition_plain
 from app.github_repo_context import (
     GitHubRepoAnalysisError,
@@ -58,12 +58,6 @@ def _log_repo_analyze_outcome(
 router = APIRouter(tags=["generators"])
 
 _MAX_DESCRIPTION_CHARS = 8_000
-
-
-def _get_compiler():
-    from api import main as api_main
-
-    return api_main.get_compiler()
 
 
 RepoContextMode = Literal["full", "compact"]

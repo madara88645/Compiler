@@ -29,6 +29,21 @@ from app.rag.uploads import (
 router = APIRouter(tags=["rag"])
 
 
+def _run_rag_search(
+    query: str,
+    *,
+    k: int,
+    method: str,
+    embed_dim: int,
+    alpha: float,
+):
+    if method == "embed":
+        return rag_search_embed(query, k=k, embed_dim=embed_dim)
+    if method == "hybrid":
+        return rag_search_hybrid(query, k=k, embed_dim=embed_dim, alpha=alpha)
+    return rag_search(query, k=k)
+
+
 class RagIngestRequest(BaseModel):
     paths: List[str] = Field(..., min_length=1, max_length=50)
     exts: Optional[List[str]] = Field(default=None, max_length=25)
@@ -163,17 +178,13 @@ def rag_query(
     req: RagQueryRequest,
     _: None = Depends(rate_limit_by_ip),
 ):
-    if req.method == "embed":
-        results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
-    elif req.method == "hybrid":
-        results = rag_search_hybrid(
-            req.query,
-            k=req.k,
-            embed_dim=req.embed_dim,
-            alpha=req.alpha,
-        )
-    else:
-        results = rag_search(req.query, k=req.k)
+    results = _run_rag_search(
+        req.query,
+        k=req.k,
+        method=req.method,
+        embed_dim=req.embed_dim,
+        alpha=req.alpha,
+    )
     return RagQueryResponse(results=results, count=len(results))
 
 
@@ -182,17 +193,13 @@ def rag_pack(
     req: RagPackRequest,
     _: None = Depends(rate_limit_by_ip),
 ):
-    if req.method == "embed":
-        results = rag_search_embed(req.query, k=req.k, embed_dim=req.embed_dim)
-    elif req.method == "hybrid":
-        results = rag_search_hybrid(
-            req.query,
-            k=req.k,
-            embed_dim=req.embed_dim,
-            alpha=req.alpha,
-        )
-    else:
-        results = rag_search(req.query, k=req.k)
+    results = _run_rag_search(
+        req.query,
+        k=req.k,
+        method=req.method,
+        embed_dim=req.embed_dim,
+        alpha=req.alpha,
+    )
 
     return rag_pack_ctx(
         req.query,
