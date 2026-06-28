@@ -33,10 +33,18 @@ class HybridCompiler:
         # Cache: 100 items, expires in 1 hour
         self.cache = TTLCache(maxsize=100, ttl=3600)
 
-    def compile(self, text: str, mode: Optional[str] = None) -> WorkerResponse:
+    def compile(
+        self,
+        text: str,
+        mode: Optional[str] = None,
+        enable_context_retrieval: bool = False,
+    ) -> WorkerResponse:
         """
         Attempt to compile using the Worker LLM with RAG context.
         Falls back to local heuristics if LLM fails.
+
+        Local RAG retrieval is opt-in: unless ``enable_context_retrieval`` is True,
+        no local index content is read or sent to the worker LLM.
         """
         # 1. Fast Checks (Heuristic Guardrails)
         if not text or not text.strip():
@@ -49,9 +57,12 @@ class HybridCompiler:
 
         # 3. Worker LLM (Slow but Smart)
         try:
-            # --- RAG: Context Strategist ---
-            # Retrieve relevant code context using Agent 6
-            rag_context = self.context_strategist.process(text)
+            # --- RAG: Context Strategist (opt-in) ---
+            # Retrieve relevant code context using Agent 6 only when explicitly
+            # enabled; otherwise no local index content is read or transmitted.
+            rag_context = (
+                self.context_strategist.process(text) if enable_context_retrieval else None
+            )
 
             # Pass context to Worker. Retry once for transient worker/API failures before
             # dropping to the deterministic heuristic fallback.

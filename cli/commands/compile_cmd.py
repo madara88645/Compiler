@@ -60,13 +60,14 @@ def _run_compile(
     out: Path | None = None,
     out_dir: Path | None = None,
     fmt: str | None = None,
+    enable_context_retrieval: bool = False,
 ):
     t0 = time.time()
     if v1:
         ir = optimize_ir(compile_text(full_text))
         ir2 = None
     else:
-        ir2 = compile_text_v2(full_text)
+        ir2 = compile_text_v2(full_text, enable_context_retrieval=enable_context_retrieval)
         # For rendering, continue to use v1 emitters if needed; here we print IR JSON by default
         ir = None
     if persona and (ir is not None):
@@ -315,6 +316,11 @@ def compile_cmd(
         "--render-v2",
         help="Deprecated for compile (IR v2 prompts now render by default); still used by batch --format md.",
     ),
+    rag: bool = typer.Option(
+        False,
+        "--rag/--no-rag",
+        help="Inject relevant snippets from the local RAG index into the prompt (off by default).",
+    ),
     out: Path = typer.Option(None, "--out", help="Write output to a file (overwrites)"),
     out_dir: Path = typer.Option(
         None, "--out-dir", help="Write output to a directory (creates if missing)"
@@ -362,6 +368,7 @@ def compile_cmd(
         out=out,
         out_dir=out_dir,
         fmt=format,
+        enable_context_retrieval=rag,
     )
 
 

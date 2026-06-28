@@ -65,6 +65,7 @@ class CompileRequest(BaseModel):
     trace: bool = False
     v2: bool = True
     render_v2_prompts: bool = False
+    enable_context_retrieval: bool = False
     record_analytics: bool = False
     user_level: str = Field(default="intermediate", max_length=100)
     task_type: str = Field(default="general", max_length=100)
@@ -356,7 +357,11 @@ def compile_endpoint(
 
     ir = optimize_ir(compile_text(req.text))
     trace_lines = generate_trace(ir) if req.trace else None
-    ir2 = compile_text_v2(req.text, offline_only=not req.v2)
+    ir2 = compile_text_v2(
+        req.text,
+        offline_only=not req.v2,
+        enable_context_retrieval=req.enable_context_retrieval,
+    )
 
     # The heuristic v2 pipeline runs the SafetyHandler (injection / secret-exfiltration
     # scan). The LLM worker path below rebuilds ir2 and does NOT run that scan, so capture
@@ -371,7 +376,9 @@ def compile_endpoint(
     if req.v2:
         try:
             compiler = _get_compiler()
-            worker_res = compiler.compile(req.text, mode=mode)
+            worker_res = compiler.compile(
+                req.text, mode=mode, enable_context_retrieval=req.enable_context_retrieval
+            )
             ir2, used_fallback = _coerce_fast_ir(req.text, worker_res)
 
             # Re-apply the heuristic safety verdict — the worker IR does not run the
