@@ -39,6 +39,8 @@ from app.optimizer.language_costs import (
     estimate_prompt_cost,
 )
 from app.optimizer.postprocess import strip_wrapper_labels
+from app.readiness.analyzer import analyze_readiness
+from app.readiness.language_guard import output_language_mismatch
 from app.validator import validate_prompt
 
 router = APIRouter(tags=["compile"])
@@ -104,6 +106,7 @@ class CompileResponse(BaseModel):
     heuristic2_version: str | None = None
     trace: list[str] | None = None
     critique: dict | None = None
+    readiness: dict | None = None
 
 
 class OptimizeRequest(BaseModel):
@@ -424,6 +427,14 @@ def compile_endpoint(
         plan_v2 = plan_v2 or emit_plan_v2(ir2)
         exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
+    if ir2 is not None and output_language_mismatch(
+        req.text, " ".join(filter(None, [sys_v2, user_v2, exp_v2]))
+    ):
+        sys_v2 = emit_system_prompt_v2(ir2)
+        user_v2 = emit_user_prompt_v2(ir2)
+        plan_v2 = emit_plan_v2(ir2)
+        exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+
     critique_result = None
     if sys_v2:
         try:
@@ -458,6 +469,7 @@ def compile_endpoint(
                 extra={"request_id": rid},
             )
 
+    readiness = analyze_readiness(req.text, ir2).model_dump()
     elapsed = int((time.time() - t0) * 1000)
 
     # Block compilation ONLY when the safety scan flags the input as unsafe
@@ -485,6 +497,7 @@ def compile_endpoint(
             heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
             trace=trace_lines,
             critique=critique_result,
+            readiness=readiness,
         )
 
     return CompileResponse(
@@ -508,6 +521,7 @@ def compile_endpoint(
         heuristic2_version=(HEURISTIC2_VERSION if ir2 else None),
         trace=trace_lines,
         critique=critique_result,
+        readiness=readiness,
     )
 
 
