@@ -83,3 +83,8 @@
 **Vulnerability:** The `/benchmark/run` endpoint lacked the `verify_api_key` dependency entirely, allowing any unauthenticated user to trigger cost-incurring LLM generation via the benchmark route.
 **Learning:** Endpoints added later in the lifecycle (like benchmark routers) can sometimes be missed when applying global or required authentication patterns used in core routers.
 **Prevention:** Always verify that newly added routers or endpoints that trigger cost-incurring actions (like LLM calls) explicitly include standard authentication dependencies (e.g., `Depends(verify_api_key)`) in their signature, matching the pattern used in the rest of the application.
+## 2025-06-27 - Security Fix Rejected: Public Endpoint Breakage
+
+**Vulnerability:** The `/benchmark/run` endpoint lacked the `verify_api_key` dependency, allowing unauthenticated cost-incurring LLM generation (Denial of Wallet).
+**Learning:** Adding a hard `verify_api_key` dependency to endpoints intended to be public features breaks the public-web contract. Some endpoints are intentionally public by design and are accessed by a web proxy that does not inject server-side keys. Skipping tests that explicitly codify a public contract (like `test_benchmark_is_public_endpoint`) is a strong signal that the approach is fundamentally flawed.
+**Prevention:** Before adding authentication dependencies to an endpoint, verify if the endpoint is intentionally public (e.g., check for tests explicitly asserting it works without auth). If it is a public endpoint causing a Denial of Wallet risk, do not add `verify_api_key`. Instead, mitigate the risk via other means, such as tightening rate limits or adding global quotas.
