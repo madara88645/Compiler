@@ -31,7 +31,8 @@ def test_rag_integration_in_compiler(mock_expand, mock_search):
     # 3. Assert System Prompt includes the snippets
     sys_prompt = emit_system_prompt_v2(ir2)
     assert "### Context (Code & Knowledge)" in sys_prompt
-    assert "#### File: app/auth.py" in sys_prompt
+    # Snippet paths render basename-only (path-safe) — see test_emitters_path_safety.
+    assert "#### File: auth.py" in sys_prompt
     assert "def login():" in sys_prompt
 
 

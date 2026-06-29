@@ -510,7 +510,9 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
     if context_snippets:
         parts.append("\n### Context (Code & Knowledge)")
         for i, snippet in enumerate(context_snippets, 1):
-            path = snippet.get("path", "unknown")
+            # Basename only — never leak absolute local paths into the system
+            # prompt (matches the path-safe rendering used by the other v2 emitter).
+            path = (snippet.get("path") or "unknown").split("/")[-1]
             content = snippet.get("snippet", "").strip()
             parts.append(f"#### File: {path}\n```\n{content}\n```")
     # ------------------------------------------------
