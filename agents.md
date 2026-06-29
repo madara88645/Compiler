@@ -317,6 +317,13 @@ python -m cli.main compile "summarize this PDF for a non-technical audience"
 python -m cli.main github render --type pr-review-brief --from-file prompt.txt
 ```
 
+**Compile export (offline):**
+
+```bash
+python -m cli.main compile-export "summarize this PDF for a non-technical audience"
+python -m cli.main compile-export "summarize this PDF" --out-dir ./exports
+```
+
 **After `pip install -e .`, use the `promptc` shorthand:**
 
 ```bash
@@ -327,7 +334,7 @@ promptc compile "build a login flow for a FastAPI app"
 **CLI tests:**
 
 ```bash
-pytest tests/test_cli_console_refactor.py tests/test_cli_new_features.py tests/test_cli_extras.py -v
+pytest tests/test_cli_compile_export.py tests/test_cli_console_refactor.py tests/test_cli_new_features.py tests/test_cli_extras.py -v
 ```
 
 ---

@@ -18,6 +18,7 @@ EXPECTED_TOP_LEVEL_COMMANDS = {
     "batch",
     "compare",
     "compile",
+    "compile-export",
     "diff",
     "fix",
     "json-path",
