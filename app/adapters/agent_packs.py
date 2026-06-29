@@ -65,26 +65,14 @@ class AgentPackManifest(BaseModel):
 class AgentPackAdapter(Protocol):
     provider: str
 
-    def build_manifest(
-        self,
-        req: AgentPackRequest,
-        compiler: Any,
-        *,
-        include_readiness: bool = True,
-    ) -> AgentPackManifest:
+    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest:
         ...
 
 
 class ClaudeAgentPackAdapter:
     provider = "claude"
 
-    def build_manifest(
-        self,
-        req: AgentPackRequest,
-        compiler: Any,
-        *,
-        include_readiness: bool = True,
-    ) -> AgentPackManifest:
+    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest:
         raw_files: list[dict[str, str]]
 
         if req.pack_type == "mcp-tool-stub":
@@ -109,12 +97,13 @@ class ClaudeAgentPackAdapter:
             else:
                 raw_files = to_claude_pr_reviewer_pack(agent_ir)
 
-        if include_readiness:
-            readiness_markdown = report_to_markdown(analyze_readiness(req.goal))
-            for file in raw_files:
-                if file["path"].endswith(".md"):
-                    file["content"] = f"{file['content'].rstrip()}\n\n{readiness_markdown}"
-                    break
+        # Surface the readiness verdict in the first markdown file of the pack so the
+        # exported artifact (preview and download alike) carries the same guidance.
+        readiness_markdown = report_to_markdown(analyze_readiness(req.goal))
+        for file in raw_files:
+            if file["path"].endswith(".md"):
+                file["content"] = f"{file['content'].rstrip()}\n\n{readiness_markdown}"
+                break
 
         files = [
             AgentPackFile(

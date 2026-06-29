@@ -41,7 +41,7 @@ async def download_claude_agent_pack(
     adapter = AGENT_PACK_ADAPTERS["claude"]
 
     try:
-        manifest = adapter.build_manifest(req, compiler, include_readiness=False)
+        manifest = adapter.build_manifest(req, compiler)
         return create_download_response(manifest)
     except Exception as exc:
         logger.exception(
