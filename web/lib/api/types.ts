@@ -100,6 +100,7 @@ export type CompileResponse = {
   trace?: string[];
   critique?: Critique | null;
   readiness?: ReadinessReport | null;
+  readiness_markdown: string;
 };
 
 export type CompileMode = "conservative" | "default";

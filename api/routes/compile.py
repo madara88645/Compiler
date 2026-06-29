@@ -42,6 +42,7 @@ from app.optimizer.language_costs import (
 from app.optimizer.postprocess import strip_wrapper_labels
 from app.readiness.analyzer import analyze_readiness
 from app.readiness.language_guard import output_language_mismatch
+from app.readiness.markdown import report_to_markdown
 from app.validator import validate_prompt
 
 router = APIRouter(tags=["compile"])
@@ -102,6 +103,13 @@ class CompileResponse(BaseModel):
     trace: list[str] | None = None
     critique: dict | None = None
     readiness: dict | None = None
+    readiness_markdown: str = ""
+
+
+class CompileExportResponse(BaseModel):
+    markdown: str
+    json_payload: dict = Field(serialization_alias="json")
+    filename: str
 
 
 class OptimizeRequest(BaseModel):
@@ -283,6 +291,7 @@ def _fast_compile_payload(
         or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
     )
     ir_dump = ir2.model_dump()
+    readiness_report = analyze_readiness(req.text, ir2)
 
     return (
         {
@@ -302,6 +311,8 @@ def _fast_compile_payload(
             "heuristic2_version": "v2-fast",
             "trace": [],
             "critique": None,
+            "readiness": readiness_report.model_dump(),
+            "readiness_markdown": report_to_markdown(readiness_report),
         },
         used_fallback,
     )
@@ -344,12 +355,7 @@ def _build_offline_quality_report(req: ValidateRequest) -> QualityReport:
     )
 
 
-@router.post("/compile", response_model=CompileResponse)
-def compile_endpoint(
-    req: CompileRequest,
-    request: Request,
-    _: None = Depends(rate_limit_by_ip),
-):
+def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
     t0 = time.time()
     rid = uuid.uuid4().hex[:12]
 
@@ -464,7 +470,9 @@ def compile_endpoint(
                 extra={"request_id": rid},
             )
 
-    readiness = analyze_readiness(req.text, ir2).model_dump()
+    readiness_report = analyze_readiness(req.text, ir2)
+    readiness = readiness_report.model_dump()
+    readiness_markdown = report_to_markdown(readiness_report)
     elapsed = int((time.time() - t0) * 1000)
 
     # Block compilation ONLY when the safety scan flags the input as unsafe
@@ -493,6 +501,7 @@ def compile_endpoint(
             trace=trace_lines,
             critique=critique_result,
             readiness=readiness,
+            readiness_markdown=readiness_markdown,
         )
 
     return CompileResponse(
@@ -517,6 +526,40 @@ def compile_endpoint(
         trace=trace_lines,
         critique=critique_result,
         readiness=readiness,
+        readiness_markdown=readiness_markdown,
+    )
+
+
+@router.post("/compile", response_model=CompileResponse)
+def compile_endpoint(
+    req: CompileRequest,
+    request: Request,
+    _: None = Depends(rate_limit_by_ip),
+):
+    return _compile_response(req, request)
+
+
+def _render_compile_export(compiled: CompileResponse) -> str:
+    return (
+        "# Prompt Compiler Export\n\n"
+        f"## System Prompt\n\n{compiled.system_prompt.strip()}\n\n"
+        f"## User Prompt\n\n{compiled.user_prompt.strip()}\n\n"
+        f"## Plan\n\n{compiled.plan.strip()}\n\n"
+        f"{compiled.readiness_markdown.rstrip()}\n"
+    )
+
+
+@router.post("/compile/export", response_model=CompileExportResponse)
+def compile_export_endpoint(
+    req: CompileRequest,
+    request: Request,
+    _: None = Depends(rate_limit_by_ip),
+):
+    compiled = _compile_response(req, request)
+    return CompileExportResponse(
+        markdown=_render_compile_export(compiled),
+        json_payload=compiled.model_dump(mode="json"),
+        filename=f"prompt-compile-{compiled.request_id}.md",
     )
 
 

@@ -146,7 +146,9 @@ def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
 
         assert response.status_code == 200
         assert response.headers["content-disposition"] == 'attachment; filename="review-agent.md"'
-        assert response.text == "hello"
+        # The downloaded pack carries the readiness section (consistent with the manifest).
+        assert response.text.startswith("hello")
+        assert "## Readiness:" in response.text
 
 
 def test_agent_packs_endpoint_validation_errors():
