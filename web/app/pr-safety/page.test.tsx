@@ -149,6 +149,57 @@ describe("PR Safety page", () => {
     expect("commits_behind" in body).toBe(false);
   });
 
+  test("clears only the PR description when its clear button is pressed", () => {
+    render(<PrSafetyPage />);
+
+    const description = screen.getByLabelText("PR Description") as HTMLTextAreaElement;
+    const changedFiles = screen.getByLabelText("Changed Files") as HTMLTextAreaElement;
+
+    fireEvent.change(description, {
+      target: { value: "Adds POST /login" },
+    });
+    fireEvent.change(changedFiles, {
+      target: { value: "app/auth/login.py\napp/auth/session.py" },
+    });
+
+    const descriptionClear = description.parentElement?.querySelector(
+      'button[aria-label="Clear input"]',
+    );
+    expect(descriptionClear).toBeTruthy();
+
+    fireEvent.click(descriptionClear!);
+
+    expect(description.value).toBe("");
+    expect(changedFiles.value).toBe("app/auth/login.py\napp/auth/session.py");
+    expect(
+      description.parentElement?.querySelector('button[aria-label="Clear input"]'),
+    ).toBeNull();
+  });
+
+  test("clears changed files and resets the detected file count", () => {
+    render(<PrSafetyPage />);
+
+    const changedFiles = screen.getByLabelText("Changed Files") as HTMLTextAreaElement;
+    fireEvent.change(changedFiles, {
+      target: { value: "app/auth/login.py\napp/auth/session.py\n  \n" },
+    });
+
+    expect(screen.getByText("2 files detected")).toBeTruthy();
+
+    const changedFilesClear = changedFiles.parentElement?.querySelector(
+      'button[aria-label="Clear input"]',
+    );
+    expect(changedFilesClear).toBeTruthy();
+
+    fireEvent.click(changedFilesClear!);
+
+    expect(changedFiles.value).toBe("");
+    expect(screen.getByText("0 files detected")).toBeTruthy();
+    expect(
+      changedFiles.parentElement?.querySelector('button[aria-label="Clear input"]'),
+    ).toBeNull();
+  });
+
   test("renders every report section from the API response", async () => {
     render(<PrSafetyPage />);
 
