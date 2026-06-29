@@ -43,3 +43,8 @@ def _main(
 def version():
     """Print package version."""
     rich_print(get_version())
+
+
+# Register the standalone export command for lightweight consumers that import
+# `cli.commands._base.app` directly rather than the full core command aggregator.
+from cli.commands import compile_export as _compile_export  # noqa: E402,F401

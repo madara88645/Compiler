@@ -19,6 +19,7 @@ from api.shared import (
     resolve_mode,
     safety_refusal_prompt_fields,
 )
+from app.compile_export import render_compile_export
 from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
 from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
 from app.emitters import (
@@ -539,16 +540,6 @@ def compile_endpoint(
     return _compile_response(req, request)
 
 
-def _render_compile_export(compiled: CompileResponse) -> str:
-    return (
-        "# Prompt Compiler Export\n\n"
-        f"## System Prompt\n\n{compiled.system_prompt.strip()}\n\n"
-        f"## User Prompt\n\n{compiled.user_prompt.strip()}\n\n"
-        f"## Plan\n\n{compiled.plan.strip()}\n\n"
-        f"{compiled.readiness_markdown.rstrip()}\n"
-    )
-
-
 @router.post("/compile/export", response_model=CompileExportResponse)
 def compile_export_endpoint(
     req: CompileRequest,
@@ -557,7 +548,12 @@ def compile_export_endpoint(
 ):
     compiled = _compile_response(req, request)
     return CompileExportResponse(
-        markdown=_render_compile_export(compiled),
+        markdown=render_compile_export(
+            system_prompt=compiled.system_prompt,
+            user_prompt=compiled.user_prompt,
+            plan=compiled.plan,
+            readiness_markdown=compiled.readiness_markdown,
+        ),
         json_payload=compiled.model_dump(mode="json"),
         filename=f"prompt-compile-{compiled.request_id}.md",
     )
