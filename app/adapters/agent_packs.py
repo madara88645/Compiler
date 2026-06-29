@@ -16,6 +16,8 @@ from .claude_code import (
     to_claude_subagent_bundle,
 )
 from .skill_ir import parse_skill_markdown
+from app.readiness.analyzer import analyze_readiness
+from app.readiness.markdown import report_to_markdown
 
 PackType = Literal["project-pack", "subagent", "pr-reviewer", "mcp-tool-stub"]
 RiskMode = Literal["balanced", "strict"]
@@ -63,14 +65,26 @@ class AgentPackManifest(BaseModel):
 class AgentPackAdapter(Protocol):
     provider: str
 
-    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest:
+    def build_manifest(
+        self,
+        req: AgentPackRequest,
+        compiler: Any,
+        *,
+        include_readiness: bool = True,
+    ) -> AgentPackManifest:
         ...
 
 
 class ClaudeAgentPackAdapter:
     provider = "claude"
 
-    def build_manifest(self, req: AgentPackRequest, compiler: Any) -> AgentPackManifest:
+    def build_manifest(
+        self,
+        req: AgentPackRequest,
+        compiler: Any,
+        *,
+        include_readiness: bool = True,
+    ) -> AgentPackManifest:
         raw_files: list[dict[str, str]]
 
         if req.pack_type == "mcp-tool-stub":
@@ -94,6 +108,13 @@ class ClaudeAgentPackAdapter:
                 raw_files = to_claude_subagent_bundle(agent_ir)
             else:
                 raw_files = to_claude_pr_reviewer_pack(agent_ir)
+
+        if include_readiness:
+            readiness_markdown = report_to_markdown(analyze_readiness(req.goal))
+            for file in raw_files:
+                if file["path"].endswith(".md"):
+                    file["content"] = f"{file['content'].rstrip()}\n\n{readiness_markdown}"
+                    break
 
         files = [
             AgentPackFile(

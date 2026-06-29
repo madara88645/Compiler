@@ -257,6 +257,7 @@ export function normalizeCompileResponse(value: unknown): CompileResponse {
     heuristic2_version: readString(record.heuristic2_version) || undefined,
     trace: Array.isArray(record.trace) ? readStringList(record.trace) : undefined,
     critique: normalizeCritique(record.critique),
+    readiness_markdown: readString(record.readiness_markdown),
   };
 }
 
