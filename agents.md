@@ -191,7 +191,7 @@ pytest -q \
 **Test all API routes:**
 
 ```bash
-pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py -v
+pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py tests/test_pr_safety_export.py -v
 ```
 
 **Live optimizer tests (opt-in only; requires upstream credentials):**
@@ -218,6 +218,11 @@ curl -s -X POST http://127.0.0.1:8080/compile \
 curl -s -X POST http://127.0.0.1:8080/compile/fast \
   -H "Content-Type: application/json" \
   -d '{"text": "create a marketing email", "mode": "default"}' | python -m json.tool
+
+# PR Safety report export
+curl -s -X POST http://127.0.0.1:8080/pr-safety/report/export \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Add auth checks","description":"Adds session validation.","changed_files":["app/auth.py","tests/test_auth.py"],"commits_behind":0}' | python -m json.tool
 ```
 
 **Auth testing — bypass vs. enforce:**
@@ -335,6 +340,12 @@ promptc compile "build a login flow for a FastAPI app"
 
 ```bash
 pytest tests/test_cli_compile_export.py tests/test_cli_console_refactor.py tests/test_cli_new_features.py tests/test_cli_extras.py -v
+```
+
+**macOS port-8000 test note:** `tests/test_cli_new_features.py` probes `127.0.0.1:8000` when the port is open. If an unrelated local service owns that port, stop it or isolate only that port while running the suite:
+
+```bash
+sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote tcp "localhost:8000"))' python -m pytest tests/ -q
 ```
 
 ---
