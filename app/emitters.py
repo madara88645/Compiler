@@ -92,6 +92,52 @@ _FOLLOWUP_SETS = {
 }
 
 
+# Conservative, hand-authored engineering gotchas for common scenarios. These
+# are well-known true facts (not invented APIs), surfaced as considerations and
+# tightly keyed (two signals required) so they do not misfire on the wrong task.
+_SCENARIO_CONSIDERATIONS = {
+    "browser_download": [
+        "Trigger the download from a user gesture; Safari often needs a Blob + an <a download> link, or it opens the file instead of saving it.",
+        "The File System Access API is unsupported in Safari — provide an anchor-download fallback and test large files.",
+    ],
+    "log_bruteforce": [
+        "Parse the actual log format first (e.g. nginx combined); infer brute-force from repeated failed-auth responses (401/403) per client IP within a time window.",
+        "Tune the threshold and window, and handle false positives from shared NAT/proxies and legitimate retries.",
+    ],
+    "payment": [
+        "Keep the secret key server-side only — never ship it to the browser; use separate test and live keys.",
+        "Reconcile gross vs net (fees, refunds, disputes, currency) and verify webhook signatures before trusting events.",
+    ],
+    "react_perf": [
+        "Profile before changing code (React DevTools Profiler) to find which components actually re-render.",
+        "Cut re-renders with memoization (React.memo / useMemo / useCallback) and better state placement; virtualize long lists.",
+    ],
+}
+
+
+def _scenario_considerations(ir) -> list[str]:
+    """High-value, conservative gotchas for a recognized scenario (empty if none)."""
+    parts: list[str] = []
+    for attr in ("goals", "tasks"):
+        parts.extend(getattr(ir, attr, None) or [])
+    text = " ".join(parts).lower()
+    if any(b in text for b in ("safari", "chrome", "firefox", "browser")) and any(
+        d in text for d in ("download", "export", "save file", "save the file")
+    ):
+        return _SCENARIO_CONSIDERATIONS["browser_download"]
+    if "log" in text and any(
+        s in text for s in ("brute", "login", "auth", "attack", "failed", "intrusion")
+    ):
+        return _SCENARIO_CONSIDERATIONS["log_bruteforce"]
+    if any(p in text for p in ("stripe", "payment", "billing", "checkout", "invoice")):
+        return _SCENARIO_CONSIDERATIONS["payment"]
+    if "react" in text and any(
+        q in text for q in ("re-render", "rerender", "render", "slow", "perf", "memo")
+    ):
+        return _SCENARIO_CONSIDERATIONS["react_perf"]
+    return []
+
+
 def _relevant_followups(ir) -> list[str]:
     """Pick decisive follow-up questions from the detected domain/intents/text."""
     parts: list[str] = []
@@ -777,6 +823,18 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + ", ".join(ir.tone)
         )
+    scenario_considerations = _scenario_considerations(ir)
+    if scenario_considerations:
+        ctx_lines.append(
+            (
+                "Onemli noktalar"
+                if lang == "tr"
+                else ("Puntos clave" if lang == "es" else "Key considerations")
+            )
+            + ":"
+        )
+        for consideration in scenario_considerations:
+            ctx_lines.append(f"- {consideration}")
     optional_suggestions = _domain_suggestions_v2(ir, limit=3)
     if optional_suggestions:
         ctx_lines.append(
