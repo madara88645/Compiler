@@ -85,12 +85,13 @@ def to_claude_subagent(ir: AgentExportIR) -> dict[str, str]:
     slug = _slugify(ir.name)
     tools = ", ".join(ir.allowed_tools or ["Read", "Edit", "Write"])
     description = ir.role or (ir.goals[0] if ir.goals else f"Specialized assistant for {ir.name}")
+    description_json = json.dumps(" ".join(description.split()))
     clean_prompt = _strip_markdown_fences(ir.raw_system_prompt)
     content = textwrap.dedent(
         f"""\
 ---
 name: {slug}
-description: {description}
+description: {description_json}
 tools: {tools}
 ---
 
@@ -105,36 +106,35 @@ def to_claude_project_pack(ir: AgentExportIR) -> list[dict[str, str]]:
         {"path": "CLAUDE.md", "content": _project_claude_md(ir)},
         {"path": ".claude/settings.json", "content": _project_settings_json(ir)},
         to_claude_subagent(ir),
-        {
-            "path": ".claude/agents/compiler-architect.md",
-            "content": _named_subagent("compiler-architect"),
-        },
-        {
-            "path": ".claude/agents/prompt-safety-reviewer.md",
-            "content": _named_subagent("prompt-safety-reviewer"),
-        },
-        {"path": ".claude/agents/mcp-integrator.md", "content": _named_subagent("mcp-integrator")},
-        {
-            "path": ".claude/agents/frontend-polisher.md",
-            "content": _named_subagent("frontend-polisher"),
-        },
-        {"path": ".github/workflows/claude.yml", "content": _github_action_workflow()},
-        {"path": ".claude/mcp/claude-desktop.json", "content": _mcp_config_snippet(ir)},
+        {"path": ".github/workflows/claude.yml", "content": _github_action_workflow(ir)},
+        {"path": ".claude/mcp/README.md", "content": _mcp_integration_notes(ir)},
     ]
     return files
 
 
 def to_claude_subagent_bundle(ir: AgentExportIR) -> list[dict[str, str]]:
     subagent = to_claude_subagent(ir)
+    goals = "\n".join(f"- {goal}" for goal in ir.goals) or "- Follow the agent goal."
     readme = textwrap.dedent(
         f"""\
-# Claude Subagent Bundle
+# {ir.name} Subagent Bundle
 
 Drop `{subagent["path"]}` into your repo, then ask Claude Code to use the `{_slugify(ir.name)}` subagent.
 
-Recommended usage:
-- Keep `CLAUDE.md` in the repo root for shared guidance.
-- Add `.claude/settings.json` if you want permission guardrails alongside this agent.
+## Declared technology context
+
+{", ".join(ir.tech_stack) or "Confirm the repository stack before acting."}
+
+## Intended outcome
+
+{goals}
+
+## Install and verify
+
+1. Review the agent instructions against the repository's own guidance.
+2. Copy the file to the exact path shown above.
+3. Invoke the subagent on a representative, non-production task.
+4. Confirm its proposed files and validation commands before allowing edits.
 """
     )
     return [
@@ -150,8 +150,8 @@ def to_claude_pr_reviewer_pack(ir: AgentExportIR) -> list[dict[str, str]]:
         {"path": "CLAUDE.md", "content": _pr_reviewer_memory(ir)},
         {"path": ".claude/settings.json", "content": _project_settings_json(ir)},
         reviewer,
-        {"path": ".github/workflows/claude.yml", "content": _github_action_workflow()},
-        {"path": "README.md", "content": _pr_reviewer_readme()},
+        {"path": ".github/workflows/claude.yml", "content": _github_action_workflow(ir)},
+        {"path": "README.md", "content": _pr_reviewer_readme(ir)},
     ]
     return files
 
@@ -184,9 +184,25 @@ if __name__ == "__main__":
         f"""\
 # {tool_name} MCP Tool Stub
 
-Generated from Prompt Compiler for Claude Code / MCP workflows.
+## Purpose
 
-Purpose: {ir.purpose}
+{ir.purpose or f"Execute {tool_name}."}
+
+## Input
+
+{_skill_params_markdown(ir)}
+
+## Output
+
+{ir.output_description or f"Returns {ir.output_type}."}
+
+## Implementation checklist
+
+{_skill_implementation_markdown(ir)}
+
+## Safety and verification
+
+{_skill_safety_markdown(ir)}
 """
     )
     return [
@@ -204,36 +220,46 @@ def _project_claude_md(ir: AgentExportIR) -> str:
         "\n".join(f"- {constraint}" for constraint in ir.constraints[:4])
         or "- Do not leak secrets."
     )
-    mcp_servers = ", ".join(ir.mcp_servers) if ir.mcp_servers else "none yet"
+    workflows = (
+        "\n".join(f"{index}. {step}" for index, step in enumerate(ir.workflows, start=1))
+        or "1. Inspect the repository before changing it."
+    )
+    stack = "\n".join(f"- {item}" for item in ir.tech_stack) or "- Confirm from repository files."
     return textwrap.dedent(
         f"""\
-# Prompt Compiler Claude Code Memory
+# {ir.name} Project Guidance
 
-## Project Summary
-Prompt Compiler is a FastAPI + Next.js product that turns vague requests into structured prompts, execution plans, policy layers, agent packs, and workflow artifacts.
+## Project context
 
-## Working Rules
-- Start from repo-root commands.
-- Prefer targeted tests before broad suites.
-- Respect API/auth boundaries and never expose secrets.
-- Keep provider integrations framework-agnostic unless the export surface is explicitly Claude-native.
+{ir.role or f"Work on {ir.name}."}
 
-## Domain Concepts
+## Objectives
+
 {goals}
 
 ## Constraints
+
 {constraints}
 
-## Runbook
-- Backend: `python -m uvicorn api.main:app --reload --port 8080`
-- Frontend: `cd web && npm run dev`
-- Python tests: `python -m pytest tests/ -q`
-- Frontend tests: `cd web && npm run test`
+## Workflow
 
-## Claude-Native Notes
+{workflows}
+
+## Declared technology context
+
+{stack}
+
+## Validation contract
+
+- Read repository instructions and package configuration before choosing commands.
+- Run the smallest relevant existing checks first, then the broader repository gate when available.
+- Do not claim a test, build, deploy, or manual check passed unless it actually ran.
+- Report changed files, out-of-scope changes, validation results, remaining risk, and one next step.
+
+## Claude Code configuration
+
 - Permission mode: `{ir.permission_mode}`
-- Suggested tools: {", ".join(ir.allowed_tools)}
-- Suggested MCP servers: {mcp_servers}
+- Suggested tools: {", ".join(ir.allowed_tools) or "Read, Glob, Grep"}
 """
     )
 
@@ -245,30 +271,22 @@ def _project_settings_json(ir: AgentExportIR) -> str:
             "deny": [
                 "Read(./.env)",
                 "Read(./.env.*)",
+                "Read(./**/.env)",
+                "Read(./**/.env.*)",
                 "Read(./secrets/**)",
-                "Read(./users.db)",
-                "Read(./web/.env.local)",
+                "Read(./**/*.pem)",
+                "Read(./**/*.key)",
             ],
             "ask": [
                 "Bash(git push:*)",
+                "Bash(git commit:*)",
                 "Bash(fly:*)",
+                "Bash(vercel:*)",
+                "Bash(kubectl:*)",
             ],
         }
     }
     return json.dumps(settings, indent=2)
-
-
-def _mcp_config_snippet(ir: AgentExportIR) -> str:
-    command = ["python", "integrations/mcp-server/server.py"]
-    config = {
-        "mcpServers": {
-            _slugify(ir.name): {
-                "command": command[0],
-                "args": command[1:],
-            }
-        }
-    }
-    return json.dumps(config, indent=2)
 
 
 def _named_subagent(name: str) -> str:
@@ -303,8 +321,16 @@ tools: {tools[name]}
     )
 
 
-def _github_action_workflow() -> str:
-    return textwrap.dedent(
+def _github_action_workflow(ir: AgentExportIR | None = None) -> str:
+    goal = _workflow_scalar(
+        ir.goals[0] if ir and ir.goals else "Review the referenced issue or pull request."
+    )
+    constraint = _workflow_scalar(
+        ir.constraints[0]
+        if ir and ir.constraints
+        else "Do not expose secrets or make changes outside the requested scope."
+    )
+    template = textwrap.dedent(
         """\
 name: Claude Code
 
@@ -324,11 +350,20 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: >
-            Follow CLAUDE.md, inspect the referenced issue or PR context,
-            and respond or create changes only when the request is actionable.
+            Follow CLAUDE.md and inspect the referenced issue or pull request.
+            Goal: __PACK_GOAL__
+            Constraint: __PACK_CONSTRAINT__
+            Use repository evidence, report validation honestly, and require human review before merge.
           claude_args: "--max-turns 5"
 """
     )
+    return template.replace("__PACK_GOAL__", goal).replace("__PACK_CONSTRAINT__", constraint)
+
+
+def _workflow_scalar(value: str) -> str:
+    """Keep request text inside the workflow's folded scalar."""
+
+    return " ".join(value.split()).replace("${{", "$ {{")
 
 
 def _pr_reviewer_memory(ir: AgentExportIR) -> str:
@@ -338,38 +373,94 @@ def _pr_reviewer_memory(ir: AgentExportIR) -> str:
     )
     return textwrap.dedent(
         f"""\
-# Claude PR Reviewer Memory
+# {ir.name} Guidance
 
 ## Mission
-Review pull requests with a focus on prompt safety, secret handling, permission boundaries, and missing tests.
+{ir.role or "Review pull requests for concrete regressions, risk, and missing tests."}
 
-## Repo Context
-- Project type: repo-specific software product
-- Default review posture: skeptical, concrete, and test-aware
+## Declared technology context
+{chr(10).join(f"- {item}" for item in ir.tech_stack) or "- Confirm from repository files."}
 
 ## Review Checklist
 {goals}
 
 ## Guardrails
-- Do not expose secrets or credentials.
-- Flag unsafe `.claude/settings.json` permissions.
-- Call out prompt leakage, weak validation, and missing regression coverage.
+{chr(10).join(f"- {item}" for item in ir.constraints) or "- Do not expose secrets or credentials."}
+
+## Review output
+- Lead with actionable findings, ordered by severity, and cite the affected file or diff evidence.
+- Separate blockers from non-blocking suggestions.
+- Report missing or unverified tests explicitly; never infer that CI passed.
+- End with a concise merge recommendation and remaining risk.
 """
     )
 
 
-def _pr_reviewer_readme() -> str:
+def _pr_reviewer_readme(ir: AgentExportIR) -> str:
+    goals = "\n".join(f"- {goal}" for goal in ir.goals) or "- Review the pull request."
     return textwrap.dedent(
-        """\
-# Claude PR Reviewer Pack
+        f"""\
+# {ir.name} Pack
 
-This pack gives Claude Code a dedicated `pr-reviewer` subagent plus review-focused repo memory.
+This pack gives Claude Code a dedicated `pr-reviewer` subagent and repository guidance for:
 
-Suggested prompts:
-- `Use the pr-reviewer subagent to review this pull request for prompt leakage and unsafe settings.`
-- `Review this diff for missing tests, secret exposure, and MCP misconfiguration.`
+{goals}
+
+## Verify before enabling automation
+
+1. Review `CLAUDE.md` and `.claude/agents/pr-reviewer.md` against the repository's policies.
+2. Confirm the declared technology context: {", ".join(ir.tech_stack) or "not provided"}.
+3. Add `ANTHROPIC_API_KEY` to GitHub Actions only if your organization approves that integration.
+4. Test the reviewer on a non-sensitive pull request and inspect its file citations and test claims.
 """
     )
+
+
+def _mcp_integration_notes(ir: AgentExportIR) -> str:
+    return textwrap.dedent(
+        f"""\
+# MCP integration notes for {ir.name}
+
+No MCP server configuration is generated because the request did not provide a verified command or server path.
+
+Before adding an MCP server:
+
+1. Identify an existing server entry point in the repository.
+2. Run it locally and confirm its tool schema.
+3. Add the verified command to the host client's MCP configuration.
+4. Keep secrets in the host environment; do not write credentials into this pack.
+"""
+    )
+
+
+def _skill_params_markdown(ir: SkillExportIR) -> str:
+    if not ir.params:
+        return "- No parameters declared; add a reviewed input contract before implementation."
+    return "\n".join(
+        (
+            f"- `{param.name}` (`{param.type}`, "
+            f"{'required' if param.required else 'optional'}): "
+            f"{param.description or 'Define and validate this value.'}"
+        )
+        for param in ir.params
+    )
+
+
+def _skill_implementation_markdown(ir: SkillExportIR) -> str:
+    implementation = (ir.implementation or "").strip()
+    if not implementation:
+        return "- Resolve repository-specific APIs and implement the TODO in `server.py`."
+    sentences = [sentence.strip() for sentence in implementation.split(". ") if sentence.strip()]
+    return "\n".join(f"- {sentence.rstrip('.')}." for sentence in sentences)
+
+
+def _skill_safety_markdown(ir: SkillExportIR) -> str:
+    items = [*ir.error_handling, *ir.testing_strategy]
+    if not items:
+        items = [
+            "Validate inputs, surface missing context, and test without production side effects."
+        ]
+    return "\n".join(f"- {item}" for item in items)
 
 
 def _ordered_tools(tools: list[str]) -> list[str]:
