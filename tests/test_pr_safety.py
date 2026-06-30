@@ -200,3 +200,36 @@ def test_changed_files_are_grouped_deterministically():
     assert groups["auth"] == ["api/routes/auth.py"]
     assert groups["ci"] == [".github/workflows/ci.yml"]
     assert groups["tests"] == ["tests/test_auth.py"]
+
+
+def test_nested_spec_test_file_clears_gap_for_component():
+    report = analyze_pr_safety(
+        title="feat: refine readiness banner",
+        description="Update the readiness banner component wording.",
+        changed_files=[
+            "web/app/components/ReadinessBanner.tsx",
+            "web/app/components/__tests__/ReadinessBanner.spec.tsx",
+        ],
+    )
+
+    assert report.test_coverage.status == "ok"
+    assert report.test_coverage.test_files == [
+        "web/app/components/__tests__/ReadinessBanner.spec.tsx"
+    ]
+    assert report.test_coverage.gaps == []
+    assert report.verdict == "merge"
+
+
+def test_scope_focus_term_can_match_a_later_file():
+    report = analyze_pr_safety(
+        title="docs: update readme",
+        description="Clarify local setup steps for contributors.",
+        changed_files=[
+            "docs/contributing.md",
+            "README.md",
+        ],
+    )
+
+    assert report.scope_match.status == "ok"
+    assert report.scope_match.notes == []
+    assert report.verdict == "merge"
