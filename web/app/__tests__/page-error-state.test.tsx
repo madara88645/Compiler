@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home from "../page";
+import { VERDICT_META } from "../components/ReadinessBanner";
 
 const retryMock = vi.fn();
 const useCompilerMock = vi.fn();
@@ -66,5 +67,25 @@ describe("Prompt Compiler home", () => {
 
     expect(screen.getByTestId("output-skeleton")).toBeTruthy();
     expect(screen.queryByText("old result should not render while loading")).toBeNull();
+  });
+
+  it("sells the readiness check on the empty state", () => {
+    useCompilerMock.mockReturnValue({
+      loading: false,
+      result: null,
+      status: "Ready",
+      lastError: null,
+      securityFindings: [],
+      redactedText: "",
+      runCompile: vi.fn(),
+      retry: retryMock,
+      resolveSecurityDecision: vi.fn(),
+      cancelSecurityReview: vi.fn(),
+    });
+
+    render(<Home />);
+
+    expect(screen.getByText(/a rule-based check rates your request/i)).toBeTruthy();
+    expect(screen.getByText(VERDICT_META.ready.meaning)).toBeTruthy();
   });
 });

@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
-import ReadinessBanner from "./components/ReadinessBanner";
+import ReadinessBanner, { VERDICT_META } from "./components/ReadinessBanner";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
@@ -14,9 +14,16 @@ import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
 
 import { describeRequestError } from "../config";
-import type { CompileMode, CompileResponse } from "../lib/api/types";
+import type { CompileMode, CompileResponse, ReadinessVerdict } from "../lib/api/types";
 
 type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";
+
+const READINESS_LEGEND: { verdict: ReadinessVerdict; label: string }[] = [
+  { verdict: "ready", label: "Ready" },
+  { verdict: "clarify", label: "Clarify" },
+  { verdict: "risky", label: "Risky" },
+  { verdict: "noise", label: "Not a task" },
+];
 
 function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   if (activeTab === "system") {
@@ -506,7 +513,8 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center sm:gap-6 sm:p-10">
+              <div className="flex flex-1 flex-col overflow-y-auto">
+              <div className="m-auto flex w-full flex-col items-center gap-5 p-6 text-center sm:gap-6 sm:p-10">
                 <div className="relative group">
                   <div className="absolute inset-0 bg-blue-500/30 blur-[40px] rounded-full group-hover:bg-blue-500/50 transition-all duration-700" />
                   <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl">
@@ -549,6 +557,24 @@ export default function Home() {
                     Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
                   </p>
                 </div>
+
+                <div className="w-full max-w-md space-y-3 border-t border-white/5 pt-5 text-left">
+                  <p className="text-xs font-medium text-zinc-300">Before you spend a run, a rule-based check rates your request:</p>
+                  <ul className="space-y-1.5">
+                    {READINESS_LEGEND.map(({ verdict, label }) => (
+                      <li key={verdict} className="flex items-start gap-2.5">
+                        <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${VERDICT_META[verdict].dot}`} />
+                        <span className="text-xs text-zinc-400">
+                          <span className="font-semibold text-zinc-200">{label}</span>
+                          {" — "}
+                          <span>{VERDICT_META[verdict].meaning}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] italic text-zinc-500">Rule-based, not AI &mdash; so it never hallucinates.</p>
+                </div>
+              </div>
               </div>
             )}
           </div>
