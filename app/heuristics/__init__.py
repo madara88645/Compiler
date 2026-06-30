@@ -88,6 +88,14 @@ DOMAIN_PATTERNS: Dict[str, List[str]] = {
         r"web app",
         r"webapp",
         r"stripe",
+        # Browser / frontend debugging vocabulary
+        r"browser",
+        r"safari",
+        r"chrome",
+        r"firefox",
+        r"\bcss\b",
+        r"\bhtml\b",
+        r"\bdom\b",
     ],
     "cloud": [r"aws", r"azure", r"gcp", r"cloudformation", r"terraform", r"serverless"],
     # Newer domains for coverage
