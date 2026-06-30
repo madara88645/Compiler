@@ -3,7 +3,7 @@ import re
 from .base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2
-from app.heuristics import _contains_any_keyword
+from app.heuristics import _contains_any_keyword, detect_destructive_operation
 
 
 class PolicyHandler(BaseHandler):
@@ -31,6 +31,7 @@ class PolicyHandler(BaseHandler):
         "terminal",
         "system",
         "workspace",
+        "database",
     )
 
     _DOMAIN_TOOL_RULES: dict[str, dict[str, list[str]]] = {
@@ -101,6 +102,7 @@ class PolicyHandler(BaseHandler):
         # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
         file_or_system_request = has_path or _contains_any_keyword(text, self._FILE_KEYWORDS)
         debug_request = bool(md.get("code_request")) or bool(persona_flags.get("live_debug"))
+        destructive = detect_destructive_operation(original_text)
         educational_request = self._is_educational_request(text)
         benign_educational_risk = (
             educational_request
@@ -123,6 +125,8 @@ class PolicyHandler(BaseHandler):
             policy_reasons.append("debug_request")
         if file_or_system_request:
             policy_reasons.append("file_or_system_request")
+        if destructive:
+            policy_reasons.append("destructive_operation")
         for flag in pii_flags:
             policy_reasons.append(f"pii_detected:{flag}")
 
@@ -133,6 +137,11 @@ class PolicyHandler(BaseHandler):
             policy.execution_mode = "advice_only"
             if "security" not in policy.risk_domains:
                 policy.risk_domains.append("security")
+        elif destructive:
+            # Hard-to-reverse operations (wipe/drop/truncate a database, rm -rf)
+            # are high risk regardless of domain count.
+            policy.risk_level = "high"
+            policy.execution_mode = "human_approval_required"
         elif benign_educational_risk:
             policy.risk_level = "low"
             policy.execution_mode = "auto_ok"
@@ -144,6 +153,12 @@ class PolicyHandler(BaseHandler):
             policy.execution_mode = "human_approval_required"
         else:
             policy.execution_mode = "auto_ok"
+
+        if destructive:
+            policy.sanitization_rules = self._unique(
+                policy.sanitization_rules + ["backup_before_destructive", "dry_run_required"]
+            )
+            policy.forbidden_tools = self._unique(policy.forbidden_tools + ["production_write"])
 
         # Domain-specific tool control
         for domain in risk_flags:

@@ -790,6 +790,82 @@ def detect_risk_flags(text: str) -> list[str]:
     return flags
 
 
+# Destructive, hard-to-reverse operations. The risk model under-rated these
+# ("wipe the production database" was only medium). A destructive operation is
+# either an unambiguous phrase (rm -rf, drop table, git reset --hard) or a
+# destructive verb paired with a sensitive target (wipe + database). Requiring a
+# target keeps ordinary actions ("delete a temp file", "drop a dependency") low.
+# Unambiguous, command-shaped destructive operations (always high risk).
+_DESTRUCTIVE_ALWAYS = [
+    # rm with both recursive and force flags, in any order (-rf, -fr, -fR, ...)
+    re.compile(r"\brm\s+-(?=[a-z]*r)(?=[a-z]*f)[a-z]+", re.IGNORECASE),
+    re.compile(r"\bdelete\s+from\s+\w+", re.IGNORECASE),  # SQL mass delete
+    re.compile(r"\bterraform\s+destroy\b", re.IGNORECASE),
+    re.compile(r"\bgit\s+reset\s+--hard\b", re.IGNORECASE),
+    re.compile(r"\bgit\s+clean\s+-[a-z]*f", re.IGNORECASE),
+    re.compile(r"\bformat\s+(?:the\s+)?(?:disk|drive|volume)\b", re.IGNORECASE),
+    re.compile(r"\bformat\s+[a-z]:", re.IGNORECASE),
+    re.compile(r"\bfactory\s+reset\b", re.IGNORECASE),
+]
+
+# Benign phrases that reuse destructive verbs/targets but are not destructive
+# ("drop the database connection pool", "truncate the cell text to 40 chars").
+_DESTRUCTIVE_BENIGN = re.compile(
+    r"connection\s+pool|\bcell\s+text\b|to\s+\d+\s+char|truncate[^.]*\b(?:string|text|label|characters)\b",
+    re.IGNORECASE,
+)
+_DESTRUCTIVE_VERBS = [
+    re.compile(r"\b" + v, re.IGNORECASE)
+    for v in (
+        r"wipe",
+        r"truncate",
+        r"destroy",
+        r"obliterate",
+        r"purge",
+        r"nuke",
+        r"delete",
+        r"drop",
+        r"erase",
+        r"shred",
+    )
+]
+_DESTRUCTIVE_TARGETS = [
+    re.compile(r"\b" + t, re.IGNORECASE)
+    for t in (
+        r"database",
+        r"\bdb\b",
+        r"production",
+        r"\bprod\b",
+        r"table",
+        r"schema",
+        r"volume",
+        r"disk",
+        r"cluster",
+        r"\bdata\b",
+        r"records",
+        r"backup",
+        r"everything",
+        r"all data",
+        r"bucket",
+        r"namespace",
+        r"account",
+        r"users",
+        r"collection",
+    )
+]
+
+
+def detect_destructive_operation(text: str) -> bool:
+    """True if the request describes a destructive, hard-to-reverse operation."""
+    if any(pattern.search(text) for pattern in _DESTRUCTIVE_ALWAYS):
+        return True
+    if _DESTRUCTIVE_BENIGN.search(text):
+        return False
+    has_verb = any(pattern.search(text) for pattern in _DESTRUCTIVE_VERBS)
+    has_target = any(pattern.search(text) for pattern in _DESTRUCTIVE_TARGETS)
+    return has_verb and has_target
+
+
 def extract_entities(text: str) -> list[str]:
     # Simple heuristic: capitalized tokens & tech patterns
     entities: list[str] = []
