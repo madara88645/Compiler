@@ -182,6 +182,21 @@ export default function OfflinePage() {
                                         </>
                                     )}
                                 </button>
+                                {!prompt.trim() && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setPrompt("Create a Python script that monitors a local log directory for new .log files, parses them for ERROR level messages, and outputs a summary report.");
+                                            setTimeout(() => {
+                                                const textarea = document.getElementById('offline-prompt');
+                                                if (textarea) textarea.focus();
+                                            }, 0);
+                                        }}
+                                        className="text-xs text-zinc-400/80 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500 rounded px-2 py-1 mx-auto"
+                                    >
+                                        or try an example
+                                    </button>
+                                )}
                             </div>
                         </div>
 

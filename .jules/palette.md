@@ -22,3 +22,6 @@
 ## 2024-06-27 - Add Clear Button to Input Forms (Re-applied)
 **Learning:** For generative text inputs where users often paste large blocks of text, missing a quick way to clear the input creates friction. This applies to multiple areas of the app, like the PR Safety feature.
 **Action:** Always consider adding a "Clear" button (with proper `type="button"`, `aria-label`, and `title` attributes) to large input fields (like textareas) to improve usability. Make sure to wrap the `<textarea>` in a `<div className="relative group">` to allow absolute positioning of the clear button inside it.
+## 2024-05-19 - Added example button to offline heuristics tool
+**Learning:** The "or try an example" button pattern used in the Prompt Compiler and Agent Generator tools is highly effective at reducing friction for new users facing an empty text area. The offline heuristics tool was missing this helpful empty state.
+**Action:** Replicate the exact UX pattern (a muted, subtle button that populates the textarea and focuses it) in `web/app/offline/page.tsx` when the input is empty.
