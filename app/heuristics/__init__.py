@@ -59,8 +59,35 @@ DOMAIN_PATTERNS: Dict[str, List[str]] = {
         r"kubernetes",
         r"python",
         r"javascript",
+        r"typescript",
         r"refactor",
         r"microservices",
+        # Modern frameworks / runtimes
+        r"react",
+        r"vue",
+        r"angular",
+        r"svelte",
+        r"next.js",
+        r"node.js",
+        r"nodejs",
+        r"django",
+        r"flask",
+        r"fastapi",
+        r"rails",
+        r"tailwind",
+        r"graphql",
+        r"rust",
+        r"golang",
+        # Product/build phrasing that implies a software task
+        r"dashboard",
+        r"frontend",
+        r"backend",
+        r"full-stack",
+        r"fullstack",
+        r"webhook",
+        r"web app",
+        r"webapp",
+        r"stripe",
     ],
     "cloud": [r"aws", r"azure", r"gcp", r"cloudformation", r"terraform", r"serverless"],
     # Newer domains for coverage
@@ -1013,13 +1040,24 @@ def detect_language(text: str) -> str:
     return "en"
 
 
+# Leading-word-boundary matchers for domain keywords. Substring matching
+# misclassified words like "rapid" (contains "api") or "trustworthy" (contains
+# "rust") as software. A leading boundary keeps tech names and their inflections
+# ("react" -> "reactjs", "rust" not matched inside "trust") while ignoring
+# mid-word coincidences. re.escape keeps multi-word ("web app") and dotted
+# ("next.js") keywords literal.
+_DOMAIN_PATTERNS_COMPILED: Dict[str, List[Tuple[str, "re.Pattern[str]"]]] = {
+    domain: [(p, re.compile(r"\b" + re.escape(p), re.IGNORECASE)) for p in pats]
+    for domain, pats in DOMAIN_PATTERNS.items()
+}
+
+
 def detect_domain(text: str) -> Tuple[str, List[str]]:
-    lower = text.lower()
     evidence: List[str] = []
-    for domain, pats in DOMAIN_PATTERNS.items():
-        for p in pats:
-            if p in lower:
-                evidence.append(f"{domain}:{p}")
+    for domain, pats in _DOMAIN_PATTERNS_COMPILED.items():
+        for raw, pattern in pats:
+            if pattern.search(text):
+                evidence.append(f"{domain}:{raw}")
     if not evidence:
         return "general", []
     # Choose the domain with most evidence counts
