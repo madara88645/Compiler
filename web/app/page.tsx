@@ -197,7 +197,7 @@ export default function Home() {
               <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20">💠</div>
               <div>
                 <h1 className="font-semibold text-lg tracking-tight text-white">Prompt Compiler</h1>
-                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Vague Request To Prompt, Plan, And Policy</div>
+                <div className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase opacity-70">Catch weak prompts before you spend an agent run</div>
               </div>
             </div>
             <InfoButton
@@ -319,7 +319,7 @@ export default function Home() {
                 {loading ? (
                   <span className="animate-pulse">Thinking...</span>
                 ) : (
-                  <>Generate <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span> <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>
+                  <>Compile Prompt <span className="transition-transform group-hover:translate-x-0.5">{"->"}</span> <kbd className="ml-2 hidden rounded border border-white/20 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] opacity-50 md:inline-block">Ctrl/Cmd Enter</kbd></>
                 )}
               </button>
             </div>
@@ -514,12 +514,9 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="max-w-sm space-y-2">
-                  <h3 className="text-zinc-100 font-semibold tracking-tight text-lg">Start with any rough request</h3>
+                  <h3 className="text-zinc-100 font-semibold tracking-tight text-lg">Compile a rough request into a prompt your AI can actually run</h3>
                   <p className="text-sm text-zinc-400 leading-relaxed mb-4">
-                    Paste a task, question, bug report, or workflow into the editor{" "}
-                    <span className="hidden md:inline">on the left, then press <kbd className="rounded border border-white/20 bg-white/5 px-1 py-0.5 font-mono text-[11px]">Ctrl/Cmd Enter</kbd></span>
-                    <span className="md:hidden">above, then tap <span className="font-semibold text-zinc-200">Compile Prompt</span> below</span>.
-                    You&apos;ll get structured prompts, an execution plan, and policy checks you can inspect before using the result downstream.
+                    Paste a vague task. Get a structured prompt, an execution plan, and repo-ready agent files &mdash; plus a rule-based readiness check that flags risky or unclear requests before you waste a run.
                   </p>
                   <div className="flex flex-col items-center gap-3 mt-2 w-full">
                     <button
