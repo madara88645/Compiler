@@ -115,15 +115,12 @@ _SCENARIO_CONSIDERATIONS = {
 }
 
 
-
 def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
     """Fast-path helper to bypass any() generator overhead."""
     for marker in markers:
         if marker in text:
             return True
     return False
-
-
 
 
 def _scenario_considerations(ir) -> list[str]:
@@ -133,16 +130,22 @@ def _scenario_considerations(ir) -> list[str]:
         parts.extend(getattr(ir, attr, None) or [])
     text = " ".join(parts).lower()
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(text, ("safari", "chrome", "firefox", "browser")) and _contains_any_marker(text, ("download", "export", "save file", "save the file")):
+    if _contains_any_marker(
+        text, ("safari", "chrome", "firefox", "browser")
+    ) and _contains_any_marker(text, ("download", "export", "save file", "save the file")):
         return _SCENARIO_CONSIDERATIONS["browser_download"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if "log" in text and _contains_any_marker(text, ("brute", "login", "auth", "attack", "failed", "intrusion")):
+    if "log" in text and _contains_any_marker(
+        text, ("brute", "login", "auth", "attack", "failed", "intrusion")
+    ):
         return _SCENARIO_CONSIDERATIONS["log_bruteforce"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     if _contains_any_marker(text, ("stripe", "payment", "billing", "checkout", "invoice")):
         return _SCENARIO_CONSIDERATIONS["payment"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if "react" in text and _contains_any_marker(text, ("re-render", "rerender", "render", "slow", "perf", "memo")):
+    if "react" in text and _contains_any_marker(
+        text, ("re-render", "rerender", "render", "slow", "perf", "memo")
+    ):
         return _SCENARIO_CONSIDERATIONS["react_perf"]
     return []
 
@@ -156,19 +159,42 @@ def _relevant_followups(ir) -> list[str]:
     intents = set(getattr(ir, "intents", None) or [])
     domain = (getattr(ir, "domain", "") or "").lower()
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(text, ("re-render", "rerender", "re render", "slow", "performance", "perf", "memo", "optimi", "latency", "fps", "profil")):
+    if _contains_any_marker(
+        text,
+        (
+            "re-render",
+            "rerender",
+            "re render",
+            "slow",
+            "performance",
+            "perf",
+            "memo",
+            "optimi",
+            "latency",
+            "fps",
+            "profil",
+        ),
+    ):
         return _FOLLOWUP_SETS["perf"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(text, ("browser", "safari", "chrome", "firefox", "css", "render", "button")):
+    if _contains_any_marker(
+        text, ("browser", "safari", "chrome", "firefox", "css", "render", "button")
+    ):
         return _FOLLOWUP_SETS["browser"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(text, ("stripe", "payment", "billing", "invoice", "checkout", "revenue", "webhook")):
+    if _contains_any_marker(
+        text, ("stripe", "payment", "billing", "invoice", "checkout", "revenue", "webhook")
+    ):
         return _FOLLOWUP_SETS["payment"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if "risk" in intents or _contains_any_marker(text, ("auth", "login", "brute", "token", "encrypt", "security", "secret", "vulnerab")):
+    if "risk" in intents or _contains_any_marker(
+        text, ("auth", "login", "brute", "token", "encrypt", "security", "secret", "vulnerab")
+    ):
         return _FOLLOWUP_SETS["security"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(text, ("deploy", "production", "database", "migrate", "wipe", "kubernetes", "terraform")):
+    if _contains_any_marker(
+        text, ("deploy", "production", "database", "migrate", "wipe", "kubernetes", "terraform")
+    ):
         return _FOLLOWUP_SETS["ops"]
     if domain == "software" or {"code", "debug", "troubleshooting"} & intents:
         return _FOLLOWUP_SETS["software"]
@@ -230,7 +256,6 @@ def _is_trivial_input(original_text: str, domain: str, complexity: str) -> bool:
     if _contains_any_marker(lowered, _TRIVIAL_TASK_VERBS):
         return False
     return True
-
 
 
 def _minimal_greeting_prompt(original_text: str, lang: str) -> str:
