@@ -61,6 +61,17 @@ _GENERIC_ROLES = {
     DEFAULT_ROLE_DEV_TR,
 }
 
+# Map a detected programming language (analysis.sub_domain) to an expert role
+# label. Used to set the role from the reliably-detected language instead of the
+# implied-persona keyword tiebreaker (which gave "Expert JavaScript Developer"
+# for a Python request).
+_LANGUAGE_ROLE = {
+    "python": "Python Developer",
+    "javascript": "JavaScript Developer",
+    "rust": "Rust Developer",
+    "go": "Go Developer",
+}
+
 
 # ==============================================================================
 # DOMAIN RULES DICTIONARY
@@ -739,6 +750,13 @@ class DomainHandler(BaseHandler):
         role_is_generic = not ir_v2.role or ir_v2.role in _GENERIC_ROLES
         if persona_is_generic and role_is_generic:
             implied_persona, confidence = self.detect_implied_persona(original_text)
+            # Prefer the reliably detected programming language over the implied-
+            # persona keyword tiebreaker, which let "function " pick JavaScript for
+            # a Python request.
+            if analysis.detected_domain == "coding" and analysis.sub_domain:
+                lang_role = _LANGUAGE_ROLE.get(analysis.sub_domain)
+                if lang_role:
+                    implied_persona = lang_role
             if implied_persona:
                 ir_v2.persona = "expert"
                 ir_v2.role = f"Expert {implied_persona}"
@@ -756,6 +774,17 @@ class DomainHandler(BaseHandler):
                         category="persona_inference",
                     )
                 )
+            elif analysis.detected_domain == "coding":
+                # A coding request with no language or keyword signal (e.g.
+                # "build me a dashboard") still deserves a developer rather than a
+                # generic assistant.
+                ir_v2.persona = "developer"
+                ir_v2.role = DEFAULT_ROLE_DEV_EN
+                ir_v2.metadata["implied_persona"] = {
+                    "persona": "developer",
+                    "confidence": 0.5,
+                    "reason": "coding_domain",
+                }
 
         # Store analysis metadata
         ir_v2.metadata["domain_analysis"] = {
@@ -860,6 +889,9 @@ class DomainHandler(BaseHandler):
 
     def _detect_domain(self, text_lower: str, hint: str) -> str:
         """Detect the primary domain of the text."""
+        # The upstream IR domain uses "software"; this analyzer calls it "coding".
+        if hint == "software":
+            hint = "coding"
         # Trust the hint if it's valid
         if hint and hint in DOMAIN_RULES:
             return hint
