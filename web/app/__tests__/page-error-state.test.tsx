@@ -69,7 +69,7 @@ describe("Prompt Compiler home", () => {
     expect(screen.queryByText("old result should not render while loading")).toBeNull();
   });
 
-  it("sells the readiness check and deliverables on the empty state", () => {
+  it("sells the readiness check on the empty state", () => {
     useCompilerMock.mockReturnValue({
       loading: false,
       result: null,
@@ -87,6 +87,5 @@ describe("Prompt Compiler home", () => {
 
     expect(screen.getByText(/a rule-based check rates your request/i)).toBeTruthy();
     expect(screen.getByText(VERDICT_META.ready.meaning)).toBeTruthy();
-    expect(screen.getByText(/nothing leaves your machine/i)).toBeTruthy();
   });
 });

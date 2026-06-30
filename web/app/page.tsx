@@ -25,8 +25,6 @@ const READINESS_LEGEND: { verdict: ReadinessVerdict; label: string }[] = [
   { verdict: "noise", label: "Not a task" },
 ];
 
-const DELIVERABLES = "Structured prompt · Execution plan · Rule-based readiness check · Repo-ready agent files (CLAUDE.md / .claude) · Runs offline, nothing leaves your machine";
-
 function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
   if (activeTab === "system") {
     return result.system_prompt_v2 || result.system_prompt;
@@ -576,11 +574,6 @@ export default function Home() {
                   </ul>
                   <p className="text-[11px] italic text-zinc-500">Rule-based, not AI &mdash; so it never hallucinates.</p>
                 </div>
-
-                <p className="w-full max-w-md text-[11px] leading-relaxed text-zinc-500">
-                  <span className="font-semibold uppercase tracking-wide text-zinc-400">What you get </span>
-                  {DELIVERABLES}
-                </p>
               </div>
               </div>
             )}
