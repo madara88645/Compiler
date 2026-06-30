@@ -51,6 +51,96 @@ def emit_user_prompt(ir: IR) -> str:
     return "\n".join(lines)
 
 
+# Decisive, domain-aware follow-up questions. These replace generic filler
+# ("which success metrics matter most?") with the questions a competent engineer
+# would actually ask. They are conservative: questions, never invented facts.
+_FOLLOWUP_SETS = {
+    "perf": [
+        "Have you profiled it (e.g. React DevTools Profiler) to see which components or calls dominate?",
+        "Which components re-render, and is it from state/context placement or unmemoized props/children?",
+        "What is the current versus target metric (render time, FPS, payload) and at what data size?",
+    ],
+    "browser": [
+        "Which browser and version is affected, and does it work in others?",
+        "What are the exact reproduction steps and any console or network errors?",
+        "What is the expected behavior versus what actually happens?",
+    ],
+    "payment": [
+        "Are API keys and secrets kept server-side only (never exposed in the browser)?",
+        "Which figures and events matter (gross vs net, refunds, disputes, currency)?",
+        "What is the data source, refresh cadence, and date range?",
+    ],
+    "security": [
+        "What is the threat model and the attacker's assumed capability?",
+        "What data sensitivity or compliance constraints apply?",
+        "How should failed attempts, thresholds, and false positives be handled?",
+    ],
+    "ops": [
+        "Is there a tested backup and a rollback plan before this runs?",
+        "Has it been validated in a staging environment first?",
+        "What is the blast radius if it goes wrong, and who must approve?",
+    ],
+    "software": [
+        "Which language, framework, and version are targeted?",
+        "What are the expected inputs, outputs, and key edge cases?",
+        "How should errors, performance, and tests be handled?",
+    ],
+    "generic": [
+        "What does a successful result look like concretely?",
+        "Which constraints (time, tools, format) must the answer respect?",
+    ],
+}
+
+
+def _relevant_followups(ir) -> list[str]:
+    """Pick decisive follow-up questions from the detected domain/intents/text."""
+    parts: list[str] = []
+    for attr in ("goals", "tasks"):
+        parts.extend(getattr(ir, attr, None) or [])
+    text = " ".join(parts).lower()
+    intents = set(getattr(ir, "intents", None) or [])
+    domain = (getattr(ir, "domain", "") or "").lower()
+    if any(
+        p in text
+        for p in (
+            "re-render",
+            "rerender",
+            "re render",
+            "slow",
+            "performance",
+            "perf",
+            "memo",
+            "optimi",
+            "latency",
+            "fps",
+            "profil",
+        )
+    ):
+        return _FOLLOWUP_SETS["perf"]
+    if any(
+        b in text for b in ("browser", "safari", "chrome", "firefox", "css", "render", "button")
+    ):
+        return _FOLLOWUP_SETS["browser"]
+    if any(
+        p in text
+        for p in ("stripe", "payment", "billing", "invoice", "checkout", "revenue", "webhook")
+    ):
+        return _FOLLOWUP_SETS["payment"]
+    if "risk" in intents or any(
+        s in text
+        for s in ("auth", "login", "brute", "token", "encrypt", "security", "secret", "vulnerab")
+    ):
+        return _FOLLOWUP_SETS["security"]
+    if any(
+        o in text
+        for o in ("deploy", "production", "database", "migrate", "wipe", "kubernetes", "terraform")
+    ):
+        return _FOLLOWUP_SETS["ops"]
+    if domain == "software" or {"code", "debug", "troubleshooting"} & intents:
+        return _FOLLOWUP_SETS["software"]
+    return _FOLLOWUP_SETS["generic"]
+
+
 def emit_plan(ir: IR) -> str:
     out = []
     for i, step in enumerate(ir.steps or ir.tasks, start=1):
@@ -66,12 +156,45 @@ def _is_conservative_mode(conservative: bool | None) -> bool:
     return mode != "default"
 
 
+_TRIVIAL_TASK_VERBS = (
+    "make",
+    "fix",
+    "improve",
+    "better",
+    "build",
+    "write",
+    "create",
+    "add",
+    "optimi",
+    "refactor",
+    "debug",
+    "implement",
+    "design",
+    "generate",
+    "summar",
+    "review",
+    "analyze",
+    "translate",
+    "explain",
+    "plan",
+    "compare",
+)
+
+
 def _is_trivial_input(original_text: str, domain: str, complexity: str) -> bool:
-    """Return True for very short or greeting-only inputs that should not be expanded with generic boilerplate."""
+    """Return True for greeting-only inputs that should not be expanded with boilerplate.
+
+    A short but actionable request ("make it better") is NOT trivial — it needs
+    clarifying questions, so it must not be short-circuited to the greeting reply
+    (which tells the model not to add guidance, contradicting the plan).
+    """
     stripped = original_text.strip()
-    if len(stripped) < 30 and domain == "general" and complexity in ("low", None, ""):
-        return True
-    return False
+    if len(stripped) >= 30 or domain != "general" or complexity not in ("low", None, ""):
+        return False
+    lowered = stripped.lower()
+    if any(verb in lowered for verb in _TRIVIAL_TASK_VERBS):
+        return False
+    return True
 
 
 def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
@@ -280,14 +403,11 @@ def emit_expanded_prompt(
         ]
         header_fu = "Preguntas de seguimiento"
     else:
-        followups = [
-            "Which success metrics matter most next?",
-            "What should be deepened in the next iteration?",
-        ]
+        followups = _relevant_followups(ir)
         header_fu = "Follow-up Questions"
     if followups:
         prompt.extend(["", header_fu + ":"])
-        for f in followups[:2]:
+        for f in followups[:3]:
             prompt.append(f"- {f}")
 
     if diagnostics:
@@ -739,14 +859,11 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         ]
         header_fu = "Preguntas de seguimiento"
     else:
-        followups = [
-            "Which success metrics matter most next?",
-            "What should be deepened in the next iteration?",
-        ]
+        followups = _relevant_followups(ir)
         header_fu = "Follow-up Questions"
     if followups:
         prompt.extend(["", header_fu + ":"])
-        for f in followups[:2]:
+        for f in followups[:3]:
             prompt.append(f"- {f}")
 
     if diagnostics:
