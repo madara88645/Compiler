@@ -168,13 +168,38 @@ def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
     return goals, tasks
 
 
+# Split only on real coordinating conjunctions ("X and Y", "X then Y").
+_CONJUNCTION_SPLIT = re.compile(r",?\s+(?:and\s+then|and|then)\s+", re.IGNORECASE)
+# A deliberate enumerated list ("X, Y, and Z") additionally splits on its commas.
+_LIST_SPLIT = re.compile(r",\s+(?:and\s+|then\s+)?|\s+(?:and|then)\s+", re.IGNORECASE)
+_OXFORD_LIST = re.compile(r",\s+(?:and|then)\s+", re.IGNORECASE)
+
+
+def decompose_task(task: str) -> List[str]:
+    """Break a task into ordered sub-steps using only the user's own words.
+
+    Conservative on purpose — it must never mangle a coherent request:
+    - a task carrying a quoted payload (an issue, an example) is never split;
+    - it splits on "and"/"then", never on a stray semicolon or prose comma;
+    - it only splits on commas for a clear enumerated list ("X, Y, and Z").
+    One-word fragments are dropped so a noun list collapses instead of producing
+    junk steps. It never invents a requirement the user did not state.
+    """
+    if '"' in task or "“" in task or "”" in task:
+        return [task.strip()]
+    pattern = _LIST_SPLIT if _OXFORD_LIST.search(task) else _CONJUNCTION_SPLIT
+    parts = [p.strip(" .,;") for p in pattern.split(task)]
+    parts = [p for p in parts if len(p.split()) >= 2]
+    return parts or [task.strip()]
+
+
 def build_steps(tasks: List[str]) -> List[str]:
     steps: List[str] = []
     for t in tasks:
-        if len(steps) >= 8:
-            break
-        # naive split: each task maybe broken into sub points (not implemented yet)
-        steps.append(t)
+        for sub in decompose_task(t):
+            if len(steps) >= 8:
+                return steps
+            steps.append(sub)
     return steps
 
 
