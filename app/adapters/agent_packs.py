@@ -8,14 +8,14 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, model_validator
 
-from .agent_ir import parse_agent_markdown
+from .agent_ir import AgentExportIR, parse_agent_markdown
 from .claude_code import (
     to_claude_mcp_tool_stub,
     to_claude_pr_reviewer_pack,
     to_claude_project_pack,
     to_claude_subagent_bundle,
 )
-from .skill_ir import parse_skill_markdown
+from .skill_ir import SkillExportIR, SkillParam, parse_skill_markdown
 from app.readiness.analyzer import analyze_readiness
 from app.readiness.markdown import report_to_markdown
 
@@ -80,7 +80,7 @@ class ClaudeAgentPackAdapter:
                 _build_skill_brief(req),
                 include_example_code=False,
             )
-            skill_ir = parse_skill_markdown(skill_definition)
+            skill_ir = _build_skill_ir(req, skill_definition)
             raw_files = to_claude_mcp_tool_stub(skill_ir)
         else:
             system_prompt = compiler.generate_agent(
@@ -88,7 +88,7 @@ class ClaudeAgentPackAdapter:
                 multi_agent=False,
                 include_example_code=False,
             )
-            agent_ir = parse_agent_markdown(system_prompt)
+            agent_ir = _build_agent_ir(req, system_prompt)
 
             if req.pack_type == "project-pack":
                 raw_files = to_claude_project_pack(agent_ir)
@@ -257,3 +257,245 @@ def _normalize_pack_path(path: str) -> str:
         raise ValueError(f"manifest file path contains unsafe segments: {path}")
 
     return normalized
+
+
+def _build_agent_ir(req: AgentPackRequest, generated_markdown: str) -> AgentExportIR:
+    """Build request-grounded IR even when the optional generator is unavailable.
+
+    Agent packs are downloadable artifacts, so a worker error must never be parsed as
+    an agent named ``error``. The generated text can enrich the pack, but the request
+    remains the source of truth for project identity, scope, and conservative limits.
+    """
+
+    parsed = parse_agent_markdown(generated_markdown or "")
+    use_generated = _agent_output_is_usable(parsed, generated_markdown)
+
+    generated_goals = parsed.goals if use_generated else []
+    generated_constraints = parsed.constraints if use_generated else []
+    generated_workflows = parsed.workflows if use_generated else []
+    generated_stack = parsed.tech_stack if use_generated else []
+
+    goals = _unique_lines([req.goal, *generated_goals])
+    constraints = _unique_lines(
+        [
+            *_explicit_goal_constraints(req.goal),
+            "Do not invent repository files, commands, APIs, or test results; verify them from the repository.",
+            (
+                "Treat secrets, production data, destructive operations, dependency changes, pushes, and deploys "
+                "as approval-gated."
+                if req.risk_mode == "strict"
+                else "Prefer the smallest reversible change and preserve behavior outside the stated goal."
+            ),
+            *generated_constraints,
+        ]
+    )
+    workflows = _unique_lines(
+        [
+            f"Read repository instructions and inspect the files relevant to this goal: {req.goal}",
+            (
+                f"Map the existing implementation and tests before editing; treat {req.stack} as declared context, "
+                "not proof of repository commands or APIs."
+            ),
+            _pack_specific_workflow(req.pack_type),
+            (
+                "Discover the repository's existing validation commands, run the smallest relevant checks, "
+                "and report commands, results, remaining risk, and files changed."
+            ),
+            *generated_workflows,
+        ]
+    )
+    tech_stack = _unique_lines([req.stack, *generated_stack])
+
+    rendered = _render_agent_markdown(
+        name=_agent_name(req),
+        role=_agent_role(req),
+        goals=goals,
+        constraints=constraints,
+        workflows=workflows,
+        tech_stack=tech_stack,
+    )
+    grounded = parse_agent_markdown(rendered)
+    if req.pack_type == "pr-reviewer":
+        grounded.allowed_tools = ["Read", "Glob", "Grep", "Bash"]
+    return grounded
+
+
+def _build_skill_ir(req: AgentPackRequest, generated_markdown: str) -> SkillExportIR:
+    parsed = parse_skill_markdown(generated_markdown or "")
+    use_generated = _skill_output_is_usable(parsed, generated_markdown)
+
+    purpose_parts = [
+        req.goal.rstrip("."),
+        f"Project: {req.project_type}",
+        f"Declared stack: {req.stack}",
+    ]
+    if use_generated and parsed.purpose:
+        purpose_parts.append(parsed.purpose.rstrip("."))
+
+    return SkillExportIR(
+        name=parsed.name if use_generated else _tool_name_from_goal(req.goal),
+        purpose=". ".join(_unique_lines(purpose_parts)) + ".",
+        when_to_use=(
+            parsed.when_to_use
+            if use_generated and parsed.when_to_use
+            else f"Use for the stated {req.project_type} workflow after reviewing repository-specific contracts."
+        ),
+        params=(
+            parsed.params
+            if use_generated and parsed.params
+            else [
+                SkillParam(
+                    name="request",
+                    type="str",
+                    description="The concrete, repository-grounded operation to perform.",
+                )
+            ]
+        ),
+        output_type=parsed.output_type if use_generated else "str",
+        output_description=(
+            parsed.output_description
+            if use_generated and parsed.output_description
+            else "A reviewable result for the stated goal, including limitations and unresolved TODOs."
+        ),
+        dependencies=parsed.dependencies if use_generated else [],
+        error_handling=_unique_lines(
+            [
+                "Reject an empty request.",
+                "Return a clear error when required repository context is unavailable; do not invent data.",
+                *(parsed.error_handling if use_generated else []),
+            ]
+        ),
+        testing_strategy=_unique_lines(
+            [
+                "Verify one valid request and one missing-context failure without network side effects.",
+                *(parsed.testing_strategy if use_generated else []),
+            ]
+        ),
+        performance_notes=parsed.performance_notes if use_generated else [],
+        examples=parsed.examples if use_generated else [],
+        implementation=(
+            parsed.implementation
+            if use_generated and parsed.implementation
+            else (
+                "Validate the request. Resolve repository-specific clients and contracts from the host project. "
+                "Perform the read-only operation described by the goal. Return a structured, reviewable result. "
+                "Keep unknown integration details as TODOs."
+            )
+        ),
+        raw_definition=generated_markdown.strip() if use_generated else "",
+    )
+
+
+def _agent_output_is_usable(ir: AgentExportIR, markdown: str) -> bool:
+    lowered = (markdown or "").strip().lower()
+    if not lowered or "failed to generate" in lowered or "api key is missing" in lowered:
+        return False
+    if ir.name.strip().lower() in {"error", "ai agent"}:
+        return False
+    return bool(ir.role or ir.goals or ir.constraints or ir.workflows)
+
+
+def _skill_output_is_usable(ir: SkillExportIR, markdown: str) -> bool:
+    lowered = (markdown or "").strip().lower()
+    if not lowered or "failed to generate" in lowered or "api key is missing" in lowered:
+        return False
+    if ir.name.strip().lower() in {"error", "skill_name"}:
+        return False
+    return bool(ir.purpose or ir.params or ir.implementation)
+
+
+def _agent_name(req: AgentPackRequest) -> str:
+    suffix = {
+        "project-pack": "Maintainer",
+        "subagent": "Focused Agent",
+        "pr-reviewer": "PR Reviewer",
+        "mcp-tool-stub": "Tool",
+    }[req.pack_type]
+    return f"{req.project_type} {suffix}"
+
+
+def _agent_role(req: AgentPackRequest) -> str:
+    if req.pack_type == "pr-reviewer":
+        return (
+            f"You are a read-only pull request reviewer for {req.project_type}. "
+            f"The declared technology context is {req.stack}."
+        )
+    if req.pack_type == "subagent":
+        return (
+            f"You are a focused Claude Code subagent for {req.project_type}. "
+            f"The declared technology context is {req.stack}."
+        )
+    return (
+        f"You maintain {req.project_type} while staying inside the requested scope. "
+        f"The declared technology context is {req.stack}."
+    )
+
+
+def _pack_specific_workflow(pack_type: PackType) -> str:
+    if pack_type == "pr-reviewer":
+        return (
+            "Review the diff and nearby tests without editing; report only actionable findings with file evidence, "
+            "then state whether the change is safe to merge."
+        )
+    if pack_type == "subagent":
+        return (
+            "Confirm the requested outcome and boundaries, then make or recommend only the smallest evidence-backed "
+            "change needed for that outcome."
+        )
+    return (
+        "Confirm the requested outcome and boundaries, implement the smallest scoped change, and keep unrelated "
+        "product flows untouched."
+    )
+
+
+def _explicit_goal_constraints(goal: str) -> list[str]:
+    constraints: list[str] = []
+    for marker in ("without ", "never ", "do not ", "before "):
+        index = goal.lower().find(marker)
+        if index >= 0:
+            clause = goal[index:].strip().rstrip(".")
+            if clause:
+                constraints.append(clause[0].upper() + clause[1:])
+    return constraints
+
+
+def _render_agent_markdown(
+    *,
+    name: str,
+    role: str,
+    goals: list[str],
+    constraints: list[str],
+    workflows: list[str],
+    tech_stack: list[str],
+) -> str:
+    def bullets(items: list[str]) -> str:
+        return "\n".join(f"- {item}" for item in items)
+
+    return (
+        f"# {name}\n\n"
+        f"## Role\n{role}\n\n"
+        f"## Goals\n{bullets(goals)}\n\n"
+        f"## Constraints\n{bullets(constraints)}\n\n"
+        f"## Workflows\n{bullets(workflows)}\n\n"
+        f"## Tech Stack\n{bullets(tech_stack)}"
+    )
+
+
+def _tool_name_from_goal(goal: str) -> str:
+    first_clause = re.split(r"\band\b|[.;]", goal, maxsplit=1, flags=re.IGNORECASE)[0]
+    words = re.findall(r"[a-z0-9]+", first_clause.lower())
+    stop_words = {"a", "an", "the", "one", "to", "for", "with", "scoped"}
+    meaningful = [word for word in words if word not in stop_words][:4]
+    return "_".join(meaningful) or "repository_task"
+
+
+def _unique_lines(values: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = " ".join((value or "").split()).strip()
+        key = normalized.casefold()
+        if normalized and key not in seen:
+            seen.add(key)
+            result.append(normalized)
+    return result
