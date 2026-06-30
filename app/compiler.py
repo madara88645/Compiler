@@ -119,7 +119,11 @@ GENERIC_TASK = {"tr": "İsteği analiz et ve yanıtla.", "en": "Analyze the requ
 RECENCY_CONSTRAINT_TR = "Güncel bilgi gerektirir; cevap üretmeden önce web araştırması yap."
 RECENCY_CONSTRAINT_EN = "Requires up-to-date info; perform web research before answering."
 
-_SENTENCE_SPLIT_PATTERN = re.compile(r"[\n;.]+")
+# Split on line breaks and real sentence boundaries (.!? followed by
+# whitespace) only. The old pattern split on every ";" and ".", which
+# fragmented coherent requests ("…on Safari; works on Chrome" became two
+# tasks) and broke dotted tokens like "Node.js" / "v2.0".
+_SENTENCE_SPLIT_PATTERN = re.compile(r"\n+|(?<=[.!?])\s+")
 
 _ADVERSARIAL_PATTERNS = [
     r"ignore\s+(?:previous|all|the)\s+(?:instructions|rules|prompts?)",
@@ -141,7 +145,7 @@ def _is_adversarial(sentence: str) -> bool:
 
 def split_sentences(text: str) -> List[str]:
     parts = _SENTENCE_SPLIT_PATTERN.split(text)
-    return [p.strip() for p in parts if p.strip()]
+    return [cleaned for p in parts if (cleaned := p.strip().rstrip(".!?").strip())]
 
 
 def extract_goals_tasks(text: str, lang: str) -> Tuple[List[str], List[str]]:
