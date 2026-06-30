@@ -12,6 +12,7 @@ from app.heuristics import detect_risk_flags
 
 # --- False positives that must NOT fire (the bug) ---------------------------
 
+
 def test_github_issue_is_not_legal():
     flags = detect_risk_flags("Turn this GitHub issue into a safe implementation brief")
     assert "legal" not in flags
@@ -31,6 +32,7 @@ def test_data_source_is_not_security():
 
 
 # --- Real risk terms that MUST still fire -----------------------------------
+
 
 def test_real_lawsuit_is_legal():
     assert "legal" in detect_risk_flags("We are facing a lawsuit and need a lawyer")
