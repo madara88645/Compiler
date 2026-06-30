@@ -759,14 +759,24 @@ def detect_pii(text: str) -> list[str]:
     return flags
 
 
+# Pre-compiled matchers for risk keywords. Substring matching (`keyword in
+# text`) produced false positives — "sue" inside "issue" flagged legal risk —
+# which inflated risk on safe requests. A leading word boundary fixes that:
+# "sue" no longer matches mid-word in "issue"/"pursue"/"tissue", while keeping
+# inflections that start at the keyword ("invest" -> "investment", "regulation"
+# -> "regulations"). re.escape keeps multi-word ("sql injection") and punctuated
+# ("ci/cd") keywords literal.
+_RISK_FLAG_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+    cat: [re.compile(r"\b" + re.escape(p), re.IGNORECASE) for p in pats]
+    for cat, pats in RISK_KEYWORDS.items()
+}
+
+
 def detect_risk_flags(text: str) -> list[str]:
-    lower = text.lower()
     flags: list[str] = []
-    for cat, pats in RISK_KEYWORDS.items():
-        for p in pats:
-            if p in lower:
-                flags.append(cat)
-                break
+    for cat, patterns in _RISK_FLAG_PATTERNS.items():
+        if any(pattern.search(text) for pattern in patterns):
+            flags.append(cat)
     return flags
 
 
