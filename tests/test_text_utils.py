@@ -4,8 +4,6 @@ All functions covered are deterministic with no external I/O, network, or DB
 dependencies. They were previously at 0% coverage.
 """
 
-import pytest
-
 from app.text_utils import compress_text_block, estimate_tokens
 from app.token_optimizer import (
     OptimizeStats,
