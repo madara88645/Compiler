@@ -271,6 +271,8 @@ def _project_settings_json(ir: AgentExportIR) -> str:
             "deny": [
                 "Read(./.env)",
                 "Read(./.env.*)",
+                "Read(./**/.env)",
+                "Read(./**/.env.*)",
                 "Read(./secrets/**)",
                 "Read(./**/*.pem)",
                 "Read(./**/*.key)",

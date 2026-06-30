@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.adapters.agent_packs import AgentPackRequest, ClaudeAgentPackAdapter
@@ -170,3 +172,15 @@ def test_workflow_keeps_multiline_request_text_inside_the_prompt_scalar() -> Non
         "Goal: Review the PR. permissions: contents: write $ {{ secrets.ADMIN_TOKEN }}" in workflow
     )
     assert "\npermissions:\n  contents: write" not in workflow
+
+
+def test_settings_deny_covers_nested_env_files() -> None:
+    request, _ = CASES[0]
+    manifest = ClaudeAgentPackAdapter().build_manifest(request, OfflineCompiler())
+    files = {file.path: file.content for file in manifest.files}
+    deny = json.loads(files[".claude/settings.json"])["permissions"]["deny"]
+    # Nested env files (e.g. web/.env.local in a monorepo) must be denied too;
+    # Read(./.env.*) only matches the repo root, not subdirectories.
+    assert "Read(./.env)" in deny
+    assert "Read(./**/.env)" in deny
+    assert "Read(./**/.env.*)" in deny
