@@ -33,3 +33,27 @@ def test_compile_api_opt_in_enables_retrieval(mock_expand, mock_search):
 
     assert resp.status_code == 200
     mock_search.assert_called()
+
+
+@patch("app.agents.context_strategist.search_hybrid")
+@patch("app.agents.context_strategist.ContextStrategist._expand_query")
+def test_compile_api_opt_in_sanitizes_absolute_paths_in_v2_prompt(mock_expand, mock_search):
+    mock_expand.return_value = ["login form"]
+    mock_search.return_value = [
+        {"path": "/Users/dev/private/secret_module.py", "snippet": "def login(): pass"}
+    ]
+
+    resp = client.post(
+        "/compile",
+        json={
+            "text": "make a login form",
+            "v2": False,
+            "render_v2_prompts": True,
+            "enable_context_retrieval": True,
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "secret_module.py" in body["system_prompt_v2"]
+    assert "/Users/dev/private/secret_module.py" not in body["system_prompt_v2"]
