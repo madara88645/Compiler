@@ -155,7 +155,10 @@ TEACHING_KEYWORDS = [
     r"ders",
     r"öğrenmek istiyorum",
 ]
-_TEACHING_RE = re.compile("|".join(TEACHING_KEYWORDS))
+# Leading word boundary: "ders" (TR for lesson) must not match inside
+# "re-nders", "guide" must not match mid-word, etc. Substring matching here
+# flagged "My React app re-renders" as a teaching request -> teacher persona.
+_TEACHING_RE = re.compile("|".join(r"\b" + re.escape(k) for k in TEACHING_KEYWORDS))
 
 # Bolt Optimization: Pre-compile regexes for fast evaluation
 
@@ -222,6 +225,13 @@ PERSONA_KEYWORDS = {
         r"rust",
         r"deno",
         r"node",
+        # Frontend frameworks (bounded so "react" does not match "reaction")
+        r"\breact\b",
+        r"\bvue\b",
+        r"\bangular\b",
+        r"\bsvelte\b",
+        r"\bnextjs\b",
+        r"\bnext\.js\b",
         r"kod",
         r"örnek kod",
         r"birlikte kodla",
