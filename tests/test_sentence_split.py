@@ -35,7 +35,7 @@ def test_newlines_still_split():
 
 def test_safari_issue_does_not_fragment():
     goals, tasks = extract_goals_tasks(
-        'Turn this GitHub issue into a safe implementation brief: '
+        "Turn this GitHub issue into a safe implementation brief: "
         '"export button does nothing on Safari; works on Chrome."',
         "en",
     )
