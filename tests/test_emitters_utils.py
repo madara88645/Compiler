@@ -142,9 +142,9 @@ class TestCleanDomainSuggestionText:
 class TestScenarioConsiderations:
     """Route conservative scenario guidance only when the right signals appear."""
 
-    def test_browser_download_requires_browser_and_download_signals(self) -> None:
+    def test_browser_download_requires_all_three_signals(self) -> None:
         ir = SimpleNamespace(
-            goals=["Make Safari download a CSV export instead of opening it inline"],
+            goals=["Add a button so users can download CSV exports from the dashboard"],
             tasks=[],
         )
 
@@ -154,9 +154,9 @@ class TestScenarioConsiderations:
         assert "Blob + an <a download> link" in considerations[0]
         assert "File System Access API is unsupported in Safari" in considerations[1]
 
-    def test_browser_download_does_not_trigger_without_browser_signal(self) -> None:
+    def test_browser_download_does_not_trigger_without_feature_adding_verb(self) -> None:
         ir = SimpleNamespace(
-            goals=["Add a CSV export so users can download monthly reports"],
+            goals=["Fix the Safari CSV download that opens inline instead of saving"],
             tasks=[],
         )
 
