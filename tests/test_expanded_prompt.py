@@ -13,6 +13,18 @@ def test_expanded_prompt_contains_input_and_example():
     assert ("Örnek çıktı formatı" in ep) or ("Example output format" in ep)
 
 
+def test_expanded_prompt_surfaces_react_perf_domain_guidance():
+    ir = compile_text("My React table re-renders too much and feels slow with large lists")
+
+    ep = emit_expanded_prompt(ir)
+
+    assert "Key considerations:" in ep
+    assert "React DevTools Profiler" in ep
+    assert "virtualize long lists" in ep
+    assert "Follow-up Questions:" in ep
+    assert "Have you profiled it" in ep
+
+
 def test_expanded_prompt_v2_surfaces_clarification_questions_without_diagnostics(monkeypatch):
     monkeypatch.setenv("PROMPT_COMPILER_MODE", "conservative")
     ir2 = compile_text_v2("Optimize this API and make it better", offline_only=True)
