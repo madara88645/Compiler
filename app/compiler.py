@@ -569,7 +569,8 @@ def compile_text(text: str) -> IR:
             output_format = "table"
     if variant_count > 1:
         add_constraint(f"Generate {variant_count} distinct variants", "variants")
-    if risk_flags:
+    professional_advice_domains = {"financial", "health", "legal"}
+    if professional_advice_domains.intersection(risk_flags):
         if lang == "tr":
             add_constraint(
                 "Riskli alan: profesyonel tavsiye yerine genel bilgi ver (finans/tıp/hukuk)",

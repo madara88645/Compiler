@@ -462,6 +462,26 @@ def _contains_any_keyword(text: str, keywords: list[str]) -> bool:
     return False
 
 
+_FRONTEND_DOWNLOAD_ACTION_RE = re.compile(r"\b(?:download|export)\b", re.IGNORECASE)
+_FRONTEND_FEATURE_ADD_RE = re.compile(
+    r"\b(?:add|allow|build|create|enable|give|implement|let)\b",
+    re.IGNORECASE,
+)
+_FRONTEND_DOWNLOAD_SURFACE_RE = re.compile(
+    r"\b(?:button|web\s*app|dashboard|browser|frontend|page|users?)\b",
+    re.IGNORECASE,
+)
+
+
+def detect_frontend_download_feature(text: str) -> bool:
+    """Detect user-facing browser download/export feature requests."""
+    return bool(
+        _FRONTEND_DOWNLOAD_ACTION_RE.search(text)
+        and _FRONTEND_FEATURE_ADD_RE.search(text)
+        and _FRONTEND_DOWNLOAD_SURFACE_RE.search(text)
+    )
+
+
 def detect_creative_intent(text: str) -> bool:
     return _contains_any_keyword(text, CREATIVE_INTENT_KEYWORDS)
 
@@ -1162,8 +1182,12 @@ def detect_domain(text: str) -> Tuple[str, List[str]]:
         for raw, pattern in pats:
             if pattern.search(text):
                 evidence.append(f"{domain}:{raw}")
+    if detect_frontend_download_feature(text):
+        evidence.append("software:frontend_download_feature")
     if not evidence:
         return "general", []
+    if any(ev == "software:frontend_download_feature" for ev in evidence):
+        return "software", evidence
     # Choose the domain with most evidence counts
     counts: Dict[str, int] = {}
     for ev in evidence:

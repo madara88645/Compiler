@@ -260,7 +260,6 @@ DOMAIN_RULES: Dict[str, Dict] = {
             "script",
             "prose",
             "creative",
-            "write",
             "protagonist",
             "antagonist",
             "setting",
@@ -713,6 +712,8 @@ class DomainHandler(BaseHandler):
         """
         original_text = (ir_v1.metadata or {}).get("original_text", "")
         detected_domain = ir_v2.domain.lower() if ir_v2.domain else "general"
+        if "infrastructure" in ir_v2.policy.risk_domains:
+            detected_domain = "infrastructure"
 
         # Perform domain analysis
         analysis = self.analyze_domain(original_text, detected_domain)
@@ -891,6 +892,8 @@ class DomainHandler(BaseHandler):
         # The upstream IR domain uses "software"; this analyzer calls it "coding".
         if hint == "software":
             hint = "coding"
+        if hint == "infrastructure":
+            return hint
         # Trust the hint if it's valid
         if hint and hint in DOMAIN_RULES:
             return hint
