@@ -3,7 +3,11 @@ import re
 from .base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2
-from app.heuristics import _contains_any_keyword, detect_destructive_operation
+from app.heuristics import (
+    _contains_any_keyword,
+    detect_destructive_operation,
+    detect_frontend_download_feature,
+)
 
 
 class PolicyHandler(BaseHandler):
@@ -20,18 +24,34 @@ class PolicyHandler(BaseHandler):
 
     _FILE_KEYWORDS = (
         "file",
+        "files",
+        "filesystem",
         "path",
+        "paths",
         "directory",
+        "directories",
         "folder",
+        "folders",
         "repo",
+        "repos",
         "repository",
+        "repositories",
         "log",
         "logs",
         "shell",
+        "shells",
         "terminal",
+        "terminals",
         "system",
+        "systems",
         "workspace",
+        "workspaces",
         "database",
+        "databases",
+    )
+    _FILE_KEYWORD_PATTERN = re.compile(
+        r"\b(?:" + "|".join(re.escape(keyword) for keyword in _FILE_KEYWORDS) + r")\b",
+        re.IGNORECASE,
     )
 
     _DOMAIN_TOOL_RULES: dict[str, dict[str, list[str]]] = {
@@ -99,8 +119,10 @@ class PolicyHandler(BaseHandler):
         risk_score = len(set(risk_flags))
 
         has_path = self._has_explicit_path(original_text)
-        # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-        file_or_system_request = has_path or _contains_any_keyword(text, self._FILE_KEYWORDS)
+        frontend_download_feature = detect_frontend_download_feature(original_text)
+        file_or_system_request = has_path or (
+            bool(self._FILE_KEYWORD_PATTERN.search(text)) and not frontend_download_feature
+        )
         debug_request = bool(md.get("code_request")) or bool(persona_flags.get("live_debug"))
         destructive = detect_destructive_operation(original_text)
         educational_request = self._is_educational_request(text)

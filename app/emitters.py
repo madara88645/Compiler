@@ -4,6 +4,7 @@ import itertools
 import os
 from .models import IR
 from .models_v2 import IRv2, ConstraintV2, StepV2
+from .heuristics import detect_frontend_download_feature
 
 
 def emit_system_prompt(ir: IR) -> str:
@@ -64,6 +65,11 @@ _FOLLOWUP_SETS = {
         "Which browser and version is affected, and does it work in others?",
         "What are the exact reproduction steps and any console or network errors?",
         "What is the expected behavior versus what actually happens?",
+    ],
+    "browser_feature": [
+        "Which file format, filename, and data should the download include?",
+        "Should the file be generated in the browser or returned by a server endpoint?",
+        "Which browsers and accessibility states must the download control support?",
     ],
     "payment": [
         "Are API keys and secrets kept server-side only (never exposed in the browser)?",
@@ -129,10 +135,7 @@ def _scenario_considerations(ir) -> list[str]:
     for attr in ("goals", "tasks"):
         parts.extend(getattr(ir, attr, None) or [])
     text = " ".join(parts).lower()
-    # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if _contains_any_marker(
-        text, ("safari", "chrome", "firefox", "browser")
-    ) and _contains_any_marker(text, ("download", "export", "save file", "save the file")):
+    if detect_frontend_download_feature(text):
         return _SCENARIO_CONSIDERATIONS["browser_download"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     if "log" in text and _contains_any_marker(
@@ -176,6 +179,8 @@ def _relevant_followups(ir) -> list[str]:
         ),
     ):
         return _FOLLOWUP_SETS["perf"]
+    if detect_frontend_download_feature(text):
+        return _FOLLOWUP_SETS["browser_feature"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     if _contains_any_marker(
         text, ("browser", "safari", "chrome", "firefox", "css", "render", "button")
