@@ -4,31 +4,17 @@ import { useState, useCallback } from "react";
 import { WifiOff } from "lucide-react";
 import ContextManager from "../components/ContextManager";
 import CopyButton from "../components/CopyButton";
+import ReadinessBanner from "../components/ReadinessBanner";
 import { describeRequestError } from "@/config";
 import { compilePrompt } from "../../lib/api/promptc";
 import type { CompileMode, CompileResponse } from "../../lib/api/types";
+import { getCompileTabContent } from "../../lib/compileTabContent";
 
 import InfoButton from "../components/InfoButton";
 
 type OfflineOutputTab = "system" | "user" | "plan" | "expanded" | "json";
 
 const OFFLINE_MODE: CompileMode = "conservative";
-
-function getOfflineTabContent(result: CompileResponse, activeTab: OfflineOutputTab): string {
-    if (activeTab === "system") {
-        return result.system_prompt_v2 || result.system_prompt || "";
-    }
-
-    if (activeTab === "user") {
-        return result.user_prompt_v2 || result.user_prompt || "";
-    }
-
-    if (activeTab === "plan") {
-        return result.plan_v2 || result.plan || "";
-    }
-
-    return result.expanded_prompt_v2 || result.expanded_prompt || "";
-}
 
 export default function OfflinePage() {
     const [prompt, setPrompt] = useState("");
@@ -207,6 +193,7 @@ export default function OfflinePage() {
                     <div className="relative flex min-h-[360px] w-full flex-col bg-black/30 md:min-h-0 md:w-[65%]">
                         {result ? (
                             <>
+                                {result.readiness && <ReadinessBanner report={result.readiness} />}
                                 <div role="tablist" aria-label="Output views" className="flex gap-1 overflow-x-auto scroll-smooth border-b border-white/5 px-4 pt-4 pb-1" style={{ maskImage: "linear-gradient(to right, black, black calc(100% - 24px), transparent)" }}>
                                     {(["system", "user", "plan", "expanded", "json"] as const).map((tab) => (
                                         <button
@@ -241,10 +228,10 @@ export default function OfflinePage() {
                                                 aria-label="Compiled prompt output"
                                                 className="w-full h-full bg-transparent p-6 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-orange-500/30"
                                                 readOnly
-                                                value={getOfflineTabContent(result, activeTab)}
+                                                value={getCompileTabContent(result, activeTab)}
                                             />
                                             <CopyButton
-                                                text={getOfflineTabContent(result, activeTab)}
+                                                text={getCompileTabContent(result, activeTab)}
                                                 className="absolute bottom-6 right-6"
                                                 variant="gray"
                                             />

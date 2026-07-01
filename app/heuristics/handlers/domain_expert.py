@@ -8,8 +8,9 @@ Provides domain-specific heuristics and best-practice enforcement:
 """
 
 from __future__ import annotations
-import re
 import ast
+import hashlib
+import re
 import textwrap
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
@@ -796,8 +797,6 @@ class DomainHandler(BaseHandler):
 
     def _hash_id(self, text: str) -> str:
         """Generate a short hash ID."""
-        import hashlib
-
         return hashlib.sha1(text.encode()).hexdigest()[:10]
 
     def analyze_domain(self, text: str, domain_hint: str = "") -> DomainAnalysis:
@@ -1257,22 +1256,3 @@ class DomainHandler(BaseHandler):
 
         return analysis
 
-
-# ==============================================================================
-# CONVENIENCE FUNCTIONS
-# ==============================================================================
-
-
-def analyze_domain(text: str, domain_hint: str = "") -> DomainAnalysis:
-    """
-    Convenience function to analyze domain-specific aspects of a prompt.
-
-    Args:
-        text: The prompt text to analyze.
-        domain_hint: Optional domain hint.
-
-    Returns:
-        DomainAnalysis with suggestions and diagnostics.
-    """
-    handler = DomainHandler()
-    return handler.analyze_domain(text, domain_hint)

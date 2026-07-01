@@ -85,9 +85,8 @@ def test_compile_export_markdown_contains_all_sections():
 def test_compile_export_markdown_embeds_real_prompt_content():
     compiled = _compile()
     md = _export()["markdown"]
-    # The export must embed the actual compiled system prompt, not an empty
-    # placeholder section (anti-gaming).
-    sys_prompt = compiled["system_prompt"]
+    # Export prefers v2 prompt fields (same as web tabs and CLI compile-export).
+    sys_prompt = compiled.get("system_prompt_v2") or compiled["system_prompt"]
     assert sys_prompt[:30] in md
 
 

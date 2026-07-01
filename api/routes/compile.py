@@ -20,8 +20,16 @@ from api.shared import (
     safety_refusal_prompt_fields,
 )
 from app.compile_export import render_compile_export
-from app.compiler import HEURISTIC_VERSION, HEURISTIC2_VERSION
-from app.compiler import compile_text, compile_text_v2, generate_trace, optimize_ir
+from app.compiler import (
+    HEURISTIC_VERSION,
+    HEURISTIC2_VERSION,
+    compile_text,
+    compile_text_v2,
+    generate_trace,
+    merge_policy_from_critique,
+    optimize_ir,
+)
+from app.heuristics.handlers.safety import SafetyHandler
 from app.emitters import (
     emit_expanded_prompt,
     emit_expanded_prompt_v2,
@@ -40,6 +48,7 @@ from app.optimizer.language_costs import (
     detect_language,
     estimate_prompt_cost,
 )
+from app.optimizer.critic import CriticAgent
 from app.optimizer.postprocess import strip_wrapper_labels
 from app.readiness.analyzer import analyze_readiness
 from app.readiness.language_guard import output_language_mismatch
@@ -153,6 +162,20 @@ def _safe_worker_text(worker_res, field_name: str) -> str:
     if not isinstance(value, str):
         return ""
     return value if field_name == "plan" or not is_meta_leaked(value) else ""
+
+
+def _serialize_readiness(text: str, ir2: IRv2 | None) -> tuple[dict, str]:
+    report = analyze_readiness(text, ir2)
+    return report.model_dump(), report_to_markdown(report)
+
+
+def _export_prompt_fields(compiled: CompileResponse) -> tuple[str, str, str]:
+    """Prefer v2 prompt fields so export matches CLI and web tab content."""
+    return (
+        compiled.system_prompt_v2 or compiled.system_prompt,
+        compiled.user_prompt_v2 or compiled.user_prompt,
+        compiled.plan_v2 or compiled.plan,
+    )
 
 
 def _warning_for_fast_fallback(reason: str) -> DiagnosticItem:
@@ -292,7 +315,7 @@ def _fast_compile_payload(
         or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
     )
     ir_dump = ir2.model_dump()
-    readiness_report = analyze_readiness(req.text, ir2)
+    readiness, readiness_markdown = _serialize_readiness(req.text, ir2)
 
     return (
         {
@@ -312,8 +335,8 @@ def _fast_compile_payload(
             "heuristic2_version": "v2-fast",
             "trace": [],
             "critique": None,
-            "readiness": readiness_report.model_dump(),
-            "readiness_markdown": report_to_markdown(readiness_report),
+            "readiness": readiness,
+            "readiness_markdown": readiness_markdown,
         },
         used_fallback,
     )
@@ -440,8 +463,6 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
     critique_result = None
     if sys_v2:
         try:
-            from app.optimizer.critic import CriticAgent
-
             critic = CriticAgent()
             context_str = ""
             if ir2 and ir2.metadata.get("context_snippets"):
@@ -460,8 +481,6 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
 
             # Merge critique verdict into policy (#700)
             if ir2:
-                from app.compiler import merge_policy_from_critique
-
                 merge_policy_from_critique(ir2, critique_result)
 
         except Exception:
@@ -471,9 +490,7 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
                 extra={"request_id": rid},
             )
 
-    readiness_report = analyze_readiness(req.text, ir2)
-    readiness = readiness_report.model_dump()
-    readiness_markdown = report_to_markdown(readiness_report)
+    readiness, readiness_markdown = _serialize_readiness(req.text, ir2)
     elapsed = int((time.time() - t0) * 1000)
 
     # Block compilation ONLY when the safety scan flags the input as unsafe
@@ -547,11 +564,12 @@ def compile_export_endpoint(
     _: None = Depends(rate_limit_by_ip),
 ):
     compiled = _compile_response(req, request)
+    system_prompt, user_prompt, plan = _export_prompt_fields(compiled)
     return CompileExportResponse(
         markdown=render_compile_export(
-            system_prompt=compiled.system_prompt,
-            user_prompt=compiled.user_prompt,
-            plan=compiled.plan,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            plan=plan,
             readiness_markdown=compiled.readiness_markdown,
         ),
         json_payload=compiled.model_dump(mode="json"),
@@ -618,8 +636,6 @@ def validate_endpoint(
                 extra={"text_length": len(req.text)},
             )
             report = _build_offline_quality_report(req)
-
-        from app.heuristics.handlers.safety import SafetyHandler
 
         safety = SafetyHandler()
         pii = safety._scan_pii(req.text)
