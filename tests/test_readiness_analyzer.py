@@ -1,3 +1,4 @@
+from app.models_v2 import IRv2, PolicyV2
 from app.readiness.analyzer import analyze_readiness
 
 
@@ -62,3 +63,32 @@ def test_vague_with_trailing_punctuation_is_clarify():
 
 def test_authorization_request_is_risky():
     assert analyze_readiness("add user authorization checks to the admin panel").verdict == "risky"
+
+
+def test_high_risk_ir_policy_cannot_be_reported_as_ready():
+    ir = IRv2(
+        policy=PolicyV2(
+            risk_level="high",
+            risk_domains=["infrastructure"],
+            execution_mode="human_approval_required",
+        )
+    )
+
+    report = analyze_readiness("write a script to wipe the production database", ir)
+
+    assert report.verdict == "risky"
+    assert any("high risk" in signal.message.lower() for signal in report.signals)
+
+
+def test_human_approval_ir_policy_cannot_be_reported_as_ready():
+    ir = IRv2(
+        policy=PolicyV2(
+            risk_level="medium",
+            execution_mode="human_approval_required",
+        )
+    )
+
+    report = analyze_readiness("generate a local report", ir)
+
+    assert report.verdict == "risky"
+    assert any("human approval" in signal.message.lower() for signal in report.signals)

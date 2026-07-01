@@ -47,9 +47,25 @@ def _is_noise(text: str) -> bool:
     return False
 
 
+def _policy_review(ir: object | None) -> tuple[str | None, bool]:
+    policy = getattr(ir, "policy", None)
+    if policy is None:
+        return None, False
+
+    risk_level = str(getattr(policy, "risk_level", "") or "").strip().lower()
+    execution_mode = str(getattr(policy, "execution_mode", "") or "").strip().lower()
+    if risk_level != "high" and execution_mode != "human_approval_required":
+        return None, False
+
+    reasons: list[str] = []
+    if risk_level == "high":
+        reasons.append("high risk")
+    if execution_mode == "human_approval_required":
+        reasons.append("human approval required")
+    return "Policy requires review: " + ", ".join(reasons) + ".", risk_level == "high"
+
+
 def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
-    # `ir` is accepted for forward compatibility (the compile endpoint passes the
-    # IR v2) but is not yet used by any deterministic signal in this slice.
     if _is_noise(text):
         return ReadinessReport(
             verdict="noise",
@@ -70,6 +86,8 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
         risk_flags = ["security"]
     for flag in risk_flags:
         signals.append(ReadinessSignal(kind="risk", message=f"Touches a sensitive area: {flag}."))
+
+    policy_review_message, policy_is_high_risk = _policy_review(ir)
 
     references = detect_unverifiable_references(text)
     for ref in references:
@@ -106,5 +124,9 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
         verdict = "clarify"
     else:
         verdict = "ready"
+
+    if policy_review_message and (policy_is_high_risk or verdict == "ready"):
+        signals.append(ReadinessSignal(kind="risk", message=policy_review_message))
+        verdict = "risky"
 
     return ReadinessReport(verdict=verdict, signals=signals, questions=questions)
