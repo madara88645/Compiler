@@ -14,7 +14,8 @@ import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
 
 import { describeRequestError } from "../config";
-import type { CompileMode, CompileResponse, ReadinessVerdict } from "../lib/api/types";
+import type { CompileMode, ReadinessVerdict } from "../lib/api/types";
+import { getCompileTabContent } from "../lib/compileTabContent";
 
 type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";
 
@@ -24,22 +25,6 @@ const READINESS_LEGEND: { verdict: ReadinessVerdict; label: string }[] = [
   { verdict: "risky", label: "Risky" },
   { verdict: "noise", label: "Not a task" },
 ];
-
-function getTabContent(result: CompileResponse, activeTab: OutputTab): string {
-  if (activeTab === "system") {
-    return result.system_prompt_v2 || result.system_prompt;
-  }
-
-  if (activeTab === "user") {
-    return result.user_prompt_v2 || result.user_prompt;
-  }
-
-  if (activeTab === "plan") {
-    return result.plan_v2 || result.plan;
-  }
-
-  return result.expanded_prompt_v2 || result.expanded_prompt;
-}
 
 function TabButton({
   tabKey,
@@ -462,11 +447,11 @@ export default function Home() {
                           aria-label="Compiled prompt output"
                           className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                           readOnly
-                          value={getTabContent(result, tab)}
+                          value={getCompileTabContent(result, tab)}
                         />
 
                         <CopyButton
-                          text={getTabContent(result, tab)}
+                          text={getCompileTabContent(result, tab)}
                           className="absolute bottom-6 right-6"
                         />
                       </>
