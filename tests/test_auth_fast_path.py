@@ -92,7 +92,9 @@ def test_compile_fast_success(test_key):
         assert "processing_ms" in data
         assert "readiness" in data
         assert data["readiness"]["verdict"] in {"ready", "clarify", "risky", "noise"}
-        assert isinstance(data.get("readiness_markdown"), str) and data["readiness_markdown"].strip()
+        assert (
+            isinstance(data.get("readiness_markdown"), str) and data["readiness_markdown"].strip()
+        )
 
 
 def test_compile_fast_trivial_input_forces_instruction_prompt(test_key):

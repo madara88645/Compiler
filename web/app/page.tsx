@@ -14,7 +14,7 @@ import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
 
 import { describeRequestError } from "../config";
-import type { CompileMode, CompileResponse, ReadinessVerdict } from "../lib/api/types";
+import type { CompileMode, ReadinessVerdict } from "../lib/api/types";
 import { getCompileTabContent } from "../lib/compileTabContent";
 
 type OutputTab = "intent" | "system" | "user" | "plan" | "expanded" | "json" | "quality";

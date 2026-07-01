@@ -1255,4 +1255,3 @@ class DomainHandler(BaseHandler):
                 analysis.suggestions.append(check_rules["suggestion"])
 
         return analysis
-
