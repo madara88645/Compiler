@@ -13,10 +13,13 @@ def test_expanded_prompt_contains_input_and_example():
     assert ("Örnek çıktı formatı" in ep) or ("Example output format" in ep)
 
 
-def test_expanded_prompt_surfaces_react_perf_domain_guidance():
-    ir = compile_text("My React table re-renders too much and feels slow with large lists")
+def test_expanded_prompt_v2_surfaces_react_perf_domain_guidance():
+    ir = compile_text_v2(
+        "My React table re-renders too much and feels slow with large lists",
+        offline_only=True,
+    )
 
-    ep = emit_expanded_prompt(ir)
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
 
     assert "Key considerations:" in ep
     assert "React DevTools Profiler" in ep
