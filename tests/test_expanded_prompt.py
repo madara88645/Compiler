@@ -37,6 +37,8 @@ def test_expanded_prompt_v2_surfaces_clarification_questions_without_diagnostics
     assert "Clarification Questions:" in ep
     assert "Which metric or aspect should be optimized?" in ep
     assert "Better in what sense" in ep
+    assert "Have you profiled it (e.g. React DevTools Profiler)" not in ep
+    assert "Which language, framework, and version are targeted?" in ep
 
 
 def test_inferred_coding_best_practices_are_optional_not_constraints(monkeypatch):

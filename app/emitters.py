@@ -172,7 +172,6 @@ def _relevant_followups(ir) -> list[str]:
             "performance",
             "perf",
             "memo",
-            "optimi",
             "latency",
             "fps",
             "profil",

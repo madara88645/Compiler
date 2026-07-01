@@ -204,3 +204,17 @@ class TestRelevantFollowups:
 
         assert len(followups) == 3
         assert followups[0].startswith("Which browser and version is affected")
+
+    def test_generic_api_optimization_prompt_falls_back_to_software_followups(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Optimize this API and make it better"],
+            tasks=[],
+            intents=[],
+            domain="software",
+        )
+
+        followups = _relevant_followups(ir)
+
+        assert len(followups) == 3
+        assert followups[0] == "Which language, framework, and version are targeted?"
+        assert "React DevTools Profiler" not in "\n".join(followups)
