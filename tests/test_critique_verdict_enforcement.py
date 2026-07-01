@@ -72,7 +72,7 @@ def test_compile_endpoint_blocks_unsafe_injection_input(client):
     mock_worker_result.optimized_content = "Test optimized content"
 
     # Use patch to mock both the compiler and the CriticAgent
-    with patch("app.optimizer.critic.CriticAgent", mock_critic_class), patch(
+    with patch("api.routes.compile.CriticAgent", mock_critic_class), patch(
         "api.routes.compile._get_compiler"
     ) as mock_get_compiler:
         mock_compiler = MagicMock()
@@ -170,7 +170,7 @@ def test_compile_endpoint_enforces_reject_verdict_without_critical_issue(client)
     mock_worker_result.optimized_content = "Write a hello world program in Python"
 
     # Use patch to mock both the compiler and the CriticAgent
-    with patch("app.optimizer.critic.CriticAgent", mock_critic_class), patch(
+    with patch("api.routes.compile.CriticAgent", mock_critic_class), patch(
         "api.routes.compile._get_compiler"
     ) as mock_get_compiler:
         mock_compiler = MagicMock()
@@ -254,7 +254,7 @@ def test_compile_endpoint_allows_accept_verdict(client):
     )
 
     # Use patch to mock both the compiler and the CriticAgent
-    with patch("app.optimizer.critic.CriticAgent", mock_critic_class), patch(
+    with patch("api.routes.compile.CriticAgent", mock_critic_class), patch(
         "api.routes.compile._get_compiler"
     ) as mock_get_compiler:
         mock_compiler = MagicMock()
