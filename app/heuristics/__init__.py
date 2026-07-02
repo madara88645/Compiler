@@ -704,7 +704,11 @@ LIVE_DEBUG_KEYWORDS = [
     r"istisna",
 ]
 
-_JOINED_LIVE_DEBUG = re.compile("|".join(LIVE_DEBUG_KEYWORDS))
+# Word boundaries prevent substring false positives: "logs?" must not match
+# inside "login"/"blog"/"catalog", "mre" inside unrelated tokens, etc. The
+# keywords intentionally contain regex (e.g. "logs?"), so we wrap with \b rather
+# than re.escape. Mirrors the fix already applied to _TEACHING_RE above.
+_JOINED_LIVE_DEBUG = re.compile("|".join(rf"\b{keyword}\b" for keyword in LIVE_DEBUG_KEYWORDS))
 
 
 def detect_live_debug(text: str) -> bool:
