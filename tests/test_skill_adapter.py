@@ -380,7 +380,9 @@ def test_py_to_json_type_whitespace_and_unions():
     assert _py_to_json_type("List [ str ]") == "array"
     assert _py_to_json_type("int | str") == "integer"  # Takes first non-None
     assert _py_to_json_type("Union[dict, None]") == "object"
-    assert _py_to_json_type("Union[Dict[str, int], None]") == "object"  # Handles internal comma safely
+    assert (
+        _py_to_json_type("Union[Dict[str, int], None]") == "object"
+    )  # Handles internal comma safely
     assert _py_to_json_type("Union[str, int, None]") == "string"  # Takes first non-None
 
 
@@ -399,4 +401,3 @@ def test_coerce_example_hardened():
     assert _coerce_example("true", "typing.Optional[bool]") is True
     assert _coerce_example("yes", "bool | None") is True
     assert _coerce_example("hello", "Optional[str]") == "hello"
-

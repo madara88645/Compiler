@@ -101,17 +101,25 @@ def _unwrap_to_base(py_type: str) -> str:
 
     while True:
         # 1. Strip Optional[...]
-        if (py_type.startswith("Optional[") or py_type.startswith("typing.Optional[")) and py_type.endswith("]"):
-            prefix_len = len("typing.Optional[") if py_type.startswith("typing.") else len("Optional[")
+        if (
+            py_type.startswith("Optional[") or py_type.startswith("typing.Optional[")
+        ) and py_type.endswith("]"):
+            prefix_len = (
+                len("typing.Optional[") if py_type.startswith("typing.") else len("Optional[")
+            )
             py_type = py_type[prefix_len:-1].strip()
             continue
 
         # 2. Strip Union[...]
-        if (py_type.startswith("Union[") or py_type.startswith("typing.Union[")) and py_type.endswith("]"):
+        if (
+            py_type.startswith("Union[") or py_type.startswith("typing.Union[")
+        ) and py_type.endswith("]"):
             prefix_len = len("typing.Union[") if py_type.startswith("typing.") else len("Union[")
             inner = py_type[prefix_len:-1].strip()
             parts = split_top_level(inner, ",")
-            non_none = [p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")]
+            non_none = [
+                p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")
+            ]
             if len(non_none) >= 1:
                 py_type = non_none[0]
                 continue
@@ -122,7 +130,9 @@ def _unwrap_to_base(py_type: str) -> str:
         # 3. Strip X | None unions
         if "|" in py_type:
             parts = split_top_level(py_type, "|")
-            non_none = [p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")]
+            non_none = [
+                p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")
+            ]
             if len(non_none) >= 1:
                 py_type = non_none[0]
                 continue
@@ -159,7 +169,6 @@ def _coerce_example(value: str, py_type: str) -> int | float | bool | str:
     if base in {"bool", "boolean"}:
         return value.lower() in {"true", "1", "yes"}
     return value
-
 
 
 def _python_literal_for(value: str, py_type: str) -> str:
@@ -314,22 +323,18 @@ def _py_to_json_type(py_type: str) -> str:
         "str": "string",
         "string": "string",
         "any": "string",
-
         # Numbers
         "int": "integer",
         "integer": "integer",
         "float": "number",
         "number": "number",
-
         # Boolean
         "bool": "boolean",
         "boolean": "boolean",
-
         # Objects
         "dict": "object",
         "mapping": "object",
         "object": "object",
-
         # Arrays
         "list": "array",
         "sequence": "array",
