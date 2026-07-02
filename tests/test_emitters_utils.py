@@ -6,11 +6,15 @@ no model imports) and are safe to call in isolation.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.emitters import (
     _clean_domain_suggestion_text,
     _contains_any_marker,
     _is_trivial_input,
     _minimal_greeting_prompt,
+    _relevant_followups,
+    _scenario_considerations,
 )
 
 
@@ -133,3 +137,84 @@ class TestCleanDomainSuggestionText:
 
     def test_ok_prefix_stripped_before_use(self) -> None:
         assert _clean_domain_suggestion_text("Ok: Use type hints") == "Use type hints"
+
+
+class TestScenarioConsiderations:
+    """Route conservative scenario guidance only when the right signals appear."""
+
+    def test_browser_download_requires_all_three_signals(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Add a button so users can download CSV exports from the dashboard"],
+            tasks=[],
+        )
+
+        considerations = _scenario_considerations(ir)
+
+        assert len(considerations) == 2
+        assert "Blob + an <a download> link" in considerations[0]
+        assert "File System Access API is unsupported in Safari" in considerations[1]
+
+    def test_browser_download_does_not_trigger_without_feature_adding_verb(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Fix the Safari CSV download that opens inline instead of saving"],
+            tasks=[],
+        )
+
+        assert _scenario_considerations(ir) == []
+
+    def test_react_perf_requires_react_and_perf_markers(self) -> None:
+        ir = SimpleNamespace(
+            goals=["My React list is slow and re-renders too much when filters change"],
+            tasks=[],
+        )
+
+        considerations = _scenario_considerations(ir)
+
+        assert len(considerations) == 2
+        assert "React DevTools Profiler" in considerations[0]
+        assert "virtualize long lists" in considerations[1]
+
+
+class TestRelevantFollowups:
+    """Choose the most useful follow-up question set for the prompt context."""
+
+    def test_react_perf_prompt_prefers_perf_followups_over_browser_keywords(self) -> None:
+        ir = SimpleNamespace(
+            goals=["My React button re-renders constantly and the page feels slow"],
+            tasks=[],
+            intents=[],
+            domain="software",
+        )
+
+        followups = _relevant_followups(ir)
+
+        assert len(followups) == 3
+        assert "React DevTools Profiler" in followups[0]
+        assert "Which browser and version is affected" not in "\n".join(followups)
+
+    def test_browser_bug_prompt_gets_browser_followups(self) -> None:
+        ir = SimpleNamespace(
+            goals=["This Chrome button renders in the wrong place after click"],
+            tasks=[],
+            intents=[],
+            domain="software",
+        )
+
+        followups = _relevant_followups(ir)
+
+        assert len(followups) == 3
+        assert followups[0].startswith("Which browser and version is affected")
+
+    def test_generic_api_optimization_prompt_falls_back_to_software_followups(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Optimize this API and make it better"],
+            tasks=[],
+            intents=[],
+            domain="software",
+        )
+
+        followups = _relevant_followups(ir)
+
+        assert len(followups) == 3
+        assert followups[0] == "Which language, framework, and version are targeted?"
+        assert "React DevTools Profiler" not in "\n".join(followups)
