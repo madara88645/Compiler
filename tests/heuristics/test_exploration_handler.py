@@ -299,18 +299,14 @@ class TestPipelineIntegration:
         assert all(step.scheduling is None for step in ir.steps)
 
     def test_destructive_prompt_keeps_policy_and_gains_verify(self):
-        ir = compile_text_v2(
-            "Write a script to wipe the production database", offline_only=True
-        )
+        ir = compile_text_v2("Write a script to wipe the production database", offline_only=True)
 
         assert ir.policy.risk_level == "high"
         assert ir.policy.execution_mode == "human_approval_required"
         assert ir.metadata["uncertainty_profile"]["modes"]["verify"]["scheduled"] is True
 
     def test_scheduling_round_trips_through_model_dump(self):
-        ir = compile_text_v2(
-            "Find out why the build is broken and then fix it", offline_only=True
-        )
+        ir = compile_text_v2("Find out why the build is broken and then fix it", offline_only=True)
         restored = IRv2.model_validate(ir.model_dump())
 
         assert [s.scheduling for s in restored.steps] == [s.scheduling for s in ir.steps]

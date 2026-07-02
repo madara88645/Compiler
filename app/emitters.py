@@ -226,7 +226,12 @@ _MODE_DIRECTIVES = {
 _MODE_LABELS = {
     "en": {"explore": "Explore", "decide": "Decide", "execute": "Execute", "verify": "Verify"},
     "tr": {"explore": "Keşfet", "decide": "Karar ver", "execute": "Uygula", "verify": "Doğrula"},
-    "es": {"explore": "Explorar", "decide": "Decidir", "execute": "Ejecutar", "verify": "Verificar"},
+    "es": {
+        "explore": "Explorar",
+        "decide": "Decidir",
+        "execute": "Ejecutar",
+        "verify": "Verificar",
+    },
 }
 
 
@@ -961,7 +966,9 @@ def emit_plan_v2(ir: IRv2) -> str:
         mode = _step_mode(step)
         if mode in _PLAN_MODE_RATIONALE:
             # explore/verify tags; execute and untagged render identically below
-            out.append(f"{step_number}. [{kind}] ({mode}) {step.text}\n   {_PLAN_MODE_RATIONALE[mode]}")
+            out.append(
+                f"{step_number}. [{kind}] ({mode}) {step.text}\n   {_PLAN_MODE_RATIONALE[mode]}"
+            )
         else:
             rationale = (
                 "Rationale: complete the user's stated task without adding unstated requirements"
