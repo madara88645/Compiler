@@ -1,4 +1,6 @@
-from app.heuristics import detect_live_debug
+import pytest
+
+from app.heuristics import detect_browser_bug_report, detect_live_debug
 
 
 def test_detect_live_debug_true_cases():
@@ -7,9 +9,21 @@ def test_detect_live_debug_true_cases():
     assert detect_live_debug("traceback") is True
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "The download button is broken in Safari; help me fix it",
+        "The page does not work in Firefox; help me fix it",
+    ],
+)
+def test_detect_browser_bug_report_true_case(prompt: str):
+    assert detect_browser_bug_report(prompt) is True
+
+
 def test_detect_live_debug_false_cases():
     assert detect_live_debug("How do I write a Python function?") is False
     assert detect_live_debug("Explain quantum physics") is False
+    assert detect_live_debug("My washing machine is broken; help me fix it") is False
     assert detect_live_debug("") is False
 
 
@@ -28,3 +42,7 @@ def test_detect_live_debug_matches_log_and_debug_keywords():
     assert detect_live_debug("check the error log") is True
     assert detect_live_debug("attach the logs") is True
     assert detect_live_debug("help me debug this stack trace") is True
+
+
+def test_detect_browser_bug_report_false_case():
+    assert detect_browser_bug_report("My washing machine button is broken; help me fix it") is False

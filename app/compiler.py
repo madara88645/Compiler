@@ -11,6 +11,7 @@ from .plugins import PluginContext, apply_plugins_ir, apply_plugins_ir_v2
 from .heuristics import (
     detect_language,
     detect_domain,
+    detect_browser_bug_report,
     detect_recency,
     extract_format,
     detect_length_hint,
@@ -409,7 +410,8 @@ def compile_text(text: str) -> IR:
     coding_ctx = detect_coding_context(text)
     teaching_intent = detect_teaching_intent(text)
     recency_required = detect_recency(text)
-    live_debug = detect_live_debug(text) if coding_ctx else False
+    browser_bug_report = detect_browser_bug_report(text)
+    live_debug = detect_live_debug(text) if (coding_ctx or browser_bug_report) else False
     goals, tasks = extract_goals_tasks(text, lang)
     length_hint = detect_length_hint(text)
     style, tone = extract_style_tone(text)
@@ -471,6 +473,8 @@ def compile_text(text: str) -> IR:
 
     # Teaching intent enrichment BEFORE IR instantiation
     persona, persona_info = pick_persona(text)
+    if live_debug or browser_bug_report:
+        persona_info.setdefault("flags", {})["live_debug"] = True
     role = DEFAULT_ROLE_TR if lang == "tr" else DEFAULT_ROLE_EN
     # Developer persona override: if coding context, prefer developer
     if coding_ctx:
@@ -557,9 +561,6 @@ def compile_text(text: str) -> IR:
                 add_constraint(
                     "Use Hypothesis -> Experiment -> Result short feedback loops.", "live_debug"
                 )
-            # mark metadata flag for downstream UIs
-            persona_info.setdefault("flags", {})["live_debug"] = True
-
     if is_summary:
         add_constraint("Provide a concise summary", "summary")
         if summary_count:

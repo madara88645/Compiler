@@ -709,11 +709,30 @@ LIVE_DEBUG_KEYWORDS = [
 # keywords intentionally contain regex (e.g. "logs?"), so we wrap with \b rather
 # than re.escape. Mirrors the fix already applied to _TEACHING_RE above.
 _JOINED_LIVE_DEBUG = re.compile("|".join(rf"\b{keyword}\b" for keyword in LIVE_DEBUG_KEYWORDS))
+_BROWSER_BUG_ENV_MARKERS = ("browser", "safari", "chrome", "firefox")
+_BROWSER_BUG_UI_MARKERS = ("button", "download", "render", "page", "click")
+_BROWSER_BUG_SYMPTOMS = (
+    "broken",
+    "does nothing",
+    "does not work",
+    "not working",
+    "fails",
+    "failing",
+)
 
 
 def detect_live_debug(text: str) -> bool:
     lower = text.lower()
     return bool(_JOINED_LIVE_DEBUG.search(lower))
+
+
+def detect_browser_bug_report(text: str) -> bool:
+    lower = text.lower()
+    return (
+        _contains_any_keyword(lower, list(_BROWSER_BUG_ENV_MARKERS))
+        and _contains_any_keyword(lower, list(_BROWSER_BUG_UI_MARKERS))
+        and _contains_any_keyword(lower, list(_BROWSER_BUG_SYMPTOMS))
+    )
 
 
 # --- Privacy / PII detection (lightweight heuristic, no external deps) ---

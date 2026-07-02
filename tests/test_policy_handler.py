@@ -1,3 +1,5 @@
+import pytest
+
 from app.compiler import compile_text_v2
 
 
@@ -41,6 +43,32 @@ def test_policy_does_not_treat_urls_or_abbreviations_as_file_paths():
     assert ir2.policy.execution_mode == "auto_ok"
     assert "workspace_read" not in ir2.policy.allowed_tools
     assert "path_must_stay_within_workspace" not in ir2.policy.sanitization_rules
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "The download button is broken in Safari; help me fix it",
+        "The page does not work in Firefox; help me fix it",
+    ],
+)
+def test_policy_browser_download_bug_report_stays_human_reviewed(prompt: str):
+    ir2 = compile_text_v2(prompt)
+
+    reasons = ir2.metadata.get("policy_reasons") or []
+    assert ir2.policy.risk_level == "medium"
+    assert ir2.policy.execution_mode == "human_approval_required"
+    assert "debug_request" in reasons
+    assert "file_or_system_request" not in reasons
+
+
+def test_policy_nontechnical_fix_request_stays_low_risk():
+    ir2 = compile_text_v2("The onboarding copy is awkward; help me fix it")
+
+    reasons = ir2.metadata.get("policy_reasons") or []
+    assert ir2.policy.risk_level == "low"
+    assert ir2.policy.execution_mode == "auto_ok"
+    assert "debug_request" not in reasons
 
 
 # ---------------------------------------------------------------------------
