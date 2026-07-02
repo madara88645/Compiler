@@ -6,6 +6,7 @@ import yaml
 from app.adapters.skill_adapter import (
     _to_pascal,
     _py_to_json_type,
+    _coerce_example,
     to_agent_skill,
     to_claude_tool_use,
     to_langchain_tool,
@@ -327,3 +328,75 @@ def test_to_agent_skill_description_truncates_at_sentence():
     )
     fm = _frontmatter(to_agent_skill(ir))
     assert len(fm["description"]) <= 200
+
+
+def test_py_to_json_type_hardened_base_types():
+    """Verify standard base types resolve to their correct JSON Schema type equivalents."""
+    assert _py_to_json_type("str") == "string"
+    assert _py_to_json_type("string") == "string"
+    assert _py_to_json_type("int") == "integer"
+    assert _py_to_json_type("integer") == "integer"
+    assert _py_to_json_type("float") == "number"
+    assert _py_to_json_type("number") == "number"
+    assert _py_to_json_type("bool") == "boolean"
+    assert _py_to_json_type("boolean") == "boolean"
+    assert _py_to_json_type("dict") == "object"
+    assert _py_to_json_type("list") == "array"
+
+
+def test_py_to_json_type_hardened_optionals():
+    """Verify Optionals and pipe unions are stripped down to their inner types."""
+    assert _py_to_json_type("Optional[int]") == "integer"
+    assert _py_to_json_type("typing.Optional[str]") == "string"
+    assert _py_to_json_type("int | None") == "integer"
+    assert _py_to_json_type("None | float") == "number"
+    assert _py_to_json_type("str | None") == "string"
+    assert _py_to_json_type("Optional[List[str]]") == "array"
+    assert _py_to_json_type("List[int] | None") == "array"
+
+
+def test_py_to_json_type_hardened_generics():
+    """Verify base types are correctly extracted from generics."""
+    assert _py_to_json_type("List[str]") == "array"
+    assert _py_to_json_type("list[int]") == "array"
+    assert _py_to_json_type("Dict[str, Any]") == "object"
+    assert _py_to_json_type("dict[str, str]") == "object"
+    assert _py_to_json_type("Sequence[float]") == "array"
+    assert _py_to_json_type("typing.Mapping[str, int]") == "object"
+    assert _py_to_json_type("Tuple[int, ...]") == "array"
+    assert _py_to_json_type("set[str]") == "array"
+
+
+def test_py_to_json_type_namespaces():
+    """Verify package and module namespaces are stripped from base classes."""
+    assert _py_to_json_type("typing.List[str]") == "array"
+    assert _py_to_json_type("collections.abc.Mapping[str, str]") == "object"
+    assert _py_to_json_type("custom_module.sub_module.MyDict") == "string"  # Unknown fallback
+
+
+def test_py_to_json_type_whitespace_and_unions():
+    """Verify formatting issues and multi-type unions are handled gracefully."""
+    assert _py_to_json_type("   int   ") == "integer"
+    assert _py_to_json_type("List [ str ]") == "array"
+    assert _py_to_json_type("int | str") == "integer"  # Takes first non-None
+    assert _py_to_json_type("Union[dict, None]") == "object"
+    assert _py_to_json_type("Union[Dict[str, int], None]") == "object"  # Handles internal comma safely
+    assert _py_to_json_type("Union[str, int, None]") == "string"  # Takes first non-None
+
+
+def test_py_to_json_type_fallbacks():
+    """Verify standard fallback rules are applied correctly."""
+    assert _py_to_json_type("") == "string"
+    assert _py_to_json_type("MyCustomClass") == "string"
+    assert _py_to_json_type("None") == "string"
+    assert _py_to_json_type(None) == "string"
+
+
+def test_coerce_example_hardened():
+    """Verify that example coercion handles optionals, pipe unions, and generics correctly."""
+    assert _coerce_example("42", "Optional[int]") == 42
+    assert _coerce_example("3.14", "float | None") == 3.14
+    assert _coerce_example("true", "typing.Optional[bool]") is True
+    assert _coerce_example("yes", "bool | None") is True
+    assert _coerce_example("hello", "Optional[str]") == "hello"
+

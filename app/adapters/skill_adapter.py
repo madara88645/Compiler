@@ -61,21 +61,105 @@ def _resolve_example_map(
     return {p.name: _example_value_for(p, examples) for p in params}
 
 
+def _unwrap_to_base(py_type: str) -> str:
+    """
+    Unwrap a Python type annotation down to its base class name in lowercase.
+    Handles optionals, unions, and package namespaces.
+    """
+    if not isinstance(py_type, str):
+        return ""
+    py_type = py_type.strip()
+    if not py_type:
+        return ""
+
+    # Normalize whitespace around syntax characters
+    py_type = re.sub(r"\s*([\[\],|])\s*", r"\1", py_type)
+
+    def split_top_level(s: str, delim: str) -> list[str]:
+        """Split string s by delim only at bracket depth 0."""
+        parts = []
+        current = []
+        depth = 0
+        i = 0
+        while i < len(s):
+            char = s[i]
+            if char in "[{(":
+                depth += 1
+                current.append(char)
+            elif char in "]})":
+                depth = max(0, depth - 1)
+                current.append(char)
+            elif depth == 0 and s[i : i + len(delim)] == delim:
+                parts.append("".join(current).strip())
+                current = []
+                i += len(delim) - 1
+            else:
+                current.append(char)
+            i += 1
+        parts.append("".join(current).strip())
+        return parts
+
+    while True:
+        # 1. Strip Optional[...]
+        if (py_type.startswith("Optional[") or py_type.startswith("typing.Optional[")) and py_type.endswith("]"):
+            prefix_len = len("typing.Optional[") if py_type.startswith("typing.") else len("Optional[")
+            py_type = py_type[prefix_len:-1].strip()
+            continue
+
+        # 2. Strip Union[...]
+        if (py_type.startswith("Union[") or py_type.startswith("typing.Union[")) and py_type.endswith("]"):
+            prefix_len = len("typing.Union[") if py_type.startswith("typing.") else len("Union[")
+            inner = py_type[prefix_len:-1].strip()
+            parts = split_top_level(inner, ",")
+            non_none = [p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")]
+            if len(non_none) >= 1:
+                py_type = non_none[0]
+                continue
+            else:
+                py_type = "Any"
+                break
+
+        # 3. Strip X | None unions
+        if "|" in py_type:
+            parts = split_top_level(py_type, "|")
+            non_none = [p.strip() for p in parts if p.strip() not in ("None", "NoneType", "type(None)", "")]
+            if len(non_none) >= 1:
+                py_type = non_none[0]
+                continue
+            else:
+                py_type = "Any"
+                break
+
+        break
+
+    # 4. Extract Generic Base
+    if "[" in py_type:
+        base = py_type.split("[")[0].strip()
+    else:
+        base = py_type
+
+    # 5. Remove Package/Module Namespaces
+    base = base.split(".")[-1]
+    return base.lower()
+
+
 def _coerce_example(value: str, py_type: str) -> int | float | bool | str:
     """Coerce a raw string to its native Python/JSON type."""
-    if py_type == "int":
+    base = _unwrap_to_base(py_type)
+    if base in {"int", "integer"}:
         try:
             return int(value)
         except ValueError:
             return value
-    if py_type == "float":
+    if base in {"float", "number"}:
         try:
             return float(value)
         except ValueError:
             return value
-    if py_type == "bool":
+    if base in {"bool", "boolean"}:
         return value.lower() in {"true", "1", "yes"}
     return value
+
 
 
 def _python_literal_for(value: str, py_type: str) -> str:
@@ -224,16 +308,38 @@ def to_claude_tool_use(ir: SkillExportIR) -> str:
 
 
 def _py_to_json_type(py_type: str) -> str:
+    base = _unwrap_to_base(py_type)
     mapping = {
+        # String
         "str": "string",
+        "string": "string",
+        "any": "string",
+
+        # Numbers
         "int": "integer",
+        "integer": "integer",
         "float": "number",
+        "number": "number",
+
+        # Boolean
         "bool": "boolean",
+        "boolean": "boolean",
+
+        # Objects
         "dict": "object",
+        "mapping": "object",
+        "object": "object",
+
+        # Arrays
         "list": "array",
-        "Any": "string",
+        "sequence": "array",
+        "tuple": "array",
+        "set": "array",
+        "frozenset": "array",
+        "iterable": "array",
+        "array": "array",
     }
-    return mapping.get(py_type, "string")
+    return mapping.get(base, "string")
 
 
 # Lowercase only — the comparison always calls .lower() first, so mixed-case
