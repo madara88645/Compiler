@@ -58,6 +58,23 @@ Switch between the output tabs in the UI to inspect each layer, and copy any res
 
 ---
 
+### Exploration Modes — adaptive latitude scheduling
+
+Most prompt tools only tighten prompts. Prompt Compiler also schedules **how much latitude** the downstream agent should get, per plan step, derived from signals it already measures (problem cues in your own words, diagnostic intent, risk/policy):
+
+| Mode | When it appears | What it tells the agent |
+|---|---|---|
+| `explore` | Diagnostic requests — "X is broken; help me fix it" | List plausible causes and test them against evidence before committing to a fix |
+| `decide` | Multi-step diagnostic plans | Converge on one option by impact, effort, and risk — then stop exploring |
+| `execute` | Concrete scoped work | Minimal deviation — no new requirements, dependencies, or scope |
+| `verify` | Destructive / high-risk changes | Re-check edge cases and regressions before treating the result as done |
+
+The Execution Plan tags steps in place (`1. [task] (explore) …`) and adds `[decide]` / `[verify]` steps where warranted, and the Expanded Prompt gains a **Working approach** section with per-mode directives (EN/TR/ES).
+
+**Silence is a feature.** A clear request ("fix a typo") gains **zero** extra text — the scheduler engages only when the signals warrant it, and that guarantee is locked by a dedicated gate test suite. The machine-readable schedule also ships in the IR (`steps[].scheduling` with `mode`/`reason`/`confidence`, plus `metadata.uncertainty_profile`) for agent packs, analytics, and routing.
+
+---
+
 ### PR Safety — Merge Readiness Layer
 
 AI PR review bots create comments. **PR Safety** answers the question a human actually has: **should I merge this PR, or not?**
