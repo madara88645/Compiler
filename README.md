@@ -21,9 +21,12 @@ Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](h
 
 - **System Prompt** — persona, role, constraints, output format
 - **User Prompt** — structured task definition
-- **Execution Plan** — step-by-step decomposition
-- **Expanded Prompt** — ready to paste into any LLM
+- **Execution Plan** — step-by-step decomposition of coordinated tasks
+- **Expanded Prompt** — ready to paste into any LLM, with domain-aware **key considerations** and decisive follow-up questions for recognized scenarios
 - **Policy Layer** — risk level, allowed tools, execution mode, data sensitivity
+- **Readiness Check** — a self-describing traffic light that tells you whether the compiled prompt is ready to run, honoring the compiled safety policy
+
+The core pipeline is **offline and deterministic** — compilation needs no API key and no network — and is locked in place by a 1,700+ test suite with QA regression gates. Cloud features (optional) run server-side through OpenRouter only.
 
 **Check a pull request.** Paste an AI-agent PR's title, description, and changed files into **PR Safety** and get a deterministic merge-readiness report:
 
@@ -39,12 +42,13 @@ It runs fully offline (no GitHub API, no AI calls, no sign-in) and never blocks 
 
 ### Core Prompt Compiler
 
-The engine analyzes your intent and produces four output layers:
+The engine analyzes your intent and produces the core output layers:
 
 - **System Prompt**: persona, role, constraints, and output format rules for the target AI
 - **User Prompt**: structured task definition derived from your input
-- **Execution Plan**: decomposed steps based on your request
-- **Expanded Prompt**: a combined prompt ready to paste into chat-based LLMs
+- **Execution Plan**: decomposed steps based on your request — coordinated tasks ("do X and then Y") are split into ordered steps
+- **Expanded Prompt**: a combined prompt ready to paste into chat-based LLMs, enriched with hand-curated **Key considerations** for recognized scenarios (SQL performance, file uploads, auth flows, timezones, browser downloads, payments, and more) and **decisive follow-up questions** a competent engineer would actually ask
+- **Readiness Check**: a traffic-light banner that says whether the compiled prompt is ready to run and what would make it safer — it honors the compiled safety policy, so risky requests are never waved through
 
 Switch between the output tabs in the UI to inspect each layer, and copy any result with one click.
 
@@ -371,10 +375,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 1. Type your idea, prompt, task, or workflow request into the input box.
 2. Click **Generate**.
-3. Review the output tabs: `Intent`, `System`, `User`, `Plan`, `Expanded`, `JSON`, `Quality`.
-4. Use **Conservative** mode when you want grounded output.
-5. If the task is sensitive, inspect the policy layer before using the result downstream.
-6. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
+3. Check the **readiness banner** on the result — it tells you whether the compiled prompt is ready to run and why.
+4. Review the output tabs: `Intent`, `System`, `User`, `Plan`, `Expanded`, `JSON`, `Quality`.
+5. Use **Conservative** mode when you want grounded output.
+6. If the task is sensitive, inspect the policy layer before using the result downstream.
+7. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
 
 To check a pull request instead, open **PR Safety** in the sidebar, paste the PR's title, description, and changed files, then **Analyze PR** and read the verdict — copy the Markdown report into the PR if it's useful.
 
