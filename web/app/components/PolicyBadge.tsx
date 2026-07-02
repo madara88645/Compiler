@@ -55,7 +55,7 @@ export default function PolicyBadge({ result }: PolicyBadgeProps) {
       title={tooltip}
       data-testid="policy-badge"
       data-tone={tone}
-      className={`inline-flex shrink-0 items-center gap-1.5 self-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${TONE_CLASSES[tone]}`}
+      className={`animate-fade-in inline-flex shrink-0 items-center gap-1.5 self-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${TONE_CLASSES[tone]}`}
     >
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${DOT_CLASSES[tone]}`} />
       <span>{label}</span>

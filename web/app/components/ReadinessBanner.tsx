@@ -47,7 +47,7 @@ export default function ReadinessBanner({
   const compact = variant === "compact";
   return (
     <div
-      className={`rounded-xl border mb-3 ${meta.tone} ${compact ? "px-3 py-2" : "px-4 py-3"}`}
+      className={`animate-slide-in-down rounded-xl border mb-3 ${meta.tone} ${compact ? "px-3 py-2" : "px-4 py-3"}`}
       role="status"
       aria-live="polite"
     >

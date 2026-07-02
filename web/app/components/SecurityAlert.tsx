@@ -57,7 +57,7 @@ export default function SecurityAlert({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="security-alert-title"
-                className="bg-[#1a1a1a] w-full max-w-2xl rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 overflow-hidden flex flex-col"
+                className="animate-scale-in bg-[#1a1a1a] w-full max-w-2xl rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 overflow-hidden flex flex-col"
             >
 
                 {/* Header */}
