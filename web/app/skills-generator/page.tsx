@@ -180,7 +180,7 @@ export default function SkillsGenerator() {
           <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
             <div className="flex flex-col gap-2">
               <label htmlFor="skill-description" className="text-sm font-medium text-zinc-300">Skill Description</label>
-              <p className="text-xs text-zinc-500">
+              <p id="skill-description-help" className="text-xs text-zinc-500">
                 Describe the skill&apos;s purpose, inputs, and expected behavior.
               </p>
             </div>
@@ -247,6 +247,7 @@ export default function SkillsGenerator() {
               <textarea
                 id="skill-description"
                 aria-label="Skill Description"
+                aria-describedby="skill-description-help"
                 className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
@@ -384,8 +385,9 @@ export default function SkillsGenerator() {
                     className="absolute bottom-6 right-6 bg-yellow-600 hover:bg-yellow-500 text-white p-3 rounded-xl shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
                     title="Copy to Clipboard"
                     aria-label="Copy Markdown"
+                    aria-live="polite"
                   >
-                    <span className="sr-only" aria-live="polite">{copied ? "Copied to clipboard" : ""}</span>
+                    <span className="sr-only">{copied ? "Copied to clipboard" : ""}</span>
                     <span className="text-xs font-bold" aria-hidden="true">{copied ? "Copied!" : "Copy Markdown"}</span>
                     {copied ? (
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
