@@ -141,6 +141,122 @@ _SCENARIO_CONSIDERATIONS = {
 }
 
 
+# Exploration-mode scheduling (see heuristics/handlers/exploration.py).
+# Rendering reads only scheduling.mode; reason/confidence are for future
+# consumers (agent packs, analytics, benchmarking). Behavioral text only —
+# no sampling parameters, no jargon.
+_PLAN_MODE_RATIONALE = {
+    "explore": (
+        "Rationale: the cause is not yet established; list plausible explanations "
+        "and test them against evidence before committing to a fix"
+    ),
+    "decide": (
+        "Rationale: converge on one option by impact, effort, and risk; "
+        "do not keep exploring once a choice is justified"
+    ),
+    "verify": (
+        "Rationale: high-impact change; confirm edge cases and regressions "
+        "instead of assuming success"
+    ),
+}
+
+_PLAN_PSEUDO_STEP_TEXT = {
+    "decide": "Choose one likely cause or approach to pursue before making changes.",
+    "verify": "Re-check the result against the original request before treating it as done.",
+}
+
+_MODE_DIRECTIVES = {
+    "en": {
+        "explore": (
+            "Start by listing the plausible causes or approaches and check them against "
+            "the evidence; do not commit to changes while the cause is still unknown."
+        ),
+        "decide": (
+            "Pick one option based on impact, effort, and risk, and state briefly why it "
+            "wins; stop exploring once a choice is justified."
+        ),
+        "execute": (
+            "Carry out the chosen work exactly as scoped; do not add requirements, "
+            "dependencies, or scope beyond what was asked."
+        ),
+        "verify": (
+            "Before finishing, re-check the result against the original request, including "
+            "edge cases and possible regressions; do not treat unverified output as done."
+        ),
+    },
+    "tr": {
+        "explore": (
+            "Önce olası nedenleri veya yaklaşımları listele ve kanıtlarla karşılaştır; "
+            "neden belirsizken değişiklik yapmaya başlama."
+        ),
+        "decide": (
+            "Etki, maliyet ve riske göre tek bir seçenek belirle ve nedenini kısaca "
+            "açıkla; karar verildikten sonra keşfe geri dönme."
+        ),
+        "execute": (
+            "Seçilen işi tam olarak istenen kapsamda uygula; istenmeyen gereksinim, "
+            "bağımlılık veya kapsam ekleme."
+        ),
+        "verify": (
+            "Bitirmeden önce sonucu özgün istekle karşılaştır; uç durumları ve olası "
+            "gerilemeleri kontrol etmeden işi bitmiş sayma."
+        ),
+    },
+    "es": {
+        "explore": (
+            "Primero enumera las causas o enfoques plausibles y contrástalos con la "
+            "evidencia; no hagas cambios mientras la causa siga siendo desconocida."
+        ),
+        "decide": (
+            "Elige una opción según impacto, esfuerzo y riesgo, y explica brevemente por "
+            "qué; deja de explorar una vez justificada la elección."
+        ),
+        "execute": (
+            "Ejecuta el trabajo elegido exactamente según lo acordado; no añadas "
+            "requisitos, dependencias ni alcance extra."
+        ),
+        "verify": (
+            "Antes de terminar, contrasta el resultado con la solicitud original, "
+            "incluidos casos límite y posibles regresiones; no des por terminado un "
+            "resultado sin verificar."
+        ),
+    },
+}
+
+_MODE_LABELS = {
+    "en": {"explore": "Explore", "decide": "Decide", "execute": "Execute", "verify": "Verify"},
+    "tr": {"explore": "Keşfet", "decide": "Karar ver", "execute": "Uygula", "verify": "Doğrula"},
+    "es": {"explore": "Explorar", "decide": "Decidir", "execute": "Ejecutar", "verify": "Verificar"},
+}
+
+
+def _step_mode(step) -> str | None:
+    """Scheduling mode of a step, tolerating objects without the attribute."""
+    return getattr(getattr(step, "scheduling", None), "mode", None)
+
+
+def _scheduled_modes(ir) -> list[str]:
+    """Modes to surface in the Working approach section, in fixed order.
+
+    Empty for an untouched compile (suppression rule): the section renders only
+    when explore/decide/verify was actually scheduled — a lone execute tag or a
+    silent profile must not create a section.
+    """
+    modes: set[str] = set()
+    for step in getattr(ir, "steps", None) or []:
+        mode = _step_mode(step)
+        if mode:
+            modes.add(mode)
+    profile = (getattr(ir, "metadata", None) or {}).get("uncertainty_profile") or {}
+    profile_modes = profile.get("modes") or {}
+    for name in ("explore", "decide", "verify"):
+        if (profile_modes.get(name) or {}).get("scheduled"):
+            modes.add(name)
+    if not modes & {"explore", "decide", "verify"}:
+        return []
+    return [m for m in ("explore", "decide", "execute", "verify") if m in modes]
+
+
 def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
     """Fast-path helper to bypass any() generator overhead."""
     for marker in markers:
@@ -835,14 +951,33 @@ def emit_plan_v2(ir: IRv2) -> str:
             f"{step_number}. [policy] Pause for human approval before executing or relying on tools.\n"
             f"   {rationale}"
         )
+    profile_modes = ((ir.metadata or {}).get("uncertainty_profile") or {}).get("modes") or {}
+    decide_pending = bool((profile_modes.get("decide") or {}).get("scheduled"))
+    verify_scheduled = bool((profile_modes.get("verify") or {}).get("scheduled"))
     steps = ir.steps if ir.steps else [StepV2(type="task", text=t) for t in ir.tasks]
-    for i, step in enumerate(steps, start=1):
+    for step in steps:
         step_number = len(out) + 1
-        rationale = (
-            "Rationale: complete the user's stated task without adding unstated requirements"
-        )
         kind = step.type if hasattr(step, "type") else "task"
-        out.append(f"{step_number}. [{kind}] {step.text}\n   {rationale}")
+        mode = _step_mode(step)
+        if mode in _PLAN_MODE_RATIONALE:
+            # explore/verify tags; execute and untagged render identically below
+            out.append(f"{step_number}. [{kind}] ({mode}) {step.text}\n   {_PLAN_MODE_RATIONALE[mode]}")
+        else:
+            rationale = (
+                "Rationale: complete the user's stated task without adding unstated requirements"
+            )
+            out.append(f"{step_number}. [{kind}] {step.text}\n   {rationale}")
+        if mode == "explore" and decide_pending:
+            decide_pending = False  # one convergence point per plan
+            out.append(
+                f"{len(out) + 1}. [decide] {_PLAN_PSEUDO_STEP_TEXT['decide']}\n"
+                f"   {_PLAN_MODE_RATIONALE['decide']}"
+            )
+    if verify_scheduled and out:
+        out.append(
+            f"{len(out) + 1}. [verify] {_PLAN_PSEUDO_STEP_TEXT['verify']}\n"
+            f"   {_PLAN_MODE_RATIONALE['verify']}"
+        )
     return (
         "\n".join(out)
         if out
@@ -1008,6 +1143,21 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         )
         for q in clarify_all[:5]:
             prompt.append(f"- {q}")
+
+    # Working approach: latitude directives for the scheduled exploration modes.
+    # Suppressed entirely when the scheduler did not engage (anti-boilerplate).
+    scheduled_modes = _scheduled_modes(ir)
+    if scheduled_modes:
+        header_wa = (
+            "Çalışma yaklaşımı"
+            if lang == "tr"
+            else ("Enfoque de trabajo" if lang == "es" else "Working approach")
+        )
+        directives = _MODE_DIRECTIVES.get(lang) or _MODE_DIRECTIVES["en"]
+        labels = _MODE_LABELS.get(lang) or _MODE_LABELS["en"]
+        prompt.extend(["", header_wa + ":"])
+        for mode in scheduled_modes:
+            prompt.append(f"- {labels[mode]}: {directives[mode]}")
 
     # Follow-up Questions (same approach as v1)
     followups: List[str] = []

@@ -51,6 +51,7 @@ from .heuristics.handlers.policy import PolicyHandler
 from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
+from .heuristics.handlers.exploration import ExplorationHandler
 from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
 
 logger = logging.getLogger(__name__)
@@ -305,6 +306,7 @@ def compile_text_v2(
         FormatEnforcerHandler(),
         ParadoxResolverHandler(),
         DeduplicatorHandler(),
+        ExplorationHandler(),  # last: needs final intents + policy
     ]
 
     for handler in handlers:

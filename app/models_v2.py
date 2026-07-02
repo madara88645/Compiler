@@ -28,11 +28,27 @@ class ConstraintV2(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class StepScheduling(BaseModel):
+    """Exploration-mode scheduling attached to a step by the compiler.
+
+    Structured (not a bare mode string) so future consumers — agent packs,
+    analytics, benchmarking, adaptive routing — can add fields without
+    another IR/schema redesign. Rendering only reads ``mode``.
+    """
+
+    mode: str  # one of ir_contract.IR_STEP_MODES
+    reason: Optional[str] = None  # one of ir_contract.IR_SCHEDULING_REASONS
+    confidence: Optional[float] = None  # normalized scheduler score (0..1)
+
+    model_config = ConfigDict(extra="allow")
+
+
 class StepV2(BaseModel):
     """Flexible step model."""
 
     type: str = "task"
     text: str
+    scheduling: Optional[StepScheduling] = None  # None = scheduler did not engage
 
     model_config = ConfigDict(extra="ignore")
 

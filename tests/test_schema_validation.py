@@ -13,6 +13,7 @@ from app.ir_contract import (
     IR_OUTPUT_FORMATS,
     IR_PERSONAS,
     IR_RISK_LEVELS,
+    IR_STEP_MODES,
     IR_STEP_TYPES,
 )
 from app.resources import get_ir_schema_text
@@ -158,3 +159,29 @@ def test_shared_ir_priority_contract_covers_declared_heuristic_priorities():
     declared = _collect_declared_constraint_priorities()
 
     assert declared <= set(IR_CONSTRAINT_PRIORITIES)
+
+
+def test_v2_schema_scheduling_mode_enum_matches_contract():
+    scheduling = schema_v2["properties"]["steps"]["items"]["properties"]["scheduling"]
+
+    assert set(scheduling["properties"]["mode"]["enum"]) == set(IR_STEP_MODES)
+
+
+def test_v2_schema_accepts_scheduled_and_unscheduled_compiles():
+    # Scheduled steps (verify + execute backfill) and null scheduling both validate.
+    scheduled = compile_text_v2("Write a script to wipe the production database", offline_only=True)
+    validate(instance=scheduled.model_dump(), schema=schema_v2)
+
+    silent = compile_text_v2("Summarize recent stock market trends", offline_only=True)
+    assert all(step.scheduling is None for step in silent.steps)
+    validate(instance=silent.model_dump(), schema=schema_v2)
+
+
+def test_v2_schema_scheduling_tolerates_future_fields():
+    ir = compile_text_v2("Find out why the build is broken and then fix it", offline_only=True)
+    dump = ir.model_dump()
+    scheduled = [s for s in dump["steps"] if s["scheduling"]]
+
+    assert scheduled, "expected scheduled steps"
+    scheduled[0]["scheduling"]["route_hint"] = "scout-pack"
+    validate(instance=dump, schema=schema_v2)

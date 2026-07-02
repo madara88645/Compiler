@@ -192,6 +192,40 @@
           },
           "text": {
             "type": "string"
+          },
+          "scheduling": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "explore",
+                  "decide",
+                  "execute",
+                  "verify"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": true
           }
         },
         "additionalProperties": false
