@@ -118,6 +118,26 @@ _SCENARIO_CONSIDERATIONS = {
         "Profile before changing code (React DevTools Profiler) to find which components actually re-render.",
         "Cut re-renders with memoization (React.memo / useMemo / useCallback) and better state placement; virtualize long lists.",
     ],
+    "sql_query": [
+        "Run EXPLAIN/ANALYZE on slow or complex queries to identify bottlenecks; ensure indexes exist on frequently filtered or joined columns.",
+        "Identify and avoid ORM N+1 query patterns by using eager loading or joining strategies.",
+    ],
+    "file_upload": [
+        "Perform server-side file size and type validation; do not trust client-supplied metadata or extensions.",
+        "Stream uploads directly to disk or cloud storage, and store files outside the public web root directory.",
+    ],
+    "auth_login": [
+        "Use salted slow hashing algorithms (like bcrypt, argon2, or scrypt) for password storage instead of fast hashes.",
+        "Store session identifiers in cookies with Secure, httpOnly, and SameSite attributes, and enforce rate limiting on logins.",
+    ],
+    "datetime_tz": [
+        "Store and perform calculations on datetimes in UTC; convert to local timezone only at the presentation layer.",
+        "Use robust timezone libraries that automatically handle Daylight Saving Time (DST) changes to avoid offset calculation errors.",
+    ],
+    "frontend_perf": [
+        "Use framework devtools (e.g. React DevTools Profiler) to profile component rendering and state updates first.",
+        "Apply component memoization, debounced event handlers, and list virtualization for long lists to reduce rendering overhead.",
+    ],
 }
 
 
@@ -138,8 +158,12 @@ def _scenario_considerations(ir) -> list[str]:
     if detect_frontend_download_feature(text):
         return _SCENARIO_CONSIDERATIONS["browser_download"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
-    if "log" in text and _contains_any_marker(
-        text, ("brute", "login", "auth", "attack", "failed", "intrusion")
+    is_log_source = (
+        _contains_any_marker(text, ("log file", "log files", "logs", "logfile", "logfiles"))
+        or " log " in f" {text} "
+    )
+    if is_log_source and _contains_any_marker(
+        text, ("brute", "attack", "intrusion", "abuse", "bruteforce", "failed")
     ):
         return _SCENARIO_CONSIDERATIONS["log_bruteforce"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
@@ -150,6 +174,47 @@ def _scenario_considerations(ir) -> list[str]:
         text, ("re-render", "rerender", "render", "slow", "perf", "memo")
     ):
         return _SCENARIO_CONSIDERATIONS["react_perf"]
+    has_orm = (
+        "orm" in [w.strip(".,;:!?()") for w in text.split()] or "-orm" in text or "orm-" in text
+    )
+    if (
+        _contains_any_marker(text, ("sql", "postgres", "mysql", "sqlite", "n+1"))
+        or has_orm
+        or (
+            "query" in text
+            and _contains_any_marker(
+                text, ("database", "db", "select", "insert", "update", "delete")
+            )
+        )
+    ):
+        return _SCENARIO_CONSIDERATIONS["sql_query"]
+    if _contains_any_marker(text, ("upload", "multipart")):
+        return _SCENARIO_CONSIDERATIONS["file_upload"]
+    if _contains_any_marker(
+        text, ("login", "auth", "signup", "signin", "authenticate", "password")
+    ):
+        return _SCENARIO_CONSIDERATIONS["auth_login"]
+    if _contains_any_marker(
+        text, ("timezone", "utc", "daylight saving", "datetime")
+    ) or _contains_any_marker(f" {text} ", (" dst ", " tz ")):
+        return _SCENARIO_CONSIDERATIONS["datetime_tz"]
+    if _contains_any_marker(
+        text, ("frontend", "ui", "vue", "angular", "framework")
+    ) and _contains_any_marker(
+        text,
+        (
+            "re-render",
+            "rerender",
+            "render",
+            "slow",
+            "perf",
+            "performance",
+            "memo",
+            "debounce",
+            "virtualiz",
+        ),
+    ):
+        return _SCENARIO_CONSIDERATIONS["frontend_perf"]
     return []
 
 

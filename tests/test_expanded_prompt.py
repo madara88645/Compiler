@@ -167,3 +167,78 @@ def test_prompt_templates_discourage_invented_project_details():
     assert "mark assumptions explicitly" in worker_v1
     assert "use `requests` and `beautifulsoup4`" not in worker_v1
     assert "implement retry/backoff" not in worker_v1
+
+
+def test_expanded_prompt_v2_surfaces_sql_query_domain_guidance():
+    ir = compile_text_v2(
+        "Write a SQL query to select user profiles and optimize it with database indexes",
+        offline_only=True,
+    )
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
+    assert "Key considerations:" in ep
+    assert "EXPLAIN/ANALYZE" in ep
+    assert "ORM N+1" in ep
+
+
+def test_expanded_prompt_v2_surfaces_file_upload_domain_guidance():
+    ir = compile_text_v2(
+        "Build a server endpoint for secure file upload with validation",
+        offline_only=True,
+    )
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
+    assert "Key considerations:" in ep
+    assert "validation" in ep.lower()
+    assert "public web root" in ep.lower()
+
+
+def test_expanded_prompt_v2_surfaces_auth_login_domain_guidance():
+    ir = compile_text_v2(
+        "Design a user login endpoint with password auth",
+        offline_only=True,
+    )
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
+    assert "Key considerations:" in ep
+    assert "bcrypt" in ep.lower() or "argon2" in ep.lower() or "scrypt" in ep.lower()
+    assert "httponly" in ep.lower()
+
+
+def test_expanded_prompt_v2_surfaces_datetime_tz_domain_guidance():
+    ir = compile_text_v2(
+        "Store meeting schedules in UTC and handle timezone conversions and DST shifts",
+        offline_only=True,
+    )
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
+    assert "Key considerations:" in ep
+    assert "UTC" in ep
+    assert "DST" in ep
+
+
+def test_expanded_prompt_v2_surfaces_frontend_perf_domain_guidance():
+    ir = compile_text_v2(
+        "Improve our frontend search speed with list virtualization and debouncing",
+        offline_only=True,
+    )
+    ep = emit_expanded_prompt_v2(ir, diagnostics=False)
+    assert "Key considerations:" in ep
+    assert "devtools" in ep.lower()
+    assert "debounced" in ep.lower() or "debounce" in ep.lower()
+    assert "virtualization" in ep.lower() or "virtualize" in ep.lower()
+
+
+def test_expanded_prompt_v2_tightened_log_bruteforce_routing():
+    # Triggering query with log files + brute force attack
+    ir_trigger = compile_text_v2(
+        "Write a parser for web server log files to detect brute force attacks",
+        offline_only=True,
+    )
+    ep_trigger = emit_expanded_prompt_v2(ir_trigger, diagnostics=False)
+    assert "Key considerations:" in ep_trigger
+    assert "nginx combined" in ep_trigger.lower()
+
+    # Non-triggering query with bare "log" and "login"
+    ir_no_trigger = compile_text_v2(
+        "Implement a login authentication screen and logger",
+        offline_only=True,
+    )
+    ep_no_trigger = emit_expanded_prompt_v2(ir_no_trigger, diagnostics=False)
+    assert "nginx combined" not in ep_no_trigger.lower()

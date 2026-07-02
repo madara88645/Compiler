@@ -174,6 +174,82 @@ class TestScenarioConsiderations:
         assert "React DevTools Profiler" in considerations[0]
         assert "virtualize long lists" in considerations[1]
 
+    def test_log_bruteforce_requires_log_source_and_threat(self) -> None:
+        # Triggering case
+        ir_trigger = SimpleNamespace(
+            goals=["Monitor server log files for brute force attacks"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir_trigger)
+        assert len(considerations) == 2
+        assert "nginx combined" in considerations[0]
+
+        # Non-triggering case (bare "log" or "login" is not a log source word)
+        ir_no_source = SimpleNamespace(
+            goals=["Detect brute force login attempts"],
+            tasks=[],
+        )
+        # Should route to auth_login instead of log_bruteforce
+        assert _scenario_considerations(ir_no_source) != []
+        assert "bcrypt" in _scenario_considerations(ir_no_source)[0]
+
+        # Non-triggering case (log source word but no threat indicator)
+        ir_no_threat = SimpleNamespace(
+            goals=["Process nginx log files"],
+            tasks=[],
+        )
+        assert _scenario_considerations(ir_no_threat) == []
+
+    def test_sql_query_scenario(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Write a database query to list all active projects"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir)
+        assert len(considerations) == 2
+        assert "EXPLAIN/ANALYZE" in considerations[0]
+        assert "ORM N+1" in considerations[1]
+
+    def test_file_upload_scenario(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Build a multipart file upload server module"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir)
+        assert len(considerations) == 2
+        assert "size and type validation" in considerations[0].lower()
+        assert "outside the public web root" in considerations[1].lower()
+
+    def test_auth_login_scenario(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Implement secure login session storage and authentication"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir)
+        assert len(considerations) == 2
+        assert "bcrypt" in considerations[0].lower()
+        assert "httponly" in considerations[1].lower()
+
+    def test_datetime_tz_scenario(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Manage recurring calendar events with timezone offsets and DST"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir)
+        assert len(considerations) == 2
+        assert "UTC" in considerations[0]
+        assert "DST" in considerations[1]
+
+    def test_frontend_perf_scenario(self) -> None:
+        ir = SimpleNamespace(
+            goals=["Optimize frontend search rendering performance and latency"],
+            tasks=[],
+        )
+        considerations = _scenario_considerations(ir)
+        assert len(considerations) == 2
+        assert "devtools" in considerations[0].lower()
+        assert "virtualization" in considerations[1].lower()
+
 
 class TestRelevantFollowups:
     """Choose the most useful follow-up question set for the prompt context."""
