@@ -294,3 +294,29 @@ class TestRelevantFollowups:
         assert len(followups) == 3
         assert followups[0] == "Which language, framework, and version are targeted?"
         assert "React DevTools Profiler" not in "\n".join(followups)
+
+    def test_new_security_keywords_trigger_security_followups(self) -> None:
+        new_keywords = ["oauth", "jwt", "xss", "csrf", "sql injection", "password"]
+        for kw in new_keywords:
+            ir = SimpleNamespace(
+                goals=[f"Implement {kw} protection"],
+                tasks=[],
+                intents=[],
+                domain="software",
+            )
+            followups = _relevant_followups(ir)
+            assert len(followups) == 3
+            assert "What is the threat model" in followups[0]
+
+    def test_new_ops_keywords_trigger_ops_followups(self) -> None:
+        new_keywords = ["docker", "helm", "rollback", "downtime", "cron", "ansible"]
+        for kw in new_keywords:
+            ir = SimpleNamespace(
+                goals=[f"Set up {kw} script"],
+                tasks=[],
+                intents=[],
+                domain="software",
+            )
+            followups = _relevant_followups(ir)
+            assert len(followups) == 3
+            assert "Is there a tested backup" in followups[0]

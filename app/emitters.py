@@ -257,12 +257,43 @@ def _relevant_followups(ir) -> list[str]:
         return _FOLLOWUP_SETS["payment"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     if "risk" in intents or _contains_any_marker(
-        text, ("auth", "login", "brute", "token", "encrypt", "security", "secret", "vulnerab")
+        text,
+        (
+            "auth",
+            "login",
+            "brute",
+            "token",
+            "encrypt",
+            "security",
+            "secret",
+            "vulnerab",
+            "oauth",
+            "jwt",
+            "xss",
+            "csrf",
+            "sql injection",
+            "password",
+        ),
     ):
         return _FOLLOWUP_SETS["security"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     if _contains_any_marker(
-        text, ("deploy", "production", "database", "migrate", "wipe", "kubernetes", "terraform")
+        text,
+        (
+            "deploy",
+            "production",
+            "database",
+            "migrate",
+            "wipe",
+            "kubernetes",
+            "terraform",
+            "docker",
+            "helm",
+            "rollback",
+            "downtime",
+            "cron",
+            "ansible",
+        ),
     ):
         return _FOLLOWUP_SETS["ops"]
     if domain == "software" or {"code", "debug", "troubleshooting"} & intents:
