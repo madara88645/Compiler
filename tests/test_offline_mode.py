@@ -18,3 +18,13 @@ def test_offline_mode_enforcer_skips_external_calls():
 
     # Context snippets should be empty or not present
     assert "context_snippets" not in ir2.metadata
+
+
+def test_offline_mode_skips_schema_generation():
+    ir2 = compile_text_v2(
+        "Extract product_name, price, and stock_count.",
+        offline_only=True,
+    )
+
+    assert not any(c.id == "schema_enforcement" for c in ir2.constraints)
+    assert not any(d.category == "structure" for d in ir2.diagnostics)

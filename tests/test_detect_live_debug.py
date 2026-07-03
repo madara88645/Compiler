@@ -3,10 +3,30 @@ import pytest
 from app.heuristics import detect_browser_bug_report, detect_live_debug
 
 
-def test_detect_live_debug_true_cases():
-    assert detect_live_debug("why is this failing") is True
-    assert detect_live_debug("fix this error") is True
-    assert detect_live_debug("traceback") is True
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "why is this failing",
+        "fix this error",
+        "traceback",
+    ],
+)
+def test_detect_live_debug_true_cases(prompt: str):
+    assert detect_live_debug(prompt) is True
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "canlı debug yap",
+        "hata ayıkla lütfen",
+        "yığın izi var",
+        "canli debug",
+        "istisna oluştu",
+    ],
+)
+def test_detect_live_debug_turkish_true_cases(prompt: str):
+    assert detect_live_debug(prompt) is True
 
 
 @pytest.mark.parametrize(
@@ -46,3 +66,17 @@ def test_detect_live_debug_matches_log_and_debug_keywords():
 
 def test_detect_browser_bug_report_false_case():
     assert detect_browser_bug_report("My washing machine button is broken; help me fix it") is False
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Safari button works fine",
+        "The download is broken in the kitchen",
+        "Chrome page layout guide",
+        "Firefox is not working for remote teams",
+        "The button is broken in the UI mockup",
+    ],
+)
+def test_detect_browser_bug_report_partial_marker_false_cases(prompt: str):
+    assert detect_browser_bug_report(prompt) is False

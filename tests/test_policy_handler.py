@@ -94,6 +94,8 @@ def test_policy_escalates_overlapping_risk_domains():
     # Both financial and legal should be detected
     assert "financial" in ir2.policy.risk_domains
     assert "legal" in ir2.policy.risk_domains
+    reasons = ir2.metadata.get("policy_reasons") or []
+    assert "overlapping_risk_domains" in reasons
 
 
 def test_policy_detects_privacy_domain():
@@ -112,6 +114,25 @@ def test_policy_detects_infrastructure_domain():
     assert "infrastructure" in ir2.policy.risk_domains
     assert ir2.policy.execution_mode == "human_approval_required"
     assert "dry_run_required" in ir2.policy.sanitization_rules
+
+
+def test_policy_credit_card_sets_restricted_sensitivity():
+    ir2 = compile_text_v2("Charge 4111-1111-1111-1111 to complete checkout.")
+
+    assert ir2.policy.data_sensitivity == "restricted"
+
+
+def test_policy_debug_adds_run_tests_without_log_keywords():
+    ir2 = compile_text_v2("Debug this Python traceback from my app.")
+
+    assert "run_tests" in ir2.policy.allowed_tools
+    assert "log_inspection" not in ir2.policy.allowed_tools
+
+
+def test_policy_detects_posix_path():
+    ir2 = compile_text_v2("Read config from /etc/app/settings.yaml and validate.")
+
+    assert "path_must_stay_within_workspace" in ir2.policy.sanitization_rules
 
 
 def test_policy_detects_unc_path():
