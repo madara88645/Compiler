@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 
 import { useRef, useState } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
@@ -57,6 +58,7 @@ export default function SkillsGenerator() {
   const [history, setHistory] = useState<{ label: string; result: SkillGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
 
+  const { fillExample, stop: stopTypewriter } = useTypewriterFill(setDescription, { id: "skill-description" });
   const isGeneratingRef = useRef(false);
   const isValidRepoUrl = isSupportedGitHubRepoRootUrl(repoUrl);
 
@@ -251,7 +253,7 @@ export default function SkillsGenerator() {
                 className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { stopTypewriter(); setDescription(e.target.value); }}
                 onKeyDown={(e) => {
                   if (e.repeat) return;
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -266,7 +268,7 @@ export default function SkillsGenerator() {
             {description && (
               <button
                 type="button"
-                onClick={() => setDescription("")}
+                onClick={() => { stopTypewriter(); setDescription(""); }}
                 className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500/50"
                 title="Clear input"
                 aria-label="Clear input"
@@ -424,13 +426,7 @@ export default function SkillsGenerator() {
                     {!description.trim() && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setDescription("A skill that takes a URL, fetches the page content, extracts the main article text, and returns a 3-bullet summary.");
-                          setTimeout(() => {
-                            const textarea = document.getElementById('skill-description');
-                            if (textarea) textarea.focus();
-                          }, 0);
-                        }}
+                        onClick={() => fillExample("A skill that takes a URL, fetches the page content, extracts the main article text, and returns a 3-bullet summary.")}
                         className="text-xs text-yellow-400/80 hover:text-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded px-2 py-1"
                       >
                         or try an example
