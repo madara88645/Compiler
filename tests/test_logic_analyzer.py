@@ -40,6 +40,14 @@ def test_detect_dependencies_skips_sentences_without_dependency_keywords():
     assert dependencies == []
 
 
+def test_detect_negations_skips_sentences_without_negation_keywords():
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations("Cache the API response for later reuse.")
+
+    assert negations == []
+
+
 def test_analyze_method_and_convenience_function():
     # Test analyze_prompt_logic convenience function and analyze method
     result = analyze_prompt_logic("Do not use JOIN because it is slow.")

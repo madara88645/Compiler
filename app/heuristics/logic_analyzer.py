@@ -120,6 +120,11 @@ _DEPENDENCY_FAST_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
+_NEGATION_FAST_PATH_RE = re.compile(
+    r"\b(?:never|absolutely\s+not|under\s+no\s+circumstances|do\s+not|don't|dont|doesn't|does\s+not|should\s+not|shouldn't|shouldnt|must\s+not|mustn't|mustnt|cannot|can't|can\s+not|avoid|refrain\s+from|stay\s+away\s+from|exclude|omit|skip|bypass|ignore|without|except|unless|none\s+of|forbidden|prohibited|disallowed|banned|\bno\s+\w+)\b",
+    re.IGNORECASE,
+)
+
 # Missing information reference patterns
 MISSING_REFERENCE_PATTERNS = [
     # Database/data references
@@ -274,6 +279,9 @@ class LogicAnalyzer:
         seen = set()
 
         for sentence in sentences:
+            if not _NEGATION_FAST_PATH_RE.search(sentence):
+                continue
+
             for pattern, neg_type in self._negation_re:
                 match = pattern.search(sentence)
                 if match:
@@ -457,8 +465,9 @@ class LogicAnalyzer:
         # Detect "the [noun]" patterns without prior definition
         for match in _UNDEFINED_ENTITY_PATTERN.finditer(text):
             entity = match.group(1)
-            key = f"Entity:{entity.lower()}"
-            if key not in seen and entity.lower() not in (
+            entity_lower = entity.lower()
+            key = f"Entity:{entity_lower}"
+            if key not in seen and entity_lower not in (
                 "user",
                 "system",
                 "output",
