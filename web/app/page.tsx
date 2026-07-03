@@ -270,6 +270,7 @@ export default function Home() {
               {!!lastError && !loading && (
                 <button
                   type="button"
+                  aria-label="Retry compile"
                   onClick={() => void retry()}
                   className="text-xs font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >

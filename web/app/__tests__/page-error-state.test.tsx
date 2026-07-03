@@ -44,7 +44,10 @@ describe("Prompt Compiler home", () => {
       screen.getByText("Could not reach the backend. Check the API URL or make sure the server is running."),
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Retry compile" }));
+    const headerRetry = screen.getByText("Retry");
+    expect(headerRetry).toHaveAttribute("aria-label", "Retry compile");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Retry compile" })[0]);
 
     expect(retryMock).toHaveBeenCalledTimes(1);
   });
