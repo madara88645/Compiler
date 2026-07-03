@@ -253,11 +253,12 @@ export default function PrSafetyPage() {
               <label htmlFor="pr-changed-files" className="text-sm font-medium text-zinc-300">
                 Changed Files
               </label>
-              <p className="text-xs text-zinc-500">One file path per line.</p>
+              <p id="pr-changed-files-help" className="text-xs text-zinc-500">One file path per line.</p>
               <div className="relative group">
               <textarea
                 id="pr-changed-files"
                 aria-label="Changed Files"
+                aria-describedby="pr-changed-files-help"
                 className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-xs leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder={"app/auth/login.py\napi/routes/auth.py\ntests/test_auth.py"}
                 value={changedFilesText}
@@ -284,12 +285,13 @@ export default function PrSafetyPage() {
               <label htmlFor="pr-commits-behind" className="text-sm font-medium text-zinc-300">
                 Commits Behind
               </label>
-              <p className="text-xs text-zinc-500">
+              <p id="pr-commits-behind-help" className="text-xs text-zinc-500">
                 Optional. How many commits the branch is behind its base.
               </p>
               <input
                 id="pr-commits-behind"
                 aria-label="Commits Behind"
+                aria-describedby="pr-commits-behind-help"
                 type="number"
                 min={0}
                 inputMode="numeric"
@@ -360,9 +362,9 @@ export default function PrSafetyPage() {
                       <button
                         type="button"
                         onClick={copyMarkdown}
+                        aria-live="polite"
                         className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-500/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
                       >
-                        <span className="sr-only" aria-live="polite">{copied ? "Copied to clipboard" : ""}</span>
                         {copied ? "Copied!" : "Copy as Markdown"}
                       </button>
                       <button
