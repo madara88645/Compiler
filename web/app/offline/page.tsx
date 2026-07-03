@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import { WifiOff } from "lucide-react";
 import ContextManager from "../components/ContextManager";
 import CopyButton from "../components/CopyButton";
@@ -18,6 +19,7 @@ const OFFLINE_MODE: CompileMode = "conservative";
 
 export default function OfflinePage() {
     const [prompt, setPrompt] = useState("");
+    const { fillExample, stop: stopTypewriter } = useTypewriterFill(setPrompt, { id: "offline-prompt" });
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<CompileResponse | null>(null);
     const [activeTab, setActiveTab] = useState<OfflineOutputTab>("system");
@@ -120,7 +122,7 @@ export default function OfflinePage() {
                                 className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500/50 sm:min-h-44 md:min-h-0"
                                 placeholder="Enter prompt (offline heuristics active)..."
                                 value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
+                                onChange={(e) => { stopTypewriter(); setPrompt(e.target.value); }}
                                 onKeyDown={(e) => {
                                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                         e.preventDefault();
@@ -171,13 +173,7 @@ export default function OfflinePage() {
                                 {!prompt.trim() && (
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setPrompt("Create a Python script that monitors a local log directory for new .log files, parses them for ERROR level messages, and outputs a summary report.");
-                                            setTimeout(() => {
-                                                const textarea = document.getElementById('offline-prompt');
-                                                if (textarea) textarea.focus();
-                                            }, 0);
-                                        }}
+                                        onClick={() => fillExample("Create a Python script that monitors a local log directory for new .log files, parses them for ERROR level messages, and outputs a summary report.")}
                                         className="text-xs text-zinc-400/80 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500 rounded px-2 py-1 mx-auto"
                                     >
                                         or try an example
@@ -273,13 +269,7 @@ export default function OfflinePage() {
                                     {!prompt.trim() && (
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setPrompt("Summarize the key points of this meeting transcript.");
-                                                setTimeout(() => {
-                                                    const textarea = document.getElementById('offline-prompt');
-                                                    if (textarea) textarea.focus();
-                                                }, 0);
-                                            }}
+                                            onClick={() => fillExample("Summarize the key points of this meeting transcript.")}
                                             className="mt-3 text-xs text-zinc-400/80 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500 rounded px-2 py-1 mx-auto block"
                                         >
                                             or try an example
