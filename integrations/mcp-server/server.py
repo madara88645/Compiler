@@ -8,6 +8,8 @@ from compile_settings import (
     resolve_compile_post_url,
     resolve_prompt_mode,
 )
+from repo_collect import collect_repo_facts
+from repo_write import write_pack_files
 
 # Initialize FastMCP server
 mcp = FastMCP("myCompiler")
@@ -140,6 +142,45 @@ async def benchmark_prompt(text: str, model: str = "llama-3.1-8b-instant") -> di
             "model": model,
         },
     )
+
+
+@mcp.tool()
+async def plan_agent_pack(
+    pack_type: str, goal: str = "", risk_mode: str = "balanced", path: str = "."
+) -> dict:
+    """Preview a repo-aware Claude agent pack for the local repository (writes nothing).
+
+    Reads the repo at ``path``, generates a tailored pack on the backend, and returns the file
+    plan with create/overwrite/identical actions against existing files, plus detected stack and
+    commands. Nothing is written to disk.
+    """
+    facts = collect_repo_facts(path)
+    return await _post_json(
+        "/agent-packs/claude/repo-plan",
+        {"pack_type": pack_type, "goal": goal, "risk_mode": risk_mode, "repo_facts": facts},
+    )
+
+
+@mcp.tool()
+async def apply_agent_pack(
+    pack_type: str,
+    goal: str = "",
+    risk_mode: str = "balanced",
+    path: str = ".",
+    overwrite: list[str] | None = None,
+) -> dict:
+    """Generate and WRITE a repo-aware Claude agent pack into the local repository.
+
+    Existing files are never silently overwritten: a conflicting path is written as ``<path>.new``
+    unless its path is included in ``overwrite`` (which the plan surfaces).
+    """
+    facts = collect_repo_facts(path)
+    result = await _post_json(
+        "/agent-packs/claude/repo-plan",
+        {"pack_type": pack_type, "goal": goal, "risk_mode": risk_mode, "repo_facts": facts},
+    )
+    written = write_pack_files(path, result["manifest"]["files"], overwrite or [])
+    return {"written": written, "plan": result["plan"]}
 
 
 if __name__ == "__main__":

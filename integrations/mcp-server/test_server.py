@@ -122,3 +122,34 @@ def test_benchmark_prompt_posts_to_benchmark_endpoint(monkeypatch: pytest.Monkey
     assert result["winner"] == "compiled"
     assert client.calls[0]["url"] == "https://api.example/benchmark/run"
     assert client.calls[0]["json"]["text"] == "Explain RAG"
+
+
+def test_plan_agent_pack_posts_repo_facts(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    (tmp_path / "package.json").write_text('{"scripts": {"test": "vitest run"}}')
+    client = _MockAsyncClient()
+    client.responses.append(_MockResponse({"manifest": {"files": []}, "plan": [], "detected": {}}))
+
+    monkeypatch.setenv("PROMPTC_BACKEND_URL", "https://api.example")
+    with patch("server.httpx.AsyncClient", return_value=client):
+        result = asyncio.run(server.plan_agent_pack("project-pack", goal="x", path=str(tmp_path)))
+
+    assert client.calls[0]["url"] == "https://api.example/agent-packs/claude/repo-plan"
+    body = client.calls[0]["json"]
+    assert "package.json" in body["repo_facts"]["files"]
+    assert body["pack_type"] == "project-pack"
+    assert "plan" in result
+
+
+def test_apply_agent_pack_writes_files(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    manifest = {"files": [{"path": "CLAUDE.md", "content": "NEW"}]}
+    client = _MockAsyncClient()
+    client.responses.append(
+        _MockResponse({"manifest": manifest, "plan": [{"path": "CLAUDE.md", "action": "create"}]})
+    )
+
+    monkeypatch.setenv("PROMPTC_BACKEND_URL", "https://api.example")
+    with patch("server.httpx.AsyncClient", return_value=client):
+        result = asyncio.run(server.apply_agent_pack("project-pack", goal="x", path=str(tmp_path)))
+
+    assert (tmp_path / "CLAUDE.md").read_text() == "NEW"
+    assert result["written"]["created"] == ["CLAUDE.md"]
