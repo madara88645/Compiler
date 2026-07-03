@@ -77,9 +77,7 @@ def test_same_path_not_suggested_twice(handler):
 
 def test_duplicate_paths_in_input_deduped(handler):
     text = "Check auth.py carefully."
-    suggestions = handler._find_suggestions(
-        text, ["app/services/auth.py", "app/services/auth.py"]
-    )
+    suggestions = handler._find_suggestions(text, ["app/services/auth.py", "app/services/auth.py"])
     assert len(suggestions) == 1
 
 

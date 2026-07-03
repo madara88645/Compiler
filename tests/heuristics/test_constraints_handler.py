@@ -142,14 +142,18 @@ def test_extract_io_constraints_no_mappings_returns_empty(handler):
 
 
 def test_extract_io_constraints_skips_low_confidence(handler):
-    io = IOMapping(input_type="text", process_action="process", output_format="json", confidence=0.2)
+    io = IOMapping(
+        input_type="text", process_action="process", output_format="json", confidence=0.2
+    )
     analysis = LogicAnalysisResult(io_mappings=[io])
 
     assert handler._extract_io_constraints(analysis) == []
 
 
 def test_extract_io_constraints_includes_at_or_above_threshold(handler):
-    io = IOMapping(input_type="csv", process_action="analyze", output_format="table", confidence=0.3)
+    io = IOMapping(
+        input_type="csv", process_action="analyze", output_format="table", confidence=0.3
+    )
     analysis = LogicAnalysisResult(io_mappings=[io])
 
     result = handler._extract_io_constraints(analysis)

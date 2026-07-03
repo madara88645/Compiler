@@ -214,9 +214,7 @@ def test_detect_risky_areas_finds_auth_and_api_hits_for_same_path():
 
 def test_detect_risky_areas_secrets():
     hits = detect_risky_areas([".env.example"])
-    assert hits == [
-        ("secrets", ".env.example", "Touches secret or environment configuration")
-    ]
+    assert hits == [("secrets", ".env.example", "Touches secret or environment configuration")]
 
 
 def test_detect_risky_areas_migrations():

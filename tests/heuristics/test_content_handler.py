@@ -108,17 +108,23 @@ def test_creative_intent_detected(handler):
 
 
 def test_explanation_intent_detected(handler):
-    ir_v2 = _run(handler, metadata={"original_text": "Can you explain how does this algorithm work?"})
+    ir_v2 = _run(
+        handler, metadata={"original_text": "Can you explain how does this algorithm work?"}
+    )
     assert "explanation" in ir_v2.intents
 
 
 def test_proposal_intent_detected(handler):
-    ir_v2 = _run(handler, metadata={"original_text": "Write a proposal for the new marketing plan."})
+    ir_v2 = _run(
+        handler, metadata={"original_text": "Write a proposal for the new marketing plan."}
+    )
     assert "proposal" in ir_v2.intents
 
 
 def test_review_intent_detected(handler):
-    ir_v2 = _run(handler, metadata={"original_text": "Please review my essay for grammar mistakes."})
+    ir_v2 = _run(
+        handler, metadata={"original_text": "Please review my essay for grammar mistakes."}
+    )
     assert "review" in ir_v2.intents
 
 
@@ -135,7 +141,9 @@ def test_troubleshooting_intent_detected_via_keyword(handler):
 def test_troubleshooting_intent_detected_via_live_debug(handler):
     # detect_troubleshooting_intent also triggers off detect_live_debug();
     # a stack trace / traceback is one of the TROUBLESHOOTING_INTENT_KEYWORDS
-    ir_v2 = _run(handler, metadata={"original_text": "Here is the traceback I'm seeing, please help."})
+    ir_v2 = _run(
+        handler, metadata={"original_text": "Here is the traceback I'm seeing, please help."}
+    )
     assert "troubleshooting" in ir_v2.intents
 
 
