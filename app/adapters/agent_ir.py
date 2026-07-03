@@ -51,6 +51,7 @@ class AgentExportIR(BaseModel):
     is_multi_agent: bool = False
     agents: list["AgentExportIR"] = Field(default_factory=list)
     permission_mode: str = "acceptEdits"
+    strict_permissions: bool = False
     allowed_tools: list[str] = Field(default_factory=list)
     hook_suggestions: list[str] = Field(default_factory=list)
     mcp_servers: list[str] = Field(default_factory=list)

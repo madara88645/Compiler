@@ -315,6 +315,9 @@ def _build_agent_ir(req: AgentPackRequest, generated_markdown: str) -> AgentExpo
         tech_stack=tech_stack,
     )
     grounded = parse_agent_markdown(rendered)
+    if req.risk_mode == "strict":
+        grounded.permission_mode = "default"  # ask before edits, vs "acceptEdits"
+        grounded.strict_permissions = True
     if req.pack_type == "pr-reviewer":
         grounded.allowed_tools = ["Read", "Glob", "Grep", "Bash"]
     return grounded
