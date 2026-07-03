@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import {
   Legend,
   PolarAngleAxis,
@@ -129,6 +130,7 @@ export default function BenchmarkPage() {
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem("promptc_benchmark_prompt") || "";
   });
+  const { fillExample, stop: stopTypewriter } = useTypewriterFill(setPrompt, { id: "benchmark-prompt" });
   const [loading, setLoading] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkPayload | null>(null);
   const [resultIsMock, setResultIsMock] = useState(false);
@@ -353,6 +355,7 @@ export default function BenchmarkPage() {
                 placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => {
+                  stopTypewriter();
                   setPrompt(event.target.value);
                   window.localStorage.setItem("promptc_benchmark_prompt", event.target.value);
                 }}
@@ -522,13 +525,7 @@ export default function BenchmarkPage() {
                       {!prompt.trim() && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setPrompt("Write a Python script to scrape data from a Wikipedia page and extract all the tables.");
-                            setTimeout(() => {
-                              const textarea = document.getElementById('benchmark-prompt');
-                              if (textarea) textarea.focus();
-                            }, 0);
-                          }}
+                          onClick={() => fillExample("Write a Python script to scrape data from a Wikipedia page and extract all the tables.")}
                           className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 rounded px-2 py-1"
                         >
                           or try an example
