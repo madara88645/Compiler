@@ -817,8 +817,10 @@ _RISK_FLAG_PATTERNS: dict[str, list[re.Pattern[str]]] = {
 def detect_risk_flags(text: str) -> list[str]:
     flags: list[str] = []
     for cat, patterns in _RISK_FLAG_PATTERNS.items():
-        if any(pattern.search(text) for pattern in patterns):
-            flags.append(cat)
+        for pattern in patterns:
+            if pattern.search(text):
+                flags.append(cat)
+                break
     return flags
 
 
@@ -889,13 +891,29 @@ _DESTRUCTIVE_TARGETS = [
 
 def detect_destructive_operation(text: str) -> bool:
     """True if the request describes a destructive, hard-to-reverse operation."""
-    if any(pattern.search(text) for pattern in _DESTRUCTIVE_ALWAYS):
-        return True
+    for pattern in _DESTRUCTIVE_ALWAYS:
+        if pattern.search(text):
+            return True
+
     if _DESTRUCTIVE_BENIGN.search(text):
         return False
-    has_verb = any(pattern.search(text) for pattern in _DESTRUCTIVE_VERBS)
-    has_target = any(pattern.search(text) for pattern in _DESTRUCTIVE_TARGETS)
-    return has_verb and has_target
+
+    has_verb = False
+    for pattern in _DESTRUCTIVE_VERBS:
+        if pattern.search(text):
+            has_verb = True
+            break
+
+    if not has_verb:
+        return False
+
+    has_target = False
+    for pattern in _DESTRUCTIVE_TARGETS:
+        if pattern.search(text):
+            has_target = True
+            break
+
+    return has_target
 
 
 def extract_entities(text: str) -> list[str]:
