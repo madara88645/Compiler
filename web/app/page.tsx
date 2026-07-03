@@ -239,13 +239,14 @@ export default function Home() {
               aria-checked={conservativeMode}
               aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
               title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
-              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                 conservativeMode
                   ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-900/20"
                   : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
               }`}
             >
               <span
+                aria-hidden="true"
                 className={`h-2.5 w-2.5 rounded-full transition-all ${
                   conservativeMode ? "bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" : "bg-zinc-500"
                 }`}
