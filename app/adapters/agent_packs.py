@@ -31,6 +31,9 @@ class AgentPackRequest(BaseModel):
     goal: str = Field(..., min_length=1, max_length=8_000)
     pack_type: PackType
     risk_mode: RiskMode = "balanced"
+    detected_commands: dict[str, str] | None = None
+    detected_stack: str | None = None
+    has_existing_claude_md: bool = False
 
 
 class AgentPackFile(BaseModel):
@@ -175,7 +178,7 @@ def _build_agent_brief(req: AgentPackRequest) -> str:
     return (
         f"Create a {pack_labels[req.pack_type]}.\n"
         f"Project type: {req.project_type}\n"
-        f"Stack: {req.stack}\n"
+        f"Stack: {req.detected_stack or req.stack}\n"
         f"Goal: {req.goal}\n"
         f"{risk_line}{review_line}\n"
         "Write the output as a practical system prompt that can be exported into Claude-native assets."
@@ -195,6 +198,20 @@ def _build_skill_brief(req: AgentPackRequest) -> str:
         f"Goal: {req.goal}\n"
         f"{risk_line}\n"
         "Include the purpose, parameters, expected behavior, and integration notes."
+    )
+
+
+def _validation_workflow(req: AgentPackRequest) -> str:
+    cmds = req.detected_commands or {}
+    if cmds:
+        pairs = ", ".join(f"{name}: `{cmd}`" for name, cmd in cmds.items())
+        return (
+            f"Run the repository's real validation commands ({pairs}); "
+            "report commands, results, remaining risk, and files changed."
+        )
+    return (
+        "Discover the repository's existing validation commands, run the smallest relevant checks, "
+        "and report commands, results, remaining risk, and files changed."
     )
 
 
@@ -297,10 +314,7 @@ def _build_agent_ir(req: AgentPackRequest, generated_markdown: str) -> AgentExpo
                 "not proof of repository commands or APIs."
             ),
             _pack_specific_workflow(req.pack_type),
-            (
-                "Discover the repository's existing validation commands, run the smallest relevant checks, "
-                "and report commands, results, remaining risk, and files changed."
-            ),
+            _validation_workflow(req),
             *generated_workflows,
         ]
     )
@@ -315,6 +329,7 @@ def _build_agent_ir(req: AgentPackRequest, generated_markdown: str) -> AgentExpo
         tech_stack=tech_stack,
     )
     grounded = parse_agent_markdown(rendered)
+    grounded.detected_commands = req.detected_commands or {}
     if req.risk_mode == "strict":
         grounded.permission_mode = "default"  # ask before edits, vs "acceptEdits"
         grounded.strict_permissions = True
