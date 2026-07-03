@@ -70,7 +70,8 @@ def test_production_database_without_destructive_verb_is_not_destructive():
 
 def test_production_database_status_prompt_stays_below_high_risk():
     ir = compile_text_v2("The production database is slow after deploy")
-    assert ir.policy.risk_level != "high"
+    assert ir.policy.risk_level == "medium"
+    assert ir.policy.execution_mode == "human_approval_required"
     assert "destructive_operation" not in ir.metadata.get("policy_reasons", [])
 
 
