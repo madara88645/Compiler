@@ -64,12 +64,25 @@ def test_deleting_a_temp_file_is_not_destructive():
     assert detect_destructive_operation("Delete the temporary file in the build folder") is False
 
 
+def test_production_database_without_destructive_verb_is_not_destructive():
+    assert detect_destructive_operation("The production database is slow after deploy") is False
+
+
 def test_dropping_a_dependency_is_not_destructive():
     assert detect_destructive_operation("Drop the unused npm dependency from package.json") is False
 
 
 def test_drop_database_connection_pool_is_not_destructive():
     assert detect_destructive_operation("Drop the database connection pool when idle") is False
+
+
+def test_truncate_database_connection_pool_label_text_is_not_destructive():
+    assert (
+        detect_destructive_operation(
+            "Truncate the database connection pool label text to 40 characters"
+        )
+        is False
+    )
 
 
 def test_truncate_table_cell_text_is_not_destructive():

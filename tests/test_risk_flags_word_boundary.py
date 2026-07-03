@@ -54,3 +54,8 @@ def test_exact_legal_terms_still_match():
     # whole-word matching keeps the listed terms; precision over inflection
     # (missing plurals is an acceptable false-negative; over-flagging is the bug we fix)
     assert "legal" in detect_risk_flags("The new regulation affects our signed contract")
+
+
+def test_multiple_legal_keywords_only_emit_one_flag():
+    flags = detect_risk_flags("A lawyer should review the contract before the lawsuit lands.")
+    assert flags.count("legal") == 1
