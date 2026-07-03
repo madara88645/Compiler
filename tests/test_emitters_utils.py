@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from app.emitters import (
     _clean_domain_suggestion_text,
     _contains_any_marker,
+    _ir_goals_tasks_lower,
     _is_trivial_input,
     _minimal_greeting_prompt,
     _relevant_followups,
@@ -250,6 +251,26 @@ class TestScenarioConsiderations:
         assert "devtools" in considerations[0].lower()
         assert "virtualization" in considerations[1].lower()
 
+    def test_text_param_matches_standalone(self) -> None:
+        cases = [
+            SimpleNamespace(
+                goals=["Add a button so users can download CSV exports from the dashboard"],
+                tasks=[],
+            ),
+            SimpleNamespace(
+                goals=["Write a database query to list all active projects"],
+                tasks=[],
+            ),
+            SimpleNamespace(
+                goals=["Optimize frontend search rendering performance and latency"],
+                tasks=[],
+            ),
+        ]
+        for ir in cases:
+            standalone = _scenario_considerations(ir)
+            shared = _scenario_considerations(ir, text=_ir_goals_tasks_lower(ir))
+            assert shared == standalone
+
 
 class TestRelevantFollowups:
     """Choose the most useful follow-up question set for the prompt context."""
@@ -320,3 +341,29 @@ class TestRelevantFollowups:
             followups = _relevant_followups(ir)
             assert len(followups) == 3
             assert "Is there a tested backup" in followups[0]
+
+    def test_text_param_matches_standalone(self) -> None:
+        cases = [
+            SimpleNamespace(
+                goals=["My React button re-renders constantly and the page feels slow"],
+                tasks=[],
+                intents=[],
+                domain="software",
+            ),
+            SimpleNamespace(
+                goals=["This Chrome button renders in the wrong place after click"],
+                tasks=[],
+                intents=[],
+                domain="software",
+            ),
+            SimpleNamespace(
+                goals=["Set up docker script"],
+                tasks=[],
+                intents=[],
+                domain="software",
+            ),
+        ]
+        for ir in cases:
+            standalone = _relevant_followups(ir)
+            shared = _relevant_followups(ir, text=_ir_goals_tasks_lower(ir))
+            assert shared == standalone
