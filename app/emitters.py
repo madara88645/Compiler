@@ -270,18 +270,25 @@ def _contains_any_marker(text: str, markers: tuple[str, ...]) -> bool:
     return False
 
 
-def _scenario_considerations(ir) -> list[str]:
-    """High-value, conservative gotchas for a recognized scenario (empty if none)."""
+def _ir_goals_tasks_lower(ir) -> str:
+    """Joined lowercase goals/tasks text for scenario/followup heuristics."""
     parts: list[str] = []
     for attr in ("goals", "tasks"):
         parts.extend(getattr(ir, attr, None) or [])
-    text = " ".join(parts).lower()
+    return " ".join(parts).lower()
+
+
+def _scenario_considerations(ir, *, text: str | None = None) -> list[str]:
+    """High-value, conservative gotchas for a recognized scenario (empty if none)."""
+    if text is None:
+        text = _ir_goals_tasks_lower(ir)
+    padded = f" {text} "
     if detect_frontend_download_feature(text):
         return _SCENARIO_CONSIDERATIONS["browser_download"]
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
     is_log_source = (
         _contains_any_marker(text, ("log file", "log files", "logs", "logfile", "logfiles"))
-        or " log " in f" {text} "
+        or " log " in padded
     )
     if is_log_source and _contains_any_marker(
         text, ("brute", "attack", "intrusion", "abuse", "bruteforce", "failed")
@@ -295,9 +302,12 @@ def _scenario_considerations(ir) -> list[str]:
         text, ("re-render", "rerender", "render", "slow", "perf", "memo")
     ):
         return _SCENARIO_CONSIDERATIONS["react_perf"]
-    has_orm = (
-        "orm" in [w.strip(".,;:!?()") for w in text.split()] or "-orm" in text or "orm-" in text
-    )
+    has_orm = "-orm" in text or "orm-" in text
+    if not has_orm:
+        for w in text.split():
+            if w.strip(".,;:!?()") == "orm":
+                has_orm = True
+                break
     if (
         _contains_any_marker(text, ("sql", "postgres", "mysql", "sqlite", "n+1"))
         or has_orm
@@ -317,7 +327,7 @@ def _scenario_considerations(ir) -> list[str]:
         return _SCENARIO_CONSIDERATIONS["auth_login"]
     if _contains_any_marker(
         text, ("timezone", "utc", "daylight saving", "datetime")
-    ) or _contains_any_marker(f" {text} ", (" dst ", " tz ")):
+    ) or _contains_any_marker(padded, (" dst ", " tz ")):
         return _SCENARIO_CONSIDERATIONS["datetime_tz"]
     if _contains_any_marker(
         text, ("frontend", "ui", "vue", "angular", "framework")
@@ -339,12 +349,10 @@ def _scenario_considerations(ir) -> list[str]:
     return []
 
 
-def _relevant_followups(ir) -> list[str]:
+def _relevant_followups(ir, *, text: str | None = None) -> list[str]:
     """Pick decisive follow-up questions from the detected domain/intents/text."""
-    parts: list[str] = []
-    for attr in ("goals", "tasks"):
-        parts.extend(getattr(ir, attr, None) or [])
-    text = " ".join(parts).lower()
+    if text is None:
+        text = _ir_goals_tasks_lower(ir)
     intents = set(getattr(ir, "intents", None) or [])
     domain = (getattr(ir, "domain", "") or "").lower()
     # Bolt Optimization: Replace any() generator expression with fast-path loop to avoid overhead
@@ -1072,7 +1080,8 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
             + ": "
             + ", ".join(ir.tone)
         )
-    scenario_considerations = _scenario_considerations(ir)
+    goals_tasks_text = _ir_goals_tasks_lower(ir)
+    scenario_considerations = _scenario_considerations(ir, text=goals_tasks_text)
     if scenario_considerations:
         ctx_lines.append(
             (
@@ -1181,7 +1190,7 @@ def emit_expanded_prompt_v2(ir: IRv2, diagnostics: bool = False) -> str:
         ]
         header_fu = "Preguntas de seguimiento"
     else:
-        followups = _relevant_followups(ir)
+        followups = _relevant_followups(ir, text=goals_tasks_text)
         header_fu = "Follow-up Questions"
     if followups:
         prompt.extend(["", header_fu + ":"])
