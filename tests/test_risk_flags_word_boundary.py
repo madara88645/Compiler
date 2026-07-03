@@ -56,6 +56,6 @@ def test_exact_legal_terms_still_match():
     assert "legal" in detect_risk_flags("The new regulation affects our signed contract")
 
 
-def test_multiple_legal_keywords_only_emit_one_flag():
-    flags = detect_risk_flags("A lawyer should review the contract before the lawsuit lands.")
-    assert flags.count("legal") == 1
+def test_real_legal_term_with_hackathon_stays_legal_only():
+    flags = detect_risk_flags("Turn the hackathon contract into a short review checklist.")
+    assert set(flags) == {"legal"}
