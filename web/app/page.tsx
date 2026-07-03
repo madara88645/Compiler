@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { useTypewriterFill } from "./hooks/useTypewriterFill";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -163,37 +164,9 @@ export default function Home() {
   };
 
   // Typewriter entrance when an example prompt is inserted.
-  const typewriterRef = useRef<number | null>(null);
-  const stopTypewriter = () => {
-    if (typewriterRef.current !== null) {
-      window.clearInterval(typewriterRef.current);
-      typewriterRef.current = null;
-    }
-  };
-  useEffect(() => stopTypewriter, []);
-
-  const fillExample = (text: string) => {
-    stopTypewriter();
-    document
-      .querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]')
-      ?.focus();
-    const prefersReduced =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) {
-      setPrompt(text);
-      return;
-    }
-    setPrompt("");
-    const stepChars = Math.max(1, Math.ceil(text.length / 40)); // ~0.65s total, length-independent
-    let i = 0;
-    typewriterRef.current = window.setInterval(() => {
-      i = Math.min(text.length, i + stepChars);
-      setPrompt(text.slice(0, i));
-      if (i >= text.length) stopTypewriter();
-    }, 16);
-  };
+  const { fillExample, stop: stopTypewriter } = useTypewriterFill(setPrompt, {
+    selector: 'textarea[aria-label="Describe what you want compiled"]',
+  });
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
