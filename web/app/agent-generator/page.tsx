@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 
 import { useRef, useState } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
@@ -63,6 +64,7 @@ export default function AgentGenerator() {
   const [history, setHistory] = useState<{ label: string; result: AgentGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
 
+  const { fillExample, stop: stopTypewriter } = useTypewriterFill(setDescription, { id: "agent-description" });
   const isGeneratingRef = useRef(false);
   const isValidRepoUrl = isSupportedGitHubRepoRootUrl(repoUrl);
 
@@ -257,7 +259,7 @@ export default function AgentGenerator() {
                 className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { stopTypewriter(); setDescription(e.target.value); }}
                 onKeyDown={(e) => {
                   if (e.repeat) return;
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -272,7 +274,7 @@ export default function AgentGenerator() {
             {description && (
               <button
                 type="button"
-                onClick={() => setDescription("")}
+                onClick={() => { stopTypewriter(); setDescription(""); }}
                 className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500/50"
                 title="Clear input"
                 aria-label="Clear input"
@@ -451,13 +453,7 @@ export default function AgentGenerator() {
                     {!description.trim() && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setDescription("A customer support agent that answers questions about billing, handles refunds, and escalates complex issues to a human.");
-                          setTimeout(() => {
-                            const textarea = document.getElementById('agent-description');
-                            if (textarea) textarea.focus();
-                          }, 0);
-                        }}
+                        onClick={() => fillExample("A customer support agent that answers questions about billing, handles refunds, and escalates complex issues to a human.")}
                         className={`text-xs ${multiAgent ? 'text-purple-400/80 hover:text-purple-300 focus-visible:ring-purple-500' : 'text-green-400/80 hover:text-green-300 focus-visible:ring-green-500'} transition-colors focus-visible:outline-none focus-visible:ring-1 rounded px-2 py-1`}
                       >
                         or try an example
