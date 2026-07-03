@@ -66,7 +66,7 @@ export default function Sidebar() {
                         <item.Icon size={20} strokeWidth={1.75} aria-hidden="true" />
 
                         {isActive && (
-                            <div className={`absolute left-[-2px] top-2 bottom-2 w-1 ${accentBar} rounded-full`} />
+                            <div className={`animate-slide-in absolute left-[-2px] top-2 bottom-2 w-1 ${accentBar} rounded-full`} />
                         )}
 
                         {/* Tooltip */}

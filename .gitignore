@@ -70,3 +70,6 @@ scripts/probe_deployment.py
 users.db
 .tmp-test-run/
 .vercel
+
+# Superpowers brainstorm visual companion
+.superpowers/

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -162,6 +162,39 @@ export default function Home() {
     await resolveSecurityDecision(useRedacted, activeMode);
   };
 
+  // Typewriter entrance when an example prompt is inserted.
+  const typewriterRef = useRef<number | null>(null);
+  const stopTypewriter = () => {
+    if (typewriterRef.current !== null) {
+      window.clearInterval(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+  };
+  useEffect(() => stopTypewriter, []);
+
+  const fillExample = (text: string) => {
+    stopTypewriter();
+    document
+      .querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]')
+      ?.focus();
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      setPrompt(text);
+      return;
+    }
+    setPrompt("");
+    const stepChars = Math.max(1, Math.ceil(text.length / 40)); // ~0.65s total, length-independent
+    let i = 0;
+    typewriterRef.current = window.setInterval(() => {
+      i = Math.min(text.length, i + stepChars);
+      setPrompt(text.slice(0, i));
+      if (i >= text.length) stopTypewriter();
+    }, 16);
+  };
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden p-3 py-4 sm:p-4 md:h-screen md:justify-center md:overflow-hidden md:p-8">
 
@@ -261,7 +294,7 @@ export default function Home() {
                   className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
                   placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                   value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
+                  onChange={(e) => { stopTypewriter(); setPrompt(e.target.value); }}
                   onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                       e.preventDefault();
@@ -274,7 +307,7 @@ export default function Home() {
                 {prompt && (
                   <button
                     type="button"
-                    onClick={() => setPrompt("")}
+                    onClick={() => { stopTypewriter(); setPrompt(""); }}
                     className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/50"
                     title="Clear prompt"
                     aria-label="Clear prompt"
@@ -335,7 +368,7 @@ export default function Home() {
               <>
                 {result?.readiness && <ReadinessBanner report={result.readiness} />}
                 {/* Tabs + policy verdict */}
-                <div className="flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
+                <div className="animate-fade-in flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
                     <div role="tablist" aria-label="Output views" className="custom-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth sm:pr-6 lg:pr-0">
                     {(
@@ -379,7 +412,7 @@ export default function Home() {
                   className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
                 >
                   {activeTab === "intent" && (
-                    <div className="absolute inset-0 bg-transparent z-20">
+                    <div className="absolute inset-0 bg-transparent z-20 animate-fade-in">
                       <IntentPolicyPanel result={result} />
                     </div>
                   )}
@@ -445,7 +478,7 @@ export default function Home() {
                         <textarea
                           id="compiled-output"
                           aria-label="Compiled prompt output"
-                          className="w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
+                          className="animate-fade-in w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                           readOnly
                           value={getCompileTabContent(result, tab)}
                         />
@@ -469,7 +502,7 @@ export default function Home() {
                 >
                   {activeTab === "json" && (
                     <>
-                      <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6">
+                      <div className="absolute inset-0 bg-transparent z-20 overflow-auto p-6 animate-fade-in">
                         <pre className="bg-black/30 p-4 rounded-xl border border-white/5 text-xs font-mono text-zinc-300 overflow-auto h-full shadow-inner">
                           {JSON.stringify(result, null, 2)}
                         </pre>
@@ -491,7 +524,7 @@ export default function Home() {
                   className="flex-1 min-h-0 p-0 overflow-hidden relative group bg-black/20"
                 >
                   {activeTab === "quality" && (
-                    <div className="absolute inset-0 bg-transparent z-20">
+                    <div className="absolute inset-0 bg-transparent z-20 animate-fade-in">
                       <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />
                     </div>
                   )}
@@ -525,13 +558,7 @@ export default function Home() {
                     {!prompt.trim() && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setPrompt("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.");
-                          setTimeout(() => {
-                            const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]');
-                            if (textarea) textarea.focus();
-                          }, 0);
-                        }}
+                        onClick={() => fillExample("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.")}
                         className="text-xs text-blue-400/80 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded px-2 py-1"
                       >
                         or try an example
