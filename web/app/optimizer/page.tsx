@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { apiJson } from "@/config";
@@ -189,6 +190,7 @@ export default function OptimizerPage() {
         if (typeof window === "undefined") return "";
         return window.localStorage.getItem("promptc_optimizer_prompt") || "";
     });
+    const { fillExample, stop: stopTypewriter } = useTypewriterFill(setInput, { id: "original-prompt" });
     const [result, setResult] = useState<OptimizeResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [maxTokens, setMaxTokens] = useState<number>(1000);
@@ -409,6 +411,7 @@ export default function OptimizerPage() {
                             aria-label="Original Prompt"
                             value={input}
                             onChange={(e) => {
+                                stopTypewriter();
                                 setInput(e.target.value);
                                 window.localStorage.setItem("promptc_optimizer_prompt", e.target.value);
                             }}
@@ -494,9 +497,7 @@ export default function OptimizerPage() {
                                 {!input.trim() && (
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setInput("You are a helpful assistant. Provide a detailed, step-by-step summary of the provided text, ensuring that no important information is left out, and format the output as a bulleted list with clear headings for each section.");
-                                        }}
+                                        onClick={() => fillExample("You are a helpful assistant. Provide a detailed, step-by-step summary of the provided text, ensuring that no important information is left out, and format the output as a bulleted list with clear headings for each section.")}
                                         className="text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded px-2 py-1"
                                     >
                                         or try an example
