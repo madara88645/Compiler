@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 
 import { useMemo, useState } from "react";
+import { useTypewriterFill } from "../hooks/useTypewriterFill";
 import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
@@ -119,6 +120,11 @@ export default function AgentPacksPage() {
   const handleFieldChange = <K extends keyof AgentPackRequest>(key: K, value: AgentPackRequest[K]) => {
     setRequest((prev) => ({ ...prev, [key]: value }));
   };
+
+  const { fillExample, stop: stopTypewriter } = useTypewriterFill(
+    (v) => handleFieldChange("goal", v),
+    { id: "agent-pack-goal" },
+  );
 
   const handleGenerate = async () => {
     if (!request.goal.trim()) return;
@@ -335,7 +341,7 @@ export default function AgentPacksPage() {
                 id="agent-pack-goal"
                 aria-label="Agent Pack Goal"
                 value={request.goal}
-                onChange={(event) => handleFieldChange("goal", event.target.value)}
+                onChange={(event) => { stopTypewriter(); handleFieldChange("goal", event.target.value); }}
                 className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 placeholder="e.g. Review PRs for prompt leakage, unsafe settings, and missing regression tests."
               />
@@ -343,7 +349,7 @@ export default function AgentPacksPage() {
             {request.goal && (
               <button
                 type="button"
-                onClick={() => handleFieldChange("goal", "")}
+                onClick={() => { stopTypewriter(); handleFieldChange("goal", ""); }}
                 className="absolute top-2 right-2 text-xs text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-black/60 px-2 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500/50"
                 title="Clear input"
                 aria-label="Clear input"
@@ -579,13 +585,7 @@ export default function AgentPacksPage() {
                     {!request.goal.trim() && (
                       <button
                         type="button"
-                        onClick={() => {
-                          handleFieldChange("goal", "Review PRs for prompt leakage, unsafe settings, and missing regression tests.");
-                          setTimeout(() => {
-                            const textarea = document.getElementById('agent-pack-goal');
-                            if (textarea) textarea.focus();
-                          }, 0);
-                        }}
+                        onClick={() => fillExample("Review PRs for prompt leakage, unsafe settings, and missing regression tests.")}
                         className="text-xs text-cyan-400/80 hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded px-2 py-1"
                       >
                         or try an example
