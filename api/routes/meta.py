@@ -6,10 +6,10 @@ router = APIRouter(tags=["meta"])
 
 
 @router.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @router.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {"message": "Prompt Compiler API is running"}
