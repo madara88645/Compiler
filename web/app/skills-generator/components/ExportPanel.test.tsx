@@ -23,6 +23,12 @@ describe("Skill ExportPanel", () => {
         files: [],
       }),
     });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
   });
 
   test("exposes pressed state for the selected target and output mode", async () => {
@@ -64,5 +70,28 @@ describe("Skill ExportPanel", () => {
     await waitFor(() => expect(apiFetch).toHaveBeenCalled());
     const [, options] = apiFetch.mock.calls.at(-1);
     expect(JSON.parse(options.body).format).toBe("claude-mcp-tool-stub");
+  });
+
+  test("announces copy success via sr-only live region, not the copy button", async () => {
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    const copyButton = screen.getByRole("button", { name: "Copy code" });
+    expect(copyButton.getAttribute("aria-live")).toBeNull();
+
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('{"name":"tool"}');
+    });
+
+    const liveRegion = copyButton.querySelector(".sr-only");
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion?.getAttribute("aria-live")).toBe("polite");
+    expect(liveRegion).toHaveTextContent("Copied to clipboard");
+    expect(copyButton.getAttribute("aria-label")).toBe("Copied to clipboard");
   });
 });
