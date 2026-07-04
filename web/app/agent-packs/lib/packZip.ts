@@ -13,5 +13,10 @@ export function zipPackBytes(files: AgentPackFile[]): Uint8Array {
 
 /** Build a downloadable application/zip Blob from the given files. */
 export function buildPackZip(files: AgentPackFile[]): Blob {
-  return new Blob([zipPackBytes(files)], { type: "application/zip" });
+  const bytes = zipPackBytes(files);
+  // Copy into an ArrayBuffer-backed view so the bytes satisfy BlobPart
+  // (fflate types its output as Uint8Array<ArrayBufferLike>).
+  const buffer = new Uint8Array(bytes.length);
+  buffer.set(bytes);
+  return new Blob([buffer], { type: "application/zip" });
 }
