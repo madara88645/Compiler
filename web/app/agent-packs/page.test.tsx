@@ -228,7 +228,7 @@ describe("Agent Packs page", () => {
     expect(screen.getByText(/so the generated files match your setup/i)).toBeTruthy();
   });
 
-  test("closing the preview clears the generated pack and its labels", async () => {
+  test("closing the preview clears the pack, checklist, and checked state", async () => {
     render(<AgentPacksPage />);
 
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
@@ -239,12 +239,24 @@ describe("Agent Packs page", () => {
     expect(await screen.findByText("Pack Preview")).toBeTruthy();
     expect(screen.getByRole("button", { name: "CLAUDE.md" })).toBeTruthy();
 
+    // Tick a checklist item.
+    const firstCheckbox = screen.getAllByRole("checkbox")[0];
+    fireEvent.click(firstCheckbox);
+    const totalBefore = screen.getAllByRole("checkbox").length;
+    expect(screen.getByText(`1/${totalBefore} done`)).toBeTruthy();
+
     fireEvent.click(screen.getByRole("button", { name: /close pack preview/i }));
 
-    // The preview, checklist, and stale file-group labels are gone; the empty state returns.
+    // The preview, checklist, and file tree are gone; the empty state returns.
     await waitFor(() => expect(screen.queryByText("Pack Preview")).toBeNull());
     expect(screen.queryByRole("heading", { name: "Install & review checklist" })).toBeNull();
     expect(screen.queryByRole("button", { name: "CLAUDE.md" })).toBeNull();
     expect(screen.getByText("Single-click pack generation")).toBeTruthy();
+
+    // Regenerating starts the checklist progress from zero.
+    fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
+    await screen.findByText("Pack Preview");
+    const totalAfter = screen.getAllByRole("checkbox").length;
+    expect(screen.getByText(`0/${totalAfter} done`)).toBeTruthy();
   });
 });

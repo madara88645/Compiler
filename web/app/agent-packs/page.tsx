@@ -73,6 +73,7 @@ export default function AgentPacksPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
   const [downloaded, setDownloaded] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const requestHeaders = useMemo(
     () => buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
@@ -93,6 +94,15 @@ export default function AgentPacksPage() {
     setRequest((prev) => ({ ...prev, [key]: value }));
   };
 
+  const toggleChecklistItem = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleGenerate = async () => {
     if (!request.goal.trim()) return;
 
@@ -101,6 +111,7 @@ export default function AgentPacksPage() {
     setManifest(null);
     setSelectedPath(null);
     setDownloaded(false);
+    setCheckedIds(new Set());
 
     try {
       const data = await apiJson<AgentPackManifest>("/agent-packs/claude", {
@@ -139,6 +150,7 @@ export default function AgentPacksPage() {
     setSelectedPath(null);
     setCopiedState(null);
     setDownloaded(false);
+    setCheckedIds(new Set());
   };
 
   const handleDownloadFile = (file: AgentPackFile) => {
@@ -468,7 +480,12 @@ export default function AgentPacksPage() {
                   </div>
                 </div>
 
-                <InstallChecklist sections={installChecklist} downloaded={downloaded} />
+                <InstallChecklist
+                  sections={installChecklist}
+                  checkedIds={checkedIds}
+                  onToggle={toggleChecklistItem}
+                  downloaded={downloaded}
+                />
 
                 <div className="border-b border-white/5 px-4 py-3 sm:px-6">
                   <div className="mb-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500">
