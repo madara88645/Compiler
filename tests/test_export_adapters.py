@@ -17,7 +17,9 @@ from app.adapters.claude_code import (
     to_agent_sdk_python,
     to_agent_sdk_typescript,
     to_claude_project_pack,
+    to_claude_pr_reviewer_pack,
     to_claude_subagent,
+    to_claude_subagent_bundle,
     to_claude_mcp_tool_stub,
 )
 from app.adapters.claude_sdk import to_python, to_yaml
@@ -678,3 +680,124 @@ def test_export_api_python_only(client):
     data = response.json()
     assert data["python_code"] is not None
     assert data["yaml_config"] is None
+
+
+# ---------------------------------------------------------------------------
+# B3 slice 1 — render dead IR fields (.mcp.json + hooks example)
+# ---------------------------------------------------------------------------
+
+
+def test_project_pack_emits_mcp_json_for_known_servers():
+    ir = AgentExportIR(name="X", mcp_servers=["github"])
+    pack = to_claude_project_pack(ir)
+    mcp_files = [f for f in pack if f["path"] == ".mcp.json"]
+    assert len(mcp_files) == 1
+    payload = json.loads(mcp_files[0]["content"])
+    assert payload["mcpServers"]["github"]["url"] == "https://api.githubcopilot.com/mcp/"
+
+
+def test_project_pack_no_mcp_json_when_no_servers():
+    ir = AgentExportIR(name="X", mcp_servers=[])
+    pack = to_claude_project_pack(ir)
+    assert not any(f["path"] == ".mcp.json" for f in pack)
+
+
+def test_pr_reviewer_pack_emits_mcp_json():
+    ir = AgentExportIR(name="X", mcp_servers=["slack"])
+    pack = to_claude_pr_reviewer_pack(ir)
+    assert any(f["path"] == ".mcp.json" for f in pack)
+
+
+def test_mcp_readme_notes_unregistered_servers():
+    ir = AgentExportIR(name="X", mcp_servers=["github", "figma", "jira"])
+    pack = to_claude_project_pack(ir)
+    readme = next(f for f in pack if f["path"] == ".claude/mcp/README.md")
+    assert "figma" in readme["content"]
+    assert "jira" in readme["content"]
+
+
+def test_mcp_readme_no_note_when_all_registered():
+    ir = AgentExportIR(name="X", mcp_servers=["github"])
+    pack = to_claude_project_pack(ir)
+    readme = next(f for f in pack if f["path"] == ".claude/mcp/README.md")
+    assert "not auto-configured" not in readme["content"]
+
+
+def test_select_post_edit_suggestions_exact():
+    from app.adapters.claude_code import _select_post_edit_suggestions
+
+    ir = AgentExportIR(
+        name="X",
+        hook_suggestions=[
+            "Block reads of .env and secrets before tool execution.",
+            "Run targeted tests or lint checks after code edits.",
+            "Run frontend lint/build hooks after editing TSX or CSS.",
+            "Require human confirmation before git push or deploy commands.",
+        ],
+    )
+    assert _select_post_edit_suggestions(ir) == [
+        "Run targeted tests or lint checks after code edits.",
+        "Run frontend lint/build hooks after editing TSX or CSS.",
+    ]
+
+
+def test_hooks_example_none_without_post_edit():
+    from app.adapters.claude_code import _hooks_example_json
+
+    ir = AgentExportIR(
+        name="X",
+        hook_suggestions=[
+            "Block reads of .env and secrets before tool execution.",
+            "Require human confirmation before git push or deploy commands.",
+        ],
+    )
+    assert _hooks_example_json(ir) is None
+
+
+def test_hooks_example_shape_and_shell_safety():
+    import subprocess
+
+    from app.adapters.claude_code import _hooks_example_json
+
+    tricky = 'Run tests after code edits: it\'s `safe` $HOME "ok"'
+    ir = AgentExportIR(name="X", hook_suggestions=[tricky])
+    content = _hooks_example_json(ir)
+    data = json.loads(content)
+    entry = data["hooks"]["PostToolUse"][0]
+    assert entry["matcher"] == "Edit|Write"
+    cmd = entry["hooks"][0]
+    assert cmd["type"] == "command"
+    assert cmd["command"].startswith("echo ")
+
+    # The command is valid shell and echoes the literal text (no $HOME/backtick expansion).
+    result = subprocess.run(cmd["command"], shell=True, capture_output=True, text=True)
+    assert result.returncode == 0
+    assert result.stdout.strip() == tricky
+
+
+def test_project_pack_emits_hooks_example():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    pack = to_claude_project_pack(ir)
+    hooks_files = [f for f in pack if f["path"] == ".claude/hooks.example.json"]
+    assert len(hooks_files) == 1
+    data = json.loads(hooks_files[0]["content"])
+    assert data["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"
+    assert data["hooks"]["PostToolUse"][0]["hooks"][0]["command"].startswith("echo ")
+    # settings.json is unchanged (no hooks key)
+    settings = next(f for f in pack if f["path"] == ".claude/settings.json")
+    assert "hooks" not in json.loads(settings["content"])
+
+
+def test_pr_reviewer_pack_emits_hooks_example():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    pack = to_claude_pr_reviewer_pack(ir)
+    assert any(f["path"] == ".claude/hooks.example.json" for f in pack)
+
+
+def test_subagent_bundle_has_no_hooks_or_mcp_or_settings():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    bundle = to_claude_subagent_bundle(ir)
+    paths = {f["path"] for f in bundle}
+    assert ".mcp.json" not in paths
+    assert ".claude/hooks.example.json" not in paths
+    assert ".claude/settings.json" not in paths
