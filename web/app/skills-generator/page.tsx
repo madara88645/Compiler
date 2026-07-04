@@ -243,10 +243,10 @@ export default function SkillsGenerator() {
             ) : null}
 
             <div className="relative shrink-0 group">
-              <label htmlFor="skill-description" className="sr-only">Skill Description</label>
+              <label htmlFor="skill-description" className="sr-only" id="skill-description-label">Skill Description</label>
               <textarea
                 id="skill-description"
-                aria-label="Skill Description"
+                aria-labelledby="skill-description-label"
                 aria-describedby="skill-description-help"
                 className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"

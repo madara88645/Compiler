@@ -175,7 +175,7 @@ export default function Home() {
   const fillExample = (text: string) => {
     stopTypewriter();
     document
-      .querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]')
+      .querySelector<HTMLTextAreaElement>('#prompt-input')
       ?.focus();
     const prefersReduced =
       typeof window !== "undefined" &&
@@ -289,10 +289,12 @@ export default function Home() {
             <div className="flex-1 flex flex-col relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <div className="relative flex-1 flex flex-col">
-                <label htmlFor="prompt-input" className="sr-only">Describe what you want compiled</label>
+                <label htmlFor="prompt-input" className="sr-only" id="prompt-input-label">Describe what you want compiled</label>
+                <p id="prompt-input-help" className="sr-only">Paste a vague task, bug report, spec, or workflow request... e.g. Turn this GitHub issue into a safe implementation brief</p>
                 <textarea
                   id="prompt-input"
-                  aria-label="Describe what you want compiled"
+                  aria-labelledby="prompt-input-label"
+                  aria-describedby="prompt-input-help"
                   className="min-h-36 w-full flex-1 resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 sm:min-h-44 md:min-h-0"
                   placeholder="Paste a vague task, bug report, spec, or workflow request... e.g. 'Turn this GitHub issue into a safe implementation brief'"
                   value={prompt}
@@ -476,10 +478,10 @@ export default function Home() {
                           )}
                         </div>
 
-                        <label htmlFor="compiled-output" className="sr-only">Compiled prompt output</label>
+                        <label htmlFor="compiled-output" className="sr-only" id="compiled-output-label">Compiled prompt output</label>
                         <textarea
                           id="compiled-output"
-                          aria-label="Compiled prompt output"
+                          aria-labelledby="compiled-output-label"
                           className="animate-fade-in w-full h-full overflow-y-auto bg-transparent p-6 pb-24 font-mono text-sm text-zinc-300 resize-none focus:outline-none leading-relaxed selection:bg-blue-500/30"
                           readOnly
                           value={getCompileTabContent(result, tab)}

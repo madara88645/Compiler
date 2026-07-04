@@ -400,13 +400,14 @@ export default function OptimizerPage() {
             )}
             <div className="grid min-h-[50vh] grid-cols-1 gap-5 md:grid-cols-2">
                 <section className="flex min-h-80 flex-col gap-2">
-                    <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    <label htmlFor="original-prompt" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500" id="original-prompt-label">
                         Original Prompt
                     </label>
                     <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/50 p-4 transition-colors focus-within:border-emerald-500/40 relative">
                         <textarea
                             id="original-prompt"
-                            aria-label="Original Prompt"
+                            aria-labelledby="original-prompt-label"
+                            aria-describedby="original-prompt-description"
                             value={input}
                             onChange={(e) => {
                                 setInput(e.target.value);
@@ -442,7 +443,7 @@ export default function OptimizerPage() {
 
                 <section className="flex min-h-80 flex-col gap-2">
                     <div className="flex items-center justify-between gap-3">
-                        <label htmlFor="optimized-result" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                        <label htmlFor="optimized-result" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500" id="optimized-result-label">
                             Optimized Result
                         </label>
                         {!!output && (
@@ -470,7 +471,7 @@ export default function OptimizerPage() {
                         {output ? (
                             <textarea
                                 id="optimized-result"
-                                aria-label="Optimized Result"
+                                aria-labelledby="optimized-result-label"
                                 readOnly
                                 value={output}
                                 className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-emerald-50 outline-none selection:bg-emerald-500/30"
@@ -565,12 +566,12 @@ export default function OptimizerPage() {
                             </div>
 
                             <div className="mt-3 flex flex-col gap-3">
-                                <label htmlFor="english-variant-output" className="sr-only">English compact suggestion</label>
+                                <label htmlFor="english-variant-output" className="sr-only" id="english-variant-output-label">English compact suggestion</label>
                                 <textarea
                                     id="english-variant-output"
                                     readOnly
                                     value={englishVariant}
-                                    aria-label="English compact suggestion"
+                                    aria-labelledby="english-variant-output-label"
                                     className="min-h-24 w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-sm text-cyan-50 outline-none"
                                 />
                                 <div className="flex items-center justify-between gap-3">
