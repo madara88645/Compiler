@@ -14,6 +14,7 @@ from app.adapters.agent_packs import (
     create_download_response,
 )
 from app.repo_inspect import RepoFacts, derive_repo_context
+from app.repo_inspect.claude_md_merge import merge_claude_md
 
 router = APIRouter(tags=["agent-packs"])
 
@@ -101,12 +102,23 @@ async def repo_plan_claude_agent_pack(
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
 
     existing = req.repo_facts.files
-    plan = [
-        {"path": f.path, "action": _diff_action(existing, f.path, f.content)}
-        for f in manifest.files
-    ]
+    data = manifest.model_dump()
+    plan: list[dict] = []
+    for f in data["files"]:
+        path, content = f["path"], f["content"]
+        if path == "CLAUDE.md" and "CLAUDE.md" in existing:
+            merged = merge_claude_md(existing["CLAUDE.md"], content)
+            f["content"] = merged
+            plan.append(
+                {
+                    "path": path,
+                    "action": "identical" if merged == existing["CLAUDE.md"] else "merge",
+                }
+            )
+        else:
+            plan.append({"path": path, "action": _diff_action(existing, path, content)})
     return {
-        "manifest": manifest.model_dump(),
+        "manifest": data,
         "plan": plan,
         "detected": {
             "stack": ctx.stack_summary(),
