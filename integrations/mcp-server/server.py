@@ -179,7 +179,9 @@ async def apply_agent_pack(
         "/agent-packs/claude/repo-plan",
         {"pack_type": pack_type, "goal": goal, "risk_mode": risk_mode, "repo_facts": facts},
     )
-    written = write_pack_files(path, result["manifest"]["files"], overwrite or [])
+    merge_paths = [p["path"] for p in result["plan"] if p.get("action") == "merge"]
+    effective_overwrite = list(dict.fromkeys((overwrite or []) + merge_paths))
+    written = write_pack_files(path, result["manifest"]["files"], effective_overwrite)
     return {"written": written, "plan": result["plan"]}
 
 

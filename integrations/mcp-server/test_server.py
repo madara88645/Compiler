@@ -153,3 +153,40 @@ def test_apply_agent_pack_writes_files(tmp_path, monkeypatch: pytest.MonkeyPatch
 
     assert (tmp_path / "CLAUDE.md").read_text() == "NEW"
     assert result["written"]["created"] == ["CLAUDE.md"]
+
+
+def test_apply_agent_pack_merges_claude_md_in_place(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    (tmp_path / "CLAUDE.md").write_text("# Existing\n\n## Setup\nrun make\n")
+    merged = "# Existing\n\n## Setup\nrun make\n\n<!-- marker -->\n\n## Deploy\nship\n"
+    manifest = {"files": [{"path": "CLAUDE.md", "content": merged}]}
+    client = _MockAsyncClient()
+    client.responses.append(
+        _MockResponse({"manifest": manifest, "plan": [{"path": "CLAUDE.md", "action": "merge"}]})
+    )
+
+    monkeypatch.setenv("PROMPTC_BACKEND_URL", "https://api.example")
+    with patch("server.httpx.AsyncClient", return_value=client):
+        result = asyncio.run(server.apply_agent_pack("project-pack", goal="x", path=str(tmp_path)))
+
+    assert (tmp_path / "CLAUDE.md").read_text() == merged  # written in place
+    assert not (tmp_path / "CLAUDE.md.new").exists()  # not a .new conflict
+    assert result["written"]["overwritten"] == ["CLAUDE.md"]
+
+
+def test_apply_agent_pack_non_merge_conflict_still_new(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    (tmp_path / "README.md").write_text("old")
+    manifest = {"files": [{"path": "README.md", "content": "new"}]}
+    client = _MockAsyncClient()
+    client.responses.append(
+        _MockResponse(
+            {"manifest": manifest, "plan": [{"path": "README.md", "action": "overwrite"}]}
+        )
+    )
+
+    monkeypatch.setenv("PROMPTC_BACKEND_URL", "https://api.example")
+    with patch("server.httpx.AsyncClient", return_value=client):
+        asyncio.run(server.apply_agent_pack("project-pack", goal="x", path=str(tmp_path)))
+
+    # An "overwrite"-action file the caller did NOT confirm still lands as .new (no-clobber).
+    assert (tmp_path / "README.md").read_text() == "old"
+    assert (tmp_path / "README.md.new").read_text() == "new"
