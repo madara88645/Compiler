@@ -4,8 +4,8 @@ export const agentPackProviders: AgentPackProviderConfig[] = [
   {
     id: "claude",
     name: "Claude",
-    badge: "Beta Preview",
-    summary: "Generate repo-ready Claude assets from one short brief, then review them before production use.",
+    badge: "",
+    summary: "Generate repo-ready Claude assets from one short brief.",
     ctaLabel: "Generate Claude Pack",
     accentClass: "from-sky-500 via-cyan-500 to-blue-600",
     glowClass: "bg-cyan-500/20",
