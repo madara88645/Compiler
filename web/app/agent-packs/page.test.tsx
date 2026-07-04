@@ -53,11 +53,11 @@ describe("Agent Packs page", () => {
     vi.restoreAllMocks();
   });
 
-  test("surfaces beta messaging", () => {
+  test("surfaces a single, calm beta caveat", () => {
     render(<AgentPacksPage />);
 
-    expect(screen.getAllByText("Beta").length).toBeGreaterThan(0);
-    expect(screen.getByText("Experimental Feature")).toBeTruthy();
+    expect(screen.getAllByText("Beta")).toHaveLength(1);
+    expect(screen.queryByText("Experimental Feature")).toBeNull();
     expect(screen.queryByText("API Key (Optional)")).toBeNull();
   });
 
