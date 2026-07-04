@@ -30,9 +30,7 @@ def render_mcp_json(server_names: list[str]) -> str | None:
     for deterministic output; unregistered names are ignored.
     """
     selected = {
-        name: config
-        for name, config in MCP_SERVER_REGISTRY.items()
-        if name in server_names
+        name: config for name, config in MCP_SERVER_REGISTRY.items() if name in server_names
     }
     if not selected:
         return None

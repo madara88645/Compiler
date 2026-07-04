@@ -759,7 +759,7 @@ def test_hooks_example_shape_and_shell_safety():
 
     from app.adapters.claude_code import _hooks_example_json
 
-    tricky = "Run tests after code edits: it's `safe` $HOME \"ok\""
+    tricky = 'Run tests after code edits: it\'s `safe` $HOME "ok"'
     ir = AgentExportIR(name="X", hook_suggestions=[tricky])
     content = _hooks_example_json(ir)
     data = json.loads(content)
