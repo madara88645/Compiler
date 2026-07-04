@@ -3,14 +3,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import AgentPacksPage from "./page";
 
-const { apiJson, apiFetch } = vi.hoisted(() => ({
+const { apiJson } = vi.hoisted(() => ({
   apiJson: vi.fn(),
-  apiFetch: vi.fn(),
 }));
 
 vi.mock("@/config", () => ({
   apiJson,
-  apiFetch,
   buildGeneratorApiHeaders: (headers: HeadersInit = {}) => headers,
   describeRequestError: (error: unknown) =>
     error instanceof Error && error.message === "Failed to fetch"
@@ -27,7 +25,6 @@ vi.mock("../lib/showError", () => ({
 describe("Agent Packs page", () => {
   beforeEach(() => {
     apiJson.mockReset();
-    apiFetch.mockReset();
     apiJson.mockResolvedValue({
       provider: "claude",
       pack_type: "pr-reviewer",
@@ -39,15 +36,6 @@ describe("Agent Packs page", () => {
         { path: ".github/workflows/claude.yml", content: "name: Claude", kind: "workflow" },
       ],
     });
-    apiFetch.mockResolvedValue(
-      new Response("zip-bytes", {
-        status: 200,
-        headers: {
-          "content-disposition": 'attachment; filename="saas-pr-reviewer-claude.zip"',
-          "content-type": "application/zip",
-        },
-      }),
-    );
     Object.defineProperty(globalThis.navigator, "clipboard", {
       configurable: true,
       value: {
@@ -119,22 +107,20 @@ describe("Agent Packs page", () => {
     expect(screen.getByText(/GitHub workflow YAML permissions/i)).toBeTruthy();
   });
 
-  test("downloads the generated pack through the Claude download route", async () => {
+  test("downloads a zip built from the in-state manifest", async () => {
     const clickSpy = vi.fn();
+    const anchors: HTMLAnchorElement[] = [];
     const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
       const element = originalCreateElement(tagName);
       if (tagName.toLowerCase() === "a") {
-        Object.defineProperty(element, "click", {
-          configurable: true,
-          value: clickSpy,
-        });
+        Object.defineProperty(element, "click", { configurable: true, value: clickSpy });
+        anchors.push(element as HTMLAnchorElement);
       }
       return element;
     });
 
     render(<AgentPacksPage />);
-
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
       target: { value: "Create a full project pack." },
     });
@@ -143,100 +129,75 @@ describe("Agent Packs page", () => {
     await screen.findByText("Pack Preview");
     fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
 
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
-    const [path, options] = apiFetch.mock.calls[0];
-    expect(path).toBe("/agent-packs/claude/download");
-    expect(JSON.parse(options.body).goal).toBe("Create a full project pack.");
-    expect(clickSpy).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Downloaded")).toBeTruthy();
-
-    // The blob URL is created for the download and cleaned up afterwards.
+    // Built client-side: a blob URL is created and the anchor is clicked, no server call.
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchors[anchors.length - 1].download).toBe("saas-pr-reviewer-claude.zip");
+    expect(await screen.findByText("Downloaded")).toBeTruthy();
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview"));
-
-    // Button leaves the "Preparing..." state after a successful download.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
-        "Download Pack",
-      ),
-    );
   });
 
-  test("shows a visible error and does not start a download when the pack response is empty", async () => {
-    const originalCreateElement = document.createElement.bind(document);
+  test("falls back to agent-pack.zip when the manifest has no download_name", async () => {
+    apiJson.mockResolvedValueOnce({
+      provider: "claude",
+      pack_type: "pr-reviewer",
+      download_name: "",
+      preview_order: ["claude_md"],
+      files: [{ path: "CLAUDE.md", content: "x", kind: "claude_md" }],
+    });
     const clickSpy = vi.fn();
+    const anchors: HTMLAnchorElement[] = [];
+    const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
       const element = originalCreateElement(tagName);
       if (tagName.toLowerCase() === "a") {
-        Object.defineProperty(element, "click", {
-          configurable: true,
-          value: clickSpy,
-        });
+        Object.defineProperty(element, "click", { configurable: true, value: clickSpy });
+        anchors.push(element as HTMLAnchorElement);
       }
       return element;
     });
 
     render(<AgentPacksPage />);
-
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
-      target: { value: "Create a full project pack." },
+      target: { value: "x" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
 
     await screen.findByText("Pack Preview");
-
-    apiFetch.mockResolvedValueOnce(
-      new Response(new Blob([]), {
-        status: 200,
-        headers: {
-          "content-disposition": 'attachment; filename="saas-pr-reviewer-claude.zip"',
-          "content-type": "application/zip",
-        },
-      }),
-    );
-
     fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
 
-    expect(
-      await screen.findByText("The agent pack download was empty. Please try generating it again."),
-    ).toBeTruthy();
-    expect(clickSpy).not.toHaveBeenCalled();
-    expect(URL.createObjectURL).not.toHaveBeenCalled();
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
-        "Download Pack",
-      ),
-    );
+    expect(anchors[anchors.length - 1].download).toBe("agent-pack.zip");
   });
 
-  test("shows a visible error and resets the button when download fails", async () => {
-    render(<AgentPacksPage />);
+  test("does not download when the manifest has no files", async () => {
+    apiJson.mockResolvedValueOnce({
+      provider: "claude",
+      pack_type: "pr-reviewer",
+      download_name: "empty",
+      preview_order: [],
+      files: [],
+    });
+    const clickSpy = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", { configurable: true, value: clickSpy });
+      }
+      return element;
+    });
 
+    render(<AgentPacksPage />);
     fireEvent.change(screen.getByLabelText("What should Claude do?"), {
-      target: { value: "Create a full project pack." },
+      target: { value: "x" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /generate claude pack/i })[0]);
 
     await screen.findByText("Pack Preview");
-
-    apiFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ detail: "Pack generation failed." }), {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
     fireEvent.click(screen.getByRole("button", { name: /download pack/i }));
 
-    expect(await screen.findByText("Pack generation failed.")).toBeTruthy();
-
-    // No silent infinite loading state: the button returns to its idle label.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /download pack/i }).textContent).toContain(
-        "Download Pack",
-      ),
-    );
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 
   test("shows a normalized network error when generation fails to fetch", async () => {

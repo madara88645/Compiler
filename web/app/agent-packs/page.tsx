@@ -5,11 +5,12 @@ import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 
-import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
+import { apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
 import InstallChecklist from "./components/InstallChecklist";
 import { buildInstallChecklist } from "./installChecklist";
+import { buildPackZip } from "./lib/packZip";
 import { agentPackProviders } from "./providerRegistry";
 import type {
   AgentPackFile,
@@ -66,11 +67,6 @@ const DEFAULT_REQUEST: AgentPackRequest = {
   risk_mode: "balanced",
 };
 
-function getDownloadFilename(response: Response, fallback: string): string {
-  const disposition = response.headers.get("content-disposition") || "";
-  const match = disposition.match(/filename=\"?([^"]+)\"?/i);
-  return match?.[1] || fallback;
-}
 function bundleFiles(files: AgentPackFile[]): string {
   return files
     .map((file) => `# ${file.path}\n\n${file.content.trim()}`)
@@ -171,30 +167,15 @@ export default function AgentPacksPage() {
     setDownloaded(false);
   };
 
-  const handleDownload = async () => {
-    if (!request.goal.trim()) return;
+  const handleDownload = () => {
+    if (!manifest || manifest.files.length === 0) return;
 
     setDownloading(true);
     setError(null);
     try {
-      const response = await apiFetch("/agent-packs/claude/download", {
-        method: "POST",
-        headers: requestHeaders,
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(payload.detail ?? "Download failed.");
-      }
-
-      const blob = await response.blob();
-      if (blob.size === 0) {
-        throw new Error("The agent pack download was empty. Please try generating it again.");
-      }
-
+      const blob = buildPackZip(manifest.files);
       const href = URL.createObjectURL(blob);
-      const filename = getDownloadFilename(response, `${manifest?.download_name || "agent-pack"}.zip`);
+      const filename = `${manifest.download_name || "agent-pack"}.zip`;
       const anchor = document.createElement("a");
       anchor.href = href;
       anchor.download = filename;
