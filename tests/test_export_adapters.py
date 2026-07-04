@@ -17,6 +17,7 @@ from app.adapters.claude_code import (
     to_agent_sdk_python,
     to_agent_sdk_typescript,
     to_claude_project_pack,
+    to_claude_pr_reviewer_pack,
     to_claude_subagent,
     to_claude_mcp_tool_stub,
 )
@@ -678,3 +679,44 @@ def test_export_api_python_only(client):
     data = response.json()
     assert data["python_code"] is not None
     assert data["yaml_config"] is None
+
+
+# ---------------------------------------------------------------------------
+# B3 slice 1 — render dead IR fields (.mcp.json + hooks example)
+# ---------------------------------------------------------------------------
+
+
+def test_project_pack_emits_mcp_json_for_known_servers():
+    ir = AgentExportIR(name="X", mcp_servers=["github"])
+    pack = to_claude_project_pack(ir)
+    mcp_files = [f for f in pack if f["path"] == ".mcp.json"]
+    assert len(mcp_files) == 1
+    payload = json.loads(mcp_files[0]["content"])
+    assert payload["mcpServers"]["github"]["url"] == "https://api.githubcopilot.com/mcp/"
+
+
+def test_project_pack_no_mcp_json_when_no_servers():
+    ir = AgentExportIR(name="X", mcp_servers=[])
+    pack = to_claude_project_pack(ir)
+    assert not any(f["path"] == ".mcp.json" for f in pack)
+
+
+def test_pr_reviewer_pack_emits_mcp_json():
+    ir = AgentExportIR(name="X", mcp_servers=["slack"])
+    pack = to_claude_pr_reviewer_pack(ir)
+    assert any(f["path"] == ".mcp.json" for f in pack)
+
+
+def test_mcp_readme_notes_unregistered_servers():
+    ir = AgentExportIR(name="X", mcp_servers=["github", "figma", "jira"])
+    pack = to_claude_project_pack(ir)
+    readme = next(f for f in pack if f["path"] == ".claude/mcp/README.md")
+    assert "figma" in readme["content"]
+    assert "jira" in readme["content"]
+
+
+def test_mcp_readme_no_note_when_all_registered():
+    ir = AgentExportIR(name="X", mcp_servers=["github"])
+    pack = to_claude_project_pack(ir)
+    readme = next(f for f in pack if f["path"] == ".claude/mcp/README.md")
+    assert "not auto-configured" not in readme["content"]
