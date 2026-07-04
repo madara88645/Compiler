@@ -5,12 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.auth import rate_limit_by_ip
 
 from api.shared import _get_compiler, logger
+from pydantic import BaseModel
+
 from app.adapters.agent_packs import (
     AGENT_PACK_ADAPTERS,
     AgentPackManifest,
     AgentPackRequest,
     create_download_response,
 )
+from app.repo_inspect import RepoFacts, derive_repo_context
 
 router = APIRouter(tags=["agent-packs"])
 
@@ -48,3 +51,66 @@ async def download_claude_agent_pack(
             "agent pack download failed", extra={"provider": "claude", "pack_type": req.pack_type}
         )
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
+
+
+class RepoPlanRequest(BaseModel):
+    pack_type: str
+    goal: str
+    risk_mode: str = "balanced"
+    project_type: str = "repository"
+    repo_facts: RepoFacts
+
+
+def _diff_action(existing: dict[str, str], path: str, content: str) -> str:
+    if path not in existing:
+        return "create"
+    return "identical" if existing[path] == content else "overwrite"
+
+
+@router.post("/agent-packs/claude/repo-plan")
+async def repo_plan_claude_agent_pack(
+    req: RepoPlanRequest,
+    _: None = Depends(rate_limit_by_ip),
+):
+    """Generate a repo-aware Claude pack and diff it against the client's existing files.
+
+    Pure: derives context from the supplied repo facts, generates the manifest, and returns
+    the file plan (create/overwrite/identical). Never touches the filesystem — the MCP client
+    owns all local I/O.
+    """
+    compiler = _get_compiler()
+    adapter = AGENT_PACK_ADAPTERS["claude"]
+    try:
+        ctx = derive_repo_context(req.repo_facts)
+        pack_req = AgentPackRequest(
+            project_type=req.project_type,
+            stack=ctx.stack_summary() or "unspecified",
+            goal=req.goal,
+            pack_type=req.pack_type,
+            risk_mode=req.risk_mode,
+            detected_commands=ctx.command_map() or None,
+            detected_stack=ctx.stack_summary() or None,
+            has_existing_claude_md=ctx.has_existing_claude_md,
+        )
+        manifest = adapter.build_manifest(pack_req, compiler)
+    except Exception as exc:
+        logger.exception(
+            "agent pack repo-plan failed",
+            extra={"provider": "claude", "pack_type": req.pack_type},
+        )
+        raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
+
+    existing = req.repo_facts.files
+    plan = [
+        {"path": f.path, "action": _diff_action(existing, f.path, f.content)}
+        for f in manifest.files
+    ]
+    return {
+        "manifest": manifest.model_dump(),
+        "plan": plan,
+        "detected": {
+            "stack": ctx.stack_summary(),
+            "commands": ctx.command_map(),
+            "has_existing_claude_md": ctx.has_existing_claude_md,
+        },
+    }

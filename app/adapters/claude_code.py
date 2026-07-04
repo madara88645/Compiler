@@ -239,6 +239,10 @@ def _project_claude_md(ir: AgentExportIR) -> str:
         or "1. Inspect the repository before changing it."
     )
     stack = "\n".join(f"- {item}" for item in ir.tech_stack) or "- Confirm from repository files."
+    discovered = ""
+    if ir.detected_commands:
+        cmd_lines = "\n".join(f"- {name}: `{cmd}`" for name, cmd in ir.detected_commands.items())
+        discovered = f"\n## Discovered validation commands\n\n{cmd_lines}\n"
     return textwrap.dedent(
         f"""\
 # {ir.name} Project Guidance
@@ -269,7 +273,7 @@ def _project_claude_md(ir: AgentExportIR) -> str:
 - Run the smallest relevant existing checks first, then the broader repository gate when available.
 - Do not claim a test, build, deploy, or manual check passed unless it actually ran.
 - Report changed files, out-of-scope changes, validation results, remaining risk, and one next step.
-
+{discovered}
 ## Claude Code configuration
 
 - Permission mode: `{ir.permission_mode}`
@@ -316,25 +320,31 @@ def _hooks_example_json(ir: AgentExportIR) -> str | None:
 
 
 def _project_settings_json(ir: AgentExportIR) -> str:
+    deny = [
+        "Read(./.env)",
+        "Read(./.env.*)",
+        "Read(./**/.env)",
+        "Read(./**/.env.*)",
+        "Read(./secrets/**)",
+        "Read(./**/*.pem)",
+        "Read(./**/*.key)",
+    ]
+    ask = [
+        "Bash(git push:*)",
+        "Bash(git commit:*)",
+        "Bash(fly:*)",
+        "Bash(vercel:*)",
+        "Bash(kubectl:*)",
+    ]
+    if ir.strict_permissions:
+        # Strict: the deploy/push/commit gate becomes a hard deny, plus network egress guards.
+        deny = deny + ask + ["WebFetch", "Bash(curl:*)", "Bash(rm -rf:*)"]
+        ask = ["Bash(git:*)", "Bash(npm:*)", "Bash(pip:*)"]
     settings: dict[str, Any] = {
         "permissions": {
             "defaultMode": ir.permission_mode,
-            "deny": [
-                "Read(./.env)",
-                "Read(./.env.*)",
-                "Read(./**/.env)",
-                "Read(./**/.env.*)",
-                "Read(./secrets/**)",
-                "Read(./**/*.pem)",
-                "Read(./**/*.key)",
-            ],
-            "ask": [
-                "Bash(git push:*)",
-                "Bash(git commit:*)",
-                "Bash(fly:*)",
-                "Bash(vercel:*)",
-                "Bash(kubectl:*)",
-            ],
+            "deny": deny,
+            "ask": ask,
         }
     }
     return json.dumps(settings, indent=2)
