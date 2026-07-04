@@ -755,7 +755,7 @@ def test_hooks_example_none_without_post_edit():
 
 
 def test_hooks_example_shape_and_shell_safety():
-    import subprocess
+    import shlex
 
     from app.adapters.claude_code import _hooks_example_json
 
@@ -769,10 +769,11 @@ def test_hooks_example_shape_and_shell_safety():
     assert cmd["type"] == "command"
     assert cmd["command"].startswith("echo ")
 
-    # The command is valid shell and echoes the literal text (no $HOME/backtick expansion).
-    result = subprocess.run(cmd["command"], shell=True, capture_output=True, text=True)
-    assert result.returncode == 0
-    assert result.stdout.strip() == tricky
+    # The command is a single `echo <quoted>` where the payload is one opaque argument, so it
+    # cannot inject or expand ($HOME/backticks stay literal). shlex.split proves this
+    # OS-independently — subprocess(shell=True) would use cmd.exe on Windows, which does not
+    # honour POSIX single-quote quoting.
+    assert shlex.split(cmd["command"]) == ["echo", tricky]
 
 
 def test_project_pack_emits_hooks_example():
