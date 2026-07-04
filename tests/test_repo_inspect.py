@@ -12,7 +12,9 @@ def _facts(files, tree=None, has_claude_md=False):
 
 def test_detects_node_stack_and_scripts():
     facts = _facts(
-        {"web/package.json": '{"scripts": {"test": "vitest run", "build": "next build", "lint": "eslint ."}}'}
+        {
+            "web/package.json": '{"scripts": {"test": "vitest run", "build": "next build", "lint": "eslint ."}}'
+        }
     )
     ctx = derive_repo_context(facts)
     assert "javascript" in {s.language for s in ctx.stacks}

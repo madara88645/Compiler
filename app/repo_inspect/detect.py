@@ -70,7 +70,7 @@ def parse_makefile_targets(content: str, source: str) -> list[DetectedCommand]:
             continue
         # Prefer the first recipe line (tab-indented) as the concrete command.
         recipe = ""
-        for follow in lines[i + 1:]:
+        for follow in lines[i + 1 :]:
             if follow.startswith("\t"):
                 recipe = follow.strip()
                 break
@@ -91,7 +91,20 @@ def detect_stacks(files: dict[str, str]) -> list[StackInfo]:
             continue
         fw = langs.setdefault(lang, set())
         low = content.lower()
-        for name in ("fastapi", "django", "flask", "next", "react", "vue", "svelte", "express", "nestjs"):
+        for name in (
+            "fastapi",
+            "django",
+            "flask",
+            "next",
+            "react",
+            "vue",
+            "svelte",
+            "express",
+            "nestjs",
+        ):
             if name in low:
                 fw.add(name)
-    return [StackInfo(language=lang, frameworks=tuple(sorted(fws))) for lang, fws in sorted(langs.items())]
+    return [
+        StackInfo(language=lang, frameworks=tuple(sorted(fws)))
+        for lang, fws in sorted(langs.items())
+    ]
