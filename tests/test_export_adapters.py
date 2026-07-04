@@ -720,3 +720,55 @@ def test_mcp_readme_no_note_when_all_registered():
     pack = to_claude_project_pack(ir)
     readme = next(f for f in pack if f["path"] == ".claude/mcp/README.md")
     assert "not auto-configured" not in readme["content"]
+
+
+def test_select_post_edit_suggestions_exact():
+    from app.adapters.claude_code import _select_post_edit_suggestions
+
+    ir = AgentExportIR(
+        name="X",
+        hook_suggestions=[
+            "Block reads of .env and secrets before tool execution.",
+            "Run targeted tests or lint checks after code edits.",
+            "Run frontend lint/build hooks after editing TSX or CSS.",
+            "Require human confirmation before git push or deploy commands.",
+        ],
+    )
+    assert _select_post_edit_suggestions(ir) == [
+        "Run targeted tests or lint checks after code edits.",
+        "Run frontend lint/build hooks after editing TSX or CSS.",
+    ]
+
+
+def test_hooks_example_none_without_post_edit():
+    from app.adapters.claude_code import _hooks_example_json
+
+    ir = AgentExportIR(
+        name="X",
+        hook_suggestions=[
+            "Block reads of .env and secrets before tool execution.",
+            "Require human confirmation before git push or deploy commands.",
+        ],
+    )
+    assert _hooks_example_json(ir) is None
+
+
+def test_hooks_example_shape_and_shell_safety():
+    import subprocess
+
+    from app.adapters.claude_code import _hooks_example_json
+
+    tricky = "Run tests after code edits: it's `safe` $HOME \"ok\""
+    ir = AgentExportIR(name="X", hook_suggestions=[tricky])
+    content = _hooks_example_json(ir)
+    data = json.loads(content)
+    entry = data["hooks"]["PostToolUse"][0]
+    assert entry["matcher"] == "Edit|Write"
+    cmd = entry["hooks"][0]
+    assert cmd["type"] == "command"
+    assert cmd["command"].startswith("echo ")
+
+    # The command is valid shell and echoes the literal text (no $HOME/backtick expansion).
+    result = subprocess.run(cmd["command"], shell=True, capture_output=True, text=True)
+    assert result.returncode == 0
+    assert result.stdout.strip() == tricky

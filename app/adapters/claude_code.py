@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import textwrap
 from typing import Any
 
@@ -269,6 +270,43 @@ def _project_claude_md(ir: AgentExportIR) -> str:
 - Suggested tools: {", ".join(ir.allowed_tools) or "Read, Glob, Grep"}
 """
     )
+
+
+def _select_post_edit_suggestions(ir: AgentExportIR) -> list[str]:
+    """Hook suggestions that describe a post-edit action (test/lint/frontend build)."""
+    return [
+        s
+        for s in ir.hook_suggestions
+        if "after" in s.lower() and ("edit" in s.lower() or "code" in s.lower())
+    ]
+
+
+def _hooks_example_json(ir: AgentExportIR) -> str | None:
+    """Render an example Claude Code hooks file from post-edit suggestions.
+
+    Returns None when there is nothing to render. This is an *example* file the
+    user adopts; it is never read live by Claude Code, so it does not nag on edits.
+    The suggestion text is passed through shlex.quote so the echo command is valid
+    shell for any content (no injection/expansion).
+    """
+    selected = _select_post_edit_suggestions(ir)
+    if not selected:
+        return None
+    post_tool_use = [
+        {
+            "matcher": "Edit|Write",
+            "hooks": [{"type": "command", "command": f"echo {shlex.quote(s)}"}],
+        }
+        for s in selected
+    ]
+    data = {
+        "//": (
+            'Example Claude Code hooks. Copy the "hooks" block into '
+            ".claude/settings.json and replace each echo with your real command."
+        ),
+        "hooks": {"PostToolUse": post_tool_use},
+    }
+    return json.dumps(data, indent=2)
 
 
 def _project_settings_json(ir: AgentExportIR) -> str:
