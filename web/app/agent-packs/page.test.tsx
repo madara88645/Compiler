@@ -79,6 +79,7 @@ describe("Agent Packs page", () => {
     expect(screen.getByRole("heading", { name: "Install & review checklist" })).toBeTruthy();
     expect(screen.getByText("Review before use")).toBeTruthy();
     expect(screen.getByRole("button", { name: "CLAUDE.md" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ".claude" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "agents" })).toBeTruthy();
   });
 

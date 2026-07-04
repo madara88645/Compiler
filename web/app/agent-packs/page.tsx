@@ -8,13 +8,13 @@ import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sp
 import { apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
+import FileTree from "./components/FileTree";
 import InstallChecklist from "./components/InstallChecklist";
 import { buildInstallChecklist } from "./installChecklist";
 import { buildPackZip } from "./lib/packZip";
 import { agentPackProviders } from "./providerRegistry";
 import type {
   AgentPackFile,
-  AgentPackFileKind,
   AgentPackManifest,
   AgentPackRequest,
   AgentPackRiskMode,
@@ -44,16 +44,6 @@ const PACK_OPTIONS: { id: AgentPackType; label: string; detail: string }[] = [
   },
 ];
 
-const PREVIEW_LABELS: Record<AgentPackFileKind, string> = {
-  claude_md: "CLAUDE.md",
-  settings: "settings.json",
-  agents: "agents",
-  workflow: "workflow",
-  mcp: "mcp",
-  readme: "README",
-  files: "files",
-};
-
 const RISK_OPTIONS: { id: AgentPackRiskMode; label: string; detail: string }[] = [
   { id: "balanced", label: "Balanced", detail: "Practical defaults with guardrails." },
   { id: "strict", label: "Strict", detail: "Tighter permissions and more defensive posture." },
@@ -77,7 +67,6 @@ export default function AgentPacksPage() {
   const provider = agentPackProviders[0];
   const [request, setRequest] = useState<AgentPackRequest>(DEFAULT_REQUEST);
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
-  const [activeKind, setActiveKind] = useState<AgentPackFileKind | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -90,22 +79,10 @@ export default function AgentPacksPage() {
     [],
   );
 
-  const previewGroups = useMemo(() => {
-    if (!manifest) return [];
-    return manifest.preview_order
-      .map((kind) => ({
-        kind,
-        label: PREVIEW_LABELS[kind] ?? kind,
-        files: manifest.files.filter((file) => file.kind === kind),
-      }))
-      .filter((group) => group.files.length > 0);
-  }, [manifest]);
-
-  const activeGroup = previewGroups.find((group) => group.kind === activeKind) ?? previewGroups[0] ?? null;
-  const currentFile =
-    activeGroup?.files.find((file) => file.path === selectedPath) ??
-    activeGroup?.files[0] ??
-    null;
+  const currentFile = useMemo(() => {
+    if (!manifest) return null;
+    return manifest.files.find((file) => file.path === selectedPath) ?? manifest.files[0] ?? null;
+  }, [manifest, selectedPath]);
 
   const installChecklist = useMemo(() => {
     if (!manifest) return [];
@@ -122,7 +99,6 @@ export default function AgentPacksPage() {
     setLoading(true);
     setError(null);
     setManifest(null);
-    setActiveKind(null);
     setSelectedPath(null);
     setDownloaded(false);
 
@@ -133,7 +109,6 @@ export default function AgentPacksPage() {
         body: JSON.stringify(request),
       });
       setManifest(data);
-      setActiveKind(data.preview_order[0] ?? null);
       setSelectedPath(data.files[0]?.path ?? null);
     } catch (err: unknown) {
       showError(err);
@@ -161,10 +136,24 @@ export default function AgentPacksPage() {
 
   const handleClosePreview = () => {
     setManifest(null);
-    setActiveKind(null);
     setSelectedPath(null);
     setCopiedState(null);
     setDownloaded(false);
+  };
+
+  const handleDownloadFile = (file: AgentPackFile) => {
+    const blob = new Blob([file.content], { type: "text/plain" });
+    const href = URL.createObjectURL(blob);
+    const basename = file.path.split("/").pop() || "file";
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = basename;
+    anchor.rel = "noopener";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 0);
   };
 
   const handleDownload = () => {
@@ -481,45 +470,17 @@ export default function AgentPacksPage() {
 
                 <InstallChecklist sections={installChecklist} downloaded={downloaded} />
 
-                <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3 sm:px-6">
-                  {previewGroups.map((group) => (
-                    <button
-                      key={group.kind}
-                      type="button"
-                      onClick={() => {
-                        setActiveKind(group.kind);
-                        setSelectedPath(group.files[0]?.path ?? null);
-                      }}
-                      className={`rounded-full border px-3 py-1.5 text-[11px] font-mono uppercase tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${
-                        activeGroup?.kind === group.kind
-                          ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-100"
-                          : "border-transparent bg-white/[0.03] text-zinc-500 hover:bg-white/[0.07] hover:text-zinc-300"
-                      }`}
-                    >
-                      {group.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeGroup && activeGroup.files.length > 1 && (
-                  <div className="px-4 pt-4 sm:px-6">
-                    <label htmlFor="agent-pack-file-select" className="sr-only">
-                      Preview file
-                    </label>
-                    <select
-                      id="agent-pack-file-select"
-                      value={currentFile?.path ?? activeGroup.files[0].path}
-                      onChange={(event) => setSelectedPath(event.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-                    >
-                      {activeGroup.files.map((file) => (
-                        <option key={file.path} value={file.path}>
-                          {file.path}
-                        </option>
-                      ))}
-                    </select>
+                <div className="border-b border-white/5 px-4 py-3 sm:px-6">
+                  <div className="mb-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                    Files
                   </div>
-                )}
+                  <FileTree
+                    files={manifest.files}
+                    selectedPath={currentFile?.path ?? null}
+                    onSelect={setSelectedPath}
+                    onDownloadFile={handleDownloadFile}
+                  />
+                </div>
 
                 <div className="flex-1 overflow-hidden p-4 sm:p-6">
                   <div className="relative h-full overflow-hidden rounded-2xl border border-white/8 bg-black/35">
