@@ -114,6 +114,9 @@ def to_claude_project_pack(ir: AgentExportIR) -> list[dict[str, str]]:
     mcp_json = render_mcp_json(ir.mcp_servers)
     if mcp_json is not None:
         files.append({"path": ".mcp.json", "content": mcp_json})
+    hooks_example = _hooks_example_json(ir)
+    if hooks_example is not None:
+        files.append({"path": ".claude/hooks.example.json", "content": hooks_example})
     return files
 
 
@@ -161,6 +164,9 @@ def to_claude_pr_reviewer_pack(ir: AgentExportIR) -> list[dict[str, str]]:
     mcp_json = render_mcp_json(ir.mcp_servers)
     if mcp_json is not None:
         files.append({"path": ".mcp.json", "content": mcp_json})
+    hooks_example = _hooks_example_json(ir)
+    if hooks_example is not None:
+        files.append({"path": ".claude/hooks.example.json", "content": hooks_example})
     return files
 
 

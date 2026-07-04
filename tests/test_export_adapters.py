@@ -19,6 +19,7 @@ from app.adapters.claude_code import (
     to_claude_project_pack,
     to_claude_pr_reviewer_pack,
     to_claude_subagent,
+    to_claude_subagent_bundle,
     to_claude_mcp_tool_stub,
 )
 from app.adapters.claude_sdk import to_python, to_yaml
@@ -772,3 +773,31 @@ def test_hooks_example_shape_and_shell_safety():
     result = subprocess.run(cmd["command"], shell=True, capture_output=True, text=True)
     assert result.returncode == 0
     assert result.stdout.strip() == tricky
+
+
+def test_project_pack_emits_hooks_example():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    pack = to_claude_project_pack(ir)
+    hooks_files = [f for f in pack if f["path"] == ".claude/hooks.example.json"]
+    assert len(hooks_files) == 1
+    data = json.loads(hooks_files[0]["content"])
+    assert data["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"
+    assert data["hooks"]["PostToolUse"][0]["hooks"][0]["command"].startswith("echo ")
+    # settings.json is unchanged (no hooks key)
+    settings = next(f for f in pack if f["path"] == ".claude/settings.json")
+    assert "hooks" not in json.loads(settings["content"])
+
+
+def test_pr_reviewer_pack_emits_hooks_example():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    pack = to_claude_pr_reviewer_pack(ir)
+    assert any(f["path"] == ".claude/hooks.example.json" for f in pack)
+
+
+def test_subagent_bundle_has_no_hooks_or_mcp_or_settings():
+    ir = parse_agent_markdown(SINGLE_AGENT_MARKDOWN)
+    bundle = to_claude_subagent_bundle(ir)
+    paths = {f["path"] for f in bundle}
+    assert ".mcp.json" not in paths
+    assert ".claude/hooks.example.json" not in paths
+    assert ".claude/settings.json" not in paths
