@@ -5,15 +5,16 @@ import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 
-import { apiFetch, apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
+import { apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
 import { showError } from "../lib/showError";
+import FileTree from "./components/FileTree";
 import InstallChecklist from "./components/InstallChecklist";
 import { buildInstallChecklist } from "./installChecklist";
+import { buildPackZip } from "./lib/packZip";
 import { agentPackProviders } from "./providerRegistry";
 import type {
   AgentPackFile,
-  AgentPackFileKind,
   AgentPackManifest,
   AgentPackRequest,
   AgentPackRiskMode,
@@ -43,16 +44,6 @@ const PACK_OPTIONS: { id: AgentPackType; label: string; detail: string }[] = [
   },
 ];
 
-const PREVIEW_LABELS: Record<AgentPackFileKind, string> = {
-  claude_md: "CLAUDE.md",
-  settings: "settings.json",
-  agents: "agents",
-  workflow: "workflow",
-  mcp: "mcp",
-  readme: "README",
-  files: "files",
-};
-
 const RISK_OPTIONS: { id: AgentPackRiskMode; label: string; detail: string }[] = [
   { id: "balanced", label: "Balanced", detail: "Practical defaults with guardrails." },
   { id: "strict", label: "Strict", detail: "Tighter permissions and more defensive posture." },
@@ -66,11 +57,6 @@ const DEFAULT_REQUEST: AgentPackRequest = {
   risk_mode: "balanced",
 };
 
-function getDownloadFilename(response: Response, fallback: string): string {
-  const disposition = response.headers.get("content-disposition") || "";
-  const match = disposition.match(/filename=\"?([^"]+)\"?/i);
-  return match?.[1] || fallback;
-}
 function bundleFiles(files: AgentPackFile[]): string {
   return files
     .map((file) => `# ${file.path}\n\n${file.content.trim()}`)
@@ -81,35 +67,23 @@ export default function AgentPacksPage() {
   const provider = agentPackProviders[0];
   const [request, setRequest] = useState<AgentPackRequest>(DEFAULT_REQUEST);
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
-  const [activeKind, setActiveKind] = useState<AgentPackFileKind | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
   const [downloaded, setDownloaded] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const requestHeaders = useMemo(
     () => buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
     [],
   );
 
-  const previewGroups = useMemo(() => {
-    if (!manifest) return [];
-    return manifest.preview_order
-      .map((kind) => ({
-        kind,
-        label: PREVIEW_LABELS[kind] ?? kind,
-        files: manifest.files.filter((file) => file.kind === kind),
-      }))
-      .filter((group) => group.files.length > 0);
-  }, [manifest]);
-
-  const activeGroup = previewGroups.find((group) => group.kind === activeKind) ?? previewGroups[0] ?? null;
-  const currentFile =
-    activeGroup?.files.find((file) => file.path === selectedPath) ??
-    activeGroup?.files[0] ??
-    null;
+  const currentFile = useMemo(() => {
+    if (!manifest) return null;
+    return manifest.files.find((file) => file.path === selectedPath) ?? manifest.files[0] ?? null;
+  }, [manifest, selectedPath]);
 
   const installChecklist = useMemo(() => {
     if (!manifest) return [];
@@ -120,15 +94,24 @@ export default function AgentPacksPage() {
     setRequest((prev) => ({ ...prev, [key]: value }));
   };
 
+  const toggleChecklistItem = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleGenerate = async () => {
     if (!request.goal.trim()) return;
 
     setLoading(true);
     setError(null);
     setManifest(null);
-    setActiveKind(null);
     setSelectedPath(null);
     setDownloaded(false);
+    setCheckedIds(new Set());
 
     try {
       const data = await apiJson<AgentPackManifest>("/agent-packs/claude", {
@@ -137,7 +120,6 @@ export default function AgentPacksPage() {
         body: JSON.stringify(request),
       });
       setManifest(data);
-      setActiveKind(data.preview_order[0] ?? null);
       setSelectedPath(data.files[0]?.path ?? null);
     } catch (err: unknown) {
       showError(err);
@@ -165,36 +147,36 @@ export default function AgentPacksPage() {
 
   const handleClosePreview = () => {
     setManifest(null);
-    setActiveKind(null);
     setSelectedPath(null);
     setCopiedState(null);
     setDownloaded(false);
+    setCheckedIds(new Set());
   };
 
-  const handleDownload = async () => {
-    if (!request.goal.trim()) return;
+  const handleDownloadFile = (file: AgentPackFile) => {
+    const blob = new Blob([file.content], { type: "text/plain" });
+    const href = URL.createObjectURL(blob);
+    const basename = file.path.split("/").pop() || "file";
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = basename;
+    anchor.rel = "noopener";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 0);
+  };
+
+  const handleDownload = () => {
+    if (!manifest || manifest.files.length === 0) return;
 
     setDownloading(true);
     setError(null);
     try {
-      const response = await apiFetch("/agent-packs/claude/download", {
-        method: "POST",
-        headers: requestHeaders,
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(payload.detail ?? "Download failed.");
-      }
-
-      const blob = await response.blob();
-      if (blob.size === 0) {
-        throw new Error("The agent pack download was empty. Please try generating it again.");
-      }
-
+      const blob = buildPackZip(manifest.files);
       const href = URL.createObjectURL(blob);
-      const filename = getDownloadFilename(response, `${manifest?.download_name || "agent-pack"}.zip`);
+      const filename = `${manifest.download_name || "agent-pack"}.zip`;
       const anchor = document.createElement("a");
       anchor.href = href;
       anchor.download = filename;
@@ -258,36 +240,13 @@ export default function AgentPacksPage() {
                   <div className="mb-1 text-[11px] font-mono uppercase tracking-[0.25em] text-cyan-300/80">
                     {provider.name}
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Generate beta-stage agent assets for your repo</h2>
+                  <h2 className="text-xl font-semibold text-white">Generate agent assets for your repo</h2>
                 </div>
                 <div className={`h-12 w-12 rounded-2xl ${provider.glowClass} flex items-center justify-center`}>
                   <Bot size={22} className="text-cyan-200" aria-hidden="true" />
                 </div>
               </div>
               <p className="text-sm leading-relaxed text-zinc-400">{provider.summary}</p>
-            </div>
-
-            <button
-              type="button"
-              className={`group flex items-center justify-between rounded-2xl border border-white/10 p-4 text-left transition-all hover:border-cyan-400/30 hover:bg-white/[0.05] ${manifest ? "bg-white/[0.05]" : "bg-white/[0.02]"}`}
-              aria-label="Claude provider card"
-            >
-              <div>
-                <div className="mb-1 text-sm font-semibold text-white">{provider.name}</div>
-                <div className="text-xs text-zinc-500">
-                  Beta preview. Good for fast bootstrapping, but you should still review prompts, permissions,
-                  workflows, and generated files before shipping.
-                </div>
-              </div>
-              <div className={`rounded-xl bg-gradient-to-br ${provider.accentClass} px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-cyan-500/10`}>
-                Beta
-              </div>
-            </button>
-
-            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-100/90">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">Experimental Feature</div>
-              Agent Packs is in beta and gives you a starting point, not a finished install. After generation, follow the
-              install checklist on the right, review sensitive files, then commit only what you trust.
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -498,47 +457,24 @@ export default function AgentPacksPage() {
                   </div>
                 </div>
 
-                <InstallChecklist sections={installChecklist} downloaded={downloaded} />
+                <InstallChecklist
+                  sections={installChecklist}
+                  checkedIds={checkedIds}
+                  onToggle={toggleChecklistItem}
+                  downloaded={downloaded}
+                />
 
-                <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3 sm:px-6">
-                  {previewGroups.map((group) => (
-                    <button
-                      key={group.kind}
-                      type="button"
-                      onClick={() => {
-                        setActiveKind(group.kind);
-                        setSelectedPath(group.files[0]?.path ?? null);
-                      }}
-                      className={`rounded-full border px-3 py-1.5 text-[11px] font-mono uppercase tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${
-                        activeGroup?.kind === group.kind
-                          ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-100"
-                          : "border-transparent bg-white/[0.03] text-zinc-500 hover:bg-white/[0.07] hover:text-zinc-300"
-                      }`}
-                    >
-                      {group.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeGroup && activeGroup.files.length > 1 && (
-                  <div className="px-4 pt-4 sm:px-6">
-                    <label htmlFor="agent-pack-file-select" className="sr-only">
-                      Preview file
-                    </label>
-                    <select
-                      id="agent-pack-file-select"
-                      value={currentFile?.path ?? activeGroup.files[0].path}
-                      onChange={(event) => setSelectedPath(event.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-                    >
-                      {activeGroup.files.map((file) => (
-                        <option key={file.path} value={file.path}>
-                          {file.path}
-                        </option>
-                      ))}
-                    </select>
+                <div className="border-b border-white/5 px-4 py-3 sm:px-6">
+                  <div className="mb-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                    Files
                   </div>
-                )}
+                  <FileTree
+                    files={manifest.files}
+                    selectedPath={currentFile?.path ?? null}
+                    onSelect={setSelectedPath}
+                    onDownloadFile={handleDownloadFile}
+                  />
+                </div>
 
                 <div className="flex-1 overflow-hidden p-4 sm:p-6">
                   <div className="relative h-full overflow-hidden rounded-2xl border border-white/8 bg-black/35">
