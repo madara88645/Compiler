@@ -19,8 +19,16 @@ describe("packZip", () => {
     expect(strFromU8(unzipped[".claude/agents/pr-reviewer.md"])).toBe("review agent");
   });
 
-  test("buildPackZip returns an application/zip Blob", () => {
-    expect(buildPackZip(files).type).toBe("application/zip");
+  test("buildPackZip returns a downloadable zip Blob with the expected files", async () => {
+    const blob = buildPackZip(files);
+    const unzipped = unzipSync(new Uint8Array(await blob.arrayBuffer()));
+
+    expect(blob.type).toBe("application/zip");
+    expect(Object.keys(unzipped).sort()).toEqual(
+      [".claude/agents/pr-reviewer.md", "CLAUDE.md"].sort(),
+    );
+    expect(strFromU8(unzipped["CLAUDE.md"])).toBe("# Memory\n");
+    expect(strFromU8(unzipped[".claude/agents/pr-reviewer.md"])).toBe("review agent");
   });
 
   test("empty file list produces a valid empty zip", () => {
