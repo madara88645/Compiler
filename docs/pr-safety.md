@@ -42,6 +42,82 @@ No sign-in, no setup, nothing leaves your machine beyond the single analysis req
 
 ---
 
+## CLI (no server needed)
+
+The same offline analyzer ships as a CLI command — no backend, no network, no API key.
+After `pip install -e .`, use `promptc`; otherwise run `python -m cli.main` from the repo
+root.
+
+### Analyze the current branch from local git
+
+```bash
+promptc pr-safety --from-git
+```
+
+`--from-git` reads your **local** repository: changed files vs the resolved base ref
+(`origin/main`, `main`, …), commits behind base, and the latest commit subject/body as the
+PR title and description. Override the base with `--base` or freshness with
+`--commits-behind` when needed.
+
+### Pass files and metadata manually
+
+```bash
+# Positional file list
+promptc pr-safety --title "Add login endpoint" --description "Adds POST /auth/login" \
+  app/auth/login.py api/routes/auth.py
+
+# One path per line from a file
+promptc pr-safety --files-from changed.txt --title "Add login endpoint" \
+  --description "Adds POST /auth/login"
+
+# Pipe paths on stdin (non-TTY)
+git diff --name-only origin/main | promptc pr-safety --title "My PR" --description "…"
+```
+
+### Output formats
+
+```bash
+promptc pr-safety --from-git                      # human (default)
+promptc pr-safety --from-git --format json        # machine-readable
+promptc pr-safety --from-git --format md          # GitHub-ready Markdown
+promptc pr-safety --from-git --format md --out report.md
+```
+
+Use `--exit-code` in scripts: exits non-zero when the verdict is not `merge`.
+
+### Sample output (`--from-git`, human format)
+
+Captured from `python -m cli.main pr-safety --from-git` in this repo:
+
+```
+╭───────────────────────────────── PR Safety ──────────────────────────────────╮
+│ Verdict: HOLD — Address the flagged signals before merging                   │
+│ PR: Merge pull request #941 from                                             │
+│ madara88645/fix/hooks-example-shell-test-windows                             │
+│                                                                              │
+│ Signals: risky=ok  tests=ok  branch=ok  scope=mismatch                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+────────────────────────────── Changed files (0) ───────────────────────────────
+No files provided.
+─────────────────────────── Risky areas (status: ok) ───────────────────────────
+No risky areas detected
+────────────────────────── Test coverage (status: ok) ──────────────────────────
+No missing test coverage detected for changed source files
+──────────────────────── Branch freshness (status: ok) ─────────────────────────
+  Branch is 0 commits behind the base branch
+──────────────────────── Scope match (status: mismatch) ────────────────────────
+  No changed files were provided
+─────────────────────────────── Recommendations ────────────────────────────────
+  - Hold merge until the flagged safety signals are addressed
+  - No changed files were provided
+```
+
+The same run with `--format json` returns a structured payload (`verdict`, `changed_files`,
+`risky_areas`, `test_coverage`, `branch_freshness`, `scope_match`, `recommendations`) suitable
+for CI or jq pipelines.
+
+---
+
 ## Use it from the API
 
 The browser page is a thin client over one endpoint: `POST /pr-safety/report`.

@@ -94,6 +94,8 @@ Every report also surfaces **risky areas**, a **test-coverage** signal, **branch
 
 **CLI (no server):** analyze your local branch without starting the API — `promptc pr-safety --from-git` (or `python -m cli.main pr-safety --from-git` from the repo). See [docs/pr-safety.md](docs/pr-safety.md#cli-no-server-needed) for `--files-from`, `--format human|json|md`, and `--exit-code`.
 
+**CLI (no server):** analyze your local branch without starting the API — `promptc pr-safety --from-git` (or `python -m cli.main pr-safety --from-git` from the repo). See [docs/pr-safety.md](docs/pr-safety.md#cli-no-server-needed) for `--files-from`, `--format human|json|md`, and `--exit-code`.
+
 ---
 
 ### Conservative Mode
