@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "prompt-compiler": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["${CLAUDE_PROJECT_DIR}/integrations/mcp-server/server.py"],
+      "env": {
+        "PROMPTC_BACKEND_URL": "http://127.0.0.1:8080"
+      }
+    }
+  }
+}
