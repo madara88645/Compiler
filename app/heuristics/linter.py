@@ -91,9 +91,7 @@ _WORD_PATTERN = re.compile(r"\w+")
 # Bolt Optimization: Pre-compiled Combined Regex Patterns
 # Replaced a tuple of individual compiled patterns with a single combined regex using the OR operator.
 # This pushes the search iteration to the C-based regex engine, yielding significant speedups.
-_MULTI_WORD_WEASEL_PATTERN: re.Pattern[str] = re.compile(
-    r"\b(?:try to|kind of|sort of)\b"
-)
+_MULTI_WORD_WEASEL_PATTERN: re.Pattern[str] = re.compile(r"\b(?:try to|kind of|sort of)\b")
 
 # 4. Conflict Pairs (Mutually exclusive concepts)
 CONFLICT_PAIRS: List[Tuple[Set[str], Set[str]]] = [
