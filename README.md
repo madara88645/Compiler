@@ -442,7 +442,7 @@ docs/           Product, pattern, and workflow docs
 - [`docs/pr-safety-github-action.md`](docs/pr-safety-github-action.md) — advisory CI integration sketch
 - [`docs/pattern-library.md`](docs/pattern-library.md)
 - [`docs/promptc-safe-workflows.md`](docs/promptc-safe-workflows.md)
-- [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml)
+- [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml) — portable GitHub Action example (`pip install` from GitHub + `promptc github render`; works in any repo)
 
 ---
 
