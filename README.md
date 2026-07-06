@@ -303,12 +303,12 @@ API keys are stored in VS Code secret storage, not workspace settings.
 
 ### CLI (pip / pipx)
 
-Install the command-line compiler from PyPI:
+Install the command-line compiler directly from GitHub:
 
 ```bash
-pipx install prcompiler        # recommended — isolated install
+pipx install git+https://github.com/madara88645/Compiler.git   # recommended — isolated install
 # or
-pip install prcompiler
+pip install git+https://github.com/madara88645/Compiler.git
 ```
 
 Then compile a prompt:
@@ -317,6 +317,14 @@ Then compile a prompt:
 promptc compile "write a haiku about the sea"
 promptc --version
 ```
+
+> **Once published on PyPI**, you will also be able to install with:
+>
+> ```bash
+> pipx install prcompiler        # recommended — isolated install
+> # or
+> pip install prcompiler
+> ```
 
 ### From source (development)
 
