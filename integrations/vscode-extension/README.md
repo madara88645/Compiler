@@ -10,9 +10,21 @@ Compile selected text or full files into structured prompts with policy visibili
 
 ## Install
 
-- **VS Code / VS Code Insiders** - search `PromptC` in the Extensions view, or install from the [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode).
-- **VSCodium / Cursor / others** - install from [Open VSX](https://open-vsx.org/extension/madara88645/promptc-vscode).
-- **From a `.vsix`** - download the artifact attached to the latest `Publish VS Code Extension` workflow run on GitHub, then install it from the VS Code Extensions menu.
+Start the backend from the repo root before using PromptC (default API URL is `http://127.0.0.1:8080`):
+
+```bash
+python -m uvicorn api.main:app --reload --port 8080
+```
+
+- **From a `.vsix`** — download the `promptc-vscode-vsix` artifact from the latest [Publish VS Code Extension](https://github.com/madara88645/Compiler/actions/workflows/publish-vscode.yml) workflow run, then in VS Code choose **Extensions: Install from VSIX...**
+- **From source** — see [Local development](#local-development) below (`F5` / Extension Development Host)
+
+### Once published
+
+After publisher setup in [PUBLISHING.md](PUBLISHING.md) completes and a `vscode-v*` tag is pushed:
+
+- **VS Code / VS Code Insiders** — search `PromptC` in the Extensions view, or install from the [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode)
+- **VSCodium / Cursor / others** — install from [Open VSX](https://open-vsx.org/extension/madara88645/promptc-vscode)
 
 ## Local development
 
