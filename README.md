@@ -92,6 +92,8 @@ Every report also surfaces **risky areas**, a **test-coverage** signal, **branch
 
 **v1 is an offline, deterministic advisory.** It runs only on what you paste — no GitHub API, no AI calls, no sign-in — and never blocks a merge. Open it in the sidebar or at [`/pr-safety`](https://prcompiler.com/pr-safety); the [PR Safety guide](docs/pr-safety.md) has worked examples (docs-only, auth-risk, stale branch, split-needed), a `curl` recipe for `POST /pr-safety/report`, and an advisory [GitHub Action sketch](docs/pr-safety-github-action.md).
 
+**CLI (no server):** analyze your local branch without starting the API — `promptc pr-safety --from-git` (or `python -m cli.main pr-safety --from-git` from the repo). See [docs/pr-safety.md](docs/pr-safety.md#cli-no-server-needed) for `--files-from`, `--format human|json|md`, and `--exit-code`.
+
 ---
 
 ### Conservative Mode
