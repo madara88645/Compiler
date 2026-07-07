@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, Sparkles, Swords, Bot, Zap, FolderArchive, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Code2, Sparkles, Swords, Bot, Zap, FolderArchive, ShieldCheck, Github, Terminal, Blocks, Plug, type LucideIcon } from "lucide-react";
 
 type NavItem = { name: string; path: string; Icon: LucideIcon };
 type NavGroup = { label: string; items: NavItem[] };
@@ -35,6 +35,29 @@ const navGroups: NavGroup[] = [
         items: [
             { name: "PR Safety", path: "/pr-safety", Icon: ShieldCheck },
         ],
+    },
+];
+
+const outboundLinks: { name: string; href: string; Icon: LucideIcon }[] = [
+    {
+        name: "GitHub repo",
+        href: "https://github.com/madara88645/Compiler",
+        Icon: Github,
+    },
+    {
+        name: "CLI install",
+        href: "https://github.com/madara88645/Compiler/blob/main/docs/cli.md",
+        Icon: Terminal,
+    },
+    {
+        name: "VS Code extension",
+        href: "https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode",
+        Icon: Blocks,
+    },
+    {
+        name: "MCP setup",
+        href: "https://github.com/madara88645/Compiler/blob/main/integrations/mcp-server/README.md",
+        Icon: Plug,
     },
 ];
 
@@ -122,6 +145,28 @@ export default function Sidebar() {
                     </div>
                 </div>
             ))}
+
+            <div
+                className="mt-auto flex flex-col items-center gap-3 border-t border-white/5 pt-4 w-full"
+                aria-label="Use it in your editor or repo"
+            >
+                {outboundLinks.map((item) => (
+                    <a
+                        key={item.href}
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative group text-zinc-500 hover:text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        aria-label={item.name}
+                    >
+                        <item.Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+
+                        <div className="absolute left-full ml-2 bg-zinc-900 border border-white/10 px-2 py-1 rounded text-xs text-zinc-200 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                            {item.name}
+                        </div>
+                    </a>
+                ))}
+            </div>
         </div>
     );
 }
