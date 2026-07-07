@@ -1,7 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
-
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
@@ -9,6 +7,7 @@ import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import type { AgentGeneratorResponse, GitHubRepoContextPayload } from "@/lib/api/types";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
+import { copyToClipboard } from "../lib/copyToClipboard";
 import ContextManager from "../components/ContextManager";
 import InfoButton from "../components/InfoButton";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
@@ -134,13 +133,12 @@ export default function AgentGenerator() {
     }
   };
 
-  const copyToClipboard = () => {
-    if (result) {
-      navigator.clipboard.writeText(result.content);
-      toast.success("Copied to clipboard");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const handleCopyToClipboard = async () => {
+    if (!result) return;
+    const success = await copyToClipboard(result.content);
+    if (!success) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -408,7 +406,7 @@ export default function AgentGenerator() {
 
                   <button
                     type="button"
-                    onClick={copyToClipboard}
+                    onClick={handleCopyToClipboard}
                     className="absolute bottom-6 right-6 bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95 z-20 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                     title="Copy to Clipboard"
                     aria-label="Copy Markdown"

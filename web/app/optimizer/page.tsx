@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { apiJson, describeRequestError } from "@/config";
 import { showError } from "../lib/showError";
+import { copyToClipboard } from "../lib/copyToClipboard";
 
 import InfoButton from "../components/InfoButton";
 
@@ -278,7 +279,7 @@ export default function OptimizerPage() {
 
     const copyText = (text: string) => {
         if (!text) return;
-        void navigator.clipboard?.writeText(text).catch(() => {});
+        void copyToClipboard(text);
     };
 
     return (

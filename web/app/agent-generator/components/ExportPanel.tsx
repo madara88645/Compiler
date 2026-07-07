@@ -1,12 +1,12 @@
 "use client";
 
-import { toast } from "sonner";
 import { ArrowRight, Download, FolderArchive } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, describeRequestError } from "@/config";
 import { buildPackZip } from "../../lib/packZip";
+import { copyToClipboard } from "../../lib/copyToClipboard";
 
 const AGENT_PACKS_HANDOFF_KEY = "promptc_agent_pack_goal";
 
@@ -200,13 +200,12 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     void fetchExport(target, nextMode);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!currentContent) return;
-    navigator.clipboard.writeText(currentContent).then(() => {
-      toast.success("Copied to clipboard");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    const success = await copyToClipboard(currentContent);
+    if (!success) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleAgentPacksHandoff = () => {
