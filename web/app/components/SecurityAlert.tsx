@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ShieldAlert } from "lucide-react";
 import type { SecurityFinding } from "../../lib/api/types";
 
@@ -12,6 +12,9 @@ type SecurityAlertProps = {
     onCancel: () => void;
 };
 
+const FOCUSABLE_SELECTOR =
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function SecurityAlert({
     findings,
     redactedText,
@@ -19,6 +22,44 @@ export default function SecurityAlert({
     onProceedOriginal,
     onCancel,
 }: SecurityAlertProps) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                onCancel();
+                return;
+            }
+
+            if (event.key !== "Tab" || !dialogRef.current) {
+                return;
+            }
+
+            const focusable = Array.from(
+                dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+            );
+            if (focusable.length === 0) {
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const active = document.activeElement;
+
+            if (event.shiftKey) {
+                if (active === first || !dialogRef.current.contains(active)) {
+                    event.preventDefault();
+                    last.focus();
+                }
+            } else if (active === last || !dialogRef.current.contains(active)) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [onCancel]);
 
     const findingsSummary = useMemo(() => {
         // Keys match the backend security scanner types in app/heuristics/security.py
@@ -52,8 +93,16 @@ export default function SecurityAlert({
     }, [findings]);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in"
+            onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                    onCancel();
+                }
+            }}
+        >
             <div
+                ref={dialogRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="security-alert-title"
