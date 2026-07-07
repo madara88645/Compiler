@@ -5,7 +5,7 @@ import { ArrowRight, Download, FolderArchive } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/config";
+import { apiFetch, describeRequestError } from "@/config";
 import { buildPackZip } from "../../lib/packZip";
 
 const AGENT_PACKS_HANDOFF_KEY = "promptc_agent_pack_goal";
@@ -170,7 +170,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
       const data: ExportResult = await res.json();
       setCache((prev) => ({ ...prev, [nextFormat]: data }));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(describeRequestError(e, { fallback: "Export failed." }));
     } finally {
       setLoading(false);
     }
@@ -322,8 +322,18 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
                 Generating {activeTarget.label} export...
               </div>
             ) : error ? (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300">
-                {error}
+              <div
+                className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300 flex flex-col items-start gap-2"
+                role="alert"
+              >
+                <p>{error}</p>
+                <button
+                  type="button"
+                  onClick={() => void fetchExport(target, outputMode)}
+                  className="rounded-lg border border-red-400/30 bg-red-500/20 px-3 py-1.5 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                >
+                  Retry export
+                </button>
               </div>
             ) : currentContent ? (
               <div className="relative group/code">
