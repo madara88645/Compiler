@@ -46,3 +46,33 @@ def test_empty_repo_is_safe():
 def test_surfaces_existing_claude_md():
     ctx = derive_repo_context(_facts({"CLAUDE.md": "# guide"}, has_claude_md=True))
     assert ctx.has_existing_claude_md is True
+
+
+def test_detects_frameworks_from_exact_manifest_names():
+    facts = _facts(
+        {
+            "package.json": '{"dependencies": {"next": "14.2.0"}}',
+            "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.110"]\n',
+        }
+    )
+
+    ctx = derive_repo_context(facts)
+    frameworks_by_language = {stack.language: set(stack.frameworks) for stack in ctx.stacks}
+
+    assert frameworks_by_language["javascript"] == {"next"}
+    assert frameworks_by_language["python"] == {"fastapi"}
+
+
+def test_ignores_framework_substrings_in_manifest_metadata():
+    facts = _facts(
+        {
+            "package.json": '{"name": "preact-playground", "dependencies": {"preact": "10.22.0"}}',
+            "pyproject.toml": '[project]\nname = "superfastapi"\nversion = "0.1.0"\n',
+        }
+    )
+
+    ctx = derive_repo_context(facts)
+    frameworks_by_language = {stack.language: set(stack.frameworks) for stack in ctx.stacks}
+
+    assert frameworks_by_language["javascript"] == set()
+    assert frameworks_by_language["python"] == set()

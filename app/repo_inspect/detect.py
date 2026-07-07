@@ -38,6 +38,20 @@ _MAKE_TARGET_ALIASES = {
     "format": "format",
     "fmt": "format",
 }
+_FRAMEWORK_NAMES = (
+    "fastapi",
+    "django",
+    "flask",
+    "next",
+    "react",
+    "vue",
+    "svelte",
+    "express",
+    "nestjs",
+)
+_FRAMEWORK_PATTERNS = {
+    name: re.compile(rf"(?<![a-z0-9_]){re.escape(name)}(?![a-z0-9_])") for name in _FRAMEWORK_NAMES
+}
 
 
 def parse_package_json_scripts(content: str, source: str) -> list[DetectedCommand]:
@@ -91,18 +105,8 @@ def detect_stacks(files: dict[str, str]) -> list[StackInfo]:
             continue
         fw = langs.setdefault(lang, set())
         low = content.lower()
-        for name in (
-            "fastapi",
-            "django",
-            "flask",
-            "next",
-            "react",
-            "vue",
-            "svelte",
-            "express",
-            "nestjs",
-        ):
-            if name in low:
+        for name, pattern in _FRAMEWORK_PATTERNS.items():
+            if pattern.search(low):
                 fw.add(name)
     return [
         StackInfo(language=lang, frameworks=tuple(sorted(fws)))
