@@ -1,11 +1,11 @@
 "use client";
 
-import { toast } from "sonner";
 import { Download, FolderArchive } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/config";
 import { buildPackZip } from "../../lib/packZip";
+import { copyToClipboard } from "../../lib/copyToClipboard";
 
 type SkillTarget = "claude-tool" | "claude-mcp-tool" | "langchain-tool";
 type OutputMode = "python" | "json" | "files";
@@ -179,13 +179,12 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
     setOutputMode(nextMode);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!currentContent) return;
-    navigator.clipboard.writeText(currentContent).then(() => {
-      toast.success("Copied to clipboard");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    const success = await copyToClipboard(currentContent);
+    if (!success) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadFile = () => {
