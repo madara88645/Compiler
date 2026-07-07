@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 /**
@@ -26,12 +27,12 @@ export default function OfflinePage() {
                 The Offline Compiler has moved. Use the &quot;Heuristics only (no LLM)&quot; engine
                 toggle on the main Compiler page instead.
             </p>
-            <a
+            <Link
                 href="/"
                 className="text-sm font-medium text-blue-400 underline underline-offset-2 hover:text-blue-300"
             >
                 Go to the Compiler
-            </a>
+            </Link>
         </main>
     );
 }
