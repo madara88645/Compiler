@@ -194,6 +194,12 @@ export default function Home() {
     router.push("/agent-packs");
   };
 
+  const handleSendToOptimizer = (text: string) => {
+    if (!text) return;
+    window.localStorage.setItem("promptc_optimizer_prompt", text);
+    router.push("/optimizer");
+  };
+
   // Typewriter entrance when an example prompt is inserted.
   const typewriterRef = useRef<number | null>(null);
   const stopTypewriter = () => {
@@ -592,10 +598,18 @@ export default function Home() {
                           value={getCompileTabContent(result, tab)}
                         />
 
-                        <CopyButton
-                          text={getCompileTabContent(result, tab)}
-                          className="absolute bottom-6 right-6"
-                        />
+                        <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSendToOptimizer(getCompileTabContent(result, tab))}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-3 text-xs font-semibold text-emerald-200 shadow-lg transition-all hover:scale-105 hover:bg-emerald-500/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                            title="Send this tab's content to the Token Optimizer"
+                            aria-label="Send to Optimizer"
+                          >
+                            Send to Optimizer
+                          </button>
+                          <CopyButton text={getCompileTabContent(result, tab)} />
+                        </div>
                       </>
                     )}
                   </div>
