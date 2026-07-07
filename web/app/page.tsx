@@ -664,7 +664,7 @@ export default function Home() {
                 >
                   {activeTab === "quality" && (
                     <div className="absolute inset-0 bg-transparent z-20 animate-fade-in">
-                      <QualityCoach prompt={prompt} onUpdatePrompt={setPrompt} />
+                      <QualityCoach prompt={prompt} />
                     </div>
                   )}
                 </div>

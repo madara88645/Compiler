@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiJson } from "@/config";
 import { showError } from "../lib/showError";
+import GeneratorErrorState from "./GeneratorErrorState";
 
 type ValidationResponse = {
     score: number;
@@ -16,7 +17,6 @@ type ValidationResponse = {
 
 type QualityCoachProps = {
     prompt: string;
-    onUpdatePrompt: (newPrompt: string) => void;
 };
 
 const SCORE_LABELS: Record<string, { title: string; help: string }> = {
@@ -52,11 +52,13 @@ function labelHelp(key: string): string {
 export default function QualityCoach({ prompt }: QualityCoachProps) {
     const [analyzing, setAnalyzing] = useState(false);
     const [report, setReport] = useState<ValidationResponse | null>(null);
+    const [error, setError] = useState<unknown>(null);
 
 
     const handleAnalyze = async () => {
         if (!prompt.trim()) return;
         setAnalyzing(true);
+        setError(null);
         try {
             const data = await apiJson<ValidationResponse>("/validate", {
                 method: "POST",
@@ -66,6 +68,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
             setReport(data);
         } catch (e) {
             showError(e);
+            setError(e);
         } finally {
             setAnalyzing(false);
         }
@@ -102,7 +105,15 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                 </div>
             </div>
 
-            {!report && (
+            {error ? (
+                <GeneratorErrorState
+                    error={error}
+                    onRetry={() => void handleAnalyze()}
+                    title="Quality analysis failed"
+                    retryLabel="Retry analysis"
+                    reassurance="Your prompt hasn't changed. Try again — if it keeps failing, your connection or the quality checker service may be down."
+                />
+            ) : !report ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4 opacity-70">
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-3xl mb-2">
                         🛡️
@@ -124,12 +135,12 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                         )}
                     </button>
                 </div>
-            )}
+            ) : null}
 
 
 
             {/* Analysis Report */}
-            {report && (
+            {!error && report && (
                 <div className="space-y-8 animate-fade-in pb-10">
                     {/* Category Scores */}
                     <p className="text-xs text-zinc-400">
