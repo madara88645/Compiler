@@ -134,6 +134,19 @@ export default function SkillsGenerator() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Before anything is generated, the output pane has nothing to show — so we
+  // give the form the full, centered width instead of squeezing it into a
+  // narrow column beside an empty panel. Once a run starts (loading), fails,
+  // or produces a result, we switch to the input | output two-pane layout.
+  const showOutputPane = Boolean(loading || lastError || result);
+
+  const fillExample = () => {
+    setDescription(
+      "A skill that takes a URL, fetches the page content, extracts the main article text, and returns a 3-bullet summary.",
+    );
+    setTimeout(() => document.getElementById("skill-description")?.focus(), 0);
+  };
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden bg-[#050505] p-3 py-4 sm:p-4 md:h-full md:min-h-0 md:justify-center md:overflow-hidden md:p-8">
       {/* Ambient Background */}
@@ -173,9 +186,21 @@ export default function SkillsGenerator() {
           )}
         </header>
 
-        <div className="flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden">
-          {/* Left Panel: Input */}
-          <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[35%] md:border-b-0 md:border-r md:overflow-y-auto">
+        <div
+          className={
+            showOutputPane
+              ? "flex flex-1 flex-col overflow-visible md:min-h-0 md:flex-row md:overflow-hidden"
+              : "flex flex-1 flex-col items-center overflow-y-auto"
+          }
+        >
+          {/* Input form — full centered width until there's output, then the left pane */}
+          <div
+            className={
+              showOutputPane
+                ? "flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[38%] md:border-b-0 md:border-r md:overflow-y-auto"
+                : "flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6 md:p-8"
+            }
+          >
             <div className="flex flex-col gap-2">
               <label htmlFor="skill-description" className="text-sm font-medium text-zinc-300">Skill Description</label>
               <p id="skill-description-help" className="text-xs text-zinc-500">
@@ -337,14 +362,25 @@ export default function SkillsGenerator() {
               )}
             </button>
 
+            {!description.trim() && (
+              <button
+                type="button"
+                onClick={fillExample}
+                className="mx-auto text-xs text-yellow-400/80 transition-colors hover:text-yellow-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded px-2 py-1"
+              >
+                or try an example
+              </button>
+            )}
+
             {/* Context Manager */}
             <ContextManager
               onInsertContext={(text) => setDescription(prev => prev + "\n\n---\nContext:\n" + text)}
             />
           </div>
 
-          {/* Right Panel: Output */}
-          <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[65%]">
+          {/* Right Panel: Output — only rendered once there is something to show */}
+          {showOutputPane && (
+          <div className="relative flex min-h-[360px] w-full flex-col bg-black/20 md:min-h-0 md:w-[62%]">
             {loading ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
                 <span className="animate-pulse text-sm font-medium text-yellow-300/90">Forging skill definition...</span>
@@ -395,50 +431,9 @@ export default function SkillsGenerator() {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center text-zinc-600 opacity-75 sm:gap-6 sm:p-10">
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-yellow-500/30 blur-[40px] rounded-full group-hover:bg-yellow-500/50 transition-all duration-700" />
-                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-white/10 flex items-center justify-center shadow-2xl skew-y-3 group-hover:skew-y-0 transition-transform duration-500">
-                    <Zap size={40} strokeWidth={1.5} aria-hidden="true" className="text-yellow-400/60" />
-                  </div>
-                </div>
-                <div className="max-w-xs space-y-2">
-                  <h3 className="text-zinc-200 font-medium tracking-wide">Skill Forge</h3>
-                  <p className="text-sm text-zinc-500 mb-4">
-                    Describe the capability on the left, choose whether examples belong in it, then generate and copy the skill.
-                  </p>
-                  <div className="flex flex-col items-center gap-3 mt-6 w-full">
-                    <button
-                      type="button"
-                      onClick={handleGenerate}
-                      disabled={loading || !description.trim()}
-                      aria-busy={loading}
-                      title={!description.trim() ? "Enter a description first to generate" : "Generate Skill"}
-                      className="mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-yellow-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]"
-                    >
-                      Generate Skill
-                    </button>
-                    {!description.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDescription("A skill that takes a URL, fetches the page content, extracts the main article text, and returns a 3-bullet summary.");
-                          setTimeout(() => {
-                            const textarea = document.getElementById('skill-description');
-                            if (textarea) textarea.focus();
-                          }, 0);
-                        }}
-                        className="text-xs text-yellow-400/80 hover:text-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded px-2 py-1"
-                      >
-                        or try an example
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
+          )}
         </div>
       </div>
     </main>
