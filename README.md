@@ -92,6 +92,8 @@ Every report also surfaces **risky areas**, a **test-coverage** signal, **branch
 
 **v1 is an offline, deterministic advisory.** It runs only on what you paste — no GitHub API, no AI calls, no sign-in — and never blocks a merge. Open it in the sidebar or at [`/pr-safety`](https://prcompiler.com/pr-safety); the [PR Safety guide](docs/pr-safety.md) has worked examples (docs-only, auth-risk, stale branch, split-needed), a `curl` recipe for `POST /pr-safety/report`, and an advisory [GitHub Action sketch](docs/pr-safety-github-action.md).
 
+**CLI (no server):** analyze your local branch without starting the API — `promptc pr-safety --from-git` (or `python -m cli.main pr-safety --from-git` from the repo). See [docs/pr-safety.md](docs/pr-safety.md#cli-no-server-needed) for `--files-from`, `--format human|json|md`, and `--exit-code`.
+
 ---
 
 ### Conservative Mode
@@ -280,12 +282,23 @@ python -m cli.main github render --type pr-review-brief --from-file prompt.txt
 
 ### VS Code Extension
 
-The VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension). Once the Marketplace publisher is claimed and the first `vscode-v*` tag is pushed, it installs from:
+The VS Code package lives in [`integrations/vscode-extension`](integrations/vscode-extension).
+
+Start the backend before using the extension (default API URL is `http://127.0.0.1:8080`):
+
+```bash
+python -m uvicorn api.main:app --reload --port 8080
+```
+
+**Install today:**
+
+- **From a `.vsix`** — download the `promptc-vscode-vsix` artifact from the latest [Publish VS Code Extension](https://github.com/madara88645/Compiler/actions/workflows/publish-vscode.yml) workflow run, then install via **Extensions: Install from VSIX...**
+- **From source** — see [Local development](integrations/vscode-extension/README.md#local-development) in the extension README (`F5` / Extension Development Host)
+
+**Once published** (after the Marketplace publisher is claimed and the first `vscode-v*` tag is pushed):
 
 - **VS Code Marketplace** — [`madara88645.promptc-vscode`](https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode)
 - **Open VSX** (VSCodium / Cursor) — [`madara88645/promptc-vscode`](https://open-vsx.org/extension/madara88645/promptc-vscode)
-
-Until then, install from source (see [the extension README](integrations/vscode-extension/README.md#local-development)) or the `.vsix` artifact on the `Publish VS Code Extension` workflow run.
 
 Features:
 
@@ -303,12 +316,12 @@ API keys are stored in VS Code secret storage, not workspace settings.
 
 ### CLI (pip / pipx)
 
-Install the command-line compiler from PyPI:
+Install the command-line compiler directly from GitHub:
 
 ```bash
-pipx install prcompiler        # recommended — isolated install
+pipx install git+https://github.com/madara88645/Compiler.git   # recommended — isolated install
 # or
-pip install prcompiler
+pip install git+https://github.com/madara88645/Compiler.git
 ```
 
 Then compile a prompt:
@@ -317,6 +330,14 @@ Then compile a prompt:
 promptc compile "write a haiku about the sea"
 promptc --version
 ```
+
+> **Once published on PyPI**, you will also be able to install with:
+>
+> ```bash
+> pipx install prcompiler        # recommended — isolated install
+> # or
+> pip install prcompiler
+> ```
 
 ### From source (development)
 
@@ -438,11 +459,12 @@ docs/           Product, pattern, and workflow docs
 
 ## Docs
 
+- [`docs/cli.md`](docs/cli.md) — full `promptc` CLI reference (all commands and sub-apps)
 - [`docs/pr-safety.md`](docs/pr-safety.md) — PR Safety usage guide, examples, and `curl` recipe
 - [`docs/pr-safety-github-action.md`](docs/pr-safety-github-action.md) — advisory CI integration sketch
 - [`docs/pattern-library.md`](docs/pattern-library.md)
 - [`docs/promptc-safe-workflows.md`](docs/promptc-safe-workflows.md)
-- [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml)
+- [`examples/github/promptc-artifact.yml`](examples/github/promptc-artifact.yml) — portable GitHub Action example (`pip install` from GitHub + `promptc github render`; works in any repo)
 
 ---
 

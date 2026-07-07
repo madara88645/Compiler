@@ -1,12 +1,20 @@
 name: PromptC Artifact Example
 
+# Portable workflow: install Prompt Compiler from GitHub and render a
+# GitHub-friendly artifact from any text file in your repo.
+# Copy to .github/workflows/ in your project and adjust inputs as needed.
+
 on:
   workflow_dispatch:
     inputs:
       artifact_type:
-        description: Artifact type
+        description: Artifact type (issue-brief, implementation-checklist, pr-review-brief)
         required: true
         default: pr-review-brief
+      source_file:
+        description: Path to the source text file (relative to repo root)
+        required: true
+        default: .github/PULL_REQUEST_TEMPLATE.md
 
 jobs:
   compile-artifact:
@@ -18,14 +26,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Prompt Compiler
+        run: pip install "git+https://github.com/madara88645/Compiler.git"
 
       - name: Render PromptC artifact
         run: |
-          python -m cli.main github render \
+          promptc github render \
             --type "${{ github.event.inputs.artifact_type }}" \
-            --from-file .github/PULL_REQUEST_TEMPLATE.md \
+            --from-file "${{ github.event.inputs.source_file }}" \
             > promptc-artifact.md
 
       - name: Upload artifact
