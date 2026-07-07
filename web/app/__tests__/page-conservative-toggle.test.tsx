@@ -10,6 +10,12 @@ vi.mock("../hooks/useCompiler", () => ({
   useCompiler: () => useCompilerMock(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 vi.mock("../hooks/useContextManager", () => ({
   useContextManager: () => useContextManagerMock(),
 }));

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -114,6 +115,7 @@ function CompilerErrorState({
 }
 
 export default function Home() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -160,6 +162,14 @@ export default function Home() {
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
     await resolveSecurityDecision(useRedacted, activeMode);
+  };
+
+  const handleBuildAgentPack = () => {
+    if (!result) return;
+    const compiledPrompt = getCompileTabContent(result, "user");
+    if (!compiledPrompt) return;
+    window.localStorage.setItem("promptc_agent_pack_goal", compiledPrompt);
+    router.push("/agent-packs");
   };
 
   // Typewriter entrance when an example prompt is inserted.
@@ -400,6 +410,15 @@ export default function Home() {
                       <span className="ml-[-14px] rounded-full border border-white/10 bg-black/60 px-1.5 text-[11px] leading-none text-zinc-300 backdrop-blur-sm">›</span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleBuildAgentPack}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition-colors hover:bg-cyan-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    title="Send this compiled prompt to Agent Packs to generate repo-ready files"
+                    aria-label="Build agent pack from this compiled prompt"
+                  >
+                    Build agent pack from this
+                  </button>
                   <PolicyBadge result={result} />
                 </div>
 
@@ -544,7 +563,7 @@ export default function Home() {
                 <div className="max-w-sm space-y-2">
                   <h3 className="text-zinc-100 font-semibold tracking-tight text-lg">Compile a rough request into a prompt your AI can actually run</h3>
                   <p className="text-sm text-zinc-400 leading-relaxed mb-4">
-                    Paste a vague task. Get a structured prompt, an execution plan, and repo-ready agent files &mdash; plus a rule-based readiness check that flags risky or unclear requests before you waste a run.
+                    Paste a vague task. Get a structured prompt and an execution plan &mdash; plus a rule-based readiness check that flags risky or unclear requests before you waste a run.
                   </p>
                   <div className="flex flex-col items-center gap-3 mt-2 w-full">
                     <button
