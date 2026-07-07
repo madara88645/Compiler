@@ -62,8 +62,10 @@ describe("route metadata", () => {
     expect(rootMetadata.description).toBe("Catch weak prompts before you spend an agent run");
     expect(rootMetadata.openGraph?.title).toBe("Prompt Compiler");
     expect(rootMetadata.openGraph?.description).toBe("Catch weak prompts before you spend an agent run");
+    expect(rootMetadata.openGraph?.type).toBe("website");
     expect(rootMetadata.twitter?.title).toBe("Prompt Compiler");
     expect(rootMetadata.twitter?.description).toBe("Catch weak prompts before you spend an agent run");
+    expect(rootMetadata.twitter?.card).toBe("summary_large_image");
   });
 
   it.each(ROUTE_CASES)(
