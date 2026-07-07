@@ -181,9 +181,7 @@ def test_optimize_ir_keeps_distinct_goals():
 def test_optimize_ir_injects_english_domain_baseline_for_coding():
     ir = _make_ir(domain="coding", language="en", constraints=["Keep it concise."])
     result = optimize_ir(ir)
-    assert any(
-        "type hints, docstrings" in c for c in result.constraints
-    ), result.constraints
+    assert any("type hints, docstrings" in c for c in result.constraints), result.constraints
 
 
 def test_optimize_ir_injects_turkish_domain_baseline_for_security():
