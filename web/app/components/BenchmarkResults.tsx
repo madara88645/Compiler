@@ -4,12 +4,15 @@ import { toast } from "sonner";
 
 import { useState, memo } from "react";
 
+import { benchmarkReportToMarkdown } from "./benchmarkMarkdown";
+
 export type BenchmarkData = {
     raw_output: string;
     compiled_output: string;
     compiled_prompt: string;
     winner: "compiled" | "raw" | "tie";
     improvement_score: number; // e.g. 20 means +20%
+    model?: string;
     metrics: {
         raw_relevance: number;
         compiled_relevance: number;
@@ -27,10 +30,30 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
     const [promptOpen, setPromptOpen] = useState(false);
     const [copiedRaw, setCopiedRaw] = useState(false);
     const [copiedCompiled, setCopiedCompiled] = useState(false);
+    const [copiedReport, setCopiedReport] = useState(false);
 
     const sign = data.improvement_score >= 0 ? "+" : "";
     const isCompiledWinner = data.winner === "compiled";
     const isTie = data.winner === "tie";
+
+    const copyReport = () => {
+        navigator.clipboard.writeText(benchmarkReportToMarkdown(data));
+        toast.success("Copied report as Markdown");
+        setCopiedReport(true);
+        setTimeout(() => setCopiedReport(false), 2000);
+    };
+
+    const downloadReport = () => {
+        const blob = new Blob([benchmarkReportToMarkdown(data)], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "benchmark-report.md";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="flex flex-col h-full overflow-hidden animate-fade-in">
@@ -69,8 +92,27 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                     )}
                 </div>
 
-                <div className="text-[11px] font-mono text-zinc-500">
-                    {data.processing_ms}ms
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={copyReport}
+                            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                        >
+                            <span className="sr-only" aria-live="polite">{copiedReport ? "Copied to clipboard" : ""}</span>
+                            {copiedReport ? "Copied!" : "Copy report"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={downloadReport}
+                            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                        >
+                            Download .md
+                        </button>
+                    </div>
+                    <div className="text-[11px] font-mono text-zinc-500">
+                        {data.processing_ms}ms
+                    </div>
                 </div>
             </div>
 
