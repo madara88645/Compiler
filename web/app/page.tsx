@@ -12,6 +12,7 @@ import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
 import PolicyBadge from "./components/PolicyBadge";
 import CopyButton from "./components/CopyButton";
+import DownloadButton from "./components/DownloadButton";
 import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
 
@@ -592,10 +593,17 @@ export default function Home() {
                           value={getCompileTabContent(result, tab)}
                         />
 
-                        <CopyButton
-                          text={getCompileTabContent(result, tab)}
-                          className="absolute bottom-6 right-6"
-                        />
+                        <div className="absolute bottom-6 right-6 flex items-center gap-2">
+                          <DownloadButton
+                            content={getCompileTabContent(result, tab)}
+                            filename={`${tab}-prompt.md`}
+                            mimeType="text/markdown"
+                            label="Download as Markdown"
+                          />
+                          <CopyButton
+                            text={getCompileTabContent(result, tab)}
+                          />
+                        </div>
                       </>
                     )}
                   </div>
@@ -616,10 +624,17 @@ export default function Home() {
                           {JSON.stringify(result, null, 2)}
                         </pre>
                       </div>
-                      <CopyButton
-                        text={JSON.stringify(result, null, 2)}
-                        className="absolute bottom-6 right-6"
-                      />
+                      <div className="absolute bottom-6 right-6 flex items-center gap-2">
+                        <DownloadButton
+                          content={JSON.stringify(result, null, 2)}
+                          filename="compile-result.json"
+                          mimeType="application/json"
+                          label="Download as JSON"
+                        />
+                        <CopyButton
+                          text={JSON.stringify(result, null, 2)}
+                        />
+                      </div>
                     </>
                   )}
                 </div>
