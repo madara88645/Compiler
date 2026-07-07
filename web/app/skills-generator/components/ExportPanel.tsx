@@ -1,9 +1,11 @@
 "use client";
 
 import { toast } from "sonner";
+import { Download, FolderArchive } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/config";
+import { buildPackZip } from "../../lib/packZip";
 
 type SkillTarget = "claude-tool" | "claude-mcp-tool" | "langchain-tool";
 type OutputMode = "python" | "json" | "files";
@@ -100,6 +102,21 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
     return selected.content;
   }, [currentResult, outputMode, selectedFilePath]);
 
+  // Named after the currently selected file's path when browsing a multi-file
+  // export; otherwise a sensible extension is derived from the output mode so
+  // single-value exports (JSON config, Python tool) still download runnably.
+  const downloadFilename = useMemo(() => {
+    if (!currentContent) return null;
+    if (outputMode === "files") {
+      const files = currentResult?.files ?? [];
+      const selected = files.find((file) => file.path === selectedFilePath) ?? files[0];
+      const path = selected?.path;
+      if (path) return path.split("/").pop() || path;
+    }
+    const extension = outputMode === "json" ? "json" : "py";
+    return `${format}.${extension}`;
+  }, [currentContent, currentResult, outputMode, selectedFilePath, format]);
+
   const fetchExport = async (nextTarget: SkillTarget, nextMode: OutputMode) => {
     if (!skillDefinition) return;
     const nextFormat = resolveFormat(nextTarget);
@@ -168,6 +185,17 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleDownloadFile = () => {
+    if (!currentContent || !downloadFilename) return;
+    downloadBlob(new Blob([currentContent], { type: "text/plain" }), downloadFilename);
+  };
+
+  const handleDownloadZip = () => {
+    const files = currentResult?.files ?? [];
+    if (files.length < 2) return;
+    downloadBlob(buildPackZip(files), `${format}-export.zip`);
   };
 
   if (!skillDefinition) return null;
@@ -277,17 +305,42 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                 <pre className="overflow-x-auto overflow-y-auto max-h-72 text-[11px] leading-relaxed font-mono text-zinc-300 bg-black/40 rounded-xl p-4 border border-white/5 whitespace-pre">
                   <code>{currentContent}</code>
                 </pre>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
-                  aria-label={copied ? "Copied to clipboard" : "Copy code"}
-                >
-                  <span className="sr-only" aria-live="polite">
-                    {copied ? "Copied to clipboard" : ""}
-                  </span>
-                  {copied ? "Copied!" : "Copy"}
-                </button>
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover/code:opacity-100 focus-within:opacity-100 transition-opacity">
+                  {visibleFiles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadZip}
+                      className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                      aria-label="Download .zip"
+                      title="Download all exported files as a .zip"
+                    >
+                      <FolderArchive size={12} aria-hidden="true" />
+                      .zip
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDownloadFile}
+                    disabled={!downloadFilename}
+                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Download file"
+                    title={downloadFilename ? `Download ${downloadFilename}` : "Download file"}
+                  >
+                    <Download size={12} aria-hidden="true" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                    aria-label={copied ? "Copied to clipboard" : "Copy code"}
+                  >
+                    <span className="sr-only" aria-live="polite">
+                      {copied ? "Copied to clipboard" : ""}
+                    </span>
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-16 text-zinc-600 text-xs">
@@ -305,4 +358,21 @@ function resolveFormat(target: SkillTarget): string {
   if (target === "claude-mcp-tool") return "claude-mcp-tool-stub";
   if (target === "langchain-tool") return "langchain-tool";
   return "claude-tool-use";
+}
+
+/** Trigger a browser download for the given blob, then release the object URL. */
+function downloadBlob(blob: Blob, filename: string) {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  // The anchor must be in the document for the synthetic click to trigger a
+  // download in Firefox, and the object URL must outlive the click — revoking
+  // it synchronously cancels the download in Chromium-based browsers.
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 0);
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { toast } from "sonner";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Download, FolderArchive } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/config";
+import { buildPackZip } from "../../lib/packZip";
 
 const AGENT_PACKS_HANDOFF_KEY = "promptc_agent_pack_goal";
 
@@ -124,6 +125,20 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     return null;
   }, [currentResult, outputMode]);
 
+  const currentFiles = currentResult?.files ?? [];
+
+  // Named after the currently selected file's path when the export produced
+  // one (e.g. the Claude Subagent markdown file); otherwise a sensible
+  // extension is derived from the output mode so raw code exports still
+  // download with a runnable filename.
+  const downloadFilename = useMemo(() => {
+    if (!currentContent) return null;
+    const selectedPath = currentFiles[0]?.path;
+    if (selectedPath) return selectedPath.split("/").pop() || selectedPath;
+    const extension = outputMode === "typescript" ? "ts" : outputMode === "markdown" ? "md" : "py";
+    return `${format}.${extension}`;
+  }, [currentContent, currentFiles, outputMode, format]);
+
   const fetchExport = async (nextTarget: ExportTarget, nextMode: OutputMode) => {
     if (!systemPrompt) return;
     const nextFormat = resolveFormat(nextTarget, nextMode);
@@ -196,6 +211,16 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     if (!systemPrompt) return;
     window.localStorage.setItem(AGENT_PACKS_HANDOFF_KEY, systemPrompt);
     router.push("/agent-packs");
+  };
+
+  const handleDownloadFile = () => {
+    if (!currentContent || !downloadFilename) return;
+    downloadBlob(new Blob([currentContent], { type: "text/plain" }), downloadFilename);
+  };
+
+  const handleDownloadZip = () => {
+    if (currentFiles.length < 2) return;
+    downloadBlob(buildPackZip(currentFiles), `${format}-export.zip`);
   };
 
   if (!systemPrompt) return null;
@@ -303,17 +328,42 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
                 <pre className="overflow-x-auto overflow-y-auto max-h-72 text-[11px] leading-relaxed font-mono text-zinc-300 bg-black/40 rounded-xl p-4 border border-white/5 whitespace-pre">
                   <code>{currentContent}</code>
                 </pre>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
-                  aria-label={copied ? "Copied to clipboard" : "Copy code"}
-                >
-                  <span className="sr-only" aria-live="polite">
-                    {copied ? "Copied to clipboard" : ""}
-                  </span>
-                  {copied ? "Copied!" : "Copy"}
-                </button>
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover/code:opacity-100 focus-within:opacity-100 transition-opacity">
+                  {currentFiles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadZip}
+                      className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                      aria-label="Download .zip"
+                      title="Download all exported files as a .zip"
+                    >
+                      <FolderArchive size={12} aria-hidden="true" />
+                      .zip
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDownloadFile}
+                    disabled={!downloadFilename}
+                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Download file"
+                    title={downloadFilename ? `Download ${downloadFilename}` : "Download file"}
+                  >
+                    <Download size={12} aria-hidden="true" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                    aria-label={copied ? "Copied to clipboard" : "Copy code"}
+                  >
+                    <span className="sr-only" aria-live="polite">
+                      {copied ? "Copied to clipboard" : ""}
+                    </span>
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-16 text-zinc-600 text-xs">
@@ -335,4 +385,21 @@ function resolveFormat(target: ExportTarget, outputMode: OutputMode): string {
   if (target === "claude-project-pack") return "claude-project-pack";
   if (target === "langgraph") return "langgraph";
   return "langchain";
+}
+
+/** Trigger a browser download for the given blob, then release the object URL. */
+function downloadBlob(blob: Blob, filename: string) {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  // The anchor must be in the document for the synthetic click to trigger a
+  // download in Firefox, and the object URL must outlive the click — revoking
+  // it synchronously cancels the download in Chromium-based browsers.
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 0);
 }
