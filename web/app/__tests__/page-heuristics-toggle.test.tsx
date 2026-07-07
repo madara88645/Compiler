@@ -48,22 +48,22 @@ describe("Heuristics-only engine toggle", () => {
     });
   });
 
-  it("defaults to the LLM-backed engine and shows AI MODE", () => {
+  it("defaults to the LLM-backed engine", () => {
     render(<Home />);
 
     const toggle = screen.getByRole("switch", { name: "Heuristics-only engine OFF" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByText("AI MODE")).toBeTruthy();
+    expect(screen.getByText("LLM-backed engine")).toBeTruthy();
   });
 
-  it("switches to the heuristic engine and stops claiming AI MODE", () => {
+  it("switches to the heuristic engine", () => {
     render(<Home />);
 
     const toggle = screen.getByRole("switch", { name: "Heuristics-only engine OFF" });
     fireEvent.click(toggle);
 
     expect(screen.getByRole("switch", { name: "Heuristics-only engine ON" })).toBeTruthy();
-    expect(screen.getByText("HEURISTIC MODE")).toBeTruthy();
+    expect(screen.getByText("Heuristics only (no LLM)")).toBeTruthy();
     expect(screen.queryByText("AI MODE")).toBeNull();
   });
 
