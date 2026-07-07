@@ -278,7 +278,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Bu PDF'i ozetle ve junior gelistirici icin uygulama plani yaz." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(await screen.findByRole("heading", { name: "English compact suggestion" })).toBeTruthy();
 
@@ -317,7 +317,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Bu PDF'i ozetle ve junior gelistirici icin uygulama plani yaz." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     await screen.findByRole("button", { name: "Send optimized result to compiler" });
     fireEvent.click(screen.getByRole("button", { name: "Send optimized result to compiler" }));
