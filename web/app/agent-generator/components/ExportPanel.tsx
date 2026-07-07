@@ -1,9 +1,13 @@
 "use client";
 
 import { toast } from "sonner";
+import { ArrowRight } from "lucide-react";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/config";
+
+const AGENT_PACKS_HANDOFF_KEY = "promptc_agent_pack_goal";
 
 type ExportTarget =
   | "claude-agent-sdk"
@@ -11,7 +15,7 @@ type ExportTarget =
   | "claude-project-pack"
   | "langchain"
   | "langgraph";
-type OutputMode = "python" | "typescript" | "markdown" | "files";
+type OutputMode = "python" | "typescript" | "markdown";
 
 interface ExportFile {
   path: string;
@@ -48,6 +52,8 @@ const TARGETS: {
     color: "text-zinc-400 border-transparent hover:border-amber-500/40 hover:text-amber-300",
     activeColor: "text-amber-300 border-amber-500/60 bg-amber-500/10",
   },
+  // Hands off to Agent Packs — the single home for repo-ready file bundles — instead of
+  // duplicating file-bundle generation inline (see isAgentPacksHandoff below).
   {
     id: "claude-project-pack",
     label: "Claude Project Pack",
@@ -74,12 +80,13 @@ const OUTPUT_OPTIONS: Record<ExportTarget, { id: OutputMode; label: string }[]> 
     { id: "typescript", label: "TypeScript" },
   ],
   "claude-subagent": [{ id: "markdown", label: "Markdown" }],
-  "claude-project-pack": [{ id: "files", label: "Files" }],
+  "claude-project-pack": [],
   langchain: [{ id: "python", label: "Python" }],
   langgraph: [{ id: "python", label: "Python" }],
 };
 
 export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [target, setTarget] = useState<ExportTarget>("claude-agent-sdk");
   const [outputMode, setOutputMode] = useState<OutputMode>("python");
@@ -87,7 +94,6 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const prevPromptRef = useRef<string | null>(null);
   const panelId = useId();
 
@@ -96,13 +102,13 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
       prevPromptRef.current = systemPrompt;
       setCache({});
       setError(null);
-      setSelectedFilePath(null);
       setTarget("claude-agent-sdk");
       setOutputMode("python");
     }
   }, [systemPrompt]);
 
   const activeTarget = TARGETS.find((item) => item.id === target)!;
+  const isAgentPacksHandoff = target === "claude-project-pack";
   const format = resolveFormat(target, outputMode);
   const currentResult = cache[format] ?? null;
   const outputTabs = OUTPUT_OPTIONS[target];
@@ -115,25 +121,13 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     if (outputMode === "markdown") {
       return currentResult.files?.[0]?.content ?? currentResult.code ?? null;
     }
-    if (outputMode === "files") {
-      const files = currentResult.files ?? [];
-      if (!files.length) return null;
-      const selected = files.find((file) => file.path === selectedFilePath) ?? files[0];
-      return selected.content;
-    }
     return null;
-  }, [currentResult, outputMode, selectedFilePath]);
-
-  const visibleFiles = currentResult?.files ?? [];
+  }, [currentResult, outputMode]);
 
   const fetchExport = async (nextTarget: ExportTarget, nextMode: OutputMode) => {
     if (!systemPrompt) return;
     const nextFormat = resolveFormat(nextTarget, nextMode);
     if (cache[nextFormat]) {
-      const files = cache[nextFormat].files ?? [];
-      if (files.length && !selectedFilePath) {
-        setSelectedFilePath(files[0].path);
-      }
       return;
     }
 
@@ -158,10 +152,6 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
 
       const data: ExportResult = await res.json();
       setCache((prev) => ({ ...prev, [nextFormat]: data }));
-      const files = data.files ?? [];
-      if (files.length) {
-        setSelectedFilePath(files[0].path);
-      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Export failed");
     } finally {
@@ -172,14 +162,18 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
   const handleToggle = () => {
     const next = !isOpen;
     setIsOpen(next);
-    if (next) {
+    if (next && !isAgentPacksHandoff) {
       void fetchExport(target, outputMode);
     }
   };
 
   const handleTargetClick = (nextTarget: ExportTarget) => {
-    const firstMode = OUTPUT_OPTIONS[nextTarget][0].id;
     setTarget(nextTarget);
+    if (nextTarget === "claude-project-pack") {
+      // Agent Packs is the single home for file bundles — no export call here.
+      return;
+    }
+    const firstMode = OUTPUT_OPTIONS[nextTarget][0].id;
     setOutputMode(firstMode);
     void fetchExport(nextTarget, firstMode);
   };
@@ -196,6 +190,12 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleAgentPacksHandoff = () => {
+    if (!systemPrompt) return;
+    window.localStorage.setItem(AGENT_PACKS_HANDOFF_KEY, systemPrompt);
+    router.push("/agent-packs");
   };
 
   if (!systemPrompt) return null;
@@ -252,47 +252,45 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
             ))}
           </div>
 
-          <div className="flex gap-1 px-3 pt-3 flex-wrap" role="radiogroup" aria-label="Output Format">
-            {outputTabs.map((tab) => (
-              <button
-                type="button"
-                key={tab.id}
-                role="radio"
-                aria-checked={outputMode === tab.id}
-                onClick={() => handleOutputModeClick(tab.id)}
-                className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
-                  outputMode === tab.id
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {visibleFiles.length > 1 && (
-            <div className="px-3 pt-3">
-              <label htmlFor="agent-export-file" className="sr-only">
-                Exported file
-              </label>
-              <select
-                id="agent-export-file"
-                value={selectedFilePath ?? visibleFiles[0].path}
-                onChange={(event) => setSelectedFilePath(event.target.value)}
-                className="w-full bg-black/20 border border-white/10 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-              >
-                {visibleFiles.map((file) => (
-                  <option key={file.path} value={file.path}>
-                    {file.path}
-                  </option>
-                ))}
-              </select>
+          {outputTabs.length > 0 && (
+            <div className="flex gap-1 px-3 pt-3 flex-wrap" role="radiogroup" aria-label="Output Format">
+              {outputTabs.map((tab) => (
+                <button
+                  type="button"
+                  key={tab.id}
+                  role="radio"
+                  aria-checked={outputMode === tab.id}
+                  onClick={() => handleOutputModeClick(tab.id)}
+                  className={`px-3 py-1 text-[11px] font-mono rounded-md transition-all ${
+                    outputMode === tab.id
+                      ? "bg-white/10 text-zinc-100"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           )}
 
           <div className="relative p-3">
-            {loading ? (
+            {isAgentPacksHandoff ? (
+              <div className="flex flex-col items-center gap-3 py-6 px-4 text-center">
+                <p className="text-xs leading-relaxed text-zinc-400 max-w-sm">
+                  Agent Packs is the single home for repo-ready Claude file bundles — CLAUDE.md,
+                  settings, subagents, and workflow assets, generated and reviewed together. Continue
+                  there with this agent description carried over.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAgentPacksHandoff}
+                  className="inline-flex items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  Continue in Agent Packs
+                  <ArrowRight size={13} aria-hidden="true" />
+                </button>
+              </div>
+            ) : loading ? (
               <div className="flex items-center justify-center h-24 text-zinc-500 text-xs animate-pulse">
                 Generating {activeTarget.label} export...
               </div>

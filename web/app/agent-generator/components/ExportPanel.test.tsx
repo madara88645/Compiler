@@ -7,13 +7,22 @@ const { apiFetch } = vi.hoisted(() => ({
   apiFetch: vi.fn(),
 }));
 
+const { push } = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
 vi.mock("@/config", () => ({
   apiFetch,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
 }));
 
 describe("Agent ExportPanel", () => {
   beforeEach(() => {
     apiFetch.mockReset();
+    push.mockReset();
     apiFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -29,9 +38,10 @@ describe("Agent ExportPanel", () => {
         writeText: vi.fn().mockResolvedValue(undefined),
       },
     });
+    window.localStorage.clear();
   });
 
-  test("exposes pressed state for the selected target and output mode", async () => {
+  test("exposes pressed state for the selected target and clears output mode tabs for the handoff target", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
@@ -50,27 +60,28 @@ describe("Agent ExportPanel", () => {
 
     fireEvent.click(projectPackButton);
 
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
-
     expect(sdkButton.getAttribute("aria-checked")).toBe("false");
     expect(projectPackButton.getAttribute("aria-checked")).toBe("true");
     expect(screen.queryByRole("radio", { name: "Python" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "TypeScript" })).toBeNull();
 
-    const filesButton = screen.getByRole("radio", { name: "Files" });
-    expect(filesButton.getAttribute("aria-checked")).toBe("true");
+    // Selecting the handoff target must not trigger another export call.
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 
-  test("requests the Claude project pack export", async () => {
+  test("Claude Project Pack hands off to Agent Packs instead of exporting inline", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
     fireEvent.click(screen.getByRole("radio", { name: "Claude Project Pack" }));
 
-    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
-    const [, options] = apiFetch.mock.calls.at(-1);
-    expect(options.method).toBe("POST");
-    expect(JSON.parse(options.body).format).toBe("claude-project-pack");
+    const handoffButton = await screen.findByRole("button", { name: /continue in agent packs/i });
+    fireEvent.click(handoffButton);
+
+    expect(window.localStorage.getItem("promptc_agent_pack_goal")).toBe("# Agent\n\n## Role\nTest");
+    expect(push).toHaveBeenCalledWith("/agent-packs");
+    // Still only the initial (Claude Agent SDK) export call — no duplicate export request.
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 
   test("requests the TypeScript Claude Agent SDK export when TypeScript tab is selected", async () => {
