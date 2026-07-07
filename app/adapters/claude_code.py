@@ -217,12 +217,42 @@ if __name__ == "__main__":
 ## Safety and verification
 
 {_skill_safety_markdown(ir)}
+
+## Client configuration
+
+`.mcp.json` is a ready-to-use launch config for `server.py`. Where it goes
+depends on the client:
+
+- **Claude Code**: place `.mcp.json` at your project root (or merge the
+  `{tool_name}` entry into an existing one); Claude Code loads project-level
+  MCP servers from that file automatically.
+- **Claude Desktop**: Claude Desktop does not read project-level `.mcp.json`
+  files. Merge the `mcpServers` entry into its own config instead
+  (Settings > Developer > Edit Config, i.e. `claude_desktop_config.json`).
 """
     )
+    mcp_config = _mcp_client_config(tool_name)
     return [
         {"path": "server.py", "content": content},
         {"path": "README.md", "content": readme},
+        {"path": ".mcp.json", "content": mcp_config},
     ]
+
+
+def _mcp_client_config(tool_name: str) -> str:
+    """Render a launch config for the generated ``server.py`` entry point.
+
+    Uses the same ``{"mcpServers": {...}}`` envelope that ``render_mcp_json``
+    produces for registered servers, so both Claude Code and Claude Desktop
+    can consume this file without translation. The generated stub is a local
+    stdio server (not one of the remote HTTP servers in
+    ``MCP_SERVER_REGISTRY``), so it is launched via ``command``/``args``
+    rather than a ``url``.
+    """
+    return json.dumps(
+        {"mcpServers": {tool_name: {"command": "python", "args": ["server.py"]}}},
+        indent=2,
+    )
 
 
 def _project_claude_md(ir: AgentExportIR) -> str:
