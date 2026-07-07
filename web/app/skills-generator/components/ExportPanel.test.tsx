@@ -7,9 +7,13 @@ const { apiFetch } = vi.hoisted(() => ({
   apiFetch: vi.fn(),
 }));
 
-vi.mock("@/config", () => ({
-  apiFetch,
-}));
+vi.mock("@/config", async () => {
+  const actual = await vi.importActual<typeof import("@/config")>("@/config");
+  return {
+    ...actual,
+    apiFetch,
+  };
+});
 
 describe("Skill ExportPanel", () => {
   beforeEach(() => {
@@ -205,5 +209,33 @@ describe("Skill ExportPanel", () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(anchors[anchors.length - 1].download).toBe("claude-mcp-tool-stub-export.zip");
+  });
+
+  test("shows a friendly message for a failed export and retries via the retry button", async () => {
+    apiFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
+    );
+    expect(alert).not.toHaveTextContent("Failed to fetch");
+
+    apiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        python_code: "def tool(): pass",
+        json_config: '{"name":"tool"}',
+        code: "def tool(): pass",
+        files: [],
+      }),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /retry export/i }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('{"name":"tool"}')).toBeInTheDocument();
   });
 });
