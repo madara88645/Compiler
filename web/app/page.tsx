@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import ReadinessBanner, { VERDICT_META } from "./components/ReadinessBanner";
+import ResultValueStrip from "./components/ResultValueStrip";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
@@ -114,6 +116,7 @@ function CompilerErrorState({
 }
 
 export default function Home() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -127,6 +130,16 @@ export default function Home() {
     }
 
     return window.localStorage.getItem("promptc_conservative_mode") !== "false";
+  });
+  // Engine toggle: LLM-backed (default) vs the server's deterministic heuristic
+  // pipeline only. Both still hit the same backend over the network — heuristics-only
+  // just skips the OpenRouter call, it is not a local/offline mode.
+  const [heuristicsOnly, setHeuristicsOnly] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.localStorage.getItem("promptc_heuristics_only") === "true";
   });
 
   const {
@@ -152,14 +165,33 @@ export default function Home() {
     window.localStorage.setItem("promptc_conservative_mode", String(conservativeMode));
   }, [conservativeMode]);
 
+  useEffect(() => {
+    window.localStorage.setItem("promptc_heuristics_only", String(heuristicsOnly));
+  }, [heuristicsOnly]);
+
   const activeMode: CompileMode = conservativeMode ? "conservative" : "default";
+  const useLlm = !heuristicsOnly;
 
   const handleGenerate = async () => {
-    await runCompile(prompt, activeMode);
+    await runCompile(prompt, activeMode, useLlm);
   };
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
-    await resolveSecurityDecision(useRedacted, activeMode);
+    await resolveSecurityDecision(useRedacted, activeMode, useLlm);
+  };
+
+  const handleBenchmarkThisPrompt = () => {
+    if (!result) return;
+    window.localStorage.setItem("promptc_benchmark_prompt", prompt);
+    router.push("/benchmark");
+  };
+
+  const handleBuildAgentPack = () => {
+    if (!result) return;
+    const compiledPrompt = getCompileTabContent(result, "user");
+    if (!compiledPrompt) return;
+    window.localStorage.setItem("promptc_agent_pack_goal", compiledPrompt);
+    router.push("/agent-packs");
   };
 
   // Typewriter entrance when an example prompt is inserted.
@@ -172,7 +204,9 @@ export default function Home() {
   };
   useEffect(() => stopTypewriter, []);
 
-  const fillExample = (text: string) => {
+  // `autoCompile` is only used by the "try an example" entry point — manual typing
+  // into the textarea (and the regular Compile button) must never trigger it.
+  const fillExample = (text: string, autoCompile = false) => {
     stopTypewriter();
     document
       .querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]')
@@ -183,6 +217,7 @@ export default function Home() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
       setPrompt(text);
+      if (autoCompile) void runCompile(text, activeMode, useLlm);
       return;
     }
     setPrompt("");
@@ -191,7 +226,10 @@ export default function Home() {
     typewriterRef.current = window.setInterval(() => {
       i = Math.min(text.length, i + stepChars);
       setPrompt(text.slice(0, i));
-      if (i >= text.length) stopTypewriter();
+      if (i >= text.length) {
+        stopTypewriter();
+        if (autoCompile) void runCompile(text, activeMode, useLlm);
+      }
     }, 16);
   };
 
@@ -237,9 +275,16 @@ export default function Home() {
               onClick={() => setConservativeMode((prev) => !prev)}
               role="switch"
               aria-checked={conservativeMode}
+              disabled={heuristicsOnly}
               aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
-              title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
-              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+              title={
+                heuristicsOnly
+                  ? "Conservative mode only applies to the LLM-backed engine"
+                  : conservativeMode
+                    ? "Conservative mode ON"
+                    : "Conservative mode OFF"
+              }
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 ${
                 conservativeMode
                   ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-900/20"
                   : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
@@ -259,9 +304,50 @@ export default function Home() {
               </span>
             </button>
 
-            <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 bg-green-500/10 border-green-500/30 text-green-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              AI MODE
+            <button
+              type="button"
+              onClick={() => setHeuristicsOnly((prev) => !prev)}
+              role="switch"
+              aria-checked={heuristicsOnly}
+              aria-label={heuristicsOnly ? "Heuristics-only engine ON" : "Heuristics-only engine OFF"}
+              title={
+                heuristicsOnly
+                  ? "Heuristics only: deterministic server-side engine, no LLM call"
+                  : "LLM-backed engine (OpenRouter)"
+              }
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                heuristicsOnly
+                  ? "border-zinc-400/40 bg-zinc-400/10 text-zinc-100 shadow-lg shadow-zinc-900/20"
+                  : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
+                  heuristicsOnly ? "bg-zinc-300" : "bg-zinc-500"
+                }`}
+              />
+              <span className="flex flex-col items-start leading-none">
+                <span>No-LLM</span>
+                <span className="mt-1 text-[10px] font-normal opacity-75">
+                  {heuristicsOnly ? "Heuristics only (no LLM)" : "LLM-backed engine"}
+                </span>
+              </span>
+            </button>
+
+            <div
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 ${
+                heuristicsOnly
+                  ? "bg-zinc-800/50 border-zinc-700 text-zinc-400"
+                  : "bg-green-500/10 border-green-500/30 text-green-400"
+              }`}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  heuristicsOnly ? "bg-zinc-500" : "bg-green-400 animate-pulse"
+                }`}
+              />
+              {heuristicsOnly ? "HEURISTIC MODE" : "AI MODE"}
             </div>
 
             <div className="flex items-center gap-2">
@@ -369,6 +455,18 @@ export default function Home() {
             ) : result ? (
               <>
                 {result?.readiness && <ReadinessBanner report={result.readiness} />}
+                <ResultValueStrip result={result} />
+                <div className="flex items-center justify-end px-4 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleBenchmarkThisPrompt}
+                    className="group inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-purple-400/30 hover:bg-purple-500/5 hover:text-purple-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    aria-label="Benchmark this prompt — raw vs compiled"
+                  >
+                    Benchmark this prompt — raw vs compiled
+                    <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">{"->"}</span>
+                  </button>
+                </div>
                 {/* Tabs + policy verdict */}
                 <div className="animate-fade-in flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
@@ -400,6 +498,15 @@ export default function Home() {
                       <span className="ml-[-14px] rounded-full border border-white/10 bg-black/60 px-1.5 text-[11px] leading-none text-zinc-300 backdrop-blur-sm">›</span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleBuildAgentPack}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition-colors hover:bg-cyan-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    title="Send this compiled prompt to Agent Packs to generate repo-ready files"
+                    aria-label="Build agent pack from this compiled prompt"
+                  >
+                    Build agent pack from this
+                  </button>
                   <PolicyBadge result={result} />
                 </div>
 
@@ -434,17 +541,17 @@ export default function Home() {
                       <>
                         {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
                         <div className="absolute top-4 right-6 z-10 flex gap-2">
-                          {/* Agent 6 Badge */}
+                          {/* Context sources badge */}
                           {result.ir?.metadata?.context_snippets && result.ir.metadata.context_snippets.length > 0 && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title="Context Strategist Active">
-                              <div className="text-[10px]">🕵️</div>
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title={`${result.ir.metadata.context_snippets.length} sources used to inform this prompt`}>
+                              <div className="text-[10px]">🔎</div>
                               <span className="text-[10px] text-indigo-200 font-medium">
-                                {result.ir.metadata.context_snippets.length} Sources
+                                {result.ir.metadata.context_snippets.length} Sources used
                               </span>
                             </div>
                           )}
 
-                          {/* Agent 7 Badge */}
+                          {/* Quality check badge */}
                           {result.critique && (
                             <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
                               ? "bg-red-500/10 border-red-500/30"
@@ -452,13 +559,13 @@ export default function Home() {
                               }`}>
                               <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
                               <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
-                                Critic: {result.critique.score}/100
+                                Quality check: {result.critique.score}/100
                               </span>
 
                               {/* Hover Popup */}
                               <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
                                 <div className="flex justify-between items-center mb-2">
-                                  <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
+                                  <span className="text-xs font-bold text-zinc-300">Quality check</span>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
                                 </div>
                                 <p className="text-[10px] text-zinc-400 mb-2 leading-relaxed">{result.critique.feedback}</p>
@@ -544,7 +651,7 @@ export default function Home() {
                 <div className="max-w-sm space-y-2">
                   <h3 className="text-zinc-100 font-semibold tracking-tight text-lg">Compile a rough request into a prompt your AI can actually run</h3>
                   <p className="text-sm text-zinc-400 leading-relaxed mb-4">
-                    Paste a vague task. Get a structured prompt, an execution plan, and repo-ready agent files &mdash; plus a rule-based readiness check that flags risky or unclear requests before you waste a run.
+                    Paste a vague task. Get a structured prompt and an execution plan &mdash; plus a rule-based readiness check that flags risky or unclear requests before you waste a run.
                   </p>
                   <div className="flex flex-col items-center gap-3 mt-2 w-full">
                     <button
@@ -560,16 +667,51 @@ export default function Home() {
                     {!prompt.trim() && (
                       <button
                         type="button"
-                        onClick={() => fillExample("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.")}
+                        onClick={() => fillExample("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.", true)}
                         className="text-xs text-blue-400/80 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded px-2 py-1"
                       >
                         or try an example
                       </button>
                     )}
                   </div>
-                  <p className="text-xs italic text-zinc-500 leading-relaxed mt-4">
-                    Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
-                  </p>
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <p className="text-[11px] text-zinc-500">Or try a job like:</p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "bug: export button doesnt work on safari??? users complaining in slack, cant repro locally on chrome tho. might be related to the blob download thing we added last sprint. someone said it also happens on firefox mobile sometimes. need this fixed before the friday release, no repro steps written down anywhere sorry"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        GitHub issue &rarr; implementation brief
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "fixes the thing where auth tokens expire too early. changed the refresh logic in useAuth.ts and also touched the login page a bit bc it kept throwing an error. didnt write tests yet, will add if reviewers want. also bumped a couple deps while i was in there, hope thats fine"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        PR description &rarr; review checklist
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "we need a notifications system. users should get emails and maybe push too. admins need to be able to turn it off per user. should probably use some kind of queue so it doesnt slow down the main app but not sure which one, also needs to somehow work with the mobile app"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        Spec &rarr; implementation plan
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="w-full max-w-md space-y-3 border-t border-white/5 pt-5 text-left">

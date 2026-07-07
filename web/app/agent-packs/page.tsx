@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
@@ -65,7 +65,13 @@ function bundleFiles(files: AgentPackFile[]): string {
 
 export default function AgentPacksPage() {
   const provider = agentPackProviders[0];
-  const [request, setRequest] = useState<AgentPackRequest>(DEFAULT_REQUEST);
+  const [request, setRequest] = useState<AgentPackRequest>(() => {
+    if (typeof window === "undefined") {
+      return DEFAULT_REQUEST;
+    }
+    const handoffGoal = window.localStorage.getItem("promptc_agent_pack_goal");
+    return handoffGoal ? { ...DEFAULT_REQUEST, goal: handoffGoal } : DEFAULT_REQUEST;
+  });
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,6 +80,12 @@ export default function AgentPacksPage() {
   const [copiedState, setCopiedState] = useState<"single" | "all" | null>(null);
   const [downloaded, setDownloaded] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+
+  // Clear the handoff key once we've read it so a stale value doesn't leak
+  // into a later, unrelated visit to this page.
+  useEffect(() => {
+    window.localStorage.removeItem("promptc_agent_pack_goal");
+  }, []);
 
   const requestHeaders = useMemo(
     () => buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
