@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { apiJson } from "@/config";
+import { apiJson, describeRequestError } from "@/config";
 import { showError } from "../lib/showError";
 
 import InfoButton from "../components/InfoButton";
@@ -113,13 +113,6 @@ function formatProviderName(provider: string): string {
     return provider || "Unknown";
 }
 
-function getErrorMessage(error: unknown): string {
-    if (error instanceof Error && error.message.trim()) {
-        return error.message;
-    }
-    return String(error);
-}
-
 function isCloudOptimizerUnavailable(message: string | null): boolean {
     if (!message) {
         return false;
@@ -205,13 +198,15 @@ export default function OptimizerPage() {
         englishVariant.trim().length > 0 &&
         englishVariant.trim() !== output.trim();
 
-    const handleOptimize = async () => {
+    const handleOptimize = async (overrideProvider?: string, overrideModel?: string) => {
         if (!input.trim()) return;
+        const activeProvider = overrideProvider ?? provider;
+        const activeModel = overrideModel ?? model;
         setLoading(true);
         setOptimizationError(null);
         setResult(null);
 
-        if (provider === "local") {
+        if (activeProvider === "local") {
             // Simulate premium calculation time
             await new Promise((resolve) => setTimeout(resolve, 600));
             const compressed = runLocalOfflineCompression(input);
@@ -260,14 +255,16 @@ export default function OptimizerPage() {
                 body: JSON.stringify({
                     text: input,
                     max_tokens: maxTokens,
-                    provider: provider,
-                    model: model,
+                    provider: activeProvider,
+                    model: activeModel,
                 }),
             });
             setResult(normalizeOptimizeResponse(data));
         } catch (error: unknown) {
             showError(error);
-            setOptimizationError(getErrorMessage(error));
+            setOptimizationError(
+                describeRequestError(error, { fallback: "Failed to optimize prompt." }),
+            );
         } finally {
             setLoading(false);
         }
@@ -350,7 +347,7 @@ export default function OptimizerPage() {
 
                     <button
                         type="button"
-                        onClick={handleOptimize}
+                        onClick={() => void handleOptimize()}
                         disabled={loading || !input.trim()}
                         aria-busy={loading}
                         title={!input.trim() ? "Enter a prompt first to optimize & estimate cost" : "Optimize & estimate cost"}
@@ -386,10 +383,7 @@ export default function OptimizerPage() {
                                 setProvider("local");
                                 setModel("offline");
                                 setOptimizationError(null);
-                                // Queue the optimize operation instantly
-                                setTimeout(() => {
-                                    void handleOptimize();
-                                }, 50);
+                                void handleOptimize("local", "offline");
                             }}
                             className="w-full sm:w-auto shrink-0 rounded-lg bg-emerald-600/20 border border-emerald-500/40 px-4 py-2 text-xs font-bold text-emerald-200 transition-all hover:bg-emerald-600/30 active:scale-95"
                         >
@@ -484,7 +478,7 @@ export default function OptimizerPage() {
                                 <div className="flex flex-col items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={handleOptimize}
+                                    onClick={() => void handleOptimize()}
                                     disabled={loading || !input.trim()}
                                     aria-busy={loading}
                                     title={!input.trim() ? "Enter a prompt first to optimize & estimate cost" : "Optimize & estimate cost"}
