@@ -6,6 +6,7 @@ import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import ReadinessBanner, { VERDICT_META } from "./components/ReadinessBanner";
+import ResultValueStrip from "./components/ResultValueStrip";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
@@ -378,6 +379,7 @@ export default function Home() {
             ) : result ? (
               <>
                 {result?.readiness && <ReadinessBanner report={result.readiness} />}
+                <ResultValueStrip result={result} />
                 <div className="flex items-center justify-end px-4 pt-3">
                   <button
                     type="button"
