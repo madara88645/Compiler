@@ -7,6 +7,10 @@ const runCompileMock = vi.fn();
 const useCompilerMock = vi.fn();
 const useContextManagerMock = vi.fn();
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("../hooks/useCompiler", () => ({
   useCompiler: () => useCompilerMock(),
 }));

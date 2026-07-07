@@ -5,6 +5,10 @@ import Home from "../page";
 
 const useCompilerMock = vi.fn();
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("../hooks/useCompiler", () => ({
   useCompiler: () => useCompilerMock(),
 }));
