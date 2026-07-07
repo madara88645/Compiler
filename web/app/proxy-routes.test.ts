@@ -8,7 +8,7 @@ import { POST as agentPacksClaudeDownloadRoute } from "./agent-packs/claude/down
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
 import { POST as agentExportRoute } from "./agent-generator/export/route";
 import { POST as benchmarkRunRoute } from "./benchmark/run/route";
-import { POST as optimizeRoute } from "./optimize/route";
+import { GET as optimizeGetRoute, POST as optimizeRoute } from "./optimize/route";
 import { POST as ragSearchRoute } from "./rag/search/route";
 import { GET as ragStatsRoute } from "./rag/stats/route";
 import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
@@ -468,5 +468,33 @@ describe("Next backend proxy route wiring", () => {
     expect(proxiedHeaders.get("x-api-key")).toBe("caller-key");
     expect(proxiedHeaders.get("content-type")).toBe("application/json");
     await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("redirects GET /optimize to /optimizer without touching the POST proxy", async () => {
+    const getResponse = await optimizeGetRoute(
+      new Request("http://localhost:3000/optimize", { method: "GET" }),
+    );
+
+    expect(getResponse.status).toBe(307);
+    expect(getResponse.headers.get("location")).toBe("http://localhost:3000/optimizer");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const postResponse = await optimizeRoute(
+      new Request("http://localhost:3000/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system_prompt: "hello" }),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/optimize");
+    await expect(postResponse.json()).resolves.toEqual({ ok: true });
   });
 });
