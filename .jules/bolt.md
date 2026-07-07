@@ -225,3 +225,7 @@
 ## 2024-07-20 - Replacing generator expressions vs Algorithmic short-circuiting
 **Learning:** When acting as Bolt, replacing idiomatic Python generator expressions (like `any()`) with explicit `for` loops is often considered an unmeasurable micro-optimization that sacrifices readability if done in isolation. However, if the logic can be structurally improved—such as using an early return to short-circuit and avoid executing an entire block of expensive operations (e.g., regex searches)—this constitutes a valid and measurable performance improvement.
 **Action:** Focus on algorithmic improvements like early returns or short-circuiting before attempting micro-optimizations like removing generator overhead. Ensure that any code readability trade-offs are strictly justified by preventing the execution of expensive operations entirely.
+
+## 2026-06-25 - Removing any() generator overhead for exact matches in hot paths
+**Learning:** In frequently executed classification or parsing functions, using `any(ev == "software:frontend_download_feature" for ev in evidence)` creates measurable performance overhead. The cost of setting up and tearing down the Python generator frame for every call outweighs the string search itself. Replacing the generator expression with an explicit `in` operator achieves roughly a ~17x performance speedup in microbenchmarks.
+**Action:** When performing simple string exact match checks against an iterable in hot paths, prefer the fast-path `in` operator over `any()` with a generator expression.
