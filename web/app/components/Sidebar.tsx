@@ -12,8 +12,8 @@ const navGroups: NavGroup[] = [
     {
         label: "Compile",
         items: [
-            { name: "Compiler",  path: "/",         Icon: Code2    },
-            { name: "Optimizer", path: "/optimizer", Icon: Sparkles },
+            { name: "Compiler",       path: "/",          Icon: Code2    },
+            { name: "Token Optimizer", path: "/optimizer", Icon: Sparkles },
         ],
     },
     {

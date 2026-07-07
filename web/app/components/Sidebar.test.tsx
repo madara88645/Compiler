@@ -41,7 +41,7 @@ describe("Sidebar", () => {
 
     const labels = [
       "Compiler",
-      "Optimizer",
+      "Token Optimizer",
       "Benchmark",
       "PR Safety",
       "Agent Packs",
