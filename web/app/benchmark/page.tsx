@@ -449,7 +449,7 @@ export default function BenchmarkPage() {
                     to measure your prompt.
                   </div>
                 )}
-                <div className="flex h-[40%] min-h-[300px] border-b border-white/5">
+                <div className="flex min-h-[420px] flex-col border-b border-white/5 md:h-[40%] md:min-h-[300px] md:flex-row">
                   <div className="relative flex flex-1 items-center justify-center p-4">
                     <h3 className="absolute left-4 top-4 text-xs font-semibold uppercase text-zinc-500">
                       Performance Radar
@@ -471,7 +471,7 @@ export default function BenchmarkPage() {
                     </div>
                   </div>
 
-                  <div className="flex w-[300px] flex-col items-center justify-center gap-4 border-l border-white/5 bg-black/10 p-6">
+                  <div className="flex w-full flex-col items-center justify-center gap-4 border-t border-white/5 bg-black/10 p-6 md:w-[300px] md:border-l md:border-t-0">
                     <div className="space-y-1 text-center">
                       <div className="font-mono text-xs uppercase text-zinc-500">Winner</div>
                       <div
@@ -494,7 +494,7 @@ export default function BenchmarkPage() {
                   </div>
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col bg-black/20">
+                <div className="flex min-h-[160px] flex-1 flex-col bg-black/20 md:min-h-0">
                   <div className="flex-1 overflow-hidden p-4">
                     <DiffViewer oldText={benchmarkResult.raw_output} newText={benchmarkResult.compiled_output} />
                   </div>
