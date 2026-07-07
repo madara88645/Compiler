@@ -226,4 +226,75 @@ describe("Benchmark page", () => {
     expect(screen.getByText("COMPILED PROMPT")).toBeTruthy();
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
+
+  it("ignores a second click while a benchmark run is already in flight", async () => {
+    let resolveRequest: (value: unknown) => void = () => {};
+    apiJsonMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    render(<BenchmarkPage />);
+
+    fireEvent.change(screen.getByLabelText("Benchmark prompt input"), {
+      target: { value: "Explain rate limiting." },
+    });
+
+    const runButton = screen.getAllByRole("button", { name: /Run Benchmark/i })[0];
+    fireEvent.click(runButton);
+    fireEvent.click(runButton);
+    fireEvent.click(runButton);
+
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveRequest({
+        raw_output: "Raw answer",
+        compiled_output: "Compiled answer",
+        metrics: {
+          safety: { raw: 6, compiled: 9 },
+          clarity: { raw: 5, compiled: 9 },
+          conciseness: { raw: 5, compiled: 8 },
+        },
+        processing_ms: 4321,
+        winner: "compiled",
+        improvement_score: 35,
+      });
+    });
+
+    expect(await screen.findByText("Benchmark complete (4321ms)")).toBeTruthy();
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not trigger a second run when Cmd+Enter repeats from a held key", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      raw_output: "Raw answer",
+      compiled_output: "Compiled answer",
+      metrics: {
+        safety: { raw: 6, compiled: 9 },
+        clarity: { raw: 5, compiled: 9 },
+        conciseness: { raw: 5, compiled: 8 },
+      },
+      processing_ms: 4321,
+      winner: "compiled",
+      improvement_score: 35,
+    });
+
+    render(<BenchmarkPage />);
+
+    const textarea = screen.getByLabelText("Benchmark prompt input");
+    fireEvent.change(textarea, {
+      target: { value: "Explain rate limiting." },
+    });
+
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true, repeat: true });
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true, repeat: true });
+
+    expect(apiJsonMock).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true, repeat: false });
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+  });
 });
