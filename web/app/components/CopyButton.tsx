@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { copyToClipboard } from "../lib/copyToClipboard";
 
 interface CopyButtonProps {
   text: string;
@@ -18,10 +18,10 @@ export default function CopyButton({
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async () => {
+    const success = await copyToClipboard(text);
+    if (!success) return;
     setCopied(true);
-    toast.success("Copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 

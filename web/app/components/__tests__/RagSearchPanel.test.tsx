@@ -91,6 +91,29 @@ describe("RagSearchPanel", () => {
     expect(onInsertContext).toHaveBeenCalledWith("[Source: src/auth.ts]\nHandle session creation");
   });
 
+  it("renders every chunk distinctly when multiple results share the same path", () => {
+    // The backend returns chunk-level rows, so one uploaded doc split into
+    // several chunks can produce multiple results with an identical `path`.
+    // Keys must stay unique per row or React will drop/mis-render cards.
+    render(
+      <RagSearchPanel
+        query="auth flow"
+        setQuery={vi.fn()}
+        searching={false}
+        results={[
+          { path: "src/auth.ts", snippet: "Handle session creation", score: 0.81 },
+          { path: "src/auth.ts", snippet: "Refresh tokens on expiry", score: 0.74 },
+        ]}
+        onRunSearch={vi.fn()}
+        onInsertContext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Handle session creation")).toBeTruthy();
+    expect(screen.getByText("Refresh tokens on expiry")).toBeTruthy();
+    expect(screen.getAllByText("src/auth.ts").length).toBe(2);
+  });
+
   it("shows a clear no-results state when a query returns nothing", () => {
     render(
       <RagSearchPanel

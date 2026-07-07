@@ -11,9 +11,13 @@ const { push } = vi.hoisted(() => ({
   push: vi.fn(),
 }));
 
-vi.mock("@/config", () => ({
-  apiFetch,
-}));
+vi.mock("@/config", async () => {
+  const actual = await vi.importActual<typeof import("@/config")>("@/config");
+  return {
+    ...actual,
+    apiFetch,
+  };
+});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -224,5 +228,33 @@ describe("Agent ExportPanel", () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(anchors[anchors.length - 1].download).toBe("claude-subagent-export.zip");
+  });
+
+  test("shows a friendly message for a failed export and retries via the retry button", async () => {
+    apiFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The service is temporarily unavailable or still waking up. Please retry in a few seconds.",
+    );
+    expect(alert).not.toHaveTextContent("Failed to fetch");
+
+    apiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        python_code: "print('hello')",
+        yaml_config: null,
+        code: "print('hello')",
+        files: [],
+      }),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /retry export/i }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("print('hello')")).toBeInTheDocument();
   });
 });

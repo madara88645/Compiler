@@ -2,11 +2,11 @@
 
 import { useRef, useState } from "react";
 import { ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
 
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
 import { downloadFile } from "../lib/downloadFile";
+import { copyToClipboard } from "../lib/copyToClipboard";
 import InfoButton from "../components/InfoButton";
 import GeneratorErrorState from "../components/GeneratorErrorState";
 import { reportToMarkdown } from "./markdown";
@@ -159,10 +159,12 @@ export default function PrSafetyPage() {
     setLastError(null);
   };
 
-  const copyMarkdown = () => {
+  const copyMarkdown = async () => {
     if (!report) return;
-    void navigator.clipboard.writeText(reportToMarkdown(report));
-    toast.success("Copied report as Markdown");
+    const success = await copyToClipboard(reportToMarkdown(report), {
+      successMessage: "Copied report as Markdown",
+    });
+    if (!success) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
