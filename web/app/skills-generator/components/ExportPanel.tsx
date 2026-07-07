@@ -89,6 +89,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
   const format = resolveFormat(target);
   const currentResult = cache[format] ?? null;
   const visibleFiles = currentResult?.files ?? [];
+  const currentFilePath = visibleFiles.length === 1 ? visibleFiles[0].path : null;
 
   const currentContent = useMemo(() => {
     if (!currentResult) return null;
@@ -274,6 +275,11 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
               </div>
             ) : currentContent ? (
               <div className="relative group/code">
+                {currentFilePath && (
+                  <div className="mb-2 text-[10px] font-mono text-zinc-500 truncate" title={currentFilePath}>
+                    {currentFilePath}
+                  </div>
+                )}
                 <pre className="overflow-x-auto overflow-y-auto max-h-72 text-[11px] leading-relaxed font-mono text-zinc-300 bg-black/40 rounded-xl p-4 border border-white/5 whitespace-pre">
                   <code>{currentContent}</code>
                 </pre>

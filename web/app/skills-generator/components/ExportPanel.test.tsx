@@ -72,6 +72,27 @@ describe("Skill ExportPanel", () => {
     expect(JSON.parse(options.body).format).toBe("claude-mcp-tool-stub");
   });
 
+  test("shows the destination file path for a single-file export result", async () => {
+    apiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        python_code: null,
+        json_config: null,
+        code: null,
+        files: [{ path: ".claude/mcp/tool.py", content: "def tool(): pass" }],
+      }),
+    });
+
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude MCP Tool" }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+
+    expect(await screen.findByText(".claude/mcp/tool.py")).toBeInTheDocument();
+  });
+
   test("announces copy success via sr-only live region, not the copy button", async () => {
     render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
 
