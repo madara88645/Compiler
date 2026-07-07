@@ -27,4 +27,12 @@ describe("Sidebar", () => {
     expect(link.getAttribute("href")).toBe("/agent-packs");
     expect(link.getAttribute("aria-current")).toBe("page");
   });
+
+  test("does not render a separate Offline navigation item", () => {
+    render(<Sidebar />);
+
+    // The heuristics-only engine moved into the main Compiler page as a
+    // toggle; the standalone /offline surface no longer exists in the nav.
+    expect(screen.queryByLabelText("Offline")).toBeNull();
+  });
 });

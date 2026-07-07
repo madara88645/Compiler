@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, Sparkles, WifiOff, Swords, Bot, Zap, FolderArchive, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Code2, Sparkles, Swords, Bot, Zap, FolderArchive, ShieldCheck, type LucideIcon } from "lucide-react";
 
 const navItems: { name: string; path: string; Icon: LucideIcon }[] = [
     { name: "Compiler",          path: "/",                 Icon: Code2    },
     { name: "Optimizer",         path: "/optimizer",        Icon: Sparkles },
-    { name: "Offline",           path: "/offline",          Icon: WifiOff  },
     { name: "Benchmark",         path: "/benchmark",        Icon: Swords   },
     { name: "PR Safety",         path: "/pr-safety",        Icon: ShieldCheck },
     { name: "Agent Packs",       path: "/agent-packs",      Icon: FolderArchive },
@@ -18,7 +17,6 @@ const navItems: { name: string; path: string; Icon: LucideIcon }[] = [
 const accentBarMap: Record<string, string> = {
     "/":                  "bg-blue-500",
     "/optimizer":         "bg-emerald-500",
-    "/offline":           "bg-zinc-500",
     "/benchmark":         "bg-amber-500",
     "/pr-safety":         "bg-rose-500",
     "/agent-packs":       "bg-cyan-500",
@@ -29,7 +27,6 @@ const accentBarMap: Record<string, string> = {
 const accentRingMap: Record<string, string> = {
     "/":                  "ring-blue-500/30",
     "/optimizer":         "ring-emerald-500/30",
-    "/offline":           "ring-zinc-500/30",
     "/benchmark":         "ring-amber-500/30",
     "/pr-safety":         "ring-rose-500/30",
     "/agent-packs":       "ring-cyan-500/30",

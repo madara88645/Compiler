@@ -128,6 +128,16 @@ export default function Home() {
 
     return window.localStorage.getItem("promptc_conservative_mode") !== "false";
   });
+  // Engine toggle: LLM-backed (default) vs the server's deterministic heuristic
+  // pipeline only. Both still hit the same backend over the network — heuristics-only
+  // just skips the OpenRouter call, it is not a local/offline mode.
+  const [heuristicsOnly, setHeuristicsOnly] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.localStorage.getItem("promptc_heuristics_only") === "true";
+  });
 
   const {
     loading,
@@ -152,14 +162,19 @@ export default function Home() {
     window.localStorage.setItem("promptc_conservative_mode", String(conservativeMode));
   }, [conservativeMode]);
 
+  useEffect(() => {
+    window.localStorage.setItem("promptc_heuristics_only", String(heuristicsOnly));
+  }, [heuristicsOnly]);
+
   const activeMode: CompileMode = conservativeMode ? "conservative" : "default";
+  const useLlm = !heuristicsOnly;
 
   const handleGenerate = async () => {
-    await runCompile(prompt, activeMode);
+    await runCompile(prompt, activeMode, useLlm);
   };
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
-    await resolveSecurityDecision(useRedacted, activeMode);
+    await resolveSecurityDecision(useRedacted, activeMode, useLlm);
   };
 
   // Typewriter entrance when an example prompt is inserted.
@@ -237,9 +252,16 @@ export default function Home() {
               onClick={() => setConservativeMode((prev) => !prev)}
               role="switch"
               aria-checked={conservativeMode}
+              disabled={heuristicsOnly}
               aria-label={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
-              title={conservativeMode ? "Conservative mode ON" : "Conservative mode OFF"}
-              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+              title={
+                heuristicsOnly
+                  ? "Conservative mode only applies to the LLM-backed engine"
+                  : conservativeMode
+                    ? "Conservative mode ON"
+                    : "Conservative mode OFF"
+              }
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 ${
                 conservativeMode
                   ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-900/20"
                   : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
@@ -259,9 +281,50 @@ export default function Home() {
               </span>
             </button>
 
-            <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 bg-green-500/10 border-green-500/30 text-green-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              AI MODE
+            <button
+              type="button"
+              onClick={() => setHeuristicsOnly((prev) => !prev)}
+              role="switch"
+              aria-checked={heuristicsOnly}
+              aria-label={heuristicsOnly ? "Heuristics-only engine ON" : "Heuristics-only engine OFF"}
+              title={
+                heuristicsOnly
+                  ? "Heuristics only: deterministic server-side engine, no LLM call"
+                  : "LLM-backed engine (OpenRouter)"
+              }
+              className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                heuristicsOnly
+                  ? "border-zinc-400/40 bg-zinc-400/10 text-zinc-100 shadow-lg shadow-zinc-900/20"
+                  : "border-zinc-700 bg-zinc-900/70 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
+                  heuristicsOnly ? "bg-zinc-300" : "bg-zinc-500"
+                }`}
+              />
+              <span className="flex flex-col items-start leading-none">
+                <span>No-LLM</span>
+                <span className="mt-1 text-[10px] font-normal opacity-75">
+                  {heuristicsOnly ? "Heuristics only (no LLM)" : "LLM-backed engine"}
+                </span>
+              </span>
+            </button>
+
+            <div
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 ${
+                heuristicsOnly
+                  ? "bg-zinc-800/50 border-zinc-700 text-zinc-400"
+                  : "bg-green-500/10 border-green-500/30 text-green-400"
+              }`}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  heuristicsOnly ? "bg-zinc-500" : "bg-green-400 animate-pulse"
+                }`}
+              />
+              {heuristicsOnly ? "HEURISTIC MODE" : "AI MODE"}
             </div>
 
             <div className="flex items-center gap-2">

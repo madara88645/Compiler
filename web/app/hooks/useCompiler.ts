@@ -56,9 +56,13 @@ export function useCompiler() {
   const [lastError, setLastError] = useState<unknown>(null);
 
   const controllerRef = useRef<AbortController | null>(null);
-  const lastCallRef = useRef<{ text: string; mode: CompileMode } | null>(null);
+  const lastCallRef = useRef<{ text: string; mode: CompileMode; useLlm: boolean } | null>(null);
 
-  const runCompile = useCallback(async (text: string, mode: CompileMode) => {
+  // `useLlm` selects the execution engine: true calls the OpenRouter-backed LLM
+  // pipeline, false stays on the server's deterministic heuristic pipeline only
+  // (no LLM call is made — but this is still a network request to the same
+  // backend, never claim "local-only" or "no API keys" based on this flag).
+  const runCompile = useCallback(async (text: string, mode: CompileMode, useLlm: boolean = true) => {
     if (!text.trim()) {
       return;
     }
@@ -70,20 +74,20 @@ export function useCompiler() {
     controllerRef.current = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    lastCallRef.current = { text, mode };
+    lastCallRef.current = { text, mode, useLlm };
     setLastError(null);
     setResult(null);
     setLoading(true);
     setStatus("Generating...");
 
     try {
-      setStatus("AI Thinking...");
+      setStatus(useLlm ? "AI Thinking..." : "Compiling (heuristics only)...");
 
       const response = await compilePrompt(
         {
           text,
           diagnostics: true,
-          v2: true,
+          v2: useLlm,
           render_v2_prompts: true,
           mode,
         },
@@ -124,19 +128,19 @@ export function useCompiler() {
 
   const retry = useCallback(async () => {
     if (lastCallRef.current) {
-      await runCompile(lastCallRef.current.text, lastCallRef.current.mode);
+      await runCompile(lastCallRef.current.text, lastCallRef.current.mode, lastCallRef.current.useLlm);
     }
   }, [runCompile]);
 
   const resolveSecurityDecision = useCallback(
-    async (useRedacted: boolean, mode: CompileMode) => {
+    async (useRedacted: boolean, mode: CompileMode, useLlm: boolean = true) => {
       const textToCompile = useRedacted ? redactedText : pendingText;
       if (!textToCompile.trim()) {
         return;
       }
 
       setSecurityFindings([]);
-      await runCompile(textToCompile, mode);
+      await runCompile(textToCompile, mode, useLlm);
     },
     [pendingText, redactedText, runCompile],
   );
