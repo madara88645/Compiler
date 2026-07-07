@@ -273,9 +273,9 @@ export default function OptimizerPage() {
         }
     };
 
-    const handleSendToCompiler = () => {
-        if (!output) return;
-        window.localStorage.setItem("promptc_compiler_prompt", output);
+    const handleSendToCompiler = (text: string = output) => {
+        if (!text) return;
+        window.localStorage.setItem("promptc_compiler_prompt", text);
         router.push("/");
     };
 
@@ -449,7 +449,7 @@ export default function OptimizerPage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={handleSendToCompiler}
+                                    onClick={() => handleSendToCompiler()}
                                     className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-md shadow-emerald-950/30 transition-all hover:bg-emerald-500 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                                     aria-label="Send optimized result to compiler"
                                 >
@@ -573,18 +573,28 @@ export default function OptimizerPage() {
                                     aria-label="English compact suggestion"
                                     className="min-h-24 w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-sm text-cyan-50 outline-none"
                                 />
-                                <div className="flex items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
                                     <span className="text-xs text-zinc-500">
                                         Estimated cost: {formatUsd(result.english_variant_cost_usd)}
                                     </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => copyText(englishVariant)}
-                                        className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                                        aria-label="Copy English variant"
-                                    >
-                                        Copy English variant
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSendToCompiler(englishVariant)}
+                                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                            aria-label="Send English variant to compiler"
+                                        >
+                                            Send to Compiler
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => copyText(englishVariant)}
+                                            className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                                            aria-label="Copy English variant"
+                                        >
+                                            Copy English variant
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
