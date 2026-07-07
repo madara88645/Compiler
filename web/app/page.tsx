@@ -172,7 +172,9 @@ export default function Home() {
   };
   useEffect(() => stopTypewriter, []);
 
-  const fillExample = (text: string) => {
+  // `autoCompile` is only used by the "try an example" entry point — manual typing
+  // into the textarea (and the regular Compile button) must never trigger it.
+  const fillExample = (text: string, autoCompile = false) => {
     stopTypewriter();
     document
       .querySelector<HTMLTextAreaElement>('textarea[aria-label="Describe what you want compiled"]')
@@ -183,6 +185,7 @@ export default function Home() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
       setPrompt(text);
+      if (autoCompile) void runCompile(text, activeMode);
       return;
     }
     setPrompt("");
@@ -191,7 +194,10 @@ export default function Home() {
     typewriterRef.current = window.setInterval(() => {
       i = Math.min(text.length, i + stepChars);
       setPrompt(text.slice(0, i));
-      if (i >= text.length) stopTypewriter();
+      if (i >= text.length) {
+        stopTypewriter();
+        if (autoCompile) void runCompile(text, activeMode);
+      }
     }, 16);
   };
 
@@ -560,7 +566,7 @@ export default function Home() {
                     {!prompt.trim() && (
                       <button
                         type="button"
-                        onClick={() => fillExample("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.")}
+                        onClick={() => fillExample("Write a Python script that analyzes an nginx access.log file, counts requests by IP, and flags IPs with more than 100 requests in a minute.", true)}
                         className="text-xs text-blue-400/80 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded px-2 py-1"
                       >
                         or try an example
