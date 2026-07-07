@@ -3,9 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import OptimizerPage from "../optimizer/page";
 import { apiJson } from "@/config";
+import { showError } from "../lib/showError";
 
-vi.mock("@/config", () => ({
-  apiJson: vi.fn(),
+vi.mock("@/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config")>();
+  return {
+    ...actual,
+    apiJson: vi.fn(),
+  };
+});
+
+vi.mock("../lib/showError", () => ({
+  showError: vi.fn(),
 }));
 
 const routerPushMock = vi.fn();
@@ -21,10 +30,12 @@ vi.mock("../components/InfoButton", () => ({
 }));
 
 const apiJsonMock = vi.mocked(apiJson);
+const showErrorMock = vi.mocked(showError);
 
 describe("Optimizer page", () => {
   beforeEach(() => {
     apiJsonMock.mockReset();
+    showErrorMock.mockReset();
     routerPushMock.mockReset();
     localStorage.clear();
     Object.defineProperty(navigator, "clipboard", {
@@ -326,5 +337,29 @@ describe("Optimizer page", () => {
       "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz.",
     );
     expect(routerPushMock).toHaveBeenCalledWith("/");
+  });
+
+  it("actually falls back to local heuristics — not a retry of the failed cloud call — when the recovery button is clicked", async () => {
+    apiJsonMock.mockRejectedValueOnce(new Error("Provider is missing an API key."));
+
+    render(<OptimizerPage />);
+
+    fireEvent.change(screen.getByLabelText("Original Prompt"), {
+      target: { value: "Please can you kindly summarize this verbose prompt for me, thank you." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
+
+    expect(await screen.findByText("Cloud Optimizer Alert")).toBeTruthy();
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Local Heuristics (Offline)" }));
+
+    // The fallback must run the offline heuristic path directly, not re-issue the
+    // cloud request that just failed (previously a setTimeout-after-setState bug
+    // meant handleOptimize closed over the stale "openrouter" provider state).
+    expect(await screen.findByText("Offline Local Heuristic compression active.")).toBeTruthy();
+    expect(screen.getByText("No cloud API key required for this mode.")).toBeTruthy();
+    expect(apiJsonMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Cloud Optimizer Alert")).toBeNull();
   });
 });
