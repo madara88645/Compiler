@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from unittest.mock import patch
 
@@ -18,6 +19,16 @@ def _request_payload(pack_type: str) -> dict[str, str]:
         "stack": "FastAPI + Next.js",
         "goal": "Create a repo-aware Claude workflow for this product.",
         "pack_type": pack_type,
+        "risk_mode": "strict",
+    }
+
+
+def _github_reviewer_payload() -> dict[str, str]:
+    return {
+        "project_type": "Python release automation",
+        "stack": "Python, GitHub Actions, uv",
+        "goal": "Review release pull requests for unsafe publishing steps, missing tests, and dependency drift.",
+        "pack_type": "pr-reviewer",
         "risk_mode": "strict",
     }
 
@@ -66,13 +77,27 @@ def test_agent_packs_claude_pr_reviewer_manifest_shape():
         )
 
         client = TestClient(app)
-        response = client.post("/agent-packs/claude", json=_request_payload("pr-reviewer"))
+        response = client.post("/agent-packs/claude", json=_github_reviewer_payload())
 
         assert response.status_code == 200
         data = response.json()
         assert data["pack_type"] == "pr-reviewer"
-        assert any(file["path"] == ".github/workflows/claude.yml" for file in data["files"])
-        assert any(file["path"] == ".claude/agents/pr-reviewer.md" for file in data["files"])
+        files = {file["path"]: file for file in data["files"]}
+        assert ".github/workflows/claude.yml" in files
+        assert ".claude/agents/pr-reviewer.md" in files
+        assert ".mcp.json" in files
+        assert ".claude/hooks.example.json" in files
+
+        mcp_config = json.loads(files[".mcp.json"]["content"])
+        assert mcp_config["mcpServers"]["github"]["url"] == "https://api.githubcopilot.com/mcp/"
+
+        hooks_config = json.loads(files[".claude/hooks.example.json"]["content"])
+        post_tool_use = hooks_config["hooks"]["PostToolUse"]
+        assert post_tool_use[0]["matcher"] == "Edit|Write"
+        assert post_tool_use[0]["hooks"][0]["command"].startswith("echo ")
+
+        settings = json.loads(files[".claude/settings.json"]["content"])
+        assert "hooks" not in settings
 
 
 def test_agent_packs_claude_mcp_stub_manifest_shape():
@@ -116,19 +141,30 @@ def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
 
         client = TestClient(app)
         response = client.post(
-            "/agent-packs/claude/download", json=_request_payload("project-pack")
+            "/agent-packs/claude/download", json=_github_reviewer_payload()
         )
 
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/zip")
         assert "filename=" in response.headers["content-disposition"]
-        assert 'filename="saas-project-pack-claude.zip"' in response.headers["content-disposition"]
+        assert (
+            'filename="python-release-automation-pr-reviewer-claude.zip"'
+            in response.headers["content-disposition"]
+        )
         assert len(response.content) > 0
 
         archive = zipfile.ZipFile(io.BytesIO(response.content))
-        assert len(archive.namelist()) > 1
+        names = set(archive.namelist())
+        assert ".mcp.json" in names
+        assert ".claude/hooks.example.json" in names
         # Every archived file should carry real content.
-        assert all(archive.read(name) for name in archive.namelist())
+        assert all(archive.read(name) for name in names)
+
+        mcp_config = json.loads(archive.read(".mcp.json"))
+        assert mcp_config["mcpServers"]["github"]["headers"]["Authorization"] == "Bearer ${GITHUB_PAT}"
+
+        hooks_config = json.loads(archive.read(".claude/hooks.example.json"))
+        assert hooks_config["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"
 
 
 def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
