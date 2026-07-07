@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Legend,
   PolarAngleAxis,
@@ -136,6 +136,8 @@ export default function BenchmarkPage() {
   const [status, setStatus] = useState("Ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const isRunningRef = useRef(false);
+
   const selectedModelMeta = useMemo(
     () => (selectedModel === "mock" ? null : getBenchmarkModelById(selectedModel)),
     [selectedModel],
@@ -169,9 +171,10 @@ export default function BenchmarkPage() {
   }, [prompt]);
 
   const handleBenchmark = useCallback(async () => {
-    if (!prompt.trim()) {
+    if (!prompt.trim() || isRunningRef.current) {
       return;
     }
+    isRunningRef.current = true;
 
     setLoading(true);
     setBenchmarkResult(null);
@@ -216,6 +219,7 @@ export default function BenchmarkPage() {
       setErrorMessage(buildBenchmarkErrorMessage(error));
     } finally {
       setLoading(false);
+      isRunningRef.current = false;
     }
   }, [generateMockResult, prompt, selectedModel, selectedModelMeta]);
 
@@ -359,6 +363,7 @@ export default function BenchmarkPage() {
                   window.localStorage.setItem("promptc_benchmark_prompt", event.target.value);
                 }}
                 onKeyDown={(event) => {
+                  if (event.repeat) return;
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                     event.preventDefault();
                     if (!loading && prompt.trim()) {
