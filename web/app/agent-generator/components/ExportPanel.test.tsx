@@ -120,6 +120,27 @@ describe("Agent ExportPanel", () => {
     expect(JSON.parse(options.body).format).toBe("claude-agent-sdk-ts");
   });
 
+  test("shows the destination file path for a single-file export result", async () => {
+    apiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        python_code: null,
+        yaml_config: null,
+        code: "# Agent\n\nRole: Test",
+        files: [{ path: ".claude/agents/test-agent.md", content: "# Agent\n\nRole: Test" }],
+      }),
+    });
+
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude Subagent" }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+
+    expect(await screen.findByText(".claude/agents/test-agent.md")).toBeInTheDocument();
+  });
+
   test("announces copy success via sr-only live region, not the copy button", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
