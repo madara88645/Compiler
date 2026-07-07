@@ -63,7 +63,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Bu PDF'i ozetle ve junior gelistirici icin uygulama plani yaz." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(await screen.findByText("Original estimate")).toBeTruthy();
     expect(screen.getByText("Optimized estimate")).toBeTruthy();
@@ -114,7 +114,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Write a clear implementation plan." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(await screen.findByText("EN")).toBeTruthy();
     expect(screen.queryByText("English compact suggestion")).toBeNull();
@@ -136,7 +136,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Write a clear implementation plan." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(await screen.findByText("UNKNOWN")).toBeTruthy();
     expect(screen.queryByText("English compact suggestion")).toBeNull();
@@ -169,7 +169,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Bu PDF'i ozetle ve plan yaz." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(await screen.findByText("TR")).toBeTruthy();
     expect(screen.queryByText("English compact suggestion")).toBeNull();
@@ -202,7 +202,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "Write a clear plan." },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     expect(
       await screen.findByText(
@@ -239,7 +239,7 @@ describe("Optimizer page", () => {
     fireEvent.change(screen.getByLabelText("Original Prompt"), {
       target: { value: "ok" },
     });
-    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
 
     const inputCostNode = await screen.findByText(/input cost$/);
     expect(inputCostNode.textContent).toMatch(/\$1\.70e-7\s+input cost/);

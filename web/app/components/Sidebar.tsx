@@ -6,7 +6,7 @@ import { Code2, Sparkles, WifiOff, Swords, Bot, Zap, FolderArchive, ShieldCheck,
 
 const navItems: { name: string; path: string; Icon: LucideIcon }[] = [
     { name: "Compiler",          path: "/",                 Icon: Code2    },
-    { name: "Optimizer",         path: "/optimizer",        Icon: Sparkles },
+    { name: "Token Optimizer",   path: "/optimizer",        Icon: Sparkles },
     { name: "Offline",           path: "/offline",          Icon: WifiOff  },
     { name: "Benchmark",         path: "/benchmark",        Icon: Swords   },
     { name: "PR Safety",         path: "/pr-safety",        Icon: ShieldCheck },
