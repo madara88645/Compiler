@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
 
 import { zipPackBytes, buildPackZip } from "./packZip";
-import type { AgentPackFile } from "../types";
+import type { AgentPackFile } from "../agent-packs/types";
 
 const files: AgentPackFile[] = [
   { path: "CLAUDE.md", content: "# Memory\n", kind: "claude_md" },

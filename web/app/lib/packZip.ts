@@ -1,6 +1,6 @@
 import { zipSync, strToU8 } from "fflate";
 
-import type { AgentPackFile } from "../types";
+import type { AgentPackFile } from "../agent-packs/types";
 
 /** Zip the given files into raw bytes (in-memory, synchronous). */
 export function zipPackBytes(files: AgentPackFile[]): Uint8Array {
