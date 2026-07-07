@@ -8,9 +8,11 @@ vi.mock("@/config", () => ({
   apiJson: vi.fn(),
 }));
 
+const routerPushMock = vi.fn();
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: routerPushMock,
   }),
 }));
 
@@ -23,6 +25,8 @@ const apiJsonMock = vi.mocked(apiJson);
 describe("Optimizer page", () => {
   beforeEach(() => {
     apiJsonMock.mockReset();
+    routerPushMock.mockReset();
+    localStorage.clear();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: {
@@ -245,5 +249,82 @@ describe("Optimizer page", () => {
     expect(inputCostNode.textContent).toMatch(/\$1\.70e-7\s+input cost/);
     const optimizedCostNode = screen.getByText(/optimized cost$/);
     expect(optimizedCostNode.textContent).toMatch(/^\$0\s+optimized cost/);
+  });
+
+  it("sends the English variant — not the main optimized output — to the compiler from the English compact panel", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      text: "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz.",
+      before_chars: 96,
+      after_chars: 62,
+      before_tokens: 34,
+      after_tokens: 21,
+      saved_percent: 38.2,
+      changed: true,
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
+      source_language: "tr",
+      tokenizer_method: "tiktoken:o200k_base:estimated",
+      estimated_input_cost_usd: 0.0000017,
+      estimated_output_cost_usd: 0.0000011,
+      estimated_savings_usd: 0.0000006,
+      english_variant: "Summarize PDF. Write implementation plan for junior developer.",
+      english_variant_tokens: 13,
+      english_variant_cost_usd: 0.0000007,
+      warnings: [],
+    });
+
+    render(<OptimizerPage />);
+
+    fireEvent.change(screen.getByLabelText("Original Prompt"), {
+      target: { value: "Bu PDF'i ozetle ve junior gelistirici icin uygulama plani yaz." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+
+    expect(await screen.findByRole("heading", { name: "English compact suggestion" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Send English variant to compiler" }));
+
+    expect(localStorage.getItem("promptc_compiler_prompt")).toBe(
+      "Summarize PDF. Write implementation plan for junior developer.",
+    );
+    expect(routerPushMock).toHaveBeenCalledWith("/");
+  });
+
+  it("still sends the main optimized output — not the English variant — from the primary Send to Compiler button", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      text: "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz.",
+      before_chars: 96,
+      after_chars: 62,
+      before_tokens: 34,
+      after_tokens: 21,
+      saved_percent: 38.2,
+      changed: true,
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b",
+      source_language: "tr",
+      tokenizer_method: "tiktoken:o200k_base:estimated",
+      estimated_input_cost_usd: 0.0000017,
+      estimated_output_cost_usd: 0.0000011,
+      estimated_savings_usd: 0.0000006,
+      english_variant: "Summarize PDF. Write implementation plan for junior developer.",
+      english_variant_tokens: 13,
+      english_variant_cost_usd: 0.0000007,
+      warnings: [],
+    });
+
+    render(<OptimizerPage />);
+
+    fireEvent.change(screen.getByLabelText("Original Prompt"), {
+      target: { value: "Bu PDF'i ozetle ve junior gelistirici icin uygulama plani yaz." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Analyze cost/i })[0]);
+
+    await screen.findByRole("button", { name: "Send optimized result to compiler" });
+    fireEvent.click(screen.getByRole("button", { name: "Send optimized result to compiler" }));
+
+    expect(localStorage.getItem("promptc_compiler_prompt")).toBe(
+      "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz.",
+    );
+    expect(routerPushMock).toHaveBeenCalledWith("/");
   });
 });

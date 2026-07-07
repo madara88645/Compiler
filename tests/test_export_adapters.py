@@ -24,6 +24,7 @@ from app.adapters.claude_code import (
 )
 from app.adapters.claude_sdk import to_python, to_yaml
 from app.adapters.langchain import to_langchain_python, to_langgraph_python
+from app.adapters.mcp_servers import render_mcp_json
 from app.adapters.skill_adapter import to_agent_skill, to_claude_tool_use, to_langchain_tool
 from app.adapters.skill_ir import SkillExportIR, parse_skill_markdown
 
@@ -369,11 +370,35 @@ def test_claude_mcp_tool_stub_output():
     stub = to_claude_mcp_tool_stub(ir)
     paths = {item["path"] for item in stub}
 
+    assert len(stub) == 3
     assert "server.py" in paths
     assert "README.md" in paths
+    assert ".mcp.json" in paths
     server_file = next(item for item in stub if item["path"] == "server.py")
     assert "FastMCP" in server_file["content"]
     assert "web_search" in server_file["content"]
+
+
+def test_claude_mcp_tool_stub_includes_client_config():
+    ir = parse_skill_markdown(SKILL_MARKDOWN)
+    stub = to_claude_mcp_tool_stub(ir)
+
+    config_file = next(item for item in stub if item["path"] == ".mcp.json")
+    config = json.loads(config_file["content"])
+
+    # Matches the {"mcpServers": {...}} envelope render_mcp_json produces for
+    # registered servers, so any client that reads one can read the other.
+    reference_shape = json.loads(render_mcp_json(["github"]))
+    assert list(config.keys()) == list(reference_shape.keys())
+    assert config["mcpServers"]["web_search"] == {
+        "command": "python",
+        "args": ["server.py"],
+    }
+
+    readme_file = next(item for item in stub if item["path"] == "README.md")
+    assert "Claude Code" in readme_file["content"]
+    assert "Claude Desktop" in readme_file["content"]
+    assert ".mcp.json" in readme_file["content"]
 
 
 # ---------------------------------------------------------------------------

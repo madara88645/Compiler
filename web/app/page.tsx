@@ -12,6 +12,7 @@ import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
 import PolicyBadge from "./components/PolicyBadge";
 import CopyButton from "./components/CopyButton";
+import DownloadButton from "./components/DownloadButton";
 import { useCompiler } from "./hooks/useCompiler";
 import { useContextManager } from "./hooks/useContextManager";
 
@@ -192,6 +193,12 @@ export default function Home() {
     if (!compiledPrompt) return;
     window.localStorage.setItem("promptc_agent_pack_goal", compiledPrompt);
     router.push("/agent-packs");
+  };
+
+  const handleSendToOptimizer = (text: string) => {
+    if (!text) return;
+    window.localStorage.setItem("promptc_optimizer_prompt", text);
+    router.push("/optimizer");
   };
 
   // Typewriter entrance when an example prompt is inserted.
@@ -592,10 +599,24 @@ export default function Home() {
                           value={getCompileTabContent(result, tab)}
                         />
 
-                        <CopyButton
-                          text={getCompileTabContent(result, tab)}
-                          className="absolute bottom-6 right-6"
-                        />
+                        <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2">
+                          <DownloadButton
+                            content={getCompileTabContent(result, tab)}
+                            filename={`${tab}-prompt.md`}
+                            mimeType="text/markdown"
+                            label="Download as Markdown"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSendToOptimizer(getCompileTabContent(result, tab))}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-3 text-xs font-semibold text-emerald-200 shadow-lg transition-all hover:scale-105 hover:bg-emerald-500/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                            title="Send this tab's content to the Token Optimizer"
+                            aria-label="Send to Optimizer"
+                          >
+                            Send to Optimizer
+                          </button>
+                          <CopyButton text={getCompileTabContent(result, tab)} />
+                        </div>
                       </>
                     )}
                   </div>
@@ -616,10 +637,17 @@ export default function Home() {
                           {JSON.stringify(result, null, 2)}
                         </pre>
                       </div>
-                      <CopyButton
-                        text={JSON.stringify(result, null, 2)}
-                        className="absolute bottom-6 right-6"
-                      />
+                      <div className="absolute bottom-6 right-6 flex items-center gap-2">
+                        <DownloadButton
+                          content={JSON.stringify(result, null, 2)}
+                          filename="compile-result.json"
+                          mimeType="application/json"
+                          label="Download as JSON"
+                        />
+                        <CopyButton
+                          text={JSON.stringify(result, null, 2)}
+                        />
+                      </div>
                     </>
                   )}
                 </div>

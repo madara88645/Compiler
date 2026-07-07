@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import ExportPanel from "./ExportPanel";
 
@@ -39,7 +39,32 @@ describe("Agent ExportPanel", () => {
       },
     });
     window.localStorage.clear();
+    vi.stubGlobal("URL", {
+      ...globalThis.URL,
+      createObjectURL: vi.fn(() => "blob:export"),
+      revokeObjectURL: vi.fn(),
+    });
   });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function spyOnAnchorClicks() {
+    const clickSpy = vi.fn();
+    const anchors: HTMLAnchorElement[] = [];
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", { configurable: true, value: clickSpy });
+        anchors.push(element as HTMLAnchorElement);
+      }
+      return element;
+    });
+    return { clickSpy, anchors };
+  }
 
   test("exposes pressed state for the selected target and clears output mode tabs for the handoff target", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
@@ -95,6 +120,27 @@ describe("Agent ExportPanel", () => {
     expect(JSON.parse(options.body).format).toBe("claude-agent-sdk-ts");
   });
 
+  test("shows the destination file path for a single-file export result", async () => {
+    apiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        python_code: null,
+        yaml_config: null,
+        code: "# Agent\n\nRole: Test",
+        files: [{ path: ".claude/agents/test-agent.md", content: "# Agent\n\nRole: Test" }],
+      }),
+    });
+
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude Subagent" }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+
+    expect(await screen.findByText(".claude/agents/test-agent.md")).toBeInTheDocument();
+  });
+
   test("announces copy success via sr-only live region, not the copy button", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 
@@ -116,5 +162,67 @@ describe("Agent ExportPanel", () => {
     expect(liveRegion?.getAttribute("aria-live")).toBe("polite");
     expect(liveRegion).toHaveTextContent("Copied to clipboard");
     expect(copyButton.getAttribute("aria-label")).toBe("Copied to clipboard");
+  });
+
+  test("downloads the current single-file export as a blob named after its format", async () => {
+    const { clickSpy, anchors } = spyOnAnchorClicks();
+
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    // No zip button for a single-file (in this case zero bundled files) result.
+    expect(screen.queryByRole("button", { name: "Download .zip" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download file" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchors[anchors.length - 1].download).toBe("claude-agent-sdk-py.py");
+  });
+
+  test("shows a working zip download only when the export produced multiple files", async () => {
+    apiFetch.mockImplementation(async (_url: string, options: { body: string }) => {
+      const body = JSON.parse(options.body);
+      if (body.format === "claude-subagent") {
+        return {
+          ok: true,
+          json: async () => ({
+            python_code: null,
+            yaml_config: null,
+            code: "---\nname: agent\n---\nSystem prompt",
+            files: [
+              { path: ".claude/agents/agent.md", content: "---\nname: agent\n---\nSystem prompt" },
+              { path: ".claude/agents/README.md", content: "Drop this subagent into your repo." },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          python_code: "print('hello')",
+          yaml_config: null,
+          code: "print('hello')",
+          files: [],
+        }),
+      };
+    });
+
+    const { clickSpy, anchors } = spyOnAnchorClicks();
+
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Claude Subagent" }));
+    await screen.findByRole("button", { name: "Download .zip" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Download .zip" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchors[anchors.length - 1].download).toBe("claude-subagent-export.zip");
   });
 });
