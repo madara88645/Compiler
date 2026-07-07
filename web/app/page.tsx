@@ -259,11 +259,6 @@ export default function Home() {
               </span>
             </button>
 
-            <div className="px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-all duration-300 bg-green-500/10 border-green-500/30 text-green-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              AI MODE
-            </div>
-
             <div className="flex items-center gap-2">
               <div className="min-w-0 rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-center font-mono text-xs text-zinc-300 sm:min-w-[88px]">
                 {status}
