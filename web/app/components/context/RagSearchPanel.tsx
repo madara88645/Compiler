@@ -84,8 +84,8 @@ export default function RagSearchPanel({
                     </div>
                 )}
 
-                {results.map((result) => (
-                    <div key={result.path} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
+                {results.map((result, index) => (
+                    <div key={`${result.path}-${index}`} className="group flex flex-col gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-all hover:bg-white/[0.07]">
                         <div className="flex justify-between items-center gap-2">
                             <span className="text-[10px] text-zinc-500 font-mono truncate max-w-[180px] bg-black/20 px-1.5 py-0.5 rounded">{result.path}</span>
                             <span className="text-[10px] text-green-400/80 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">{formatSearchScore(result)}</span>
