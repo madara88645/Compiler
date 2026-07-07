@@ -11,6 +11,12 @@ vi.mock("../hooks/useCompiler", () => ({
   useCompiler: () => useCompilerMock(),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));

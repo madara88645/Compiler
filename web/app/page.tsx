@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
@@ -114,6 +115,7 @@ function CompilerErrorState({
 }
 
 export default function Home() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState(() => {
     if (typeof window === "undefined") {
       return "";
@@ -160,6 +162,12 @@ export default function Home() {
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
     await resolveSecurityDecision(useRedacted, activeMode);
+  };
+
+  const handleBenchmarkThisPrompt = () => {
+    if (!result) return;
+    window.localStorage.setItem("promptc_benchmark_prompt", prompt);
+    router.push("/benchmark");
   };
 
   // Typewriter entrance when an example prompt is inserted.
@@ -370,6 +378,17 @@ export default function Home() {
             ) : result ? (
               <>
                 {result?.readiness && <ReadinessBanner report={result.readiness} />}
+                <div className="flex items-center justify-end px-4 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleBenchmarkThisPrompt}
+                    className="group inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-purple-400/30 hover:bg-purple-500/5 hover:text-purple-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    aria-label="Benchmark this prompt — raw vs compiled"
+                  >
+                    Benchmark this prompt — raw vs compiled
+                    <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">{"->"}</span>
+                  </button>
+                </div>
                 {/* Tabs + policy verdict */}
                 <div className="animate-fade-in flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
