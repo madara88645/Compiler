@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import { showError } from "../lib/showError";
+import { downloadFile } from "../lib/downloadFile";
 import InfoButton from "../components/InfoButton";
 import GeneratorErrorState from "../components/GeneratorErrorState";
 import { reportToMarkdown } from "./markdown";
@@ -168,15 +169,7 @@ export default function PrSafetyPage() {
 
   const downloadMarkdown = () => {
     if (!report) return;
-    const blob = new Blob([reportToMarkdown(report)], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "pr-safety-report.md";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    downloadFile(reportToMarkdown(report), "pr-safety-report.md", "text/markdown");
   };
 
   const verdictView = report ? VERDICT_VIEW[report.verdict] : null;
