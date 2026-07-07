@@ -99,9 +99,7 @@ def test_generate_clarify_questions_unknown_term_is_ignored():
 
 def test_generate_clarify_questions_known_term_returns_its_question():
     questions = generate_clarify_questions(["optimize"])
-    assert questions == [
-        "Which metric or aspect should be optimized? (performance, cost, memory?)"
-    ]
+    assert questions == ["Which metric or aspect should be optimized? (performance, cost, memory?)"]
 
 
 def test_generate_clarify_questions_deduplicates_and_caps_at_five():

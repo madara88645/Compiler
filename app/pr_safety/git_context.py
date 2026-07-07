@@ -7,9 +7,17 @@ network access, no GitHub API — only the local repository state.
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 _CANDIDATE_BASE_REFS = ("origin/main", "origin/master", "main", "master")
+
+# Fail fast instead of hanging: cap every git call, and never let git block on
+# an interactive credential prompt (e.g. a ref that triggers an authenticated
+# fetch). Windows runners decode with the ANSI codepage under ``text=True``, so
+# force UTF-8 with lossy replacement to avoid UnicodeDecodeError on odd bytes.
+_GIT_TIMEOUT_SECONDS = 30
+_GIT_ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
 
 
 class GitContextError(RuntimeError):
@@ -23,10 +31,18 @@ def _run_git(args: list[str]) -> str:
             ["git", *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_GIT_TIMEOUT_SECONDS,
+            env=_GIT_ENV,
             check=False,
         )
     except FileNotFoundError as exc:  # git not installed
         raise GitContextError("git executable not found on PATH") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise GitContextError(
+            f"git {' '.join(args)} timed out after {_GIT_TIMEOUT_SECONDS}s"
+        ) from exc
 
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip() or "unknown error"
@@ -41,10 +57,18 @@ def _ref_exists(ref: str) -> bool:
             ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_GIT_TIMEOUT_SECONDS,
+            env=_GIT_ENV,
             check=True,
         )
     except FileNotFoundError as exc:
         raise GitContextError("git executable not found on PATH") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise GitContextError(
+            f"git rev-parse {ref} timed out after {_GIT_TIMEOUT_SECONDS}s"
+        ) from exc
     except subprocess.CalledProcessError:
         return False
     return True

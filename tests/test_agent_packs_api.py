@@ -140,9 +140,7 @@ def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
         )
 
         client = TestClient(app)
-        response = client.post(
-            "/agent-packs/claude/download", json=_github_reviewer_payload()
-        )
+        response = client.post("/agent-packs/claude/download", json=_github_reviewer_payload())
 
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/zip")
@@ -161,7 +159,9 @@ def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
         assert all(archive.read(name) for name in names)
 
         mcp_config = json.loads(archive.read(".mcp.json"))
-        assert mcp_config["mcpServers"]["github"]["headers"]["Authorization"] == "Bearer ${GITHUB_PAT}"
+        assert (
+            mcp_config["mcpServers"]["github"]["headers"]["Authorization"] == "Bearer ${GITHUB_PAT}"
+        )
 
         hooks_config = json.loads(archive.read(".claude/hooks.example.json"))
         assert hooks_config["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"

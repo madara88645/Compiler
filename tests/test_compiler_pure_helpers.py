@@ -105,9 +105,7 @@ def test_optimize_ir_injects_domain_baseline_constraint_when_missing():
 
 
 def test_optimize_ir_does_not_duplicate_existing_baseline_constraint():
-    existing = (
-        "En az ayrıcalık ilkesini uygula, tüm girdileri doğrula, denetim olaylarını kaydet"
-    )
+    existing = "En az ayrıcalık ilkesini uygula, tüm girdileri doğrula, denetim olaylarını kaydet"
     ir = _make_ir(language="tr", domain="security", constraints=[existing])
     out = optimize_ir(ir)
     assert out.constraints == [existing]

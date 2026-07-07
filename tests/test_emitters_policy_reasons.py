@@ -41,7 +41,9 @@ def test_non_string_reason_entries_are_skipped():
 
 
 def test_no_reasons_but_human_approval_required_falls_back_to_risk_level():
-    ir = IRv2(metadata={}, policy=PolicyV2(execution_mode="human_approval_required", risk_level="high"))
+    ir = IRv2(
+        metadata={}, policy=PolicyV2(execution_mode="human_approval_required", risk_level="high")
+    )
     assert _policy_reason_phrases_v2(ir) == ["high risk policy"]
 
 
