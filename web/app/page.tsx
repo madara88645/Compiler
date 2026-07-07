@@ -435,17 +435,17 @@ export default function Home() {
                       <>
                         {/* CRITIC & STRATEGIST UI OVERLAY (Top Right) */}
                         <div className="absolute top-4 right-6 z-10 flex gap-2">
-                          {/* Agent 6 Badge */}
+                          {/* Context sources badge */}
                           {result.ir?.metadata?.context_snippets && result.ir.metadata.context_snippets.length > 0 && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title="Context Strategist Active">
-                              <div className="text-[10px]">🕵️</div>
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md" title={`${result.ir.metadata.context_snippets.length} sources used to inform this prompt`}>
+                              <div className="text-[10px]">🔎</div>
                               <span className="text-[10px] text-indigo-200 font-medium">
-                                {result.ir.metadata.context_snippets.length} Sources
+                                {result.ir.metadata.context_snippets.length} Sources used
                               </span>
                             </div>
                           )}
 
-                          {/* Agent 7 Badge */}
+                          {/* Quality check badge */}
                           {result.critique && (
                             <div tabIndex={0} className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md cursor-help group/critic relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${result.critique.verdict === "REJECT"
                               ? "bg-red-500/10 border-red-500/30"
@@ -453,13 +453,13 @@ export default function Home() {
                               }`}>
                               <div className={`w-1.5 h-1.5 rounded-full ${result.critique.verdict === "REJECT" ? "bg-red-400" : "bg-green-400"}`} />
                               <span className={`text-[10px] font-medium ${result.critique.verdict === "REJECT" ? "text-red-200" : "text-green-200"}`}>
-                                Critic: {result.critique.score}/100
+                                Quality check: {result.critique.score}/100
                               </span>
 
                               {/* Hover Popup */}
                               <div className="absolute top-8 right-0 w-64 bg-zinc-900 border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/critic:opacity-100 group-hover/critic:visible group-focus-visible/critic:opacity-100 group-focus-visible/critic:visible transition-all z-50">
                                 <div className="flex justify-between items-center mb-2">
-                                  <span className="text-xs font-bold text-zinc-300">Agent 7 Verdict</span>
+                                  <span className="text-xs font-bold text-zinc-300">Quality check</span>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded ${result.critique.verdict === "REJECT" ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>{result.critique.verdict}</span>
                                 </div>
                                 <p className="text-[10px] text-zinc-400 mb-2 leading-relaxed">{result.critique.feedback}</p>
