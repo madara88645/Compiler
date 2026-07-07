@@ -10,13 +10,13 @@ def resolve_compile_post_url() -> str:
     """
     Full URL for POST /compile.
 
-    PROMPTC_API_URL: full URL including path (legacy; e.g. http://localhost:8000/compile).
+    PROMPTC_API_URL: full URL including path (legacy; e.g. http://localhost:8080/compile).
     PROMPTC_BACKEND_URL: origin only; /compile is appended.
     """
     explicit = os.environ.get("PROMPTC_API_URL", "").strip()
     if explicit:
         return explicit.rstrip("/")
-    backend = os.environ.get("PROMPTC_BACKEND_URL", "http://localhost:8000").strip().rstrip("/")
+    backend = os.environ.get("PROMPTC_BACKEND_URL", "http://localhost:8080").strip().rstrip("/")
     return f"{backend}/compile"
 
 

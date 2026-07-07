@@ -12,7 +12,7 @@ from compile_settings import (
 def test_resolve_compile_post_url_prefers_full_api_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PROMPTC_API_URL", raising=False)
     monkeypatch.delenv("PROMPTC_BACKEND_URL", raising=False)
-    assert resolve_compile_post_url() == "http://localhost:8000/compile"
+    assert resolve_compile_post_url() == "http://localhost:8080/compile"
 
     monkeypatch.setenv("PROMPTC_API_URL", "https://api.example/compile/")
     assert resolve_compile_post_url() == "https://api.example/compile"
