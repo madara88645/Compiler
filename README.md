@@ -459,6 +459,7 @@ docs/           Product, pattern, and workflow docs
 
 ## Docs
 
+- [`docs/cli.md`](docs/cli.md) — full `promptc` CLI reference (all commands and sub-apps)
 - [`docs/pr-safety.md`](docs/pr-safety.md) — PR Safety usage guide, examples, and `curl` recipe
 - [`docs/pr-safety-github-action.md`](docs/pr-safety-github-action.md) — advisory CI integration sketch
 - [`docs/pattern-library.md`](docs/pattern-library.md)
