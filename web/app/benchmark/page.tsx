@@ -345,10 +345,12 @@ export default function BenchmarkPage() {
           <div className="z-20 flex w-full flex-col gap-4 border-b border-white/5 bg-black/20 p-4 sm:p-5 md:w-[350px] md:shrink-0 md:border-b-0 md:border-r">
             <div className="group relative flex-1">
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-500 group-focus-within:opacity-100" />
-              <label htmlFor="benchmark-prompt" className="sr-only">Benchmark prompt input</label>
+              <label htmlFor="benchmark-prompt" className="sr-only" id="benchmark-prompt-label">Benchmark prompt input</label>
+              <p id="benchmark-prompt-help" className="sr-only">Enter the prompt you want to benchmark across different models.</p>
               <textarea
                 id="benchmark-prompt"
-                aria-label="Benchmark prompt input"
+                aria-labelledby="benchmark-prompt-label"
+                aria-describedby="benchmark-prompt-help"
                 className="h-full min-h-[160px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                 placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}

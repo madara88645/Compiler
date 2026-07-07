@@ -202,12 +202,12 @@ export default function PrSafetyPage() {
           {/* Input panel */}
           <div className="flex w-full flex-col gap-4 border-b border-white/5 bg-black/10 p-4 sm:p-5 md:min-h-0 md:w-[40%] md:border-b-0 md:border-r md:overflow-y-auto">
             <div className="flex flex-col gap-2">
-              <label htmlFor="pr-title" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="pr-title" className="text-sm font-medium text-zinc-300" id="pr-title-label">
                 PR Title
               </label>
               <input
                 id="pr-title"
-                aria-label="PR Title"
+                aria-labelledby="pr-title-label"
                 className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder="e.g. Add password reset endpoint"
                 value={title}
@@ -216,13 +216,15 @@ export default function PrSafetyPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="pr-description" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="pr-description" className="text-sm font-medium text-zinc-300" id="pr-description-label">
                 PR Description
               </label>
+              <p id="pr-description-help" className="sr-only">What does this PR do? Paste the PR body here.</p>
               <div className="relative group">
               <textarea
                 id="pr-description"
-                aria-label="PR Description"
+                aria-labelledby="pr-description-label"
+                aria-describedby="pr-description-help"
                 className="min-h-20 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder="What does this PR do? Paste the PR body here."
                 value={description}
@@ -243,14 +245,16 @@ export default function PrSafetyPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="pr-changed-files" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="pr-changed-files" className="text-sm font-medium text-zinc-300" id="pr-changed-files-label">
                 Changed Files
               </label>
+              <p id="pr-changed-files-help" className="sr-only">One file path per line.</p>
               <p className="text-xs text-zinc-500">One file path per line.</p>
               <div className="relative group">
               <textarea
                 id="pr-changed-files"
-                aria-label="Changed Files"
+                aria-labelledby="pr-changed-files-label"
+                aria-describedby="pr-changed-files-help"
                 className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-xs leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder={"app/auth/login.py\napi/routes/auth.py\ntests/test_auth.py"}
                 value={changedFilesText}
@@ -274,9 +278,10 @@ export default function PrSafetyPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="pr-commits-behind" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="pr-commits-behind" className="text-sm font-medium text-zinc-300" id="pr-commits-behind-label">
                 Commits Behind
               </label>
+              <p id="pr-commits-behind-help" className="sr-only">Optional. How many commits the branch is behind its base.</p>
               <p className="text-xs text-zinc-500">
                 Optional. How many commits the branch is behind its base.
               </p>
