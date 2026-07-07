@@ -5,6 +5,7 @@ import ContextManager from "./components/ContextManager";
 import InfoButton from "./components/InfoButton";
 import QualityCoach from "./components/QualityCoach";
 import ReadinessBanner, { VERDICT_META } from "./components/ReadinessBanner";
+import ResultValueStrip from "./components/ResultValueStrip";
 import SecurityAlert from "./components/SecurityAlert";
 import IntentPolicyPanel from "./components/IntentPolicyPanel";
 import OutputSkeleton from "./components/OutputSkeleton";
@@ -369,6 +370,7 @@ export default function Home() {
             ) : result ? (
               <>
                 {result?.readiness && <ReadinessBanner report={result.readiness} />}
+                <ResultValueStrip result={result} />
                 {/* Tabs + policy verdict */}
                 <div className="animate-fade-in flex items-center gap-3 border-b border-white/5 px-4 pt-4 pb-1">
                   <div className="relative flex min-w-0 flex-1">
