@@ -562,9 +562,44 @@ export default function Home() {
                       </button>
                     )}
                   </div>
-                  <p className="text-xs italic text-zinc-500 leading-relaxed mt-4">
-                    Good first inputs: GitHub issue to implementation brief, PR description to review checklist, or a spec to implementation plan.
-                  </p>
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <p className="text-[11px] text-zinc-500">Or try a job like:</p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "bug: export button doesnt work on safari??? users complaining in slack, cant repro locally on chrome tho. might be related to the blob download thing we added last sprint. someone said it also happens on firefox mobile sometimes. need this fixed before the friday release, no repro steps written down anywhere sorry"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        GitHub issue &rarr; implementation brief
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "fixes the thing where auth tokens expire too early. changed the refresh logic in useAuth.ts and also touched the login page a bit bc it kept throwing an error. didnt write tests yet, will add if reviewers want. also bumped a couple deps while i was in there, hope thats fine"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        PR description &rarr; review checklist
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fillExample(
+                            "we need a notifications system. users should get emails and maybe push too. admins need to be able to turn it off per user. should probably use some kind of queue so it doesnt slow down the main app but not sure which one, also needs to somehow work with the mobile app"
+                          )
+                        }
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-zinc-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      >
+                        Spec &rarr; implementation plan
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="w-full max-w-md space-y-3 border-t border-white/5 pt-5 text-left">
