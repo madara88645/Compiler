@@ -105,7 +105,7 @@ def test_agent_packs_download_returns_single_file_when_manifest_has_one_file():
         assert response.headers["content-type"].startswith("application/zip")
 
         archive = zipfile.ZipFile(io.BytesIO(response.content))
-        assert set(archive.namelist()) == {"server.py", "README.md"}
+        assert set(archive.namelist()) == {"server.py", "README.md", ".mcp.json"}
 
 
 def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
