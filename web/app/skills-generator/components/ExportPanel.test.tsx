@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import SkillExportPanel from "./ExportPanel";
 
@@ -29,7 +29,32 @@ describe("Skill ExportPanel", () => {
         writeText: vi.fn().mockResolvedValue(undefined),
       },
     });
+    vi.stubGlobal("URL", {
+      ...globalThis.URL,
+      createObjectURL: vi.fn(() => "blob:export"),
+      revokeObjectURL: vi.fn(),
+    });
   });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function spyOnAnchorClicks() {
+    const clickSpy = vi.fn();
+    const anchors: HTMLAnchorElement[] = [];
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "click", { configurable: true, value: clickSpy });
+        anchors.push(element as HTMLAnchorElement);
+      }
+      return element;
+    });
+    return { clickSpy, anchors };
+  }
 
   test("exposes pressed state for the selected target and output mode", async () => {
     render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
@@ -93,5 +118,71 @@ describe("Skill ExportPanel", () => {
     expect(liveRegion?.getAttribute("aria-live")).toBe("polite");
     expect(liveRegion).toHaveTextContent("Copied to clipboard");
     expect(copyButton.getAttribute("aria-label")).toBe("Copied to clipboard");
+  });
+
+  test("downloads the current single-value export as a blob named after its format", async () => {
+    const { clickSpy, anchors } = spyOnAnchorClicks();
+
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    // No zip button for a single-value (in this case zero bundled files) result.
+    expect(screen.queryByRole("button", { name: "Download .zip" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download file" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchors[anchors.length - 1].download).toBe("claude-tool-use.json");
+  });
+
+  test("shows a working zip download only when the export produced multiple files", async () => {
+    apiFetch.mockImplementation(async (_url: string, options: { body: string }) => {
+      const body = JSON.parse(options.body);
+      if (body.format === "claude-mcp-tool-stub") {
+        return {
+          ok: true,
+          json: async () => ({
+            python_code: "from mcp.server.fastmcp import FastMCP",
+            json_config: null,
+            code: "from mcp.server.fastmcp import FastMCP",
+            files: [
+              { path: "server.py", content: "from mcp.server.fastmcp import FastMCP" },
+              { path: "README.md", content: "# web_search MCP Tool Stub" },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          python_code: "def tool(): pass",
+          json_config: '{"name":"tool"}',
+          code: "def tool(): pass",
+          files: [],
+        }),
+      };
+    });
+
+    const { clickSpy, anchors } = spyOnAnchorClicks();
+
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Claude MCP Tool" }));
+    await screen.findByRole("button", { name: "Download .zip" });
+
+    // Both files still show up in the existing multi-file selector.
+    expect(screen.getByRole("option", { name: "server.py" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "README.md" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download .zip" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchors[anchors.length - 1].download).toBe("claude-mcp-tool-stub-export.zip");
   });
 });

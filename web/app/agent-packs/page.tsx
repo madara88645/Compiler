@@ -11,7 +11,7 @@ import { showError } from "../lib/showError";
 import FileTree from "./components/FileTree";
 import InstallChecklist from "./components/InstallChecklist";
 import { buildInstallChecklist } from "./installChecklist";
-import { buildPackZip } from "./lib/packZip";
+import { buildPackZip } from "../lib/packZip";
 import { agentPackProviders } from "./providerRegistry";
 import type {
   AgentPackFile,
