@@ -225,3 +225,7 @@
 ## 2024-07-20 - Replacing generator expressions vs Algorithmic short-circuiting
 **Learning:** When acting as Bolt, replacing idiomatic Python generator expressions (like `any()`) with explicit `for` loops is often considered an unmeasurable micro-optimization that sacrifices readability if done in isolation. However, if the logic can be structurally improved—such as using an early return to short-circuit and avoid executing an entire block of expensive operations (e.g., regex searches)—this constitutes a valid and measurable performance improvement.
 **Action:** Focus on algorithmic improvements like early returns or short-circuiting before attempting micro-optimizations like removing generator overhead. Ensure that any code readability trade-offs are strictly justified by preventing the execution of expensive operations entirely.
+
+## 2026-07-08 - Replace any() generator with `in` for exact list membership
+**Learning:** In hot heuristic paths such as `detect_domain`, `any(ev == value for ev in evidence)` adds generator setup overhead for a simple exact-match check. Using `"value" in evidence` keeps the same semantics and avoids that overhead.
+**Action:** Prefer the `in` operator over `any()` generator expressions when checking for an exact string in a list.
