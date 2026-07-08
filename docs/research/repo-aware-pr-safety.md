@@ -1,7 +1,7 @@
 # Repo-aware PR Safety — research notes
 
-**Issue:** [#833](https://github.com/madara88645/Compiler/issues/833)  
-**Status:** Research only — no implementation in this doc.  
+**Issue:** [#833](https://github.com/madara88645/Compiler/issues/833)
+**Status:** Research only — no implementation in this doc.
 **Date:** 2026-07-08
 
 ## Current state (v0)
