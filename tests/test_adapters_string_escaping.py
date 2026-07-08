@@ -17,7 +17,7 @@ from app.adapters.langchain import to_langchain_python, to_langgraph_python
 
 
 def test_escape_is_noop_when_no_triple_quotes_present():
-    text = 'A normal prompt with "single double quotes" and \'single quotes\'.'
+    text = "A normal prompt with \"single double quotes\" and 'single quotes'."
     assert claude_sdk_escape(text) == text
     assert langchain_escape(text) == text
 
