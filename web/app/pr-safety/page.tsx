@@ -30,6 +30,71 @@ const DOT_CLASSES: Record<Tone, string> = {
   zinc: "bg-zinc-400",
 };
 
+const MALFORMED_RESPONSE_MESSAGE =
+  "PR Safety returned an unexpected response. Try again or check your PR details.";
+
+const VALID_VERDICTS = new Set<Verdict>(["merge", "hold", "split", "rebase"]);
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+// Validate the response against the existing PrSafetyReport/UI contract so a
+// malformed body becomes a clean error instead of silently skipping the report.
+function isValidPrSafetyReport(data: unknown): data is PrSafetyReport {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+  const report = data as Record<string, unknown>;
+  if (typeof report.verdict !== "string" || !VALID_VERDICTS.has(report.verdict as Verdict)) {
+    return false;
+  }
+  const changedFiles = report.changed_files;
+  if (!changedFiles || typeof changedFiles !== "object") {
+    return false;
+  }
+  const changed = changedFiles as Record<string, unknown>;
+  if (typeof changed.total !== "number" || !Number.isFinite(changed.total)) {
+    return false;
+  }
+  if (!Array.isArray(changed.groups)) {
+    return false;
+  }
+  const riskyAreas = report.risky_areas;
+  if (!riskyAreas || typeof riskyAreas !== "object" || typeof (riskyAreas as { status?: unknown }).status !== "string") {
+    return false;
+  }
+  if (!Array.isArray((riskyAreas as { hits?: unknown }).hits)) {
+    return false;
+  }
+  const testCoverage = report.test_coverage;
+  if (!testCoverage || typeof testCoverage !== "object" || typeof (testCoverage as { status?: unknown }).status !== "string") {
+    return false;
+  }
+  if (!Array.isArray((testCoverage as { gaps?: unknown }).gaps)) {
+    return false;
+  }
+  const branchFreshness = report.branch_freshness;
+  if (
+    !branchFreshness ||
+    typeof branchFreshness !== "object" ||
+    typeof (branchFreshness as { status?: unknown }).status !== "string" ||
+    !isStringArray((branchFreshness as { notes?: unknown }).notes)
+  ) {
+    return false;
+  }
+  const scopeMatch = report.scope_match;
+  if (
+    !scopeMatch ||
+    typeof scopeMatch !== "object" ||
+    typeof (scopeMatch as { status?: unknown }).status !== "string" ||
+    !isStringArray((scopeMatch as { notes?: unknown }).notes)
+  ) {
+    return false;
+  }
+  return isStringArray(report.recommendations);
+}
+
 const VERDICT_VIEW: Record<Verdict, { label: string; tone: Tone; hint: string }> = {
   merge: { label: "Merge", tone: "green", hint: "No blocking safety signals detected" },
   hold: { label: "Hold", tone: "amber", hint: "Address the flagged signals before merging" },
@@ -140,6 +205,9 @@ export default function PrSafetyPage() {
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
       });
+      if (!isValidPrSafetyReport(data)) {
+        throw new Error(MALFORMED_RESPONSE_MESSAGE);
+      }
       setReport(data);
     } catch (e: unknown) {
       showError(e);
