@@ -214,13 +214,6 @@ describe("Next backend proxy route wiring", () => {
       expectedUrl: "http://127.0.0.1:8080/repo-context/github",
     },
     {
-      name: "benchmark run",
-      handler: benchmarkRunRoute,
-      requestUrl: "http://localhost:3000/benchmark/run",
-      requestBody: { model: "gpt-4" },
-      expectedUrl: "http://127.0.0.1:8080/benchmark/run",
-    },
-    {
       name: "optimize",
       handler: optimizeRoute,
       requestUrl: "http://localhost:3000/optimize",
@@ -272,6 +265,25 @@ describe("Next backend proxy route wiring", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
     await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it("does not retry a benchmark run after a transient backend connection failure", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fetch failed"));
+
+    const response = await benchmarkRunRoute(
+      new Request("http://localhost:3000/benchmark/run", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: "gpt-4" }),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/benchmark/run");
+    expect(response.status).toBe(502);
   });
 
   it.each<RouteCase>([

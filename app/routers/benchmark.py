@@ -20,6 +20,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth import rate_limit_by_ip, enforce_benchmark_daily_cap
@@ -155,6 +156,12 @@ def _generate_llm_output(prompt: str, model: str) -> str:
         json_mode=False,
         model_override=model,
     )
+
+
+def _compile_benchmark_prompt(text: str) -> str:
+    """Compile the prompt outside the event loop for benchmark requests."""
+    ir_v2 = compile_text_v2(text)
+    return emit_expanded_prompt_v2(ir_v2, diagnostics=True)
 
 
 # ---------------------------------------------------------------------------
@@ -303,30 +310,38 @@ async def benchmark_run(
 
     t0 = time.time()
 
+    # The worker client uses synchronous HTTP. Keep that work off the async
+    # server loop so one slow benchmark cannot stall unrelated API requests.
+    # The ordered pipeline is deliberate: the benchmark contract still makes
+    # exactly two model generations, then judges those concrete outputs.
+
     # --- Step A: Generate with raw prompt ---------------------------------
     try:
-        raw_output = _generate_llm_output(req.text, req.model)
+        raw_output = await anyio.to_thread.run_sync(_generate_llm_output, req.text, req.model)
     except Exception as exc:
         logger.exception("Benchmark raw model request failed")
         raise HTTPException(status_code=502, detail="Benchmark model request failed") from exc
 
     # --- Step B: Compile the prompt ---------------------------------------
     try:
-        ir_v2 = compile_text_v2(req.text)
-        compiled_prompt = emit_expanded_prompt_v2(ir_v2, diagnostics=True)
+        compiled_prompt = await anyio.to_thread.run_sync(_compile_benchmark_prompt, req.text)
     except Exception as exc:
         logger.exception("Benchmark compilation failed")
         raise HTTPException(status_code=500, detail="Benchmark compilation failed") from exc
 
     # --- Step C: Generate with compiled prompt ----------------------------
     try:
-        compiled_output = _generate_llm_output(compiled_prompt, req.model)
+        compiled_output = await anyio.to_thread.run_sync(
+            _generate_llm_output, compiled_prompt, req.model
+        )
     except Exception as exc:
         logger.exception("Benchmark compiled model request failed")
         raise HTTPException(status_code=502, detail="Benchmark model request failed") from exc
 
     # --- Step D: Judge — LLM first, heuristic fallback --------------------
-    judge_result = _judge_with_llm(req.text, raw_output, compiled_output)
+    judge_result = await anyio.to_thread.run_sync(
+        _judge_with_llm, req.text, raw_output, compiled_output
+    )
     if judge_result is None:
         judge_result = _heuristic_judge(raw_output, compiled_output)
 
