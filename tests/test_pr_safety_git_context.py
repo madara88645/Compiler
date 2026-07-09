@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import app.pr_safety.git_context as git_context_mod
 from app.pr_safety.git_context import (
     GitContextError,
     changed_files,
@@ -102,11 +103,65 @@ def test_git_missing_raises_git_context_error(monkeypatch: pytest.MonkeyPatch) -
 def test_commits_behind_rejects_non_integer_output(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import app.pr_safety.git_context as git_context_mod
-
     monkeypatch.setattr(git_context_mod, "_run_git", lambda _args: "not-a-number")
     with pytest.raises(GitContextError, match="unexpected rev-list output"):
         commits_behind("main")
+
+
+def test_changed_files_passes_timeout_encoding_and_prompt_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: dict[str, object] = {}
+
+    def _fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        recorded["args"] = args
+        recorded["kwargs"] = kwargs
+        return subprocess.CompletedProcess(args, 0, stdout="app.py\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    assert changed_files("main") == ["app.py"]
+    assert recorded["args"] == ["git", "diff", "--name-only", "main...HEAD"]
+    kwargs = recorded["kwargs"]
+    assert kwargs["encoding"] == "utf-8"
+    assert kwargs["errors"] == "replace"
+    assert kwargs["timeout"] == git_context_mod._GIT_TIMEOUT_SECONDS
+    assert kwargs["check"] is False
+    assert isinstance(kwargs["env"], dict)
+    assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+
+
+def test_changed_files_wraps_git_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _timeout(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd=["git", "diff", "--name-only", "main...HEAD"],
+            timeout=git_context_mod._GIT_TIMEOUT_SECONDS,
+        )
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(
+        GitContextError,
+        match=r"git diff --name-only main\.\.\.HEAD timed out after 30s",
+    ):
+        changed_files("main")
+
+
+def test_resolve_base_ref_wraps_ref_lookup_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _timeout(args: list[str], **kwargs: object):
+        assert args == ["git", "rev-parse", "--verify", "--quiet", "main^{commit}"]
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        assert kwargs["timeout"] == git_context_mod._GIT_TIMEOUT_SECONDS
+        assert kwargs["check"] is True
+        assert isinstance(kwargs["env"], dict)
+        assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+        raise subprocess.TimeoutExpired(cmd=args, timeout=git_context_mod._GIT_TIMEOUT_SECONDS)
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(GitContextError, match=r"git rev-parse main timed out after 30s"):
+        resolve_base_ref("main")
 
 
 def test_changed_files_empty_when_branch_matches_base(git_repo: Path) -> None:
