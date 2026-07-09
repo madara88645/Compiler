@@ -9,6 +9,7 @@ import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
 import { POST as agentExportRoute } from "./agent-generator/export/route";
 import { POST as benchmarkRunRoute } from "./benchmark/run/route";
 import { GET as optimizeGetRoute, POST as optimizeRoute } from "./optimize/route";
+import { POST as prSafetyReportRoute } from "./pr-safety/report/route";
 import { POST as ragSearchRoute } from "./rag/search/route";
 import { GET as ragStatsRoute } from "./rag/stats/route";
 import { POST as skillsGenerateRoute } from "./skills-generator/generate/route";
@@ -241,6 +242,17 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { type: "code" },
       expectedUrl: "http://127.0.0.1:8080/skills-generator/export",
     },
+    {
+      name: "PR Safety report",
+      handler: prSafetyReportRoute,
+      requestUrl: "http://localhost:3000/pr-safety/report",
+      requestBody: {
+        title: "feat: add login flow",
+        description: "Add session-based login endpoints for the API.",
+        changed_files: ["api/routes/auth.py", "tests/test_auth.py"],
+      },
+      expectedUrl: "http://127.0.0.1:8080/pr-safety/report",
+    },
   ])("retries $name requests after a transient backend connection failure", async ({
     handler,
     requestUrl,
@@ -435,8 +447,17 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { type: "code" },
       expectedUrl: "https://api.memo.dev/skills-generator/export",
     },
-
-
+    {
+      name: "PR Safety report",
+      handler: prSafetyReportRoute,
+      requestUrl: "http://localhost:3000/pr-safety/report",
+      requestBody: {
+        title: "feat: add login flow",
+        description: "Add session-based login endpoints for the API.",
+        changed_files: ["api/routes/auth.py", "tests/test_auth.py"],
+      },
+      expectedUrl: "https://api.memo.dev/pr-safety/report",
+    },
   ])("proxies $name requests to the backend", async ({ handler, requestUrl, requestMethod, requestBody, expectedUrl }) => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
 
