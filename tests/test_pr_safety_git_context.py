@@ -12,6 +12,7 @@ from app.pr_safety.git_context import (
     changed_files,
     commits_behind,
     head_commit_message,
+    repository_root,
     resolve_base_ref,
 )
 
@@ -43,6 +44,12 @@ def git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def test_resolve_base_ref_uses_explicit_ref(git_repo: Path) -> None:
     assert resolve_base_ref("main") == "main"
+
+
+def test_repository_root_returns_absolute_repo_path(git_repo: Path) -> None:
+    nested = git_repo / "nested" / "folder"
+    nested.mkdir(parents=True)
+    assert repository_root(nested) == git_repo.resolve()
 
 
 def test_resolve_base_ref_rejects_missing_explicit_ref(git_repo: Path) -> None:

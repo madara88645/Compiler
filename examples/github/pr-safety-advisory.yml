@@ -8,8 +8,8 @@
 #   - never blocks a merge, never fails the build on a "hold"/"split" verdict
 #   - needs no secrets, no GitHub App, no OAuth, no provider keys
 #
-# v0 runs the in-repo offline analyzer (app.pr_safety.analyzer) on the PR's
-# own metadata. Nothing leaves the runner.
+# v0 runs the repo-aware offline CLI on the PR's metadata and local checkout.
+# Nothing leaves the runner.
 name: PR Safety (advisory)
 
 on:
@@ -28,6 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-python@v5
         with:
@@ -41,42 +42,10 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import os, subprocess
-          from app.pr_safety.analyzer import analyze_pr_safety
-
-          base = os.environ["BASE_SHA"]
-          head = os.environ["HEAD_SHA"]
-
-          changed = subprocess.run(
-              ["git", "diff", "--name-only", f"{base}...{head}"],
-              capture_output=True, text=True, check=True,
-          ).stdout.split()
-
-          # How far HEAD is behind base (advisory branch-freshness signal).
-          commits_behind = int(subprocess.run(
-              ["git", "rev-list", "--count", f"{head}..{base}"],
-              capture_output=True, text=True, check=True,
-          ).stdout.strip() or "0")
-
-          report = analyze_pr_safety(
-              os.environ.get("PR_TITLE", ""),
-              os.environ.get("PR_BODY", "") or "(no description)",
-              changed or ["(no files)"],
-              commits_behind=commits_behind,
-          )
-
-          print("## PR Safety — advisory report")
-          print()
-          print(f"**Verdict:** `{report.verdict}`")
-          print(f"**Changed files:** {report.changed_files.total}")
-          print()
-          if report.recommendations:
-              print("### Recommendations")
-              for rec in report.recommendations:
-                  print(f"- {rec}")
-          print()
-          print("_Offline heuristic advisory — not a merge gate._")
-          PY
+          python -m cli.main pr-safety \
+            --from-git \
+            --base "$BASE_SHA" \
+            --title "$PR_TITLE" \
+            --description "${PR_BODY:-(no description)}" \
+            --format md >> "$GITHUB_STEP_SUMMARY"

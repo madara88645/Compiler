@@ -4,6 +4,7 @@ IMPORTANT: machine-output paths (--json-only / --out / --format / --quiet /
 batch) must NOT use these helpers — they must emit plain, unstyled payloads so
 piping and golden-file tests stay stable.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -127,6 +128,26 @@ def render_pr_safety_report(console: Console, report: PrSafetyReport) -> None:
     else:
         for note in report.scope_match.notes:
             console.print(f"  {escape(note)}")
+
+    repo_signals = getattr(report, "repo_signals", None)
+    if repo_signals is not None:
+        console.rule("Repository signals (advisory)")
+        console.print(f"Source: {escape(repo_signals.source.replace('_', ' '))}")
+        for match in repo_signals.owners:
+            owners = ", ".join(match.owners)
+            console.print(f"  owners {escape(match.file)}: {escape(owners)}")
+        for workflow in repo_signals.overlapping_workflows:
+            console.print(f"  workflow {escape(workflow.path)}: {escape(workflow.name)}")
+        for command in repo_signals.detected_commands:
+            console.print(
+                f"  {escape(command.name)}: {escape(command.command)} "
+                f"(from {escape(command.source)})"
+            )
+        for stack in repo_signals.stacks:
+            frameworks = f" ({', '.join(stack.frameworks)})" if stack.frameworks else ""
+            console.print(f"  stack: {escape(stack.language + frameworks)}")
+        for warning in repo_signals.warnings:
+            console.print(f"  warning: {escape(warning)}")
 
     console.rule("Recommendations")
     if not report.recommendations:

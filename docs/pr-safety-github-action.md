@@ -15,18 +15,21 @@ It lives under `examples/` on purpose so it does **not** run here — copy it to
   (`continue-on-error: true`).
 - **No merge gate.** It is not a required status check. Do not add it to branch protection.
 - **No secrets.** No GitHub App, no OAuth, no provider keys. `permissions: contents: read`.
-- **Offline.** It runs the in-repo deterministic analyzer (`app.pr_safety.analyzer`) on the
-  PR's own metadata; nothing leaves the runner.
+- **Offline.** It runs the repo-aware `promptc pr-safety --from-git` path on the PR's
+  metadata and checked-out repository; nothing leaves the runner.
+- **Bounded repo context.** It reads only CODEOWNERS, workflow YAML, and known build
+  manifests. It never reads `.env` or arbitrary repository content.
 
 ## How the sketch works
 
 On every `pull_request` event the job:
 
 1. Checks out the repo with full history (`fetch-depth: 0`).
-2. Derives the **changed files** from `git diff --name-only base...head`.
-3. Derives **commits behind** from `git rev-list --count head..base` (branch-freshness signal).
-4. Calls `analyze_pr_safety(title, body, changed_files, commits_behind=...)`.
-5. Writes a short Markdown summary (verdict + recommendations) to `$GITHUB_STEP_SUMMARY`.
+2. Runs `python -m cli.main pr-safety --from-git` against the PR base SHA.
+3. Derives **changed files** and **commits behind** through the shared local git helpers.
+4. Collects advisory repo signals: matching CODEOWNERS, overlapping PR workflows,
+   detected validation commands, and stack hints.
+5. Writes the full Markdown report to `$GITHUB_STEP_SUMMARY`.
 
 The reviewer then sees a verdict (`merge` / `hold` / `split` / `rebase`) and recommendations
 right in the PR's Checks tab — a fast read on merge readiness, alongside (not instead of)
@@ -37,7 +40,7 @@ human review.
 - ❌ Merge blocking / required checks / branch-protection changes.
 - ❌ Auto-commenting on the PR, GitHub App, or OAuth installation flow.
 - ❌ Secrets or provider credentials.
-- ❌ Repo-aware fetching beyond the PR's own diff (tracked separately as #833).
+- ❌ Network-backed repo fetching, check-run inspection, or GitHub App behavior.
 
 ## Possible later iterations (not now)
 

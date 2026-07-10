@@ -76,6 +76,55 @@ def report_to_markdown(report: PrSafetyReport) -> str:
         for note in report.scope_match.notes:
             lines.append(f"- {note}")
 
+    repo_signals = getattr(report, "repo_signals", None)
+    if repo_signals is not None:
+        lines.append("")
+        lines.append("## Repository signals (advisory)")
+        lines.append(f"- Source: {repo_signals.source.replace('_', ' ')}")
+
+        if repo_signals.owners:
+            lines.append("")
+            lines.append("### Suggested owners")
+            for match in repo_signals.owners:
+                lines.append(f"- `{match.file}` → {', '.join(match.owners)}")
+
+        if repo_signals.overlapping_workflows:
+            lines.append("")
+            lines.append("### Overlapping PR workflows")
+            for workflow in repo_signals.overlapping_workflows:
+                jobs = f"; jobs: {', '.join(workflow.jobs)}" if workflow.jobs else ""
+                lines.append(f"- `{workflow.path}` ({workflow.name}){jobs}")
+
+        if repo_signals.detected_commands:
+            lines.append("")
+            lines.append("### Detected commands")
+            for command in repo_signals.detected_commands:
+                lines.append(f"- **{command.name}:** `{command.command}` (from `{command.source}`)")
+
+        if repo_signals.stacks:
+            lines.append("")
+            lines.append("### Detected stacks")
+            for stack in repo_signals.stacks:
+                frameworks = f" ({', '.join(stack.frameworks)})" if stack.frameworks else ""
+                lines.append(f"- {stack.language}{frameworks}")
+
+        if repo_signals.warnings:
+            lines.append("")
+            lines.append("### Collection warnings")
+            for warning in repo_signals.warnings:
+                lines.append(f"- {warning}")
+
+        if not any(
+            (
+                repo_signals.owners,
+                repo_signals.overlapping_workflows,
+                repo_signals.detected_commands,
+                repo_signals.stacks,
+                repo_signals.warnings,
+            )
+        ):
+            lines.append("- No repository-specific signals detected")
+
     # Recommendations
     lines.append("")
     lines.append("## Recommendations")

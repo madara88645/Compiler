@@ -194,6 +194,16 @@ pytest -q \
 pytest tests/test_compile_policy_api.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_optimize_api.py tests/test_benchmark_api.py tests/test_rag_upload.py tests/test_security_headers.py tests/test_pr_safety_export.py -v
 ```
 
+**PR Safety core, local git, and repo-signal tests:**
+
+```bash
+pytest tests/test_pr_safety.py tests/test_pr_safety_git_context.py tests/test_pr_safety_repo_signals.py tests/test_cli_phase4.py tests/test_pr_safety_markdown.py -v
+```
+
+Repo-aware PR Safety is local and advisory: `app/pr_safety/repo_signals.py` reads only
+CODEOWNERS, GitHub workflow YAML, and known build manifests. Keep filesystem collection
+outside the deterministic analyzer and do not add browser tokens or server-side cloning.
+
 **Live optimizer tests (opt-in only; requires upstream credentials):**
 
 ```bash
