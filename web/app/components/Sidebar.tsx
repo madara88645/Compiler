@@ -120,6 +120,7 @@ export default function Sidebar() {
                                             : "text-zinc-500 hover:text-white hover:bg-white/5"
                                     }`}
                                     aria-label={item.name}
+                                    title={item.name}
                                     aria-current={isActive ? "page" : undefined}
                                 >
                                     <item.Icon size={20} strokeWidth={1.75} aria-hidden="true" />
@@ -153,6 +154,7 @@ export default function Sidebar() {
                         rel="noopener noreferrer"
                         className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative group text-zinc-500 hover:text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                         aria-label={item.name}
+                                    title={item.name}
                     >
                         <item.Icon size={18} strokeWidth={1.75} aria-hidden="true" />
                     </a>
