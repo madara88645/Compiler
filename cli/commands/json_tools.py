@@ -107,6 +107,48 @@ def json_path(
         typer.echo(json.dumps(cur, ensure_ascii=False))
 
 
+def _parse_path_segments(path: str) -> list[str | int]:
+    """Parse a dot-separated path with optional [N] bracket indexes into segments."""
+    token_re = re.compile(r"([A-Za-z0-9_\-]+)|\[(\d+)\]")
+    segments: list[str | int] = []
+    for dot_part in [p for p in path.split(".") if p]:
+        idx = 0
+        while idx < len(dot_part):
+            m = token_re.match(dot_part, idx)
+            if not m:
+                break
+            if m.group(1):
+                segments.append(m.group(1))
+            else:
+                segments.append(int(m.group(2)))
+            idx = m.end()
+    return segments
+
+
+def _delete_paths(obj: Any, paths: list[str]) -> None:
+    """Delete each path from *obj* in-place, silently skipping missing paths."""
+    for path in paths:
+        segments = _parse_path_segments(path)
+        if not segments:
+            continue
+        cur = obj
+        for seg in segments[:-1]:
+            if isinstance(seg, str) and isinstance(cur, dict) and seg in cur:
+                cur = cur[seg]
+            elif isinstance(seg, int) and isinstance(cur, list) and 0 <= seg < len(cur):
+                cur = cur[seg]
+            else:
+                cur = None
+                break
+        if cur is None:
+            continue
+        last = segments[-1]
+        if isinstance(last, str) and isinstance(cur, dict):
+            cur.pop(last, None)
+        elif isinstance(last, int) and isinstance(cur, list) and 0 <= last < len(cur):
+            del cur[last]
+
+
 @app.command("diff")
 def json_diff(
     a: Path = typer.Argument(..., help="First JSON file"),
@@ -138,8 +180,8 @@ def json_diff(
 
     # Optionally delete ignored paths
     if ignore_path:
-        # (Simplified path deletion logic for brevity)
-        pass
+        _delete_paths(ja, ignore_path)
+        _delete_paths(jb, ignore_path)
 
     if brief:
         if ja == jb:

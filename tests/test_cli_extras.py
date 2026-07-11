@@ -82,3 +82,62 @@ def test_batch_command(tmp_path: Path):
     assert code == 0
     assert (out_dir / "x.json").exists()
     assert (out_dir / "y.json").exists()
+
+
+def test_diff_ignore_path_nested_key(tmp_path: Path):
+    """--ignore-path should suppress differences in a nested dict key."""
+    a = {"name": "alpha", "metadata": {"version": 1, "sig": "aaa"}}
+    b = {"name": "alpha", "metadata": {"version": 1, "sig": "bbb"}}
+
+    fa = tmp_path / "a.json"
+    fb = tmp_path / "b.json"
+    fa.write_text(json.dumps(a), encoding="utf-8")
+    fb.write_text(json.dumps(b), encoding="utf-8")
+
+    # Without ignore: diff should show differences
+    code, out, _ = run_cli(["diff", str(fa), str(fb), "--brief"], Path.cwd())
+    assert code == 1, "files differ without ignore-path"
+
+    # With ignore: diff should show no differences (brief exits 0)
+    code, out, _ = run_cli(
+        ["diff", str(fa), str(fb), "--brief", "--ignore-path", "metadata.sig"], Path.cwd()
+    )
+    assert code == 0, f"expected no diff after ignoring metadata.sig: {out}"
+
+
+def test_diff_ignore_path_list_index(tmp_path: Path):
+    """--ignore-path should handle bracket list indexes like steps[0]."""
+    a = {"steps": ["first", "second", "third"]}
+    b = {"steps": ["CHANGED", "second", "third"]}
+
+    fa = tmp_path / "a.json"
+    fb = tmp_path / "b.json"
+    fa.write_text(json.dumps(a), encoding="utf-8")
+    fb.write_text(json.dumps(b), encoding="utf-8")
+
+    # Without ignore: differs
+    code, _, _ = run_cli(["diff", str(fa), str(fb), "--brief"], Path.cwd())
+    assert code == 1
+
+    # With ignore: removing steps[0] from both makes remaining items align
+    code, _, _ = run_cli(
+        ["diff", str(fa), str(fb), "--brief", "--ignore-path", "steps[0]"], Path.cwd()
+    )
+    assert code == 0
+
+
+def test_diff_ignore_path_missing_key_is_silent(tmp_path: Path):
+    """--ignore-path should silently skip paths that don't exist in the JSON."""
+    a = {"name": "alpha"}
+    b = {"name": "alpha"}
+
+    fa = tmp_path / "a.json"
+    fb = tmp_path / "b.json"
+    fa.write_text(json.dumps(a), encoding="utf-8")
+    fb.write_text(json.dumps(b), encoding="utf-8")
+
+    code, _, _ = run_cli(
+        ["diff", str(fa), str(fb), "--brief", "--ignore-path", "nonexistent.deep.path"],
+        Path.cwd(),
+    )
+    assert code == 0
