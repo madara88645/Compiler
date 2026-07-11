@@ -27,6 +27,13 @@ type AgentGenerationView = {
   exampleCodeWarning: string | null;
 };
 
+const EMPTY_SYSTEM_PROMPT_MESSAGE =
+  "The generator returned an empty or missing system prompt. Try generating again.";
+
+function hasNonemptySystemPrompt(response: AgentGeneratorResponse): boolean {
+  return typeof response.system_prompt === "string" && response.system_prompt.trim().length > 0;
+}
+
 function toAgentGenerationView(
   response: AgentGeneratorResponse,
   multiAgent: boolean,
@@ -114,6 +121,10 @@ export default function AgentGenerator() {
           ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
         }),
       });
+
+      if (!hasNonemptySystemPrompt(data)) {
+        throw new Error(EMPTY_SYSTEM_PROMPT_MESSAGE);
+      }
 
       const nextResult = toAgentGenerationView(data, multiAgent);
       setResult(nextResult);
