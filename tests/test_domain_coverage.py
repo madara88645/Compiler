@@ -34,3 +34,19 @@ def test_word_boundary_avoids_rapid_api_false_positive():
     # "rapid" contains "api" but is not a software request
     domain, _ = detect_domain("We need rapid iteration on our marketing copy")
     assert domain != "software"
+
+
+def test_frontend_download_feature_overrides_finance_domain():
+    domain, evidence = detect_domain("Add a CSV export button to my stock portfolio dashboard")
+    assert domain == "software"
+    assert "finance:stock" in evidence
+    assert "finance:portfolio" in evidence
+    assert "software:frontend_download_feature" in evidence
+
+
+def test_frontend_download_feature_without_other_software_terms_still_routes_to_software():
+    domain, evidence = detect_domain("Let users download their investment portfolio as JSON")
+    assert domain == "software"
+    assert "finance:investment" in evidence
+    assert "finance:portfolio" in evidence
+    assert "software:frontend_download_feature" in evidence
