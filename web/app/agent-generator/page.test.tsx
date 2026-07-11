@@ -154,6 +154,36 @@ describe("Agent Generator page", () => {
     expect(classes).not.toContain("md:min-h-0");
   });
 
+  it.each([
+    ["empty", { system_prompt: "" }],
+    ["missing", {}],
+  ] as const)(
+    "shows an error when generation succeeds but system_prompt is %s",
+    async (_label, payload) => {
+      apiJsonMock.mockResolvedValueOnce({
+        example_code_requested: false,
+        example_code_present: false,
+        example_code_warning: null,
+        ...payload,
+      });
+
+      render(<AgentGeneratorPage />);
+
+      fireEvent.change(screen.getByLabelText("Agent Description"), {
+        target: { value: "Build a code review agent." },
+      });
+      fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+      expect(await screen.findByText("Agent generation failed")).toBeTruthy();
+      expect(
+        screen.getByText("The generator returned an empty or missing system prompt. Try generating again."),
+      ).toBeTruthy();
+      expect(screen.queryByText("System Prompt")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Retry generation" })).toBeTruthy();
+    },
+  );
+
   it("shows a retryable error in the output panel when generation fails", async () => {
     apiJsonMock.mockRejectedValueOnce(new Error("The service is temporarily unavailable."));
 
