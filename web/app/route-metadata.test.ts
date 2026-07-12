@@ -37,7 +37,7 @@ const ROUTE_CASES: RouteMetadataCase[] = [
   {
     title: "Offline Compiler — Prompt Compiler",
     metadata: offlineMetadata,
-    descriptionFragment: "local-only prompt compiler",
+    descriptionFragment: "redirects to the main Compiler",
   },
   {
     title: "Token Optimizer — Prompt Compiler",
