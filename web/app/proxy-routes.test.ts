@@ -16,6 +16,7 @@ import { POST as skillsExportRoute } from "./skills-generator/export/route";
 import { POST as ragUploadRoute } from "./rag/upload/route";
 import { POST as ragIngestRoute } from "./rag/ingest/route";
 import { POST as repoContextGithubRoute } from "./repo-context/github/route";
+import { POST as prSafetyReportRoute } from "./pr-safety/report/route";
 
 type RouteCase = {
   name: string;
@@ -241,6 +242,17 @@ describe("Next backend proxy route wiring", () => {
       requestBody: { type: "code" },
       expectedUrl: "http://127.0.0.1:8080/skills-generator/export",
     },
+    {
+      name: "PR Safety report",
+      handler: prSafetyReportRoute,
+      requestUrl: "http://localhost:3000/pr-safety/report",
+      requestBody: {
+        title: "feat: add login flow",
+        description: "Add session-based login endpoints for the API.",
+        changed_files: ["api/routes/auth.py", "tests/test_auth.py"],
+      },
+      expectedUrl: "http://127.0.0.1:8080/pr-safety/report",
+    },
   ])("retries $name requests after a transient backend connection failure", async ({
     handler,
     requestUrl,
@@ -434,6 +446,17 @@ describe("Next backend proxy route wiring", () => {
       requestUrl: "http://localhost:3000/skills-generator/export",
       requestBody: { type: "code" },
       expectedUrl: "https://api.memo.dev/skills-generator/export",
+    },
+    {
+      name: "PR Safety report",
+      handler: prSafetyReportRoute,
+      requestUrl: "http://localhost:3000/pr-safety/report",
+      requestBody: {
+        title: "feat: add login flow",
+        description: "Add session-based login endpoints for the API.",
+        changed_files: ["api/routes/auth.py", "tests/test_auth.py"],
+      },
+      expectedUrl: "https://api.memo.dev/pr-safety/report",
     },
 
 

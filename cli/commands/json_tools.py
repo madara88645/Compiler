@@ -16,6 +16,47 @@ from rich import print
 
 from cli.commands._base import app
 
+_PATH_TOKEN_RE = re.compile(r"([A-Za-z0-9_\-]+)|\[(\d+)\]")
+
+
+def _parse_path_segments(path: str) -> list[str | int]:
+    """Parse dot/list path syntax into segments (shared by json-path and diff --ignore-path)."""
+    segments: list[str | int] = []
+    for dot_part in [p for p in path.split(".") if p]:
+        idx = 0
+        while idx < len(dot_part):
+            m = _PATH_TOKEN_RE.match(dot_part, idx)
+            if not m:
+                return segments
+            if m.group(1):
+                segments.append(m.group(1))
+            else:
+                segments.append(int(m.group(2)))
+            idx = m.end()
+    return segments
+
+
+def _delete_at_path(root: Any, segments: list[str | int]) -> None:
+    """Delete a value at path segments; no-op when path is missing."""
+    if not segments:
+        return
+
+    if len(segments) == 1:
+        seg = segments[0]
+        if isinstance(seg, str) and isinstance(root, dict):
+            root.pop(seg, None)
+        elif isinstance(seg, int) and isinstance(root, list) and 0 <= seg < len(root):
+            del root[seg]
+        return
+
+    head, *tail = segments
+    if isinstance(head, str):
+        if isinstance(root, dict) and head in root:
+            _delete_at_path(root[head], tail)
+    elif isinstance(head, int):
+        if isinstance(root, list) and 0 <= head < len(root):
+            _delete_at_path(root[head], tail)
+
 
 @app.command("json-path")
 def json_path(
@@ -40,23 +81,13 @@ def json_path(
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
-    token_re = re.compile(r"([A-Za-z0-9_\-]+)|\[(\d+)\]")
-    segments: list[str | int] = []
-    for dot_part in [p for p in path.split(".") if p]:
-        idx = 0
-        while idx < len(dot_part):
-            m = token_re.match(dot_part, idx)
-            if not m:
-                if default is not None:
-                    typer.echo(default)
-                    raise typer.Exit(code=0)
-                typer.secho("<not-found>", fg=typer.colors.YELLOW)
-                raise typer.Exit(code=1)
-            if m.group(1):
-                segments.append(m.group(1))
-            else:
-                segments.append(int(m.group(2)))
-            idx = m.end()
+    segments = _parse_path_segments(path)
+    if not segments and path.strip():
+        if default is not None:
+            typer.echo(default)
+            raise typer.Exit(code=0)
+        typer.secho("<not-found>", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=1)
 
     cur: Any = data
     for seg in segments:
@@ -136,10 +167,12 @@ def json_diff(
         typer.secho(f"Read error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
 
-    # Optionally delete ignored paths
     if ignore_path:
-        # (Simplified path deletion logic for brevity)
-        pass
+        for p in ignore_path:
+            segments = _parse_path_segments(p)
+            if segments:
+                _delete_at_path(ja, segments)
+                _delete_at_path(jb, segments)
 
     if brief:
         if ja == jb:
