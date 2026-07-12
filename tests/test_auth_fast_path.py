@@ -367,7 +367,7 @@ def test_matches_admin_api_key_uses_dummy_compare_on_length_mismatch(monkeypatch
     from api.auth import _matches_admin_api_key
 
     assert _matches_admin_api_key("short", "much-longer-admin-key") is False
-    assert compare_calls == [("much-longer-admin-key", "much-longer-admin-key")]
+    assert compare_calls == [("short", "short")]
 
 
 def test_matches_admin_api_key_compares_provided_key_when_lengths_match(monkeypatch):

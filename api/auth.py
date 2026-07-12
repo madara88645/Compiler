@@ -234,7 +234,7 @@ def _matches_admin_api_key(provided_key: str, admin_key: str) -> bool:
         return secrets.compare_digest(normalized_key, admin_key)
 
     # Run a same-length dummy comparison to avoid leaking the admin key length.
-    secrets.compare_digest(admin_key, admin_key)
+    secrets.compare_digest(normalized_key, normalized_key)
     return False
 
 
