@@ -83,14 +83,10 @@ class TestInferCiAutomationIntent:
         assert _infer_ci_automation_intent("reviews every pull request") == ["review"]
 
     def test_implementation_keyword(self) -> None:
-        assert _infer_ci_automation_intent("implements the requested feature") == [
-            "implementation"
-        ]
+        assert _infer_ci_automation_intent("implements the requested feature") == ["implementation"]
 
     def test_autofix_keyword(self) -> None:
-        assert _infer_ci_automation_intent("fix failing test automatically") == [
-            "autofix"
-        ]
+        assert _infer_ci_automation_intent("fix failing test automatically") == ["autofix"]
 
     def test_all_three_intents_combine_in_order(self) -> None:
         text = "review pull requests, implement new features, and autofix flaky tests"
@@ -115,9 +111,7 @@ class TestInferMemoryOutline:
     def test_goals_and_constraints_are_capped_at_three(self) -> None:
         goals = [f"goal-{i}" for i in range(5)]
         constraints = [f"constraint-{i}" for i in range(5)]
-        outline = _infer_memory_outline(
-            name="A", role="", goals=goals, constraints=constraints
-        )
+        outline = _infer_memory_outline(name="A", role="", goals=goals, constraints=constraints)
         goal_lines = [line for line in outline if line.startswith("Goal:")]
         constraint_lines = [line for line in outline if line.startswith("Constraint:")]
         assert goal_lines == ["Goal: goal-0", "Goal: goal-1", "Goal: goal-2"]

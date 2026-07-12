@@ -85,14 +85,10 @@ class TestExtractComparisonItems:
 
 class TestDetectFrontendDownloadFeature:
     def test_full_match_returns_true(self) -> None:
-        assert detect_frontend_download_feature(
-            "Add a download button to the dashboard"
-        )
+        assert detect_frontend_download_feature("Add a download button to the dashboard")
 
     def test_missing_action_word_returns_false(self) -> None:
-        assert not detect_frontend_download_feature(
-            "Add a button to the dashboard"
-        )
+        assert not detect_frontend_download_feature("Add a button to the dashboard")
 
     def test_missing_add_verb_returns_false(self) -> None:
         assert not detect_frontend_download_feature(
@@ -103,6 +99,4 @@ class TestDetectFrontendDownloadFeature:
         assert not detect_frontend_download_feature("Add a download feature")
 
     def test_export_synonym_matches(self) -> None:
-        assert detect_frontend_download_feature(
-            "Let users export data from the browser page"
-        )
+        assert detect_frontend_download_feature("Let users export data from the browser page")
