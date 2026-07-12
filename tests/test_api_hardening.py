@@ -324,9 +324,7 @@ def test_rag_ingest_missing_path_within_allowed_root_hides_server_path(test_key,
 
 
 @pytest.mark.auth_required
-def test_rag_ingest_skips_symlinked_file_that_resolves_outside_allowed_root(
-    test_key, monkeypatch
-):
+def test_rag_ingest_skips_symlinked_file_that_resolves_outside_allowed_root(test_key, monkeypatch):
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as td:
