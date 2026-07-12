@@ -300,6 +300,29 @@ def test_rag_ingest_rejects_path_outside_allowed_root(test_key, monkeypatch):
         assert "invalid path specified" in response.json()["detail"].lower()
 
 
+@pytest.mark.auth_required
+def test_rag_ingest_missing_path_within_allowed_root_hides_server_path(test_key, monkeypatch):
+    client = TestClient(app)
+
+    with tempfile.TemporaryDirectory() as td:
+        allowed_root = os.path.join(td, "inside")
+        os.makedirs(allowed_root, exist_ok=True)
+        missing_file = os.path.join(allowed_root, "missing.txt")
+        monkeypatch.setenv("PROMPTC_RAG_ALLOWED_ROOTS", allowed_root)
+
+        response = client.post(
+            "/rag/ingest",
+            headers={"x-api-key": test_key},
+            json={"paths": [missing_file]},
+        )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail == "Path does not exist or is invalid."
+    assert missing_file not in detail
+    assert allowed_root not in detail
+
+
 def test_cors_preflight_allows_prompt_mode_header(monkeypatch):
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:3000")
     import importlib
