@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import app.pr_safety.git_context as git_context_mod
 from app.pr_safety.git_context import (
     GitContextError,
     changed_files,
@@ -109,11 +110,104 @@ def test_git_missing_raises_git_context_error(monkeypatch: pytest.MonkeyPatch) -
 def test_commits_behind_rejects_non_integer_output(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import app.pr_safety.git_context as git_context_mod
-
     monkeypatch.setattr(git_context_mod, "_run_git", lambda _args: "not-a-number")
     with pytest.raises(GitContextError, match="unexpected rev-list output"):
         commits_behind("main")
+
+
+def test_changed_files_passes_hardened_subprocess_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0, stdout="app.py\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    assert changed_files("main") == ["app.py"]
+
+    cmd, kwargs = calls[0]
+    assert cmd == ["git", "diff", "--name-only", "main...HEAD"]
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["encoding"] == "utf-8"
+    assert kwargs["errors"] == "replace"
+    assert kwargs["timeout"] == git_context_mod._GIT_TIMEOUT_SECONDS
+    assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+    assert kwargs["check"] is False
+
+
+def test_resolve_base_ref_passes_hardened_subprocess_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    assert resolve_base_ref("main") == "main"
+
+    cmd, kwargs = calls[0]
+    assert cmd == ["git", "rev-parse", "--verify", "--quiet", "main^{commit}"]
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["encoding"] == "utf-8"
+    assert kwargs["errors"] == "replace"
+    assert kwargs["timeout"] == git_context_mod._GIT_TIMEOUT_SECONDS
+    assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+    assert kwargs["check"] is True
+
+
+def test_changed_files_timeout_raises_git_context_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _timeout(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=git_context_mod._GIT_TIMEOUT_SECONDS)
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(
+        GitContextError,
+        match=r"git diff --name-only main\.\.\.HEAD timed out after 30s",
+    ):
+        changed_files("main")
+
+
+def test_resolve_base_ref_timeout_raises_git_context_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _timeout(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=git_context_mod._GIT_TIMEOUT_SECONDS)
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(GitContextError, match=r"git rev-parse main timed out after 30s"):
+        resolve_base_ref("main")
+
+
+def test_changed_files_surfaces_git_stderr_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _failure(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="fatal: bad revision 'main...HEAD'",
+        )
+
+    monkeypatch.setattr(subprocess, "run", _failure)
+
+    with pytest.raises(
+        GitContextError,
+        match=r"git diff --name-only main\.\.\.HEAD failed: fatal: bad revision",
+    ):
+        changed_files("main")
 
 
 def test_changed_files_empty_when_branch_matches_base(git_repo: Path) -> None:
