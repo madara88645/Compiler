@@ -159,6 +159,36 @@ describe("Skills Generator page", () => {
     expect(classes).not.toContain("md:min-h-0");
   });
 
+  it("starts as a centered single-form view and only opens the output pane once generation begins", async () => {
+    apiJsonMock.mockImplementationOnce(
+      () =>
+        new Promise(() => {
+          // Keep the request pending so the loading-state split layout stays visible.
+        }),
+    );
+
+    render(<SkillsGeneratorPage />);
+
+    const textarea = screen.getByLabelText("Skill Description");
+    const formPane = textarea.closest("div")?.parentElement;
+
+    expect(formPane?.className).toContain("max-w-2xl");
+    expect(formPane?.className).not.toContain("md:w-[38%]");
+    expect(screen.getAllByRole("button", { name: /Generate Skill/i })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "or try an example" })).toBeTruthy();
+    expect(screen.queryByText("Forging skill definition...")).toBeNull();
+
+    fireEvent.change(textarea, {
+      target: { value: "Summarize pages into three bullets." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Generate Skill/i }));
+
+    expect(await screen.findByText("Forging skill definition...")).toBeTruthy();
+    expect(formPane?.className).toContain("md:w-[38%]");
+    expect(formPane?.className).not.toContain("max-w-2xl");
+    expect(screen.queryByRole("button", { name: "or try an example" })).toBeNull();
+  });
+
   it("shows a retryable error in the output panel when generation fails", async () => {
     apiJsonMock.mockRejectedValueOnce(new Error("The service is temporarily unavailable."));
 
