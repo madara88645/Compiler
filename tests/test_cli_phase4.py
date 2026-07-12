@@ -9,11 +9,12 @@ offline and deterministic.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
 import cli.commands.pr_safety as pr_safety_mod
-from app.pr_safety.models import PrSafetyReport
+from app.pr_safety.models import PrSafetyReport, RepoSignalsSection
 from cli.main import app as main_app
 
 _runner = CliRunner()
@@ -206,12 +207,20 @@ def test_from_git_mode_uses_monkeypatched_helpers(monkeypatch):
     )
     monkeypatch.setattr(pr_safety_mod, "git_commits_behind", lambda base: 0)
     monkeypatch.setattr(pr_safety_mod, "head_commit_message", lambda: ("Add foo", "body text"))
+    monkeypatch.setattr(pr_safety_mod, "repository_root", lambda: Path("/repo"))
+    monkeypatch.setattr(
+        pr_safety_mod,
+        "collect_repo_signals",
+        lambda root, files: RepoSignalsSection(source="local_checkout"),
+    )
 
     result = _invoke(["pr-safety", "--from-git", "--format", "json"])
     assert result.exit_code == 0, result.output
-    report = PrSafetyReport(**json.loads(result.output))
+    payload = json.loads(result.output)
+    report = PrSafetyReport(**payload)
     assert report.title == "Add foo"
     assert report.verdict == "merge"
+    assert payload["repo_signals"]["source"] == "local_checkout"
 
 
 def test_from_git_mode_stale_branch_yields_rebase(monkeypatch):

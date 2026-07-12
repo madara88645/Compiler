@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from pathlib import Path
 
 _CANDIDATE_BASE_REFS = ("origin/main", "origin/master", "main", "master")
 
@@ -22,6 +23,18 @@ _GIT_ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
 
 class GitContextError(RuntimeError):
     """Raised when the local git state cannot answer a PR Safety query."""
+
+
+def repository_root(cwd: Path | None = None) -> Path:
+    """Return the absolute root of the current local git checkout."""
+    args = ["rev-parse", "--show-toplevel"]
+    if cwd is not None:
+        args = ["-C", str(cwd), *args]
+    output = _run_git(args)
+    root = Path(output)
+    if not root.is_absolute():
+        root = (cwd or Path.cwd()) / root
+    return root.resolve()
 
 
 def _run_git(args: list[str]) -> str:

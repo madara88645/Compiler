@@ -20,9 +20,11 @@ from app.pr_safety.git_context import (
     changed_files as git_changed_files,
     commits_behind as git_commits_behind,
     head_commit_message,
+    repository_root,
     resolve_base_ref,
 )
 from app.pr_safety.markdown import report_to_markdown
+from app.pr_safety.repo_signals import collect_repo_signals
 
 from cli.commands._base import app
 from cli.commands._helpers import _write_output
@@ -72,6 +74,7 @@ def pr_safety_command(
         raise typer.BadParameter("Unknown --format. Use human|json|md")
 
     resolved_files: List[str]
+    repo_signals = None
 
     if from_git:
         try:
@@ -80,6 +83,7 @@ def pr_safety_command(
             if commits_behind is None:
                 commits_behind = git_commits_behind(base_ref)
             git_subject, git_body = head_commit_message()
+            repo_signals = collect_repo_signals(repository_root(), resolved_files)
         except GitContextError as exc:
             typer.secho(f"git error: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
@@ -110,6 +114,7 @@ def pr_safety_command(
         description=description,
         changed_files=resolved_files,
         commits_behind=commits_behind,
+        repo_signals=repo_signals,
     )
 
     if fmt_l == "human":

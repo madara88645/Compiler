@@ -6,6 +6,8 @@ from app.pr_safety.models import (
     FileGroup,
     PrSafetyReport,
     PrSafetyVerdict,
+    RepoAwarePrSafetyReport,
+    RepoSignalsSection,
     RiskyAreaHit,
     RiskyAreasSection,
     ScopeMatchSection,
@@ -38,6 +40,7 @@ def analyze_pr_safety(
     changed_files: list[str],
     *,
     commits_behind: int | None = None,
+    repo_signals: RepoSignalsSection | None = None,
 ) -> PrSafetyReport:
     files = normalize_paths(changed_files)
     grouped = group_changed_files(files)
@@ -63,7 +66,7 @@ def analyze_pr_safety(
         scope_section=scope_section,
     )
 
-    return PrSafetyReport(
+    report_data = dict(
         verdict=verdict,
         title=title.strip(),
         changed_files=ChangedFilesSection(
@@ -76,6 +79,9 @@ def analyze_pr_safety(
         scope_match=scope_section,
         recommendations=recommendations,
     )
+    if repo_signals is not None:
+        return RepoAwarePrSafetyReport(**report_data, repo_signals=repo_signals)
+    return PrSafetyReport(**report_data)
 
 
 def _build_risky_areas(files: list[str]) -> RiskyAreasSection:
