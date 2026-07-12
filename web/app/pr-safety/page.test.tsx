@@ -247,4 +247,21 @@ describe("PR Safety page", () => {
 
     await waitFor(() => expect(showError).toHaveBeenCalledTimes(1));
   });
+
+  test("shows an error instead of crashing when the response is malformed", async () => {
+    apiJson.mockResolvedValueOnce({ unexpected: "shape" } as never);
+
+    render(<PrSafetyPage />);
+
+    fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: /analyze pr/i }));
+
+    expect(await screen.findByText("PR Safety analysis failed")).toBeTruthy();
+    expect(
+      screen.getByText("PR Safety returned an unexpected response. Try again or check your PR details."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Analyzing PR...")).toBeNull();
+    expect(screen.queryByTestId("pr-verdict")).toBeNull();
+    expect(showError).toHaveBeenCalledTimes(1);
+  });
 });
