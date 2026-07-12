@@ -696,7 +696,7 @@ def ingest_paths(
                         except PathSecurityError:
                             logger.warning("Skipping file outside allowed roots: %s", fp)
                             continue
-                        if fp.suffix.lower() not in allowed_exts:
+                        if safe_fp.suffix.lower() not in allowed_exts:
                             continue
                         if _needs_ingest(conn, safe_fp):
                             try:
