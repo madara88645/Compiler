@@ -12,7 +12,7 @@ import orjson
 import functools
 from collections import OrderedDict
 
-from app.rag.uploads import resolve_allowed_path
+from app.rag.uploads import PathSecurityError, resolve_allowed_path
 
 logger = logging.getLogger("promptc.rag.index")
 
@@ -687,23 +687,32 @@ def ingest_paths(
                 for root, _, files in os.walk(pth):
                     for f in files:
                         fp = Path(root) / f
-                        if fp.suffix.lower() not in allowed_exts:
+                        try:
+                            safe_fp = (
+                                resolve_allowed_path(fp, allowed_roots=allowed_roots)
+                                if allowed_roots is not None
+                                else fp
+                            )
+                        except PathSecurityError:
+                            logger.warning("Skipping file outside allowed roots: %s", fp)
                             continue
-                        if _needs_ingest(conn, fp):
+                        if safe_fp.suffix.lower() not in allowed_exts:
+                            continue
+                        if _needs_ingest(conn, safe_fp):
                             try:
-                                if _HAS_PARSERS and can_parse(fp):
-                                    result = parse_file(fp)
+                                if _HAS_PARSERS and can_parse(safe_fp):
+                                    result = parse_file(safe_fp)
                                     content = result.content
                                 else:
-                                    content = fp.read_text(encoding="utf-8", errors="ignore")
+                                    content = safe_fp.read_text(encoding="utf-8", errors="ignore")
                             except Exception as e:
-                                logger.warning("Failed to read or parse file %s: %s", fp, e)
+                                logger.warning("Failed to read or parse file %s: %s", safe_fp, e)
                                 continue
                             if not content:
                                 continue
                             _insert_document(
                                 conn,
-                                fp,
+                                safe_fp,
                                 content,
                                 embed=embed,
                                 embed_dim=embed_dim,
