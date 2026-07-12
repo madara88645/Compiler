@@ -229,3 +229,6 @@
 ## 2026-07-08 - Replace any() generator with `in` for exact list membership
 **Learning:** In hot heuristic paths such as `detect_domain`, `any(ev == value for ev in evidence)` adds generator setup overhead for a simple exact-match check. Using `"value" in evidence` keeps the same semantics and avoids that overhead.
 **Action:** Prefer the `in` operator over `any()` generator expressions when checking for an exact string in a list.
+## 2024-05-31 - Replace any() generator over regex search with base string match
+**Learning:** When checking if any substring (like words) within a string matches a regex (e.g., `any(pattern.search(w) for w in words)`), evaluating the regex globally on the base string instead (e.g., `pattern.search(base_string)`) eliminates Python loop and generator setup overhead. This leverages single C-level regex executions for measurable speedups.
+**Action:** Always prefer evaluating a regex search on the entire base string over looping through its components when checking for the existence of a match.
