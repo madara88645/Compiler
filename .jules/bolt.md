@@ -229,3 +229,6 @@
 ## 2026-07-08 - Replace any() generator with `in` for exact list membership
 **Learning:** In hot heuristic paths such as `detect_domain`, `any(ev == value for ev in evidence)` adds generator setup overhead for a simple exact-match check. Using `"value" in evidence` keeps the same semantics and avoids that overhead.
 **Action:** Prefer the `in` operator over `any()` generator expressions when checking for an exact string in a list.
+## 2025-02-27 - CPython generator vs global regex search overhead
+**Learning:** In Python, using a generator expression like `any(pattern.search(w) for w in words)` introduces significant loop overhead. If the regex can be applied globally to the base string instead (e.g., `pattern.search(base_string)`), it eliminates the Python bytecode execution overhead and runs entirely in the C-based regex engine, resulting in a substantial performance gain (~4x speedup).
+**Action:** Focus on algorithmic improvements like running the regex globally on a string rather than micro-optimizations like removing generator overhead, avoiding execution of an entire block of expensive operations (e.g. generator and python loop) entirely.
