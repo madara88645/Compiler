@@ -82,3 +82,75 @@ def test_batch_command(tmp_path: Path):
     assert code == 0
     assert (out_dir / "x.json").exists()
     assert (out_dir / "y.json").exists()
+
+
+def test_diff_ignore_path_nested(tmp_path: Path):
+    a = tmp_path / "a.json"
+    b = tmp_path / "b.json"
+    a.write_text(
+        json.dumps({"metadata": {"ir_signature": "sig-a", "version": 1}, "value": 10}),
+        encoding="utf-8",
+    )
+    b.write_text(
+        json.dumps({"metadata": {"ir_signature": "sig-b", "version": 1}, "value": 10}),
+        encoding="utf-8",
+    )
+
+    code, out, _ = run_cli(["diff", str(a), str(b), "--brief"], Path.cwd())
+    assert code == 1
+
+    code, out, _ = run_cli(
+        ["diff", str(a), str(b), "--brief", "--ignore-path", "metadata.ir_signature"],
+        Path.cwd(),
+    )
+    assert code == 0
+    assert out == ""
+
+
+def test_diff_ignore_path_list_index(tmp_path: Path):
+    a = tmp_path / "a.json"
+    b = tmp_path / "b.json"
+    a.write_text(
+        json.dumps({"steps": [{"id": 1, "note": "alpha"}, {"id": 2}]}),
+        encoding="utf-8",
+    )
+    b.write_text(
+        json.dumps({"steps": [{"id": 1, "note": "beta"}, {"id": 2}]}),
+        encoding="utf-8",
+    )
+
+    code, out, _ = run_cli(
+        ["diff", str(a), str(b), "--brief", "--ignore-path", "steps[0].note"],
+        Path.cwd(),
+    )
+    assert code == 0
+    assert out == ""
+
+
+def test_diff_ignore_path_multiple(tmp_path: Path):
+    a = tmp_path / "a.json"
+    b = tmp_path / "b.json"
+    a.write_text(
+        json.dumps({"metadata": {"ir_signature": "a"}, "timestamp": "t1", "same": True}),
+        encoding="utf-8",
+    )
+    b.write_text(
+        json.dumps({"metadata": {"ir_signature": "b"}, "timestamp": "t2", "same": True}),
+        encoding="utf-8",
+    )
+
+    code, out, _ = run_cli(
+        [
+            "diff",
+            str(a),
+            str(b),
+            "--brief",
+            "--ignore-path",
+            "metadata.ir_signature",
+            "--ignore-path",
+            "timestamp",
+        ],
+        Path.cwd(),
+    )
+    assert code == 0
+    assert out == ""
