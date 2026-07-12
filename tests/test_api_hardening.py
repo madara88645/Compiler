@@ -323,6 +323,45 @@ def test_rag_ingest_missing_path_within_allowed_root_hides_server_path(test_key,
     assert allowed_root not in detail
 
 
+@pytest.mark.auth_required
+def test_rag_ingest_skips_symlinked_file_that_resolves_outside_allowed_root(
+    test_key, monkeypatch
+):
+    client = TestClient(app)
+
+    with tempfile.TemporaryDirectory() as td:
+        allowed_root = os.path.join(td, "inside")
+        outside_root = os.path.join(td, "outside")
+        db_path = os.path.join(td, "index.db")
+        os.makedirs(allowed_root, exist_ok=True)
+        os.makedirs(outside_root, exist_ok=True)
+
+        outside_file = os.path.join(outside_root, "secret.txt")
+        with open(outside_file, "w", encoding="utf-8") as handle:
+            handle.write("outside_root_secret_signal")
+
+        linked_file = os.path.join(allowed_root, "linked-secret.txt")
+        os.symlink(outside_file, linked_file)
+
+        monkeypatch.setattr("app.rag.simple_index.DEFAULT_DB_PATH", db_path)
+        monkeypatch.setenv("PROMPTC_RAG_ALLOWED_ROOTS", allowed_root)
+
+        ingest = client.post(
+            "/rag/ingest",
+            headers={"x-api-key": test_key},
+            json={"paths": [allowed_root]},
+        )
+
+        stats = client.get("/rag/stats")
+
+    assert ingest.status_code == 200
+    assert ingest.json()["ingested_docs"] == 0
+    assert ingest.json()["total_chunks"] == 0
+    assert stats.status_code == 200
+    assert stats.json()["docs"] == 0
+    assert stats.json()["chunks"] == 0
+
+
 def test_cors_preflight_allows_prompt_mode_header(monkeypatch):
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:3000")
     import importlib
