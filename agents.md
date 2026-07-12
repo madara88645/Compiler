@@ -306,7 +306,8 @@ cd web && npm run build
 | Skill Generator | http://localhost:3000/skills-generator |
 | Benchmark | http://localhost:3000/benchmark |
 | Token Optimizer | http://localhost:3000/optimizer |
-| Offline / heuristics | http://localhost:3000/offline |
+
+`/offline` redirects to `/` (main Compiler). Use the **Heuristics only (no LLM)** toggle on the main page instead of a separate offline surface.
 
 ---
 
