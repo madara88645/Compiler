@@ -66,8 +66,9 @@ def test_benchmark_run_endpoint(client):
     mock_raw = "Here is a basic answer about Python."
     mock_improved = "# Python Overview\n\n- Python is a high-level language\n- It supports OOP\n\n```python\nprint('hello')\n```"
 
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         # First call returns raw, second returns improved
         mock_llm.side_effect = [mock_raw, mock_improved]
@@ -105,8 +106,9 @@ def test_benchmark_run_uses_selected_model_for_both_generations(client):
     """The requested benchmark model should be used for raw and compiled generations."""
     selected_model = "openai/gpt-oss-20b"
 
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.side_effect = ["raw output", "compiled output"]
 
@@ -121,10 +123,65 @@ def test_benchmark_run_uses_selected_model_for_both_generations(client):
     assert mock_llm.call_args_list[1].args[1] == selected_model
 
 
+def test_benchmark_run_offloads_blocking_steps(client):
+    """The async endpoint must not run synchronous provider work on the event loop."""
+    from unittest.mock import AsyncMock
+
+    import app.routers.benchmark as benchmark_mod
+
+    generation_results = iter(["raw output", "compiled output"])
+
+    async def run_sync(func, *args, **kwargs):
+        if func is benchmark_mod._generate_llm_output:
+            return next(generation_results)
+        if func is benchmark_mod._compile_benchmark_prompt:
+            return "compiled prompt"
+        if func is benchmark_mod._judge_with_llm:
+            return {
+                "a_safety": 8,
+                "a_clarity": 7,
+                "a_conciseness": 8,
+                "b_safety": 9,
+                "b_clarity": 9,
+                "b_conciseness": 9,
+                "winner": "B",
+            }
+        return func(*args, **kwargs)
+
+    with patch(
+        "app.routers.benchmark.anyio.to_thread.run_sync",
+        new_callable=AsyncMock,
+        side_effect=run_sync,
+    ) as run_sync:
+        response = client.post(
+            "/benchmark/run",
+            json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
+        )
+
+    assert response.status_code == 200
+    benchmark_calls = [
+        call.args[0]
+        for call in run_sync.call_args_list
+        if call.args[0]
+        in {
+            benchmark_mod._generate_llm_output,
+            benchmark_mod._compile_benchmark_prompt,
+            benchmark_mod._judge_with_llm,
+        }
+    ]
+    assert benchmark_calls == [
+        benchmark_mod._generate_llm_output,
+        benchmark_mod._compile_benchmark_prompt,
+        benchmark_mod._generate_llm_output,
+        benchmark_mod._judge_with_llm,
+    ]
+
+
 def test_benchmark_run_short_prompt_with_valid_model(client):
     """A short prompt with a supported model should still succeed."""
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.return_value = "mock output"
 
@@ -167,10 +224,13 @@ def test_benchmark_request_rejects_blank_text(client):
 
 def test_benchmark_provider_failure_returns_safe_error(client):
     """Provider/model failures should return a safe upstream error instead of a mock result."""
-    with patch(
-        "app.routers.benchmark._generate_llm_output",
-        side_effect=RuntimeError("provider exploded"),
-    ), patch("app.routers.benchmark._judge_with_llm", return_value=None):
+    with (
+        patch(
+            "app.routers.benchmark._generate_llm_output",
+            side_effect=RuntimeError("provider exploded"),
+        ),
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
+    ):
         response = client.post(
             "/benchmark/run",
             json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
@@ -207,10 +267,13 @@ def test_benchmark_run_succeeds_when_judge_response_is_malformed(client):
     fake_hybrid = MagicMock()
     fake_hybrid.worker = fake_worker
 
-    with patch(
-        "app.routers.benchmark._generate_llm_output",
-        side_effect=["raw output", "compiled output"],
-    ), patch("api.main.hybrid_compiler", fake_hybrid):
+    with (
+        patch(
+            "app.routers.benchmark._generate_llm_output",
+            side_effect=["raw output", "compiled output"],
+        ),
+        patch("api.main.hybrid_compiler", fake_hybrid),
+    ):
         response = client.post(
             "/benchmark/run",
             json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
