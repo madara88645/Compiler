@@ -3,7 +3,6 @@ import site
 from datetime import datetime
 from pathlib import Path
 
-import pytest
 
 from app.optimizer.history import HistoryManager
 from app.optimizer.models import Candidate, EvaluationResult, OptimizationConfig, OptimizationRun
