@@ -16,6 +16,9 @@ def _home_env(tmp_path: Path) -> dict[str, str]:
         existing = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{user_site}{os.pathsep}{existing}" if existing else user_site
     env["HOME"] = str(tmp_path)
+    # Windows: Path.home() resolves via USERPROFILE (not HOME), so history
+    # written under tmp_path/.promptc is only found if USERPROFILE points here too.
+    env["USERPROFILE"] = str(tmp_path)
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 
