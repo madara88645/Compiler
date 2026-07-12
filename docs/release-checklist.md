@@ -313,8 +313,8 @@ If the job waits on `pypi` environment review:
 
 ## Related docs
 
-- VS Code extension publishing (separate workflow/tags):  
-  [`integrations/vscode-extension/PUBLISHING.md`](../integrations/vscode-extension/PUBLISHING.md)  
+- VS Code extension publishing (separate workflow/tags):
+  [`integrations/vscode-extension/PUBLISHING.md`](../integrations/vscode-extension/PUBLISHING.md)
   Tags: `vscode-v*`, environment: `vscode-marketplace`.
-- CLI Phase 1 design note on sequencing `v2.0.46`:  
+- CLI Phase 1 design note on sequencing `v2.0.46`:
   [`docs/superpowers/specs/2026-06-24-cli-phase1-vitrin-kurulum-design.md`](superpowers/specs/2026-06-24-cli-phase1-vitrin-kurulum-design.md)
