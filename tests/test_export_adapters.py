@@ -4,6 +4,7 @@ tests/test_export_adapters.py — Tests for the Export Adapter layer.
 Covers IR extraction, code generation, and API endpoints for both
 agent and skill exports.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ from app.adapters.claude_sdk import to_python, to_yaml
 from app.adapters.langchain import to_langchain_python, to_langgraph_python
 from app.adapters.mcp_servers import render_mcp_json
 from app.adapters.skill_adapter import to_agent_skill, to_claude_tool_use, to_langchain_tool
-from app.adapters.skill_ir import SkillExportIR, parse_skill_markdown
+from app.adapters.skill_ir import SkillExportIR, SkillParam, parse_skill_markdown
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +400,75 @@ def test_claude_mcp_tool_stub_includes_client_config():
     assert "Claude Code" in readme_file["content"]
     assert "Claude Desktop" in readme_file["content"]
     assert ".mcp.json" in readme_file["content"]
+
+
+@pytest.mark.parametrize(
+    ("skill_name", "python_name"),
+    [("web-search", "web_search"), ("web search", "web_search")],
+)
+def test_generated_python_normalizes_non_identifier_skill_names(skill_name, python_name):
+    ir = SkillExportIR(name=skill_name, purpose="Search the web.")
+
+    mcp_server = next(
+        item["content"] for item in to_claude_mcp_tool_stub(ir) if item["path"] == "server.py"
+    )
+    langchain_tool = to_langchain_tool(ir)
+
+    compile(mcp_server, "<mcp_tool_stub>", "exec")
+    compile(langchain_tool, "<langchain_tool>", "exec")
+    assert f'FastMCP("{skill_name}")' in mcp_server
+    assert f'@mcp.tool(name="{skill_name}")' in mcp_server
+    assert f"async def {python_name}() -> str:" in mcp_server
+    assert f'@tool("{skill_name}")' in langchain_tool
+    assert f"def {python_name}() -> str:" in langchain_tool
+
+
+@pytest.mark.parametrize("skill_name", ["web-search", "web search"])
+def test_langchain_tool_normalizes_input_model_name_for_non_identifier_skill_names(skill_name):
+    ir = SkillExportIR(
+        name=skill_name,
+        purpose="Search the web.",
+        params=[SkillParam(name="query", type="str", description="Search query")],
+    )
+
+    langchain_tool = to_langchain_tool(ir)
+
+    assert "class WebSearchInput(BaseModel):" in langchain_tool
+    assert f'@tool("{skill_name}", args_schema=WebSearchInput)' in langchain_tool
+    compile(langchain_tool, "<langchain_tool_with_input_model>", "exec")
+
+
+@pytest.mark.parametrize(
+    ("skill_name", "python_name", "input_model_name"),
+    [
+        ("123-search", "skill_123_search", "Skill123SearchInput"),
+        ("class", "class_skill", "ClassSkillInput"),
+        ("async", "async_skill", "AsyncSkillInput"),
+        ("!!!", "skill", "SkillInput"),
+    ],
+)
+def test_generated_python_normalizes_numeric_keyword_and_punctuation_skill_names(
+    skill_name, python_name, input_model_name
+):
+    ir = SkillExportIR(
+        name=skill_name,
+        purpose="Search the web.",
+        params=[SkillParam(name="query", type="str", description="Search query")],
+    )
+
+    mcp_server = next(
+        item["content"] for item in to_claude_mcp_tool_stub(ir) if item["path"] == "server.py"
+    )
+    langchain_tool = to_langchain_tool(ir)
+
+    compile(mcp_server, "<mcp_tool_stub>", "exec")
+    compile(langchain_tool, "<langchain_tool>", "exec")
+    assert f'FastMCP("{skill_name}")' in mcp_server
+    assert f'@mcp.tool(name="{skill_name}")' in mcp_server
+    assert f"async def {python_name}(query: str) -> str:" in mcp_server
+    assert f"class {input_model_name}(BaseModel):" in langchain_tool
+    assert f'@tool("{skill_name}", args_schema={input_model_name})' in langchain_tool
+    assert f"def {python_name}(query: str) -> str:" in langchain_tool
 
 
 # ---------------------------------------------------------------------------

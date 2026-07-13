@@ -10,6 +10,7 @@ Supported targets:
 from __future__ import annotations
 
 import json
+import keyword
 import re
 
 from .skill_ir import SkillExample, SkillExportIR, SkillParam
@@ -30,6 +31,19 @@ def _to_kebab(snake: str) -> str:
 
 def _to_title(snake: str) -> str:
     return " ".join(_capitalize_words(snake))
+
+
+def _to_python_identifier(value: str) -> str:
+    """Convert a skill name to a safe Python identifier."""
+    identifier = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    identifier = re.sub(r"_+", "_", identifier)
+    if not identifier:
+        return "skill"
+    if identifier[0].isdigit():
+        identifier = f"skill_{identifier}"
+    if keyword.iskeyword(identifier):
+        identifier = f"{identifier}_skill"
+    return identifier
 
 
 def _example_value_for(param: SkillParam, examples: list[SkillExample]) -> str | None:
@@ -233,8 +247,8 @@ def _build_docstring(ir: SkillExportIR) -> str:
 
 def to_langchain_tool(ir: SkillExportIR) -> str:
     """Return a LangChain @tool Python definition for this skill."""
-    pascal_name = _to_pascal(ir.name)
-    func_name = ir.name
+    func_name = _to_python_identifier(ir.name)
+    pascal_name = _to_pascal(func_name)
 
     if ir.params:
         example_map = _resolve_example_map(ir.params, ir.examples)
@@ -247,7 +261,12 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
         schema_arg = ""
         sig_params = ""
 
-    decorator = f"@tool({schema_arg})" if schema_arg else "@tool"
+    if func_name == ir.name:
+        decorator = f"@tool({schema_arg})" if schema_arg else "@tool"
+    elif schema_arg:
+        decorator = f"@tool({json.dumps(ir.name)}, {schema_arg})"
+    else:
+        decorator = f"@tool({json.dumps(ir.name)})"
 
     parts = [
         "from langchain.tools import tool",
