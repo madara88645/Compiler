@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import keyword
 import re
 import shlex
 import textwrap
@@ -14,6 +15,19 @@ from .skill_ir import SkillExportIR
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "agent"
+
+
+def _to_python_identifier(value: str) -> str:
+    """Convert a skill name to a safe Python identifier."""
+    identifier = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    identifier = re.sub(r"_+", "_", identifier)
+    if not identifier:
+        return "skill"
+    if identifier[0].isdigit():
+        identifier = f"skill_{identifier}"
+    if keyword.iskeyword(identifier):
+        identifier = f"{identifier}_skill"
+    return identifier
 
 
 def _escape_triple_quotes(text: str) -> str:
@@ -172,6 +186,10 @@ def to_claude_pr_reviewer_pack(ir: AgentExportIR) -> list[dict[str, str]]:
 
 def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
     tool_name = ir.name
+    python_name = _to_python_identifier(tool_name)
+    tool_decorator = "@mcp.tool()"
+    if python_name != tool_name:
+        tool_decorator = f"@mcp.tool(name={json.dumps(tool_name)})"
     param_signature = ", ".join(
         f"{param.name}: {param.type if param.type != 'Any' else 'str'}"
         + ("" if param.required else " | None = None")
@@ -184,8 +202,8 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("{tool_name}")
 
 
-@mcp.tool()
-async def {tool_name}({param_signature}) -> str:
+{tool_decorator}
+async def {python_name}({param_signature}) -> str:
     \"\"\"{ir.purpose or f"Execute {tool_name}."}\"\"\"
     raise NotImplementedError("TODO: implement {tool_name}")
 
