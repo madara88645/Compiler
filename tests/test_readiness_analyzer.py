@@ -1,5 +1,5 @@
 from app.models_v2 import IRv2, PolicyV2
-from app.readiness.analyzer import analyze_readiness
+from app.readiness.analyzer import _is_noise, analyze_readiness
 
 
 def test_acmecloud_is_clarify_with_unverifiable_signal():
@@ -26,6 +26,11 @@ def test_greeting_is_noise():
     assert analyze_readiness("merhaba").verdict == "noise"
 
 
+def test_consonant_only_words_are_noise():
+    assert _is_noise("brrr tsk grrr") is True
+    assert analyze_readiness("brrr tsk grrr").verdict == "noise"
+
+
 def test_concrete_request_is_ready():
     report = analyze_readiness(
         "build a FastAPI endpoint that accepts a CSV upload, validates rows, "
@@ -43,6 +48,11 @@ def test_sensitive_security_request_is_risky():
 def test_turkish_request_is_not_noise():
     report = analyze_readiness("Uygulamam çok yavaş, hızlandırmak için ne yapmalıyım?")
     assert report.verdict != "noise"
+
+
+def test_short_turkish_vowel_rich_request_is_not_noise():
+    assert _is_noise("ölçü üret") is False
+    assert analyze_readiness("ölçü üret").verdict != "noise"
 
 
 def test_questions_capped_at_three():
