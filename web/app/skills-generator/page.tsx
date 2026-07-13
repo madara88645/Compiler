@@ -271,7 +271,7 @@ export default function SkillsGenerator() {
                 id="skill-description"
                 aria-labelledby="skill-description-label"
                 aria-describedby="skill-description-help"
-                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 sm:min-h-44 md:min-h-[220px]"
+                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 pr-14 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'A skill that parses JSON and validates schemas' or 'Fetch and summarize web pages'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

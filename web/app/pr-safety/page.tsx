@@ -295,7 +295,7 @@ export default function PrSafetyPage() {
                 id="pr-description"
                 aria-labelledby="pr-description-label"
                 aria-describedby="pr-description-help"
-                className="min-h-20 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
+                className="min-h-20 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 pr-14 text-sm leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder="What does this PR do? Paste the PR body here."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -324,7 +324,7 @@ export default function PrSafetyPage() {
                 id="pr-changed-files"
                 aria-labelledby="pr-changed-files-label"
                 aria-describedby="pr-changed-files-help"
-                className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-xs leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
+                className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 pr-14 font-mono text-xs leading-relaxed text-zinc-200 transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
                 placeholder={"app/auth/login.py\napi/routes/auth.py\ntests/test_auth.py"}
                 value={changedFilesText}
                 onChange={(e) => setChangedFilesText(e.target.value)}

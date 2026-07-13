@@ -355,7 +355,7 @@ export default function BenchmarkPage() {
                 id="benchmark-prompt"
                 aria-labelledby="benchmark-prompt-label"
                 aria-describedby="benchmark-prompt-help"
-                className="h-full min-h-[160px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                className="h-full min-h-[160px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 pr-14 font-mono text-sm leading-relaxed text-zinc-300 shadow-inner transition-all placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                 placeholder={"Enter a prompt to benchmark...\n\ne.g. 'Write a Python script to scrape data'"}
                 value={prompt}
                 onChange={(event) => {
