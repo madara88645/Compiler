@@ -1,10 +1,9 @@
 "use client";
 
-import { toast } from "sonner";
-
 import { useState, memo } from "react";
 
 import { benchmarkReportToMarkdown } from "./benchmarkMarkdown";
+import { copyToClipboard } from "../lib/copyToClipboard";
 
 export type BenchmarkData = {
     raw_output: string;
@@ -36,11 +35,33 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
     const isCompiledWinner = data.winner === "compiled";
     const isTie = data.winner === "tie";
 
-    const copyReport = () => {
-        navigator.clipboard.writeText(benchmarkReportToMarkdown(data));
-        toast.success("Copied report as Markdown");
-        setCopiedReport(true);
-        setTimeout(() => setCopiedReport(false), 2000);
+    const copyReport = async () => {
+        const copied = await copyToClipboard(benchmarkReportToMarkdown(data), {
+            successMessage: "Copied report as Markdown",
+        });
+
+        if (copied) {
+            setCopiedReport(true);
+            setTimeout(() => setCopiedReport(false), 2000);
+        }
+    };
+
+    const copyRaw = async () => {
+        const copied = await copyToClipboard(data.raw_output);
+
+        if (copied) {
+            setCopiedRaw(true);
+            setTimeout(() => setCopiedRaw(false), 2000);
+        }
+    };
+
+    const copyCompiled = async () => {
+        const copied = await copyToClipboard(data.compiled_output);
+
+        if (copied) {
+            setCopiedCompiled(true);
+            setTimeout(() => setCopiedCompiled(false), 2000);
+        }
     };
 
     const downloadReport = () => {
@@ -172,12 +193,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => {
-                                navigator.clipboard.writeText(data.raw_output);
-                                toast.success("Copied to clipboard");
-                                setCopiedRaw(true);
-                                setTimeout(() => setCopiedRaw(false), 2000);
-                            }}
+                            onClick={copyRaw}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title="Copy raw output"
                             aria-label="Copy raw output"
@@ -204,12 +220,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => {
-                                navigator.clipboard.writeText(data.compiled_output);
-                                toast.success("Copied to clipboard");
-                                setCopiedCompiled(true);
-                                setTimeout(() => setCopiedCompiled(false), 2000);
-                            }}
+                            onClick={copyCompiled}
                             className="text-zinc-600 hover:text-zinc-400 transition-colors p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                             title="Copy compiled output"
                             aria-label="Copy compiled output"
