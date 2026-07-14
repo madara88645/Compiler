@@ -346,8 +346,14 @@ def _build_offline_quality_report(req: ValidateRequest) -> QualityReport:
     ir2 = compile_text_v2(req.text, offline_only=True)
     validation = validate_prompt(ir2, original_text=req.text)
 
-    suggestions = [issue.suggestion for issue in validation.issues if issue.suggestion]
-    weaknesses = [issue.message for issue in validation.issues if issue.message]
+    # Build paired lists so suggestions[i] always corresponds to weaknesses[i].
+    # Issues with no message are skipped; missing suggestions become empty strings.
+    weaknesses = []
+    suggestions = []
+    for issue in validation.issues:
+        if issue.message:
+            weaknesses.append(issue.message)
+            suggestions.append(issue.suggestion or "")
     category_scores = {
         "clarity": int(round(validation.score.clarity)),
         "specificity": int(round(validation.score.specificity)),
@@ -651,6 +657,8 @@ def validate_endpoint(
             safety_issues.append(f"Guardrail: {guardrail.message}")
 
         if safety_issues:
+            # Prepend matching empty suggestions so indexes stay aligned
+            report.suggestions = [""] * len(safety_issues) + report.suggestions
             report.weaknesses = safety_issues + report.weaknesses
             report.score = max(0, report.score - (len(safety_issues) * 10))
             report.category_scores["safety"] = max(0, 100 - (len(safety_issues) * 30))
@@ -659,6 +667,15 @@ def validate_endpoint(
             report.strengths = []
         if not req.include_suggestions:
             report.suggestions = []
+
+        # Ensure weaknesses and suggestions are always the same length so
+        # the frontend can safely map suggestions[i] to weaknesses[i].
+        w_len = len(report.weaknesses)
+        s_len = len(report.suggestions)
+        if w_len > s_len:
+            report.suggestions.extend([""] * (w_len - s_len))
+        elif s_len > w_len:
+            report.suggestions = report.suggestions[:w_len]
 
         return report
     except Exception as exc:
