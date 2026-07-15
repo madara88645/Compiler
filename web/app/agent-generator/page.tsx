@@ -288,7 +288,7 @@ export default function AgentGenerator() {
                 id="agent-description"
                 aria-labelledby="agent-description-label"
                 aria-describedby="agent-description-help"
-                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-[220px]"
+                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-5 pr-14 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition-all placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-green-500/50 sm:min-h-44 md:min-h-[220px]"
                 placeholder="e.g., 'I need an agent that reviews React code for performance bottlenecks' or 'A creative writer for sci-fi stories'"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
