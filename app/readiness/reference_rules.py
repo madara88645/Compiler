@@ -103,7 +103,13 @@ def detect_unverifiable_references(text: str) -> list[str]:
             continue
         # Skip a bare token already covered by a suffix phrase, e.g. don't add
         # "AcmeCloud" when "AcmeCloud SDK" is already flagged.
-        if any(tok in f for f in found):
+        # Bolt Optimization: Replace any() generator expression with fast-path loop
+        _skip = False
+        for f in found:
+            if tok in f:
+                _skip = True
+                break
+        if _skip:
             continue
         found.append(tok)
     return found[:5]
