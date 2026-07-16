@@ -83,3 +83,8 @@
 **Vulnerability:** A subtle side-channel timing vulnerability in `api/auth.py` where a wrong length API key triggered a dummy comparison using `secrets.compare_digest(admin_key, admin_key)`. This leaked the exact length of the secret `admin_key` because `secrets.compare_digest` takes time proportional to the length of the string, allowing an attacker to deduce the length based on response times.
 **Learning:** `secrets.compare_digest(admin_key, admin_key)` doesn't hide the execution time based on the string length if the strings are the same. It only hides differences between the two strings when they differ. To mask the secret's length, the dummy comparison must be executed on an attacker-known variable (like the provided key).
 **Prevention:** Always ensure dummy comparisons for timing attacks use attacker-controlled length variables (e.g., `secrets.compare_digest(normalized_key, normalized_key)`) instead of the secret variables.
+
+## 2024-10-27 - [Rejected timing attack fix on API key validation]
+**Vulnerability:** Theoretical timing attack fix in `api/auth.py`.
+**Learning:** Replacing `secrets.compare_digest(admin_key, admin_key)` with `secrets.compare_digest(provided_key, provided_key)` introduces a 500 error if `provided_key` contains non-ASCII characters, because `compare_digest` raises `TypeError` for non-ASCII strings. Additionally, the theoretical timing leak on `len(admin_key)` (10-40ns) is practically unmeasurable over network jitter, making the fix an unnecessary risk.
+**Prevention:** Be aware that `secrets.compare_digest` on caller-supplied strings requires ASCII validation. Avoid theoretical timing fixes if they risk 500 errors or functionality breaks, especially when network jitter makes the timing difference unmeasurable.
