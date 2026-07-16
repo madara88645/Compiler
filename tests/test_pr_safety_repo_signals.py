@@ -127,6 +127,67 @@ def test_malformed_workflow_is_a_relative_advisory_warning(tmp_path: Path) -> No
     assert str(tmp_path) not in signals.warnings[0]
 
 
+def test_workflow_paths_negation_excludes_generated_files(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        ".github/workflows/ci.yml",
+        """name: Backend CI
+on:
+  pull_request:
+    paths:
+      - "**"
+      - "!app/generated/**"
+jobs:
+  test: {}
+""",
+    )
+
+    signals = collect_repo_signals(
+        tmp_path,
+        ["app/generated/client.py", "app/handwritten/service.py"],
+    )
+
+    assert len(signals.overlapping_workflows) == 1
+    assert signals.overlapping_workflows[0].matched_files == ["app/handwritten/service.py"]
+
+
+def test_codeowners_last_match_wins_for_more_specific_rule(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        ".github/CODEOWNERS",
+        "* @general\n/app/auth/** @security\n/app/auth/login.py @login-team\n",
+    )
+
+    signals = collect_repo_signals(tmp_path, ["app/auth/login.py"])
+
+    assert len(signals.owners) == 1
+    assert signals.owners[0].file == "app/auth/login.py"
+    assert signals.owners[0].owners == ["@login-team"]
+    assert signals.owners[0].pattern == "/app/auth/login.py"
+
+
+def test_ignores_unsafe_changed_paths_before_owner_and_workflow_matching(tmp_path: Path) -> None:
+    _write(tmp_path, ".github/CODEOWNERS", "* @general\n/app/** @backend\n")
+    _write(
+        tmp_path,
+        ".github/workflows/ci.yml",
+        """name: Backend CI
+on:
+  pull_request:
+    paths: ["app/**"]
+jobs:
+  test: {}
+""",
+    )
+
+    signals = collect_repo_signals(tmp_path, ["../outside.py", "/etc/passwd", "app/ok.py"])
+
+    assert [match.file for match in signals.owners] == ["app/ok.py"]
+    assert signals.owners[0].owners == ["@backend"]
+    assert len(signals.overlapping_workflows) == 1
+    assert signals.overlapping_workflows[0].matched_files == ["app/ok.py"]
+
+
 def test_repo_signals_do_not_change_the_deterministic_verdict(tmp_path: Path) -> None:
     _write(tmp_path, "Makefile", "test:\n\tpytest -q\n")
     changed_files = ["app/compiler.py", "tests/test_compiler.py"]
