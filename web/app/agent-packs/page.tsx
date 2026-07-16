@@ -306,7 +306,7 @@ export default function AgentPacksPage() {
                 aria-label="Agent Pack Goal"
                 value={request.goal}
                 onChange={(event) => handleFieldChange("goal", event.target.value)}
-                className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 pr-14 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 placeholder="e.g. Review PRs for prompt leakage, unsafe settings, and missing regression tests."
               />
 
