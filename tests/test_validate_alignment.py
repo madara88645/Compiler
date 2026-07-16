@@ -50,6 +50,22 @@ def test_validate_returns_report_shape():
     assert "summary" in body
 
 
+def test_validate_omits_suggestions_when_not_requested():
+    """include_suggestions=False must return an empty list, not padded blanks."""
+    resp = client.post(
+        "/validate",
+        json={
+            "text": "do stuff with things and whatever",
+            "include_suggestions": False,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert body["weaknesses"], "expected this prompt to produce weaknesses"
+    assert body["suggestions"] == []
+
+
 def test_validate_paired_content_quality():
     """Each weakness should pair with a suggestion (possibly empty), never mismatched."""
     resp = client.post(

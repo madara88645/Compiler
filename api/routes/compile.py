@@ -665,8 +665,6 @@ def validate_endpoint(
 
         if not req.include_strengths:
             report.strengths = []
-        if not req.include_suggestions:
-            report.suggestions = []
 
         # Ensure weaknesses and suggestions are always the same length so
         # the frontend can safely map suggestions[i] to weaknesses[i].
@@ -676,6 +674,10 @@ def validate_endpoint(
             report.suggestions.extend([""] * (w_len - s_len))
         elif s_len > w_len:
             report.suggestions = report.suggestions[:w_len]
+
+        # Padding must not resurrect suggestions the caller opted out of.
+        if not req.include_suggestions:
+            report.suggestions = []
 
         return report
     except Exception as exc:
