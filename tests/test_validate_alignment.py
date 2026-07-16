@@ -28,9 +28,9 @@ def test_validate_weakness_suggestion_alignment():
     weaknesses = body.get("weaknesses", [])
     suggestions = body.get("suggestions", [])
 
-    assert len(weaknesses) == len(suggestions), (
-        f"Length mismatch: {len(weaknesses)} weaknesses vs {len(suggestions)} suggestions"
-    )
+    assert len(weaknesses) == len(
+        suggestions
+    ), f"Length mismatch: {len(weaknesses)} weaknesses vs {len(suggestions)} suggestions"
 
 
 def test_validate_returns_report_shape():
