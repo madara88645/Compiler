@@ -148,13 +148,17 @@ class TestToolNameFromGoal:
         assert _tool_name_from_goal("Fetch orders and sync inventory") == "fetch_orders"
 
     def test_stops_at_period(self):
-        assert _tool_name_from_goal("Review pull requests. Then merge them.") == "review_pull_requests"
+        assert (
+            _tool_name_from_goal("Review pull requests. Then merge them.") == "review_pull_requests"
+        )
 
     def test_filters_stop_words(self):
         assert _tool_name_from_goal("Search for a repository task") == "search_repository_task"
 
     def test_limits_to_four_words(self):
-        assert _tool_name_from_goal("alpha beta gamma delta epsilon zeta") == "alpha_beta_gamma_delta"
+        assert (
+            _tool_name_from_goal("alpha beta gamma delta epsilon zeta") == "alpha_beta_gamma_delta"
+        )
 
     def test_empty_goal_falls_back_to_default(self):
         assert _tool_name_from_goal("") == "repository_task"
