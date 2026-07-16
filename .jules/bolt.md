@@ -236,3 +236,7 @@
 ## 2024-07-25 - Removing any() generator overhead in PR safety signal matching
 **Learning:** In code executed frequently across many elements (such as `_matches_any_repo_pattern` checking glob patterns against files, or `_looks_like_owner` checking characters), the overhead of Python's generator expression within `any()` can cause micro-inefficiencies. Replacing `any(...)` with an explicit `for` loop avoids setting up the generator frame and executes slightly faster (up to ~3x in microbenchmarks).
 **Action:** When validating string existence or matching patterns in paths that process many iterations in hot paths, prefer an explicit loop with early return over generator expressions in `any()`.
+
+## 2024-07-25 - Micro-optimizations on cold paths (Rejected)
+**Learning:** Replaced `any()` generator expressions with explicit loops in `_looks_like_owner` and `_matches_any_repo_pattern`. This was rejected because these functions run over CODEOWNERS entries and short pattern lists (cold paths). The readability cost of turning idiomatic one-liners into multi-line loops is not worth the unmeasurable performance gain.
+**Action:** Do not sacrifice readability for micro-optimizations (like removing `any()`) on cold paths or small lists. Focus optimizations on genuinely repeated hot paths.
