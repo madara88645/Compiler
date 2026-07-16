@@ -99,9 +99,7 @@ def test_cognitive_load_empty_text_defaults_to_single_sentence_zero_density():
 
 
 def test_detect_ambiguity_no_vague_terms():
-    result = detect_ambiguity(
-        "Write a Python function that reverses a string using recursion."
-    )
+    result = detect_ambiguity("Write a Python function that reverses a string using recursion.")
 
     assert result.is_ambiguous is False
     assert result.ambiguous_terms == []
