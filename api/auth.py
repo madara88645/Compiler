@@ -230,12 +230,15 @@ def rate_limit_by_ip(request: Request) -> None:
 
 def _matches_admin_api_key(provided_key: str, admin_key: str) -> bool:
     normalized_key = provided_key.strip()
-    if len(normalized_key) == len(admin_key):
-        return secrets.compare_digest(normalized_key, admin_key)
 
-    # Run a same-length dummy comparison to avoid leaking the admin key length.
-    secrets.compare_digest(admin_key, admin_key)
-    return False
+    match = len(normalized_key) == len(admin_key)
+
+    # Use a dummy key of the correct length if lengths don't match to ensure compare_digest takes the same time
+    safe_key = normalized_key if match else admin_key
+
+    digest_match = secrets.compare_digest(safe_key, admin_key)
+
+    return match and digest_match
 
 
 def verify_api_key(
