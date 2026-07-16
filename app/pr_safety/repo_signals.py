@@ -207,8 +207,11 @@ def _collect_owner_matches(
     return matches
 
 
+_SPACE_RE = re.compile(r"\s")
+
+
 def _looks_like_owner(value: str) -> bool:
-    return value.startswith("@") or ("@" in value and not any(char.isspace() for char in value))
+    return value.startswith("@") or ("@" in value and not bool(_SPACE_RE.search(value)))
 
 
 def _collect_workflow_matches(

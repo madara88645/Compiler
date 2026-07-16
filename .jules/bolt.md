@@ -232,3 +232,7 @@
 ## 2025-02-27 - CPython generator vs global regex search overhead
 **Learning:** In Python, using a generator expression like `any(pattern.search(w) for w in words)` introduces significant loop overhead. If the regex can be applied globally to the base string instead (e.g., `pattern.search(base_string)`), it eliminates the Python bytecode execution overhead and runs entirely in the C-based regex engine, resulting in a substantial performance gain (~4x speedup).
 **Action:** Focus on algorithmic improvements like running the regex globally on a string rather than micro-optimizations like removing generator overhead, avoiding execution of an entire block of expensive operations (e.g. generator and python loop) entirely.
+
+## 2025-02-27 - CPython generator vs global regex search overhead
+**Learning:** In Python, using a generator expression like `any(char.isspace() for char in value)` introduces significant loop overhead. If the string can be searched globally instead using a compiled regular expression (e.g., `_SPACE_RE.search(value)`), it eliminates the Python bytecode execution overhead and runs entirely in the C-based regex engine, resulting in a substantial performance gain (~5x speedup for this specific case).
+**Action:** Focus on replacing character-by-character generator expressions with compiled regex searches or optimized C-level string methods (like `in` or `.find()`) in hot paths to bypass Python iteration overhead entirely.
