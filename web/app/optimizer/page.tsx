@@ -417,7 +417,7 @@ export default function OptimizerPage() {
                                 }
                             }}
                             placeholder="Paste a verbose prompt here..."
-                            className="h-full min-h-72 w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
+                            className="h-full min-h-72 w-full resize-none bg-transparent pr-14 font-mono text-sm leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-500"
                         />
                         {input && (
                             <button
