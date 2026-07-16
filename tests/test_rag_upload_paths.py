@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from app.rag import simple_index
 from app.rag.simple_index import ingest_paths
 from app.rag.uploads import PathSecurityError, resolve_allowed_path
 
@@ -44,3 +45,30 @@ def test_ingest_paths_filters_symlinks_by_resolved_target_suffix(tmp_path):
 
     assert docs == 0
     assert chunks == 0
+
+
+def test_ingest_paths_skips_symlinked_file_that_resolves_outside_allowed_root(tmp_path):
+    allowed_root = tmp_path / "allowed"
+    outside_root = tmp_path / "outside"
+    allowed_root.mkdir()
+    outside_root.mkdir()
+    db_path = tmp_path / "idx.db"
+    unique_term = "outside_root_secret_signal"
+
+    outside_file = outside_root / "secret.txt"
+    outside_file.write_text(unique_term, encoding="utf-8")
+
+    linked_file = allowed_root / "linked-secret.txt"
+    os.symlink(outside_file, linked_file)
+
+    docs, chunks, _ = ingest_paths(
+        [str(allowed_root)],
+        db_path=str(db_path),
+        exts=[".txt"],
+        allowed_roots=[allowed_root.resolve()],
+    )
+
+    assert docs == 0
+    assert chunks == 0
+    assert simple_index.stats(str(db_path))["docs"] == 0
+    assert simple_index.search(unique_term, k=3, db_path=str(db_path)) == []
