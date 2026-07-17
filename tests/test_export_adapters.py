@@ -471,6 +471,31 @@ def test_generated_python_normalizes_numeric_keyword_and_punctuation_skill_names
     assert f"def {python_name}(query: str) -> str:" in langchain_tool
 
 
+@pytest.mark.parametrize(
+    ("param_name", "python_name"),
+    [("include-suggestions", "include_suggestions"), ("class", "class_skill")],
+)
+def test_generated_python_normalizes_non_identifier_param_names(param_name, python_name):
+    ir = SkillExportIR(
+        name="web_search",
+        purpose="Search the web.",
+        params=[SkillParam(name=param_name, type="str", description="Search query")],
+    )
+
+    mcp_server = next(
+        item["content"] for item in to_claude_mcp_tool_stub(ir) if item["path"] == "server.py"
+    )
+    langchain_tool = to_langchain_tool(ir)
+
+    compile(mcp_server, "<mcp_tool_stub>", "exec")
+    compile(langchain_tool, "<langchain_tool>", "exec")
+    assert f"async def web_search({python_name}: str) -> str:" in mcp_server
+    assert f"def web_search({python_name}: str) -> str:" in langchain_tool
+    assert f'{python_name}: str = Field(description="Search query", alias="{param_name}")' in (
+        langchain_tool
+    )
+
+
 # ---------------------------------------------------------------------------
 # LangChain output tests
 # ---------------------------------------------------------------------------

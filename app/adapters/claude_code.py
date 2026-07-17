@@ -191,7 +191,7 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
     if python_name != tool_name:
         tool_decorator = f"@mcp.tool(name={json.dumps(tool_name)})"
     param_signature = ", ".join(
-        f"{param.name}: {param.type if param.type != 'Any' else 'str'}"
+        f"{_to_python_identifier(param.name)}: {param.type if param.type != 'Any' else 'str'}"
         + ("" if param.required else " | None = None")
         for param in ir.params
     )
