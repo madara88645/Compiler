@@ -371,6 +371,7 @@ export default function PrSafetyPage() {
               type="button"
               onClick={handleAnalyze}
               disabled={!canSubmit}
+              title={!canSubmit ? "Enter PR title, description, and changed files first to analyze" : "Analyze PR"}
               aria-busy={loading}
               className="w-full rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition-all hover:from-rose-500 hover:to-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
