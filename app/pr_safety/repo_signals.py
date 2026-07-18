@@ -326,6 +326,12 @@ def _matches_repo_pattern(path: str, raw_pattern: str) -> bool:
         char = pattern[index]
         if char == "*":
             if index + 1 < len(pattern) and pattern[index + 1] == "*":
+                if index + 2 < len(pattern) and pattern[index + 2] == "/":
+                    # GitHub-style `**/` should match zero or more directories,
+                    # including files that live at the repository root.
+                    expression.append("(?:[^/]+/)*")
+                    index += 3
+                    continue
                 expression.append(".*")
                 index += 2
                 continue

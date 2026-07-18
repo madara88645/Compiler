@@ -151,6 +151,45 @@ jobs:
     assert signals.overlapping_workflows[0].matched_files == ["app/handwritten/service.py"]
 
 
+def test_workflow_double_star_paths_match_root_files(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        ".github/workflows/python.yml",
+        """name: Python
+on:
+  pull_request:
+    paths: ["**/*.py"]
+jobs:
+  test: {}
+""",
+    )
+
+    signals = collect_repo_signals(tmp_path, ["tool.py"])
+
+    assert len(signals.overlapping_workflows) == 1
+    assert signals.overlapping_workflows[0].matched_files == ["tool.py"]
+
+
+def test_workflow_paths_ignore_excludes_root_files_with_double_star(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        ".github/workflows/generated.yml",
+        """name: Generated
+on:
+  pull_request:
+    paths: ["*.ts", "**/*.ts"]
+    paths-ignore: ["**/*.generated.ts"]
+jobs:
+  test: {}
+""",
+    )
+
+    signals = collect_repo_signals(tmp_path, ["client.generated.ts", "web/app.ts"])
+
+    assert len(signals.overlapping_workflows) == 1
+    assert signals.overlapping_workflows[0].matched_files == ["web/app.ts"]
+
+
 def test_codeowners_last_match_wins_for_more_specific_rule(tmp_path: Path) -> None:
     _write(
         tmp_path,
