@@ -232,3 +232,7 @@
 ## 2025-02-27 - CPython generator vs global regex search overhead
 **Learning:** In Python, using a generator expression like `any(pattern.search(w) for w in words)` introduces significant loop overhead. If the regex can be applied globally to the base string instead (e.g., `pattern.search(base_string)`), it eliminates the Python bytecode execution overhead and runs entirely in the C-based regex engine, resulting in a substantial performance gain (~4x speedup).
 **Action:** Focus on algorithmic improvements like running the regex globally on a string rather than micro-optimizations like removing generator overhead, avoiding execution of an entire block of expensive operations (e.g. generator and python loop) entirely.
+
+## 2024-05-18 - Replacing `any()` generator expressions with explicit loops
+**Learning:** Python's `any(generator expression)` is slower than an explicit `for` loop with an early return for simple membership or substring checks, due to the overhead of setting up and tearing down the generator frame in hot paths.
+**Action:** When acting as Bolt, replacing `any()` with an explicit `for` loop and early return is a valid, measurable micro-optimization in frequently executed hot paths (like character-by-character checks or path matching loops).
