@@ -470,9 +470,9 @@ docs/           Product, pattern, and workflow docs
 
 ## License
 
-Copyright © 2026 Mehmet Özel. All rights reserved.
+Licensed under the [Apache License 2.0](LICENSE) — free to use, self-host, and modify.
 
-Licensed under the [Apache License 2.0](LICENSE).
+Copyright © 2026 Mehmet Özel.
 
 For managed/hosted service inquiries: [mehmet.ozel2701@gmail.com](mailto:mehmet.ozel2701@gmail.com)
 
