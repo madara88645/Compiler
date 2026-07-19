@@ -241,6 +241,7 @@ export default function SkillsGenerator() {
                     type="button"
                     onClick={handleAnalyzeRepo}
                     disabled={!isValidRepoUrl || repoAnalysisLoading}
+                    title={!isValidRepoUrl ? "Enter a valid GitHub repo URL to analyze" : "Analyze Repo"}
                     className="w-full rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-2.5 text-sm font-semibold text-yellow-100 transition-all hover:bg-yellow-500/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}
