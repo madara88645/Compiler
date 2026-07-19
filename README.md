@@ -13,6 +13,8 @@ It also ships a **PR Safety / Merge Readiness Layer**: paste an AI-agent PR and 
 
 Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
 
+**Jump to:** [What It Does](#what-it-does) · [Key Features](#key-features) · [Installation](#installation) · [Running the App](#running-the-app) · [How To Use](#how-to-use) · [Project Structure](#project-structure) · [Docs](#docs) · [License](#license)
+
 ---
 
 ## What It Does
