@@ -46,6 +46,19 @@ def _to_python_identifier(value: str) -> str:
     return identifier
 
 
+def _to_python_param_name(value: str) -> str:
+    """Convert an external parameter name to a safe Python argument/field name."""
+    identifier = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    identifier = re.sub(r"_+", "_", identifier)
+    if not identifier:
+        return "param"
+    if identifier[0].isdigit():
+        identifier = f"param_{identifier}"
+    if keyword.iskeyword(identifier):
+        identifier = f"{identifier}_"
+    return identifier
+
+
 def _example_value_for(param: SkillParam, examples: list[SkillExample]) -> str | None:
     """
     Best-effort extraction of an example value for `param` from `examples`.
@@ -200,15 +213,34 @@ def _python_literal_for(value: str, py_type: str) -> str:
 def _param_field_line(p: SkillParam, example_map: dict[str, str | None]) -> str:
     desc = p.description.replace('"', '\\"')
     example = example_map.get(p.name)
+    field_name = _to_python_param_name(p.name)
+    field_args: list[str] = []
+    if not p.required:
+        field_args.append("default=None")
+    if field_name != p.name:
+        field_args.append(f"alias={json.dumps(p.name)}")
+    field_args.append(f'description="{desc}"')
     extra = f", examples=[{_python_literal_for(example, p.type)}]" if example is not None else ""
+    field_call = ", ".join(field_args) + extra
     if p.required:
-        return f'    {p.name}: {p.type} = Field(description="{desc}"{extra})'
-    return f'    {p.name}: {p.type} | None = Field(default=None, description="{desc}"{extra})'
+        return f"    {field_name}: {p.type} = Field({field_call})"
+    return f"    {field_name}: {p.type} | None = Field({field_call})"
 
 
 def _param_signature(p: SkillParam) -> str:
     opt = " | None = None" if not p.required else ""
-    return f"{p.name}: {p.type}{opt}"
+    return f"{_to_python_param_name(p.name)}: {p.type}{opt}"
+
+
+def _requires_keyword_only_signature(params: list[SkillParam]) -> bool:
+    """Use keyword-only args when a required param follows an optional one."""
+    saw_optional = False
+    for param in params:
+        if not param.required:
+            saw_optional = True
+        elif saw_optional:
+            return True
+    return False
 
 
 def _build_docstring(ir: SkillExportIR) -> str:
@@ -249,13 +281,21 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
     """Return a LangChain @tool Python definition for this skill."""
     func_name = _to_python_identifier(ir.name)
     pascal_name = _to_pascal(func_name)
+    has_param_aliases = False
+    for param in ir.params:
+        if _to_python_param_name(param.name) != param.name:
+            has_param_aliases = True
+            break
 
     if ir.params:
         example_map = _resolve_example_map(ir.params, ir.examples)
         param_fields = "\n".join(_param_field_line(p, example_map) for p in ir.params)
-        input_model = f"class {pascal_name}Input(BaseModel):\n{param_fields}\n"
+        config_line = "    model_config = ConfigDict(populate_by_name=True)\n" if has_param_aliases else ""
+        input_model = f"class {pascal_name}Input(BaseModel):\n{config_line}{param_fields}\n"
         schema_arg = f"args_schema={pascal_name}Input"
         sig_params = ", ".join(_param_signature(p) for p in ir.params)
+        if _requires_keyword_only_signature(ir.params):
+            sig_params = f"*, {sig_params}"
     else:
         input_model = ""
         schema_arg = ""
@@ -270,7 +310,11 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
 
     parts = [
         "from langchain.tools import tool",
-        "from pydantic import BaseModel, Field",
+        (
+            "from pydantic import BaseModel, ConfigDict, Field"
+            if has_param_aliases
+            else "from pydantic import BaseModel, Field"
+        ),
     ]
 
     # Bolt Optimization: Replace any() generator expression with fast-path loop

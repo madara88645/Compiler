@@ -438,6 +438,45 @@ def test_langchain_tool_normalizes_input_model_name_for_non_identifier_skill_nam
     compile(langchain_tool, "<langchain_tool_with_input_model>", "exec")
 
 
+def test_generated_python_normalizes_non_identifier_param_names_and_preserves_external_names():
+    ir = SkillExportIR(
+        name="search_docs",
+        purpose="Search docs.",
+        params=[
+            SkillParam(
+                name="include-suggestions",
+                type="bool",
+                description="Include suggestions",
+                required=False,
+            ),
+            SkillParam(name="class", type="str", description="CSS class", required=True),
+        ],
+    )
+
+    mcp_server = next(
+        item["content"] for item in to_claude_mcp_tool_stub(ir) if item["path"] == "server.py"
+    )
+    langchain_tool = to_langchain_tool(ir)
+
+    compile(mcp_server, "<mcp_tool_stub_params>", "exec")
+    compile(langchain_tool, "<langchain_tool_params>", "exec")
+    assert "from pydantic import BaseModel, ConfigDict, Field" in langchain_tool
+    assert "model_config = ConfigDict(populate_by_name=True)" in langchain_tool
+    assert (
+        'include_suggestions: bool | None = Field(default=None, alias="include-suggestions", '
+        'description="Include suggestions")' in langchain_tool
+    )
+    assert 'class_: str = Field(alias="class", description="CSS class")' in langchain_tool
+    assert (
+        "def search_docs(*, include_suggestions: bool | None = None, class_: str) -> str:"
+        in langchain_tool
+    )
+    assert (
+        "async def search_docs(*, include_suggestions: bool | None = None, class_: str) -> str:"
+        in mcp_server
+    )
+
+
 @pytest.mark.parametrize(
     ("skill_name", "python_name", "input_model_name"),
     [
