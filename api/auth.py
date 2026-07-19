@@ -231,6 +231,13 @@ def rate_limit_by_ip(request: Request) -> None:
 def _matches_admin_api_key(provided_key: str, admin_key: str) -> bool:
     normalized_key = provided_key.strip()
 
+    # compare_digest throws TypeError if it's a non-ASCII str. So handle that first.
+    try:
+        normalized_key.encode("ascii")
+        admin_key.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+
     match = len(normalized_key) == len(admin_key)
 
     # Use a dummy key of the correct length if lengths don't match to ensure compare_digest takes the same time
