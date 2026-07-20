@@ -34,6 +34,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["api*", "app*", "cli*", "integrations*"]
 exclude = ["tests*", "docs*", "examples*", "prcompiler.egg-info*"]
 
 [tool.setuptools.package-data]
