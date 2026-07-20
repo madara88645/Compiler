@@ -208,7 +208,15 @@ def _collect_owner_matches(
 
 
 def _looks_like_owner(value: str) -> bool:
-    return value.startswith("@") or ("@" in value and not any(char.isspace() for char in value))
+    if value.startswith("@"):
+        return True
+    if "@" not in value:
+        return False
+    # Bolt Optimization: Replace any() generator expression with fast-path loop
+    for char in value:
+        if char.isspace():
+            return False
+    return True
 
 
 def _collect_workflow_matches(
@@ -306,7 +314,11 @@ def _matches_ordered_patterns(path: str, patterns: list[str]) -> bool:
 
 
 def _matches_any_repo_pattern(path: str, patterns: list[str]) -> bool:
-    return any(_matches_repo_pattern(path, pattern) for pattern in patterns)
+    # Bolt Optimization: Replace any() generator expression with fast-path loop
+    for pattern in patterns:
+        if _matches_repo_pattern(path, pattern):
+            return True
+    return False
 
 
 def _matches_repo_pattern(path: str, raw_pattern: str) -> bool:
