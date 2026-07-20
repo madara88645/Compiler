@@ -169,6 +169,14 @@ export default function PrSafetyPage() {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
+
+  const getDisabledTitle = () => {
+    if (!title.trim()) return "Enter a PR title to analyze";
+    if (!description.trim()) return "Enter a PR description to analyze";
+    if (parsedFiles.length === 0) return "Enter at least one changed file to analyze";
+    return "Analyze PR";
+  };
+
   const canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
@@ -372,6 +380,7 @@ export default function PrSafetyPage() {
               onClick={handleAnalyze}
               disabled={!canSubmit}
               aria-busy={loading}
+              title={!canSubmit ? getDisabledTitle() : "Analyze PR"}
               className="w-full rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition-all hover:from-rose-500 hover:to-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
               {loading ? <span className="animate-pulse">Analyzing PR...</span> : "Analyze PR"}

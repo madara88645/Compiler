@@ -34,3 +34,6 @@
 ## 2025-02-13 - Add padding to prevent text overlap with absolutely positioned buttons
 **Learning:** When textareas or inputs have absolutely positioned interactive elements (like a "Clear" button) floating over them, users can experience friction if long text flows underneath the button, making it unreadable or unclickable.
 **Action:** Always ensure the underlying text input has sufficient right padding (e.g., `pr-14` in Tailwind) so the text wraps naturally without overlapping the absolutely positioned elements on the right side.
+## 2024-05-23 - Dynamic Tooltips for Disabled Buttons
+**Learning:** Providing a generic `disabled={!canSubmit}` attribute without further context frustrates users by failing to provide an immediate reason for the state, hurting accessibility.
+**Action:** When conditionally disabling submission buttons based on form validity, compute a string detailing the exact missing validation requirement (e.g. "Missing PR description") and bind it to the button's `title` attribute so it acts as an immediate tooltip for keyboard and mouse users.
