@@ -8,6 +8,7 @@ and reusable by future GitHub-backed adapters.
 from __future__ import annotations
 
 import os
+import functools
 import re
 import shlex
 from pathlib import Path, PurePosixPath
@@ -305,38 +306,57 @@ def _matches_ordered_patterns(path: str, patterns: list[str]) -> bool:
     return included
 
 
+@functools.lru_cache(maxsize=128)
+def _compile_repo_patterns(patterns_tuple: tuple[str, ...]) -> re.Pattern | None:
+    combined_expressions = []
+    for raw_pattern in patterns_tuple:
+        pattern = raw_pattern.strip().replace("\\", "/")
+        if not pattern:
+            continue
+
+        anchored = pattern.startswith("/") or "/" in pattern.rstrip("/")
+        pattern = pattern.lstrip("/")
+        if pattern.endswith("/"):
+            pattern += "**"
+
+        prefix = "^" if anchored else r"^(?:.*/)?"
+        expression: list[str] = [prefix]
+        index = 0
+        while index < len(pattern):
+            char = pattern[index]
+            if char == "*":
+                if index + 1 < len(pattern) and pattern[index + 1] == "*":
+                    expression.append(".*")
+                    index += 2
+                    continue
+                expression.append("[^/]*")
+            elif char == "?":
+                expression.append("[^/]")
+            else:
+                expression.append(re.escape(char))
+            index += 1
+        expression.append("$")
+        combined_expressions.append("".join(expression))
+
+    if not combined_expressions:
+        return None
+
+    return re.compile("|".join(f"(?:{expr})" for expr in combined_expressions))
+
+
 def _matches_any_repo_pattern(path: str, patterns: list[str]) -> bool:
-    return any(_matches_repo_pattern(path, pattern) for pattern in patterns)
+    if not patterns:
+        return False
+    # Bolt Optimization: Compile patterns into a single regex OR expression and memoize
+    pat = _compile_repo_patterns(tuple(patterns))
+    if pat is None:
+        return False
+    return pat.match(path) is not None
 
 
 def _matches_repo_pattern(path: str, raw_pattern: str) -> bool:
-    pattern = raw_pattern.strip().replace("\\", "/")
-    if not pattern:
-        return False
-
-    anchored = pattern.startswith("/") or "/" in pattern.rstrip("/")
-    pattern = pattern.lstrip("/")
-    if pattern.endswith("/"):
-        pattern += "**"
-
-    prefix = "^" if anchored else r"^(?:.*/)?"
-    expression: list[str] = [prefix]
-    index = 0
-    while index < len(pattern):
-        char = pattern[index]
-        if char == "*":
-            if index + 1 < len(pattern) and pattern[index + 1] == "*":
-                expression.append(".*")
-                index += 2
-                continue
-            expression.append("[^/]*")
-        elif char == "?":
-            expression.append("[^/]")
-        else:
-            expression.append(re.escape(char))
-        index += 1
-    expression.append("$")
-    return re.match("".join(expression), path) is not None
+    # Bolt Optimization: Maintain backwards compatibility for single pattern matches
+    return _matches_any_repo_pattern(path, [raw_pattern])
 
 
 def _single_line(value: str) -> str:
