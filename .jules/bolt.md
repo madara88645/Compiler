@@ -232,3 +232,6 @@
 ## 2025-02-27 - CPython generator vs global regex search overhead
 **Learning:** In Python, using a generator expression like `any(pattern.search(w) for w in words)` introduces significant loop overhead. If the regex can be applied globally to the base string instead (e.g., `pattern.search(base_string)`), it eliminates the Python bytecode execution overhead and runs entirely in the C-based regex engine, resulting in a substantial performance gain (~4x speedup).
 **Action:** Focus on algorithmic improvements like running the regex globally on a string rather than micro-optimizations like removing generator overhead, avoiding execution of an entire block of expensive operations (e.g. generator and python loop) entirely.
+## 2024-07-22 - Optimize whitespace collapse
+**Learning:** Using `" ".join(text.split())` is significantly faster (~5x) than using a compiled regular expression like `re.sub(r"\s+", " ", text).strip()` for collapsing multiple consecutive whitespaces into a single space, as it avoids regex engine overhead and automatically handles leading/trailing whitespaces.
+**Action:** Prefer `split()` and `join()` over `re.sub()` when collapsing whitespaces in strings.
