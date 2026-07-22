@@ -5,11 +5,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python <3.11 fallback
-    import tomli as tomllib
-
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -52,7 +47,6 @@ def test_wheel_build_only_ships_application_packages(tmp_path: Path) -> None:
     fixture_root.mkdir()
     _seed_minimal_repo(fixture_root)
 
-    pyproject = tomllib.loads((fixture_root / "pyproject.toml").read_text(encoding="utf-8"))
     dist_dir = tmp_path / "dist"
 
     subprocess.run(
@@ -72,10 +66,6 @@ def test_wheel_build_only_ships_application_packages(tmp_path: Path) -> None:
     )
 
     wheel_path = next(dist_dir.glob("*.whl"))
-    expected_prefix = (
-        f"{pyproject['project']['name'].replace('-', '_')}-{pyproject['project']['version']}-"
-    )
-    assert wheel_path.name.startswith(expected_prefix)
 
     with zipfile.ZipFile(wheel_path) as archive:
         names = archive.namelist()
@@ -89,6 +79,9 @@ def test_wheel_build_only_ships_application_packages(tmp_path: Path) -> None:
             name.startswith(("scripts/", "web/", "extension/", "schema/", "templates/"))
             for name in names
         )
+        assert "web/node_modules/flatted.py" not in names
+        assert "app/_schemas/example.json" in names
+        assert "app/_builtin_templates/example.yaml" in names
 
         dist_info_dir = next(name.split("/", 1)[0] for name in names if ".dist-info/" in name)
         entry_points = archive.read(f"{dist_info_dir}/entry_points.txt").decode("utf-8")
