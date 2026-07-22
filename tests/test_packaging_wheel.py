@@ -42,20 +42,21 @@ def _seed_minimal_repo(root: Path) -> None:
     _write(root, "web/node_modules/flatted.py", "VALUE = 'should not ship'\n")
 
 
-def test_wheel_build_only_ships_application_packages(tmp_path: Path) -> None:
+def test_flat_layout_decoy_packages_do_not_leak_into_wheel(tmp_path: Path) -> None:
     fixture_root = tmp_path / "fixture"
     fixture_root.mkdir()
     _seed_minimal_repo(fixture_root)
 
     dist_dir = tmp_path / "dist"
 
+    # Build a tiny flat-layout repo with the real project packaging config so
+    # the test protects against sibling folders leaking into the wheel again.
     subprocess.run(
         [
             sys.executable,
             "-m",
             "build",
             "--wheel",
-            "--no-isolation",
             "--outdir",
             str(dist_dir),
         ],
