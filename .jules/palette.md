@@ -34,3 +34,6 @@
 ## 2025-02-13 - Add padding to prevent text overlap with absolutely positioned buttons
 **Learning:** When textareas or inputs have absolutely positioned interactive elements (like a "Clear" button) floating over them, users can experience friction if long text flows underneath the button, making it unreadable or unclickable.
 **Action:** Always ensure the underlying text input has sufficient right padding (e.g., `pr-14` in Tailwind) so the text wraps naturally without overlapping the absolutely positioned elements on the right side.
+## 2025-02-13 - Add specific reasons to disabled buttons
+**Learning:** When a main CTA button (like "Analyze PR") is disabled because a form is incomplete, a generic `disabled` state with no explanation causes frustration. Users might not realize which specific input is holding up the submission.
+**Action:** Add a dynamic `title` attribute to disabled CTA buttons that explicitly lists exactly which required fields are missing (e.g., `Missing: Title, Changed Files`) using an array filter/join pattern.
