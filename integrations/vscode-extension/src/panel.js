@@ -166,5 +166,6 @@ function renderPanelHtml(state, options = {}) {
 }
 
 module.exports = {
+  escapeHtml,
   renderPanelHtml,
 };
