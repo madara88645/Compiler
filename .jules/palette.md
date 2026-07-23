@@ -34,3 +34,6 @@
 ## 2025-02-13 - Add padding to prevent text overlap with absolutely positioned buttons
 **Learning:** When textareas or inputs have absolutely positioned interactive elements (like a "Clear" button) floating over them, users can experience friction if long text flows underneath the button, making it unreadable or unclickable.
 **Action:** Always ensure the underlying text input has sufficient right padding (e.g., `pr-14` in Tailwind) so the text wraps naturally without overlapping the absolutely positioned elements on the right side.
+## 2024-05-18 - Add titles explaining disabled button states
+**Learning:** Default disabled action buttons (like "Generate Agent", "Analyze PR") provided no context for why they were disabled, leaving users guessing which inputs were required before the form was considered valid.
+**Action:** Implemented dynamic `title` attributes on all disabled primary action buttons across the generator pages that conditionally switch between explanatory text ("Enter a description first...") when disabled and the normal CTA when enabled. This improves screen reader context and provides helpful tooltips on hover.
