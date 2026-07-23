@@ -259,6 +259,7 @@ export default function AgentGenerator() {
                     type="button"
                     onClick={handleAnalyzeRepo}
                     disabled={!isValidRepoUrl || repoAnalysisLoading}
+                    title={!isValidRepoUrl ? "Enter a valid GitHub repo URL to analyze" : "Analyze Repo"}
                     className="w-full rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-sm font-semibold text-green-100 transition-all hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {repoAnalysisLoading ? "Analyzing Repo..." : "Analyze Repo"}

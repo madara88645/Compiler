@@ -11,7 +11,13 @@
 
 It also ships a **PR Safety / Merge Readiness Layer**: paste an AI-agent PR and get a clear verdict — **merge, hold, split, or rebase** — before you merge it.
 
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Animated tour: a vague request is compiled into an expanded prompt, execution plan, and readiness check, ending with a PR Safety verdict" width="100%">
+</p>
+
 Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
+
+**Jump to:** [What It Does](#what-it-does) · [Key Features](#key-features) · [Installation](#installation) · [Running the App](#running-the-app) · [How To Use](#how-to-use) · [Project Structure](#project-structure) · [Docs](#docs) · [License](#license)
 
 ---
 
@@ -470,9 +476,9 @@ docs/           Product, pattern, and workflow docs
 
 ## License
 
-Copyright © 2026 Mehmet Özel. All rights reserved.
+Licensed under the [Apache License 2.0](LICENSE) — free to use, self-host, and modify.
 
-Licensed under the [Apache License 2.0](LICENSE).
+Copyright © 2026 Mehmet Özel.
 
 For managed/hosted service inquiries: [mehmet.ozel2701@gmail.com](mailto:mehmet.ozel2701@gmail.com)
 
