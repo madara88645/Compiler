@@ -30,6 +30,30 @@ def _to_python_identifier(value: str) -> str:
     return identifier
 
 
+def _to_python_param_name(value: str) -> str:
+    """Convert an external parameter name to a safe Python argument name."""
+    identifier = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    identifier = re.sub(r"_+", "_", identifier)
+    if not identifier:
+        return "param"
+    if identifier[0].isdigit():
+        identifier = f"param_{identifier}"
+    if keyword.iskeyword(identifier):
+        identifier = f"{identifier}_"
+    return identifier
+
+
+def _requires_keyword_only_signature(params) -> bool:
+    """Use keyword-only args when a required param follows an optional one."""
+    saw_optional = False
+    for param in params:
+        if not param.required:
+            saw_optional = True
+        elif saw_optional:
+            return True
+    return False
+
+
 def _escape_triple_quotes(text: str) -> str:
     return text.replace('"""', '\\"\\"\\"')
 
@@ -191,10 +215,12 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
     if python_name != tool_name:
         tool_decorator = f"@mcp.tool(name={json.dumps(tool_name)})"
     param_signature = ", ".join(
-        f"{param.name}: {param.type if param.type != 'Any' else 'str'}"
+        f"{_to_python_param_name(param.name)}: {param.type if param.type != 'Any' else 'str'}"
         + ("" if param.required else " | None = None")
         for param in ir.params
     )
+    if param_signature and _requires_keyword_only_signature(ir.params):
+        param_signature = f"*, {param_signature}"
     content = textwrap.dedent(
         f"""\
 from mcp.server.fastmcp import FastMCP
