@@ -197,18 +197,30 @@ def _python_literal_for(value: str, py_type: str) -> str:
     return json.dumps(str(native))
 
 
+def _safe_param_name(name: str) -> str:
+    return _to_python_identifier(name)
+
+
 def _param_field_line(p: SkillParam, example_map: dict[str, str | None]) -> str:
     desc = p.description.replace('"', '\\"')
     example = example_map.get(p.name)
-    extra = f", examples=[{_python_literal_for(example, p.type)}]" if example is not None else ""
+    field_name = _safe_param_name(p.name)
+    extras: list[str] = []
+    if example is not None:
+        extras.append(f"examples=[{_python_literal_for(example, p.type)}]")
+    if field_name != p.name:
+        extras.append(f"alias={json.dumps(p.name)}")
+    extra = f", {', '.join(extras)}" if extras else ""
     if p.required:
-        return f'    {p.name}: {p.type} = Field(description="{desc}"{extra})'
-    return f'    {p.name}: {p.type} | None = Field(default=None, description="{desc}"{extra})'
+        return f'    {field_name}: {p.type} = Field(description="{desc}"{extra})'
+    return (
+        f'    {field_name}: {p.type} | None = Field(default=None, description="{desc}"{extra})'
+    )
 
 
 def _param_signature(p: SkillParam) -> str:
     opt = " | None = None" if not p.required else ""
-    return f"{p.name}: {p.type}{opt}"
+    return f"{_safe_param_name(p.name)}: {p.type}{opt}"
 
 
 def _build_docstring(ir: SkillExportIR) -> str:
