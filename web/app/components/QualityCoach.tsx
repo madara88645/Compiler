@@ -97,7 +97,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                         aria-label="Run quality analysis"
                         disabled={analyzing || !prompt.trim()}
                         aria-busy={analyzing}
-                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        title={!prompt.trim() ? "Missing required field: Describe what you want compiled" : "Run quality analysis"}
                         className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-500/20 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                         {analyzing ? <span className="animate-pulse">Analyzing...</span> : "Run Analysis"}
@@ -125,7 +125,7 @@ export default function QualityCoach({ prompt }: QualityCoachProps) {
                         aria-label="Run quality analysis"
                         disabled={analyzing || !prompt.trim()}
                         aria-busy={analyzing}
-                        title={!prompt.trim() ? "Enter a prompt first to run analysis" : "Run quality analysis"}
+                        title={!prompt.trim() ? "Missing required field: Describe what you want compiled" : "Run quality analysis"}
                         className="px-6 py-2 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl hover:bg-blue-600/30 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex items-center gap-2"
                     >
                         {analyzing ? (

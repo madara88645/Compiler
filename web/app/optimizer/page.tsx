@@ -351,7 +351,7 @@ export default function OptimizerPage() {
                         onClick={() => void handleOptimize()}
                         disabled={loading || !input.trim()}
                         aria-busy={loading}
-                        title={!input.trim() ? "Enter a prompt first to optimize & estimate cost" : "Optimize & estimate cost"}
+                        title={!input.trim() ? "Missing required field: Original Prompt" : "Optimize & estimate cost"}
                         className="w-full rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950/30 transition-colors hover:bg-emerald-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 sm:w-auto"
                     >
                         {loading ? "Analyzing..." : (
@@ -482,7 +482,7 @@ export default function OptimizerPage() {
                                     onClick={() => void handleOptimize()}
                                     disabled={loading || !input.trim()}
                                     aria-busy={loading}
-                                    title={!input.trim() ? "Enter a prompt first to optimize & estimate cost" : "Optimize & estimate cost"}
+                                    title={!input.trim() ? "Missing required field: Original Prompt" : "Optimize & estimate cost"}
                                     className="rounded-lg bg-emerald-600/20 border border-emerald-500/30 px-5 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-600/30 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                                 >
                                     {loading ? "Analyzing..." : "Optimize & estimate cost"}

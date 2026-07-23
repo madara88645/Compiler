@@ -40,3 +40,6 @@
 ## 2024-07-16 - Replace native tooltips with styled CSS tooltips
 **Learning:** Native OS-level tooltips (using the title attribute) appear on a delay and can feel inconsistent or unpolished in modern web interfaces, especially for primary navigation like sidebars.
 **Action:** Replace title attributes with custom CSS tooltips (e.g., using Tailwind's group-hover utilities) for immediate, consistent, and styled visual feedback on hover and focus.
+## 2024-05-19 - Specific Tooltips for Disabled Submit Buttons
+**Learning:** Generic tooltips (e.g. "Enter a description first") on disabled submit buttons leave users guessing which exact field is missing, especially on forms with multiple inputs.
+**Action:** When a form submission or action button is disabled due to missing inputs or incomplete state, improve UX and accessibility by explicitly naming the missing required fields in the tooltip (e.g., "Missing required fields: PR Title, Changed Files"). This is especially important for forms with many inputs like the PR Safety feature. For Playwright tests, note that native HTML tooltips (`title` attributes) are OS-level overlays and won't appear in screenshots; verify them by querying DOM attributes directly.
