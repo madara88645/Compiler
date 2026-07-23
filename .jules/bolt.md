@@ -235,3 +235,6 @@
 ## 2024-03-24 - Avoiding generator frame setup overhead in hot paths
 **Learning:** Python's inline generator expressions within `any()` introduce measurable frame setup and teardown overhead. In frequently executed hot paths (like character-by-character checks or path matching loops), this overhead can be significant.
 **Action:** Replace generator expressions within `any()` with an explicit `for` loop and early return when optimizing hot paths, as it avoids generator frame setup overhead and provides a measurable performance improvement.
+## 2024-03-24 - Avoiding micro-optimizations that trade readability for unmeasurable gains
+**Learning:** While replacing `any(...)` generator expressions with explicit 9-line `for` loops shows a gain in microbenchmarks, the real-world performance gain during an actual repo scan is not measurable. The significant cost to code readability and maintainability makes this a bad trade-off.
+**Action:** Do not sacrifice code conciseness and readability (like `any(...)` comprehensions) for microbenchmark gains unless profiling proves it is a measurable bottleneck in a real-world scenario.
