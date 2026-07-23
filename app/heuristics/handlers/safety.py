@@ -54,6 +54,8 @@ class SafetyHandler:
 
     # Compile patterns for faster matching
     COMPILED_INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in INJECTION_PATTERNS]
+    # Single pattern for boolean fast-path check
+    COMBINED_INJECTION_PATTERN = re.compile("|".join(INJECTION_PATTERNS), re.IGNORECASE)
 
     def handle(self, ir2: IRv2, ir1: IR) -> None:
         """
@@ -148,12 +150,14 @@ class SafetyHandler:
         Returns list of matched pattern descriptions.
         """
         flags = []
-        for pattern in self.COMPILED_INJECTION_PATTERNS:
-            match = pattern.search(text)
-            if match:
-                # Return the actual matched text (first 100 chars) for better diagnostics
-                matched_text = match.group(0)[:100]
-                flags.append(f"injection_pattern: {matched_text}")
+        # Fast-path check with combined pattern, falling back to individual compiled patterns for reporting
+        if self.COMBINED_INJECTION_PATTERN.search(text):
+            for pattern in self.COMPILED_INJECTION_PATTERNS:
+                match = pattern.search(text)
+                if match:
+                    # Return the actual matched text (first 100 chars) for better diagnostics
+                    matched_text = match.group(0)[:100]
+                    flags.append(f"injection_pattern: {matched_text}")
         return flags
 
     def _check_guardrails(self, text: str) -> Any:
