@@ -37,3 +37,6 @@
 ## 2024-05-18 - Add titles explaining disabled button states
 **Learning:** Default disabled action buttons (like "Generate Agent", "Analyze PR") provided no context for why they were disabled, leaving users guessing which inputs were required before the form was considered valid.
 **Action:** Implemented dynamic `title` attributes on all disabled primary action buttons across the generator pages that conditionally switch between explanatory text ("Enter a description first...") when disabled and the normal CTA when enabled. This improves screen reader context and provides helpful tooltips on hover.
+## 2024-07-16 - Replace native tooltips with styled CSS tooltips
+**Learning:** Native OS-level tooltips (using the title attribute) appear on a delay and can feel inconsistent or unpolished in modern web interfaces, especially for primary navigation like sidebars.
+**Action:** Replace title attributes with custom CSS tooltips (e.g., using Tailwind's group-hover utilities) for immediate, consistent, and styled visual feedback on hover and focus.
