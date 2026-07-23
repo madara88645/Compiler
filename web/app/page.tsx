@@ -420,7 +420,7 @@ export default function Home() {
                 onClick={() => handleGenerate()}
                 disabled={loading || !prompt.trim()}
                 aria-busy={loading}
-                title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
+                title={!prompt.trim() ? "Missing required field: Describe what you want compiled" : "Compile Prompt"}
                 className="w-full px-4 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
               >
                 {loading ? (
@@ -674,7 +674,7 @@ export default function Home() {
                       onClick={() => handleGenerate()}
                       disabled={loading || !prompt.trim()}
                       aria-busy={loading}
-                      title={!prompt.trim() ? "Enter a prompt first to compile" : "Compile Prompt"}
+                      title={!prompt.trim() ? "Missing required field: Describe what you want compiled" : "Compile Prompt"}
                       className="mx-auto px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
                     >
                       Compile Prompt

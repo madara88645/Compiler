@@ -175,6 +175,15 @@ export default function PrSafetyPage() {
     parsedFiles.length > 0 &&
     !loading;
 
+  const missingFields = [];
+  if (!title.trim()) missingFields.push("PR Title");
+  if (!description.trim()) missingFields.push("PR Description");
+  if (parsedFiles.length === 0) missingFields.push("Changed Files");
+
+  const submitTitle = missingFields.length > 0
+    ? `Missing required fields: ${missingFields.join(", ")}`
+    : "Analyze PR";
+
   const parseCommitsBehind = (): number | undefined => {
     const raw = commitsBehindText.trim();
     if (raw === "") return undefined;
@@ -372,7 +381,7 @@ export default function PrSafetyPage() {
               onClick={handleAnalyze}
               disabled={!canSubmit}
               aria-busy={loading}
-              title={!canSubmit ? "Fill in all fields to analyze PR" : "Analyze PR"}
+              title={submitTitle}
               className="w-full rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition-all hover:from-rose-500 hover:to-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
               {loading ? <span className="animate-pulse">Analyzing PR...</span> : "Analyze PR"}
