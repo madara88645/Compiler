@@ -12,6 +12,7 @@ vi.mock("../../lib/copyToClipboard", () => ({
 import CopyButton from "../CopyButton";
 
 const CHECKMARK_SELECTOR = "polyline[points='20 6 9 17 4 12']";
+const COPY_ICON_SELECTOR = "rect[x='8'][y='8']";
 
 async function clickAndFlush(button: HTMLElement) {
   fireEvent.click(button);
@@ -28,6 +29,27 @@ describe("CopyButton", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("renders with default props and correct accessibility attributes", () => {
+    render(<CopyButton text="hello world" />);
+
+    const button = screen.getByRole("button", { name: "Copy to Clipboard" });
+    expect(button).toHaveAttribute("aria-label", "Copy to Clipboard");
+    expect(button).toHaveAttribute("title", "Copy to Clipboard");
+    expect(button).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByText("Copy to Clipboard")).toBeInTheDocument();
+    expect(button.querySelector(COPY_ICON_SELECTOR)).toBeInTheDocument();
+    expect(button.querySelector(CHECKMARK_SELECTOR)).toBeNull();
+  });
+
+  it("uses custom label if provided", () => {
+    render(<CopyButton text="hello world" label="Copy output" />);
+
+    const button = screen.getByRole("button", { name: "Copy output" });
+    expect(button).toHaveAttribute("aria-label", "Copy output");
+    expect(button).toHaveAttribute("title", "Copy output");
+    expect(screen.getByText("Copy output")).toBeInTheDocument();
   });
 
   it("calls copyToClipboard when clicked", async () => {
