@@ -90,8 +90,8 @@ describe("Sidebar", () => {
       "https://github.com/madara88645/Compiler",
     );
     expect(screen.getByLabelText("CLI install").getAttribute("href")).toContain("docs/cli.md");
-    expect(screen.getByLabelText("VS Code extension").getAttribute("href")).toContain(
-      "madara88645.promptc-vscode",
+    expect(screen.getByLabelText("VS Code extension").getAttribute("href")).toBe(
+      "https://github.com/madara88645/Compiler/blob/main/integrations/vscode-extension/README.md#install",
     );
     expect(screen.getByLabelText("MCP setup").getAttribute("href")).toContain(
       "integrations/mcp-server/README.md",

@@ -51,7 +51,7 @@ const outboundLinks: { name: string; href: string; Icon: LucideIcon }[] = [
     },
     {
         name: "VS Code extension",
-        href: "https://marketplace.visualstudio.com/items?itemName=madara88645.promptc-vscode",
+        href: "https://github.com/madara88645/Compiler/blob/main/integrations/vscode-extension/README.md#install",
         Icon: Blocks,
     },
     {
