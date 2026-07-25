@@ -236,3 +236,6 @@
 ## 2024-07-13 - [Regex Optimization and Safety]
 **Learning:** Combining multiple regular expressions into a single compiled pattern using the regex OR operator `|` provides a significant performance boost for checking if *any* pattern matches (fast-path). However, when multiple specific patterns can match and trigger different flags, using `finditer()` on the combined pattern can return multiple matches per pattern, violating the original "one flag per pattern" behavior and potentially causing an explosion of matches (e.g. DoS risk).
 **Action:** When refactoring a list of regex patterns used for safety scanning or classification, use the combined regex pattern *only* as a boolean fast-path filter (`if combined_pattern.search(text):`). If a match is found, fallback to iterating over the individual patterns to preserve exact match counts and behavior.
+## 2025-02-21 - Rejected any() optimization in repo_signals.py
+**Learning:** Optimizing `any()` generator expressions in `app/pr_safety/repo_signals.py` for `CODEOWNERS` parsing or pattern matching is considered "cold-path noise" because these lists are tiny.
+**Action:** Do not apply micro-optimizations (like replacing `any()` with explicit loops) to string or list processing in cold paths or on small data sets, specifically around PR safety repo signals. Focus on proven hot paths.
