@@ -30,8 +30,6 @@ def test_editor_failure_returns_none():
     assert result is None
 
 
-
-
 class MockEntry:
     def __init__(self, prompt_id, prompt_text, domain="general", language="en", tags=None):
         self.id = prompt_id
