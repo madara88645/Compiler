@@ -109,10 +109,12 @@ describe("PR Safety page", () => {
 
     const button = screen.getByRole("button", { name: /analyze pr/i }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Fill in all fields to analyze PR");
 
     fillRequiredFields();
 
     expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Analyze PR");
   });
 
   test("submits the parsed report request", async () => {

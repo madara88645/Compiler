@@ -159,6 +159,21 @@ describe("Skills Generator page", () => {
     expect(classes).not.toContain("md:min-h-0");
   });
 
+  it("explains why Generate Skill is disabled until a description is entered", () => {
+    render(<SkillsGeneratorPage />);
+
+    const button = screen.getByRole("button", { name: /^generate skill$/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Enter a description first to generate");
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Parse JSON and validate schemas." },
+    });
+
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Generate Skill");
+  });
+
   it("starts as a centered single-form view and only opens the output pane once generation begins", async () => {
     apiJsonMock.mockImplementationOnce(
       () =>

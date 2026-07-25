@@ -61,6 +61,30 @@ describe("Agent Packs page", () => {
     expect(screen.queryByText("API Key (Optional)")).toBeNull();
   });
 
+  test("explains why Generate Claude Pack is disabled until a goal is entered", () => {
+    render(<AgentPacksPage />);
+
+    const buttons = screen.getAllByRole("button", {
+      name: /generate claude pack/i,
+    }) as HTMLButtonElement[];
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("title")).toBe("Enter a goal first to generate");
+    }
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Review pull requests for secret leaks and missing tests." },
+    });
+
+    for (const button of screen.getAllByRole("button", {
+      name: /generate claude pack/i,
+    }) as HTMLButtonElement[]) {
+      expect(button.disabled).toBe(false);
+      expect(button.getAttribute("title")).toBe("Generate Claude Pack");
+    }
+  });
+
   test("submits the selected pack type and renders grouped preview output", async () => {
     render(<AgentPacksPage />);
 
