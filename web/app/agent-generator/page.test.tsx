@@ -157,7 +157,7 @@ describe("Agent Generator page", () => {
   it("explains why Generate Agent is disabled until a description is entered", () => {
     render(<AgentGeneratorPage />);
 
-    const button = screen.getByRole("button", { name: /^generate agent$/i }) as HTMLButtonElement;
+    const button = screen.getByRole("button", { name: /generate agent/i }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("title")).toBe("Enter a description first to generate");
 
