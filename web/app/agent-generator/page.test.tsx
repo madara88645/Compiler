@@ -154,6 +154,21 @@ describe("Agent Generator page", () => {
     expect(classes).not.toContain("md:min-h-0");
   });
 
+  it("updates the generate button title once the description is valid", () => {
+    render(<AgentGeneratorPage />);
+
+    const button = screen.getByRole("button", { name: /generate agent/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Enter a description first to generate");
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a code review agent." },
+    });
+
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Generate Agent");
+  });
+
   it.each([
     ["empty", { system_prompt: "" }],
     ["missing", {}],

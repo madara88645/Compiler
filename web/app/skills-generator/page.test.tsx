@@ -189,6 +189,21 @@ describe("Skills Generator page", () => {
     expect(screen.queryByRole("button", { name: "or try an example" })).toBeNull();
   });
 
+  it("updates the generate button title once the description is valid", () => {
+    render(<SkillsGeneratorPage />);
+
+    const button = screen.getByRole("button", { name: /generate skill/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Enter a description first to generate");
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Parse JSON and validate schemas." },
+    });
+
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Generate Skill");
+  });
+
   it("shows a retryable error in the output panel when generation fails", async () => {
     apiJsonMock.mockRejectedValueOnce(new Error("The service is temporarily unavailable."));
 

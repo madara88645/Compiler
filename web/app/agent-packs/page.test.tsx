@@ -228,6 +228,21 @@ describe("Agent Packs page", () => {
     expect(screen.getByText(/so the generated files match your setup/i)).toBeTruthy();
   });
 
+  test("updates the generate button title once a goal is provided", () => {
+    render(<AgentPacksPage />);
+
+    const button = screen.getByRole("button", { name: /generate claude pack/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Enter a goal first to generate");
+
+    fireEvent.change(screen.getByLabelText("What should Claude do?"), {
+      target: { value: "Review PRs for prompt leakage and missing tests." },
+    });
+
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Generate Claude Pack");
+  });
+
   test("closing the preview clears the pack, checklist, and checked state", async () => {
     render(<AgentPacksPage />);
 
