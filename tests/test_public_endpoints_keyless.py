@@ -31,10 +31,11 @@ def client_without_auth_override():
 @pytest.mark.auth_required
 def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
     """
-    /benchmark/run should work without API key authentication.
+    /benchmark/run should not work without API key authentication.
     """
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.side_effect = ["raw output", "compiled output"]
 
@@ -43,12 +44,8 @@ def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
             json={"text": "Test prompt", "model": "openai/gpt-oss-20b"},
         )
 
-    # Should succeed without credentials
-    assert response.status_code == 200
-    data = response.json()
-    assert "raw_output" in data
-    assert "compiled_output" in data
-    assert "winner" in data
+    # Should be forbidden without credentials
+    assert response.status_code == 403
 
 
 @pytest.mark.auth_required
@@ -110,18 +107,18 @@ def test_public_endpoints_have_rate_limiting(client_without_auth_override):
 
     # Check benchmark endpoint
     benchmark_sig = inspect.signature(benchmark_run)
-    assert any(
-        param.name == "_" for param in benchmark_sig.parameters.values()
-    ), "benchmark_run should have rate limit dependency"
+    assert any(param.name == "_" for param in benchmark_sig.parameters.values()), (
+        "benchmark_run should have rate limit dependency"
+    )
 
     # Check skills generator endpoint
     skills_sig = inspect.signature(generate_skill_endpoint)
-    assert any(
-        param.name == "_" for param in skills_sig.parameters.values()
-    ), "generate_skill_endpoint should have rate limit dependency"
+    assert any(param.name == "_" for param in skills_sig.parameters.values()), (
+        "generate_skill_endpoint should have rate limit dependency"
+    )
 
     # Check agent generator endpoint
     agent_sig = inspect.signature(generate_agent_endpoint)
-    assert any(
-        param.name == "_" for param in agent_sig.parameters.values()
-    ), "generate_agent_endpoint should have rate limit dependency"
+    assert any(param.name == "_" for param in agent_sig.parameters.values()), (
+        "generate_agent_endpoint should have rate limit dependency"
+    )

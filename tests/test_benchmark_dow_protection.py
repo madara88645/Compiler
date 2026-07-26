@@ -25,9 +25,14 @@ from fastapi.testclient import TestClient
 def client():
     """Bare app with only the benchmark router mounted (matches test_benchmark_api)."""
     from app.routers.benchmark import router
+    from api.auth import verify_api_key, APIKey
 
     test_app = FastAPI()
     test_app.include_router(router)
+
+    test_app.dependency_overrides[verify_api_key] = lambda: APIKey(
+        key="test-key", owner="test", is_active=True
+    )
     return TestClient(test_app)
 
 
@@ -70,9 +75,10 @@ def test_benchmark_daily_cap_blocks_globally_after_limit(client, monkeypatch, re
     """Once the global daily run limit is hit, further runs get 429 even from new IPs."""
     monkeypatch.setenv("BENCHMARK_DAILY_RUN_LIMIT", "2")
 
-    with patch(
-        "app.routers.benchmark._generate_llm_output", side_effect=lambda *a, **k: "out"
-    ), patch("app.routers.benchmark._judge_with_llm", return_value=None):
+    with (
+        patch("app.routers.benchmark._generate_llm_output", side_effect=lambda *a, **k: "out"),
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
+    ):
         # Two distinct IPs each succeed (proves the cap is global, not per-IP).
         assert _post(client, "1.1.1.1").status_code == 200
         assert _post(client, "2.2.2.2").status_code == 200
@@ -92,9 +98,10 @@ def test_benchmark_daily_cap_resets_on_new_utc_day(client, monkeypatch, reset_da
     auth._BENCHMARK_DAILY_STATE["date"] = "2000-01-01"
     auth._BENCHMARK_DAILY_STATE["count"] = 9999
 
-    with patch(
-        "app.routers.benchmark._generate_llm_output", side_effect=lambda *a, **k: "out"
-    ), patch("app.routers.benchmark._judge_with_llm", return_value=None):
+    with (
+        patch("app.routers.benchmark._generate_llm_output", side_effect=lambda *a, **k: "out"),
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
+    ):
         response = _post(client, "1.1.1.1")
 
     assert response.status_code == 200

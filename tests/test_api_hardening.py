@@ -216,10 +216,7 @@ def test_repo_context_endpoint_keeps_per_ip_buckets_isolated(monkeypatch):
 @pytest.mark.auth_required
 def test_benchmark_is_public_endpoint():
     """
-    /benchmark/run should be accessible without API key (public endpoint).
-
-    This endpoint is rate-limited by IP but does not require authentication,
-    following the CLAUDE.md policy for public web flows.
+    /benchmark/run should require API key authentication.
     """
     client = TestClient(app)
 
@@ -233,11 +230,8 @@ def test_benchmark_is_public_endpoint():
             json={"text": "Explain Python", "model": "openai/gpt-oss-20b"},
         )
 
-    # Should succeed without API key (public endpoint)
-    assert response.status_code == 200
-    data = response.json()
-    assert "raw_output" in data
-    assert "compiled_output" in data
+    # Should be forbidden without API key
+    assert response.status_code == 403
 
 
 @pytest.mark.auth_required
