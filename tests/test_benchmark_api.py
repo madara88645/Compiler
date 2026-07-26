@@ -18,7 +18,9 @@ def client():
     test_app.include_router(router)
 
     # Override verify_api_key for testing
-    test_app.dependency_overrides[verify_api_key] = lambda: APIKey(key="test-key", owner="test", is_active=True)
+    test_app.dependency_overrides[verify_api_key] = lambda: APIKey(
+        key="test-key", owner="test", is_active=True
+    )
 
     return TestClient(test_app)
 
