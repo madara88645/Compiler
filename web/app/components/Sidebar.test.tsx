@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import Sidebar from "./Sidebar";
@@ -101,6 +101,21 @@ describe("Sidebar", () => {
       const external = screen.getByLabelText(label);
       expect(external.getAttribute("target")).toBe("_blank");
       expect(external.getAttribute("rel")).toBe("noopener noreferrer");
+    }
+  });
+
+  test("renders custom inline tooltips for outbound icon links instead of native title attributes", () => {
+    render(<Sidebar />);
+
+    for (const label of ["GitHub repo", "CLI install", "VS Code extension", "MCP setup"]) {
+      const external = screen.getByLabelText(label);
+      expect(external).not.toHaveAttribute("title");
+
+      const tooltip = within(external).getByText(label);
+      expect(tooltip).toHaveAttribute("aria-hidden", "true");
+      expect(tooltip.className).toContain("group-hover:opacity-100");
+      expect(tooltip.className).toContain("group-focus-visible:opacity-100");
+      expect(tooltip.className).toContain("pointer-events-none");
     }
   });
 });
