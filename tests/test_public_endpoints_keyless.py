@@ -31,10 +31,11 @@ def client_without_auth_override():
 @pytest.mark.auth_required
 def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
     """
-    /benchmark/run should work without API key authentication.
+    /benchmark/run should not work without API key authentication.
     """
-    with patch("app.routers.benchmark._generate_llm_output") as mock_llm, patch(
-        "app.routers.benchmark._judge_with_llm", return_value=None
+    with (
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+        patch("app.routers.benchmark._judge_with_llm", return_value=None),
     ):
         mock_llm.side_effect = ["raw output", "compiled output"]
 
@@ -43,12 +44,8 @@ def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
             json={"text": "Test prompt", "model": "openai/gpt-oss-20b"},
         )
 
-    # Should succeed without credentials
-    assert response.status_code == 200
-    data = response.json()
-    assert "raw_output" in data
-    assert "compiled_output" in data
-    assert "winner" in data
+    # Should be forbidden without credentials
+    assert response.status_code == 403
 
 
 @pytest.mark.auth_required
