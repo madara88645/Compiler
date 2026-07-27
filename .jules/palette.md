@@ -40,3 +40,6 @@
 ## 2024-07-16 - Replace native tooltips with styled CSS tooltips
 **Learning:** Native OS-level tooltips (using the title attribute) appear on a delay and can feel inconsistent or unpolished in modern web interfaces, especially for primary navigation like sidebars.
 **Action:** Replace title attributes with custom CSS tooltips (e.g., using Tailwind's group-hover utilities) for immediate, consistent, and styled visual feedback on hover and focus.
+## 2024-07-26 - Dynamic disabled button tooltips improve multi-field form UX
+**Learning:** For forms with multiple required fields, a generic "Fill in all fields" tooltip on a disabled submit button creates friction, as users must manually check which fields they missed.
+**Action:** Always dynamically calculate and display exactly which fields are missing in the button's `title` attribute (e.g., "Missing: Title, Description") to provide immediate, actionable feedback.
