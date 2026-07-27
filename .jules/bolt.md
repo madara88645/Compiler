@@ -236,3 +236,7 @@
 ## 2024-07-13 - [Regex Optimization and Safety]
 **Learning:** Combining multiple regular expressions into a single compiled pattern using the regex OR operator `|` provides a significant performance boost for checking if *any* pattern matches (fast-path). However, when multiple specific patterns can match and trigger different flags, using `finditer()` on the combined pattern can return multiple matches per pattern, violating the original "one flag per pattern" behavior and potentially causing an explosion of matches (e.g. DoS risk).
 **Action:** When refactoring a list of regex patterns used for safety scanning or classification, use the combined regex pattern *only* as a boolean fast-path filter (`if combined_pattern.search(text):`). If a match is found, fallback to iterating over the individual patterns to preserve exact match counts and behavior.
+
+## 2024-08-01 - Optimizing multi-condition `any()` generator checks
+**Learning:** In code paths that perform multiple logical conditions, using `any()` with a generator expression containing a tuple of values (e.g. `any((a, b, c))`) introduces unnecessary generator setup and iteration overhead. Using direct logical `or` operators (`a or b or c`) avoids this overhead entirely and is significantly faster.
+**Action:** When evaluating multiple boolean variables or properties, prefer direct logical checks connected by `or` instead of packing them into a generator expression evaluated by `any()`.
