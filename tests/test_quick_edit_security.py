@@ -30,6 +30,17 @@ def test_editor_failure_returns_none():
     assert result is None
 
 
+def test_editor_success_returns_edited_content_and_requires_save():
+    """Verify the safe Click editor path returns saved content and requires an explicit save."""
+    editor = QuickEditor()
+
+    with patch("click.edit", return_value="edited content") as mock_edit:
+        result = editor.edit_text_in_editor("test content")
+
+    assert result == "edited content"
+    mock_edit.assert_called_once_with("test content", require_save=True)
+
+
 class MockEntry:
     def __init__(self, prompt_id, prompt_text, domain="general", language="en", tags=None):
         self.id = prompt_id
