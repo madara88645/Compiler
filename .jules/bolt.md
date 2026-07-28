@@ -236,3 +236,7 @@
 ## 2024-07-13 - [Regex Optimization and Safety]
 **Learning:** Combining multiple regular expressions into a single compiled pattern using the regex OR operator `|` provides a significant performance boost for checking if *any* pattern matches (fast-path). However, when multiple specific patterns can match and trigger different flags, using `finditer()` on the combined pattern can return multiple matches per pattern, violating the original "one flag per pattern" behavior and potentially causing an explosion of matches (e.g. DoS risk).
 **Action:** When refactoring a list of regex patterns used for safety scanning or classification, use the combined regex pattern *only* as a boolean fast-path filter (`if combined_pattern.search(text):`). If a match is found, fallback to iterating over the individual patterns to preserve exact match counts and behavior.
+
+## 2024-07-25 - Avoid churn from any()-to-loop rewrites
+**Learning:** Rewriting any() generator expressions to explicit for loops in internal tooling is considered low-value noise and churn if it does not materially improve performance or readability.
+**Action:** Do not rewrite any() to loops unless there is a clear, measurable performance win or a specific bug being addressed. Preserve idiomatic Python code over micro-optimizations that cause unnecessary churn.
