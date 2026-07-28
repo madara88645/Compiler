@@ -2,7 +2,13 @@ import { Skeleton, SkeletonBlock } from "./Skeleton";
 
 export default function OutputSkeleton() {
   return (
-    <div className="flex flex-col h-full animate-fade-in">
+    <div
+      className="flex flex-col h-full animate-fade-in"
+      role="status"
+      aria-busy="true"
+      aria-label="Compiling…"
+    >
+      <span className="sr-only">Compiling…</span>
       {/* Tab bar skeleton */}
       <div className="flex gap-2 px-4 pt-4 pb-2 border-b border-white/5">
         {["w-16", "w-20", "w-14", "w-18", "w-22", "w-12", "w-18"].map((w, i) => (
