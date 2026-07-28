@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         if: ${{ env.SNYK_TOKEN != '' }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: ${{ env.SNYK_TOKEN != '' }}
         with:
           python-version: '3.12'
