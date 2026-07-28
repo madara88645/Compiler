@@ -6,7 +6,6 @@ ConstraintV2 objects, so they can be tested directly without invoking the
 compiler or any LLM call.
 """
 
-import os
 
 import pytest
 
@@ -27,7 +26,9 @@ from app.models_v2 import ConstraintV2, IRv2, PolicyV2
 
 
 def test_is_benign_policy_true_for_auto_ok_low_risk_public_policy():
-    ir = IRv2(policy=PolicyV2(execution_mode="auto_ok", risk_level="low", data_sensitivity="public"))
+    ir = IRv2(
+        policy=PolicyV2(execution_mode="auto_ok", risk_level="low", data_sensitivity="public")
+    )
     assert _is_benign_policy_v2(ir) is True
 
 
@@ -155,15 +156,15 @@ def test_policy_check_lines_truncates_forbidden_tools_and_sanitization_to_five()
 
 
 def test_emit_policy_header_empty_for_benign_policy():
-    ir = IRv2(policy=PolicyV2(execution_mode="auto_ok", risk_level="low", data_sensitivity="public"))
+    ir = IRv2(
+        policy=PolicyV2(execution_mode="auto_ok", risk_level="low", data_sensitivity="public")
+    )
     assert _emit_policy_header_v2(ir) == []
 
 
 def test_emit_policy_header_wraps_summary_with_policy_prefix():
     ir = IRv2(policy=PolicyV2(risk_level="high", execution_mode="human_approval_required"))
-    assert _emit_policy_header_v2(ir) == [
-        "Policy: risk=high; execution=human_approval_required"
-    ]
+    assert _emit_policy_header_v2(ir) == ["Policy: risk=high; execution=human_approval_required"]
 
 
 # ---------------------------------------------------------------------------
@@ -181,9 +182,7 @@ def test_top_constraints_text_sorts_by_priority_descending():
         ConstraintV2(text="high priority", priority=90),
         ConstraintV2(text="mid priority", priority=50),
     ]
-    assert _top_constraints_text_v2(constraints) == (
-        "high priority | mid priority | low priority"
-    )
+    assert _top_constraints_text_v2(constraints) == ("high priority | mid priority | low priority")
 
 
 def test_top_constraints_text_respects_limit():
