@@ -31,7 +31,8 @@ SPLIT_FILE_COUNT_THRESHOLD = 15
 SPLIT_TOP_LEVEL_DIRS_THRESHOLD = 4
 SPLIT_MIN_FILES_FOR_DIRS = 8
 
-_HIGH_RISK_CATEGORIES = frozenset({"auth", "secrets", "migrations", "api", "infrastructure"})
+_HIGH_RISK_CATEGORIES = frozenset({"auth", "secrets", "migrations", "api", "infrastructure", "ci"})
+_CI_OR_DEPLOY_CATEGORIES = frozenset({"ci", "infrastructure"})
 
 
 def analyze_pr_safety(
@@ -217,6 +218,10 @@ def _pick_verdict(
     if _should_split(files):
         return "split"
 
+    # Merge requires known freshness. Missing commits-behind is not evidence of safety.
+    if branch_section.status == "unknown":
+        return "hold"
+
     if _should_hold(risky_hits, test_section, scope_section):
         return "hold"
 
@@ -263,18 +268,37 @@ def _build_recommendations(
     scope_section: ScopeMatchSection,
 ) -> list[str]:
     recommendations: list[str] = []
+    categories = {hit.category for hit in risky_hits.hits}
+    missing_evidence = branch_section.status == "unknown" or bool(
+        categories & _CI_OR_DEPLOY_CATEGORIES
+    )
 
     if verdict == "rebase":
         recommendations.append("Rebase onto the latest base branch before merging")
     elif verdict == "split":
         recommendations.append("Split this PR into smaller, focused changesets")
     elif verdict == "hold":
-        recommendations.append("Hold merge until the flagged safety signals are addressed")
+        if missing_evidence:
+            recommendations.append(
+                "Hold merge pending confirmation of missing checks or branch freshness"
+            )
+        else:
+            recommendations.append("Hold merge until the flagged safety signals are addressed")
     else:
         recommendations.append("No blocking safety signals detected; proceed with normal review")
 
-    if branch_section.status == "stale" and verdict != "rebase":
+    if branch_section.status == "unknown":
+        recommendations.append(
+            "Branch freshness is unknown; provide commits behind base before treating this as merge-ready"
+        )
+    elif branch_section.status == "stale" and verdict != "rebase":
         recommendations.append("Consider rebasing to reduce merge conflict risk")
+
+    if categories & _CI_OR_DEPLOY_CATEGORIES:
+        recommendations.append(
+            "CI/deploy configuration changed; check run status was not verified offline — confirm "
+            "pipelines pass before merging"
+        )
 
     if scope_section.status == "mismatch":
         recommendations.extend(scope_section.notes)

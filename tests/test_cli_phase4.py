@@ -34,6 +34,8 @@ def test_human_format_shows_verdict():
             "desc body",
             "app/foo.py",
             "tests/test_foo.py",
+            "--commits-behind",
+            "0",
         ]
     )
     assert result.exit_code == 0, result.output
@@ -52,6 +54,8 @@ def test_json_format_round_trips_to_report():
             "desc body",
             "app/foo.py",
             "tests/test_foo.py",
+            "--commits-behind",
+            "0",
             "--format",
             "json",
         ]
