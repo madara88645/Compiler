@@ -21,16 +21,16 @@ def test_hybrid_compiler_multi_agent(mock_worker_client):
     compiler.context_strategist = MagicMock()
     compiler.context_strategist.process.return_value = {}
 
-    # Test single agent
+    # Test single agent (RAG retrieval is opt-in; default context stays None)
     compiler.generate_agent("Task 1", multi_agent=False)
     mock_worker_client.generate_agent.assert_called_with(
-        "Task 1", context={}, multi_agent=False, include_example_code=False
+        "Task 1", context=None, multi_agent=False, include_example_code=False
     )
 
     # Test multi agent
     compiler.generate_agent("Task 2", multi_agent=True)
     mock_worker_client.generate_agent.assert_called_with(
-        "Task 2", context={}, multi_agent=True, include_example_code=False
+        "Task 2", context=None, multi_agent=True, include_example_code=False
     )
 
 
@@ -47,6 +47,7 @@ def test_api_multi_agent_flag():
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
         # Test True
@@ -57,6 +58,7 @@ def test_api_multi_agent_flag():
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 

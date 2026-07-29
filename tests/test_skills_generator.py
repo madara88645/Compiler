@@ -271,6 +271,7 @@ def test_api_generate_skill_endpoint():
                 "requested_subdir": None,
             },
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -298,6 +299,7 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
             include_example_code=True,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -447,6 +449,7 @@ def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
