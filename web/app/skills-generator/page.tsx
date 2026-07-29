@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import type { GitHubRepoContextPayload, SkillGeneratorResponse } from "@/lib/api/types";
+import { assertUsableGeneratorArtifact } from "@/lib/generatorErrorArtifact";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import { copyToClipboard } from "../lib/copyToClipboard";
@@ -107,6 +108,10 @@ export default function SkillsGenerator() {
           ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
         }),
       });
+
+      // Same HybridCompiler error-as-markdown shape as Agent Generator — never treat
+      // it as an exportable previous result.
+      assertUsableGeneratorArtifact(data.skill_definition);
 
       const nextResult = toSkillGenerationView(data);
       setResult(nextResult);
