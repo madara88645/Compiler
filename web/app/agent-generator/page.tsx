@@ -13,6 +13,7 @@ import InfoButton from "../components/InfoButton";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import ExportPanel from "./components/ExportPanel";
 import GeneratorErrorState from "../components/GeneratorErrorState";
+import { useContextManager } from "../hooks/useContextManager";
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -69,6 +70,9 @@ export default function AgentGenerator() {
   const [history, setHistory] = useState<{ label: string; result: AgentGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
 
+  const contextManager = useContextManager();
+  const { contextAttached } = contextManager;
+
   const isGeneratingRef = useRef(false);
   const isValidRepoUrl = isSupportedGitHubRepoRootUrl(repoUrl);
 
@@ -118,6 +122,7 @@ export default function AgentGenerator() {
           description,
           multi_agent: multiAgent,
           include_example_code: includeExampleCode,
+          enable_context_retrieval: contextAttached,
           ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
         }),
       });
@@ -412,6 +417,7 @@ export default function AgentGenerator() {
 
             {/* Context Manager */}
             <ContextManager
+              context={contextManager}
               onInsertContext={(text) => setDescription(prev => prev + "\n\n---\nContext:\n" + text)}
             />
           </div>

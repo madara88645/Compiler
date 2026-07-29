@@ -1,7 +1,7 @@
 "use client";
 
 import type { ContextSuggestion } from "../../lib/api/types";
-import { useContextManager } from "../hooks/useContextManager";
+import { useContextManager, type ContextManagerState } from "../hooks/useContextManager";
 import ContextSuggestions from "./context/ContextSuggestions";
 import FileUploadZone from "./context/FileUploadZone";
 import RagSearchPanel from "./context/RagSearchPanel";
@@ -9,16 +9,18 @@ import RagSearchPanel from "./context/RagSearchPanel";
 type ContextManagerProps = {
     onInsertContext: (text: string) => void;
     suggestions?: ContextSuggestion[];
+    /** Parent-owned hook state so banners and generate requests share one session scope. */
+    context?: ContextManagerState;
 };
 
 function getConnectionBadge(isConnected: boolean | null): { label: string; tone: string } {
-    if (isConnected === true) return { label: "Connected", tone: "text-green-400 bg-green-500/10" };
+    if (isConnected === true) return { label: "Backend OK", tone: "text-zinc-300 bg-zinc-800/80" };
     if (isConnected === false) return { label: "Connection Issue", tone: "text-amber-300 bg-amber-500/10" };
     return { label: "Checking", tone: "text-zinc-400 bg-zinc-800/80" };
 }
 
 function getStatusTone(status: string): string {
-    if (status.startsWith("Indexed")) return "bg-green-500/10 text-green-400";
+    if (status.startsWith("Indexed") || status.startsWith("Detached")) return "bg-green-500/10 text-green-400";
     if (status.startsWith("Error") || status.startsWith("Search failed")) return "bg-red-500/10 text-red-400";
     if (status.startsWith("Stats unavailable") || status.startsWith("Could not reach") || status.startsWith("Backend health check failed")) {
         return "bg-amber-500/10 text-amber-300";
@@ -26,7 +28,14 @@ function getStatusTone(status: string): string {
     return "bg-zinc-800/50 text-zinc-400";
 }
 
-export default function ContextManager({ onInsertContext, suggestions = [] }: ContextManagerProps) {
+function contextSourceLabel(source: ContextManagerState["contextSource"]): string {
+    if (source === "session") return "This session (upload/ingest)";
+    if (source === "library") return "Persisted local library";
+    return "None";
+}
+
+export default function ContextManager({ onInsertContext, suggestions = [], context }: ContextManagerProps) {
+    const fallback = useContextManager();
     const {
         ingesting,
         searching,
@@ -39,13 +48,18 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
         isConnected,
         indexStats,
         uploadProgress,
+        contextAttached,
+        contextSource,
+        attachContext,
+        detachContext,
         uploadFiles,
         ingestPath,
         runSearch,
-    } = useContextManager();
+    } = context ?? fallback;
 
     const connectionBadge = getConnectionBadge(isConnected);
     const hasDocs = (indexStats?.docs ?? 0) > 0;
+    const libraryAvailable = hasDocs && !contextAttached;
 
     return (
         <div className="mt-2 flex shrink-0 flex-col gap-3 border-t border-white/5 pt-3">
@@ -73,19 +87,59 @@ export default function ContextManager({ onInsertContext, suggestions = [] }: Co
             <ContextSuggestions suggestions={suggestions} onInsertContext={onInsertContext} />
 
             {indexStats && indexStats.docs > 0 && (
-                <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2">
-                    <div className="flex flex-col">
-                        <span className="text-[9px] text-zinc-500 uppercase">Documents</span>
-                        <span className="text-xs font-mono text-zinc-300">{indexStats.docs}</span>
+                <div className="flex flex-col gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2">
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-zinc-500 uppercase">Documents</span>
+                            <span className="text-xs font-mono text-zinc-300">{indexStats.docs}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-zinc-500 uppercase">Chunks</span>
+                            <span className="text-xs font-mono text-zinc-300">{indexStats.chunks}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-zinc-500 uppercase">Size</span>
+                            <span className="text-xs font-mono text-zinc-300">{(indexStats.total_bytes / 1024).toFixed(1)} KB</span>
+                        </div>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[9px] text-zinc-500 uppercase">Chunks</span>
-                        <span className="text-xs font-mono text-zinc-300">{indexStats.chunks}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2">
+                        <div className="text-[10px] text-zinc-400 normal-case">
+                            {contextAttached ? (
+                                <>
+                                    <span className="font-semibold text-emerald-300">Active for this request</span>
+                                    <span className="text-zinc-500"> · {contextSourceLabel(contextSource)}</span>
+                                    <span className="text-zinc-500"> · {indexStats.docs} {indexStats.docs === 1 ? "doc" : "docs"}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="font-semibold text-zinc-300">Library available</span>
+                                    <span className="text-zinc-500"> · not attached to this session</span>
+                                </>
+                            )}
+                        </div>
+                        {contextAttached ? (
+                            <button
+                                type="button"
+                                onClick={detachContext}
+                                className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                            >
+                                Detach context
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => attachContext("library")}
+                                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                            >
+                                Use library for this session
+                            </button>
+                        )}
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[9px] text-zinc-500 uppercase">Size</span>
-                        <span className="text-xs font-mono text-zinc-300">{(indexStats.total_bytes / 1024).toFixed(1)} KB</span>
-                    </div>
+                    {libraryAvailable && (
+                        <p className="text-[10px] leading-relaxed text-zinc-500 normal-case">
+                            Prior-session documents stay indexed but are not sent to generators until you attach them.
+                        </p>
+                    )}
                 </div>
             )}
 

@@ -28,6 +28,16 @@ vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));
 
+vi.mock("../hooks/useContextManager", () => ({
+  useContextManager: () => ({
+    contextAttached: false,
+    contextSource: "none",
+    indexStats: null,
+    attachContext: vi.fn(),
+    detachContext: vi.fn(),
+  }),
+}));
+
 vi.mock("./components/ExportPanel", () => ({
   default: () => null,
 }));
@@ -97,6 +107,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[1]?.[1]?.body))).toEqual({
       description: "Generate a skill for this repo.",
       include_example_code: false,
+      enable_context_retrieval: false,
       repo_context: {
         normalized_repo_url: "https://github.com/openai/openai-python",
         repo_full_name: "openai/openai-python",
@@ -146,6 +157,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[1]?.[1]?.body))).toEqual({
       description: "Generate a skill for this repo.",
       include_example_code: false,
+      enable_context_retrieval: false,
     });
   });
 
@@ -235,6 +247,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
       description: "Generate a code-heavy skill.",
       include_example_code: true,
+      enable_context_retrieval: false,
     });
     expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
       "true",

@@ -28,6 +28,16 @@ vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));
 
+vi.mock("../hooks/useContextManager", () => ({
+  useContextManager: () => ({
+    contextAttached: false,
+    contextSource: "none",
+    indexStats: null,
+    attachContext: vi.fn(),
+    detachContext: vi.fn(),
+  }),
+}));
+
 vi.mock("./components/ExportPanel", () => ({
   default: () => null,
 }));
@@ -105,6 +115,7 @@ describe("Agent Generator page", () => {
       description: "Review this repo and generate an agent.",
       multi_agent: false,
       include_example_code: false,
+      enable_context_retrieval: false,
       repo_context: {
         normalized_repo_url: "https://github.com/openai/openai-python",
         repo_full_name: "openai/openai-python",
@@ -141,6 +152,7 @@ describe("Agent Generator page", () => {
       description: "Build a safe agent.",
       multi_agent: false,
       include_example_code: false,
+      enable_context_retrieval: false,
     });
   });
 
@@ -232,6 +244,7 @@ describe("Agent Generator page", () => {
       description: "Build a collaborative agent.",
       multi_agent: true,
       include_example_code: true,
+      enable_context_retrieval: false,
     });
     expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
       "true",

@@ -17,6 +17,8 @@ export type UploadProgress = {
   total: number;
 };
 
+export type ContextManagerState = ReturnType<typeof useContextManager>;
+
 type FileWithRelativePath = File & {
   webkitRelativePath?: string;
 };
@@ -60,10 +62,27 @@ export function useContextManager() {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [indexStats, setIndexStats] = useState<RagStats | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  // Session-scoped opt-in: persisted library docs stay visible as available, but are
+  // not treated as active generation context until the user attaches them (or uploads
+  // / ingests in this session).
+  const [contextAttached, setContextAttached] = useState(false);
+  const [contextSource, setContextSource] = useState<"none" | "session" | "library">("none");
 
   const refreshStats = useCallback(async () => {
     const stats = await fetchRagStats();
     setIndexStats(stats);
+    return stats;
+  }, []);
+
+  const attachContext = useCallback((source: "session" | "library" = "library") => {
+    setContextAttached(true);
+    setContextSource(source);
+  }, []);
+
+  const detachContext = useCallback(() => {
+    setContextAttached(false);
+    setContextSource("none");
+    setStatus("Detached library context for this session. Documents remain indexed.");
   }, []);
 
   const checkConnection = useCallback(async () => {
@@ -157,6 +176,11 @@ export function useContextManager() {
         const skippedNote = emptyCount > 0 ? ` — skipped ${emptyCount} empty file(s)` : "";
         setStatus(`Indexed ${successCount}/${validFiles.length} files (${totalChunks} chunks)${skippedNote}`);
         await refreshStats();
+        // Uploading in this session is an explicit scope choice.
+        if (successCount > 0) {
+          setContextAttached(true);
+          setContextSource("session");
+        }
       } catch (error: unknown) {
         setStatus(`Error: ${toUserMessage(error)}`);
       } finally {
@@ -182,6 +206,10 @@ export function useContextManager() {
         setStatus(`Indexed ${response.ingested_docs} files (${response.total_chunks} chunks)`);
         setFilePath("");
         await refreshStats();
+        if (response.ingested_docs > 0) {
+          setContextAttached(true);
+          setContextSource("session");
+        }
       } catch (error: unknown) {
         setStatus(`Error: ${toUserMessage(error)}`);
       } finally {
@@ -224,6 +252,10 @@ export function useContextManager() {
     isConnected,
     indexStats,
     uploadProgress,
+    contextAttached,
+    contextSource,
+    attachContext,
+    detachContext,
     checkConnection,
     uploadFiles,
     ingestPath,

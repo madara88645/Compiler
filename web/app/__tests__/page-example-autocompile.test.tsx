@@ -58,6 +58,10 @@ describe("Example autocompile", () => {
     });
     useContextManagerMock.mockReturnValue({
       indexStats: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
     });
   });
 

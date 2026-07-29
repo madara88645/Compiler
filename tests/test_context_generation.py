@@ -114,8 +114,24 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
     # Manually inject the mock worker
     compiler.worker = mock_worker_client
 
-    # Test generate_agent with context
+    # Default: persisted RAG is not read.
     compiler.generate_agent("Test Agent", repo_context=repo_context)
+    compiler.context_strategist.process.assert_not_called()
+    mock_worker_client.generate_agent.assert_called_with(
+        "Test Agent",
+        context={
+            "repo_context": {
+                "source": "github_public_repo",
+                "mode": "full",
+                **repo_context,
+            },
+        },
+        multi_agent=False,
+        include_example_code=False,
+    )
+
+    # Opt-in: retrieve and merge local RAG with repo context.
+    compiler.generate_agent("Test Agent", repo_context=repo_context, enable_context_retrieval=True)
     compiler.context_strategist.process.assert_called_with("Test Agent", expand_with_llm=False)
     mock_worker_client.generate_agent.assert_called_with(
         "Test Agent",
@@ -131,8 +147,11 @@ def test_hybrid_compiler_context_awareness(mock_worker_client):
         include_example_code=False,
     )
 
-    # Test generate_skill with context
+    compiler.context_strategist.process.reset_mock()
     compiler.generate_skill("Test Skill", repo_context=repo_context)
+    compiler.context_strategist.process.assert_not_called()
+
+    compiler.generate_skill("Test Skill", repo_context=repo_context, enable_context_retrieval=True)
     compiler.context_strategist.process.assert_called_with("Test Skill", expand_with_llm=False)
     mock_worker_client.generate_skill.assert_called_with(
         "Test Skill",
@@ -198,6 +217,7 @@ def test_api_endpoints_integration():
             include_example_code=False,
             repo_context=normalized_repo_context,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
         # Test Skills Generator Endpoint, exercising compact mode through the API
@@ -221,4 +241,5 @@ def test_api_endpoints_integration():
             include_example_code=False,
             repo_context=normalized_repo_context,
             repo_context_mode="compact",
+            enable_context_retrieval=False,
         )

@@ -28,7 +28,7 @@ vi.mock("../components/OutputSkeleton", () => ({
   default: () => <div data-testid="output-skeleton" />,
 }));
 
-describe("Conservative mode toggle", () => {
+describe("RAG context scope banner", () => {
   beforeEach(() => {
     localStorage.clear();
     useCompilerMock.mockReturnValue({
@@ -43,43 +43,37 @@ describe("Conservative mode toggle", () => {
       resolveSecurityDecision: vi.fn(),
       cancelSecurityReview: vi.fn(),
     });
+  });
+
+  it("does not show active RAG banner for persisted docs until attached", () => {
     useContextManagerMock.mockReturnValue({
-      indexStats: null,
+      indexStats: { docs: 2858, chunks: 6899, total_bytes: 1_000_000 },
       contextAttached: false,
       contextSource: "none",
       attachContext: vi.fn(),
       detachContext: vi.fn(),
     });
-  });
 
-  it("renders as a switch with conservative mode on by default", () => {
     render(<Home />);
 
-    const toggle = screen.getByRole("switch", { name: "Conservative mode ON" });
-
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByText("RAG Context Active")).toBeNull();
   });
 
-  it("toggles conservative mode off and on when clicked", () => {
+  it("shows active RAG banner with detach when session scope is attached", () => {
+    const detachContext = vi.fn();
+    useContextManagerMock.mockReturnValue({
+      indexStats: { docs: 2, chunks: 8, total_bytes: 4096 },
+      contextAttached: true,
+      contextSource: "library",
+      attachContext: vi.fn(),
+      detachContext,
+    });
+
     render(<Home />);
 
-    const toggle = screen.getByRole("switch", { name: "Conservative mode ON" });
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(toggle.getAttribute("aria-label")).toBe("Conservative mode OFF");
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    expect(toggle.getAttribute("aria-label")).toBe("Conservative mode ON");
-  });
-
-  it("receives keyboard focus", () => {
-    render(<Home />);
-
-    const toggle = screen.getByRole("switch", { name: "Conservative mode ON" });
-    toggle.focus();
-
-    expect(document.activeElement).toBe(toggle);
+    expect(screen.getByText("RAG Context Active")).toBeTruthy();
+    expect(screen.getByText("2 docs attached")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Detach" }));
+    expect(detachContext).toHaveBeenCalledTimes(1);
   });
 });
