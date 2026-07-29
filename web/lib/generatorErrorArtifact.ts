@@ -6,8 +6,9 @@
  *
  * That payload must be treated as an error state, not an exportable artifact.
  */
+// Avoid the `s` (dotAll) flag — tsconfig target is ES2017.
 const GENERATOR_ERROR_ARTIFACT_RE =
-  /^#\s*Error\s*\n+Failed to generate (?:agent|skill):\s*(.+?)\s*$/is;
+  /^#\s*Error\s*\n+Failed to generate (?:agent|skill):\s*([\s\S]+?)\s*$/i;
 
 export function parseGeneratorErrorArtifact(content: string | null | undefined): string | null {
   if (typeof content !== "string") {
