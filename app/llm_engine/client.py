@@ -16,6 +16,7 @@ except ImportError:
 
 from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
+from .skill_output_fidelity import build_output_fidelity_guidance
 from app.heuristics.security import scan_text
 
 OPENROUTER_DEFAULT_MODEL = "openai/gpt-oss-20b"
@@ -942,9 +943,15 @@ class WorkerClient:
         messages.insert(1, {"role": "system", "content": safety_note})
         messages.insert(2, {"role": "system", "content": example_code_note})
 
+        insert_at = 3
+        fidelity_note = build_output_fidelity_guidance(user_text)
+        if fidelity_note:
+            messages.insert(insert_at, {"role": "system", "content": fidelity_note})
+            insert_at += 1
+
         if context:
             messages.insert(
-                3,
+                insert_at,
                 {
                     "role": "system",
                     "content": self._context_message(mode="generator", context=context),
