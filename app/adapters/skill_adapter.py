@@ -46,6 +46,31 @@ def _to_python_identifier(value: str) -> str:
     return identifier
 
 
+def _to_python_param_identifier(value: str) -> str:
+    """Convert a parameter name to a safe Python identifier."""
+    identifier = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_")
+    identifier = re.sub(r"_+", "_", identifier)
+    if not identifier:
+        return "param"
+    if identifier[0].isdigit():
+        identifier = f"param_{identifier}"
+    if keyword.iskeyword(identifier):
+        identifier = f"{identifier}_"
+    return identifier
+
+
+def _needs_keyword_only_params(params: list[SkillParam]) -> bool:
+    """Use keyword-only args when a required param follows an optional one."""
+    saw_optional = False
+    for param in params:
+        if not param.required:
+            saw_optional = True
+            continue
+        if saw_optional:
+            return True
+    return False
+
+
 def _example_value_for(param: SkillParam, examples: list[SkillExample]) -> str | None:
     """
     Best-effort extraction of an example value for `param` from `examples`.
@@ -198,17 +223,23 @@ def _python_literal_for(value: str, py_type: str) -> str:
 
 
 def _param_field_line(p: SkillParam, example_map: dict[str, str | None]) -> str:
-    desc = p.description.replace('"', '\\"')
+    internal_name = _to_python_param_identifier(p.name)
+    desc = json.dumps(p.description)
     example = example_map.get(p.name)
     extra = f", examples=[{_python_literal_for(example, p.type)}]" if example is not None else ""
+    alias = f", alias={json.dumps(p.name)}" if internal_name != p.name else ""
     if p.required:
-        return f'    {p.name}: {p.type} = Field(description="{desc}"{extra})'
-    return f'    {p.name}: {p.type} | None = Field(default=None, description="{desc}"{extra})'
+        return f"    {internal_name}: {p.type} = Field(description={desc}{alias}{extra})"
+    return (
+        f"    {internal_name}: {p.type} | None = "
+        f"Field(default=None, description={desc}{alias}{extra})"
+    )
 
 
 def _param_signature(p: SkillParam) -> str:
+    internal_name = _to_python_param_identifier(p.name)
     opt = " | None = None" if not p.required else ""
-    return f"{p.name}: {p.type}{opt}"
+    return f"{internal_name}: {p.type}{opt}"
 
 
 def _build_docstring(ir: SkillExportIR) -> str:
@@ -249,11 +280,17 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
     """Return a LangChain @tool Python definition for this skill."""
     func_name = _to_python_identifier(ir.name)
     pascal_name = _to_pascal(func_name)
+    uses_param_aliases = any(_to_python_param_identifier(p.name) != p.name for p in ir.params)
+    keyword_only_params = _needs_keyword_only_params(ir.params)
 
     if ir.params:
         example_map = _resolve_example_map(ir.params, ir.examples)
         param_fields = "\n".join(_param_field_line(p, example_map) for p in ir.params)
-        input_model = f"class {pascal_name}Input(BaseModel):\n{param_fields}\n"
+        input_model_lines = [f"class {pascal_name}Input(BaseModel):"]
+        if uses_param_aliases:
+            input_model_lines.append("    model_config = ConfigDict(populate_by_name=True)")
+        input_model_lines.append(param_fields)
+        input_model = "\n".join(input_model_lines) + "\n"
         schema_arg = f"args_schema={pascal_name}Input"
         sig_params = ", ".join(_param_signature(p) for p in ir.params)
     else:
@@ -270,7 +307,11 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
 
     parts = [
         "from langchain.tools import tool",
-        "from pydantic import BaseModel, Field",
+        (
+            "from pydantic import BaseModel, ConfigDict, Field"
+            if uses_param_aliases
+            else "from pydantic import BaseModel, Field"
+        ),
     ]
 
     # Bolt Optimization: Replace any() generator expression with fast-path loop
@@ -290,7 +331,8 @@ def to_langchain_tool(ir: SkillExportIR) -> str:
 
     parts.append(decorator)
     if sig_params:
-        parts.append(f"def {func_name}({sig_params}) -> {ir.output_type}:")
+        signature = f"*, {sig_params}" if keyword_only_params else sig_params
+        parts.append(f"def {func_name}({signature}) -> {ir.output_type}:")
     else:
         parts.append(f"def {func_name}() -> {ir.output_type}:")
     parts.append(_build_docstring(ir))
