@@ -96,7 +96,23 @@ jobs:
 
       - name: Extension integration tests
         working-directory: integrations/vscode-extension
-        run: npm run test:integration
+        shell: pwsh
+        run: |
+          # @vscode/test-electron downloads a VS Code archive from the public
+          # update service. Retry the whole integration command for transient
+          # network resets; a persistent test failure still exits non-zero.
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            npm run test:integration
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+
+            if ($attempt -lt 3) {
+              Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
+
+          exit $LASTEXITCODE
 
       - name: VSIX packaging check
         working-directory: integrations/vscode-extension
