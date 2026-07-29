@@ -90,6 +90,11 @@ describe("Heuristics-only engine toggle", () => {
     });
     fireEvent.click(screen.getAllByRole("button", { name: /Compile Prompt/i })[0]);
 
-    expect(runCompileMock).toHaveBeenCalledWith("Summarize this incident report.", "conservative", false);
+    expect(runCompileMock).toHaveBeenCalledWith(
+      "Summarize this incident report.",
+      "conservative",
+      false,
+      false,
+    );
   });
 });
