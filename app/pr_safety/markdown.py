@@ -114,14 +114,14 @@ def report_to_markdown(report: PrSafetyReport) -> str:
             for warning in repo_signals.warnings:
                 lines.append(f"- {warning}")
 
-        if not any(
-            (
-                repo_signals.owners,
-                repo_signals.overlapping_workflows,
-                repo_signals.detected_commands,
-                repo_signals.stacks,
-                repo_signals.warnings,
-            )
+        # Bolt Optimization: Replace any() tuple with direct logical `or` conditions
+        # to enable short-circuiting and avoid evaluating all properties before calling any().
+        if not (
+            repo_signals.owners
+            or repo_signals.overlapping_workflows
+            or repo_signals.detected_commands
+            or repo_signals.stacks
+            or repo_signals.warnings
         ):
             lines.append("- No repository-specific signals detected")
 
