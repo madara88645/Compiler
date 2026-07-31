@@ -16,7 +16,8 @@ _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")  # >=3 backticks or tildes after leadi
 
 
 def _heading_key(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().casefold()
+    # Bolt Optimization: Built-in str.split() and join() is significantly faster than re.sub for collapsing spaces
+    return " ".join(text.split()).casefold()
 
 
 def _iter_sections(md: str) -> list[tuple[str, str]]:
