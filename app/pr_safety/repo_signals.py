@@ -208,7 +208,8 @@ def _collect_owner_matches(
 
 
 def _looks_like_owner(value: str) -> bool:
-    return value.startswith("@") or ("@" in value and not any(char.isspace() for char in value))
+    # Bolt Optimization: Replace any() generator expression with ' ' not in value and '	' not in value
+    return value.startswith("@") or ("@" in value and " " not in value and "	" not in value)
 
 
 def _collect_workflow_matches(
