@@ -510,7 +510,9 @@ def _build_summary_compact(
 
 
 def _extract_readme_signal(readme_text: str) -> str:
-    text = " ".join((readme_text or "").split())  # Bolt Optimization: split/join is faster than re.sub for collapsing whitespace
+    text = " ".join(
+        (readme_text or "").split()
+    )  # Bolt Optimization: split/join is faster than re.sub for collapsing whitespace
     if not text:
         return "README content was unavailable, so the brief leans more heavily on GitHub metadata and manifest files."
     compact = text[:220].strip()
