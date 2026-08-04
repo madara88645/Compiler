@@ -35,9 +35,7 @@ def test_runtime_package_discovery_excludes_dev_and_web_directories():
     assert packages, "Runtime package discovery should not be empty"
     assert {"api", "app", "cli"}.issubset(package_roots)
     assert package_roots <= {"api", "app", "cli", "integrations"}
-    assert all(
-        not (package == "scripts" or package.startswith("scripts.")) for package in packages
-    )
+    assert all(not (package == "scripts" or package.startswith("scripts.")) for package in packages)
     assert all(not (package == "web" or package.startswith("web.")) for package in packages)
 
 
