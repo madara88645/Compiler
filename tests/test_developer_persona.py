@@ -82,9 +82,10 @@ def test_detect_coding_context_matches_strong_api_build_request():
 
 
 def test_detect_coding_context_matches_react_debug_request():
-    assert detect_coding_context(
-        "My React app re-renders too much, help me fix the performance"
-    ) is True
+    assert (
+        detect_coding_context("My React app re-renders too much, help me fix the performance")
+        is True
+    )
 
 
 def test_detect_coding_context_keeps_api_explanations_non_coding():
