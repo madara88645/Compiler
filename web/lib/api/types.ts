@@ -116,6 +116,8 @@ export type CompileRequest = {
   task_type?: string;
   tags?: string[];
   mode: CompileMode;
+  /** Opt-in: include local persisted RAG snippets for this compile request. */
+  enable_context_retrieval?: boolean;
 };
 
 export type RagUploadRequest = {

@@ -28,6 +28,16 @@ vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));
 
+vi.mock("../hooks/useContextManager", () => ({
+  useContextManager: () => ({
+    contextAttached: false,
+    contextSource: "none",
+    indexStats: null,
+    attachContext: vi.fn(),
+    detachContext: vi.fn(),
+  }),
+}));
+
 vi.mock("./components/ExportPanel", () => ({
   default: () => null,
 }));
@@ -97,6 +107,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[1]?.[1]?.body))).toEqual({
       description: "Generate a skill for this repo.",
       include_example_code: false,
+      enable_context_retrieval: false,
       repo_context: {
         normalized_repo_url: "https://github.com/openai/openai-python",
         repo_full_name: "openai/openai-python",
@@ -146,6 +157,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[1]?.[1]?.body))).toEqual({
       description: "Generate a skill for this repo.",
       include_example_code: false,
+      enable_context_retrieval: false,
     });
   });
 
@@ -214,6 +226,29 @@ describe("Skills Generator page", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
+  it("treats timeout error markdown as an error, not an exportable previous result", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "# Error\n\nFailed to generate skill: Skill generation timed out after 30s.",
+      example_code_requested: false,
+      example_code_present: false,
+      example_code_warning: null,
+    });
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Summarize pages into three bullets." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    expect(await screen.findByText("Skill generation failed")).toBeTruthy();
+    expect(screen.getByText("Skill generation timed out after 30s.")).toBeTruthy();
+    expect(screen.queryByText("Skill Definition")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
+    expect(screen.queryByLabelText("Previous results")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry generation" })).toBeTruthy();
+  });
+
   it("keeps example-code enabled after generation and preserves payload values", async () => {
     apiJsonMock.mockResolvedValueOnce({
       skill_definition: "## example-skill",
@@ -235,6 +270,7 @@ describe("Skills Generator page", () => {
     expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
       description: "Generate a code-heavy skill.",
       include_example_code: true,
+      enable_context_retrieval: false,
     });
     expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
       "true",

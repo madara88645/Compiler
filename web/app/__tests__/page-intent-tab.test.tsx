@@ -79,6 +79,10 @@ describe("Intent tab / IntentPolicyPanel", () => {
     });
     useContextManagerMock.mockReturnValue({
       indexStats: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
     });
   });
 

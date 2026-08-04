@@ -100,7 +100,7 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
         client = WorkerClient(api_key="test")
 
     def slow_call_api(*args, **kwargs):
-        time.sleep(0.2)
+        time.sleep(1.0)
         return "# Agent System Prompt"
 
     with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
@@ -111,7 +111,12 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
             client.generate_agent("Test Agent")
         elapsed = time.perf_counter() - started_at
 
-    assert elapsed < 0.15
+    # The stub sleeps for 1.0s; the patched hard timeout is 0.01s. Anything
+    # comfortably below the sleep proves the timeout short-circuited the call
+    # rather than waiting it out. The previous budget of 0.15s sat only 0.05s
+    # under the sleep, which a loaded CI runner could exceed on scheduling
+    # alone - it failed on windows-latest at 0.184s.
+    assert elapsed < 0.5
 
 
 def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
@@ -178,6 +183,7 @@ def test_api_generate_agent_endpoint():
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -206,6 +212,7 @@ def test_api_generate_agent_endpoint_with_example_code_enabled():
             include_example_code=True,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -226,6 +233,22 @@ def test_api_generate_agent_endpoint_warns_when_example_code_is_missing():
             "example_code_present": False,
             "example_code_warning": AGENT_EXAMPLE_CODE_WARNING,
         }
+
+
+def test_api_generate_agent_endpoint_rejects_error_artifact():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = (
+            "# Error\n\nFailed to generate agent: Agent generation timed out after 30s."
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request"},
+        )
+
+        assert response.status_code == 504
+        assert response.json() == {"detail": "Agent generation timed out after 30s."}
 
 
 # ── New section-coverage regression tests ─────────────────────────────────────

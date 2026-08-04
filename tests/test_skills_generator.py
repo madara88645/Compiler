@@ -271,6 +271,7 @@ def test_api_generate_skill_endpoint():
                 "requested_subdir": None,
             },
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -298,6 +299,7 @@ def test_api_generate_skill_endpoint_with_example_code_enabled():
             include_example_code=True,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 
@@ -318,6 +320,22 @@ def test_api_generate_skill_endpoint_warns_when_example_code_is_missing():
             "example_code_present": False,
             "example_code_warning": SKILL_EXAMPLE_CODE_WARNING,
         }
+
+
+def test_api_generate_skill_endpoint_rejects_error_artifact():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = (
+            "# Error\n\nFailed to generate skill: Skill generation timed out after 30s."
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request"},
+        )
+
+        assert response.status_code == 504
+        assert response.json() == {"detail": "Skill generation timed out after 30s."}
 
 
 def test_skill_prompt_omits_examples_section_when_disabled():
@@ -447,6 +465,7 @@ def test_api_generate_skill_plain_response_is_sanitized_at_route_boundary():
             include_example_code=False,
             repo_context=None,
             repo_context_mode="full",
+            enable_context_retrieval=False,
         )
 
 

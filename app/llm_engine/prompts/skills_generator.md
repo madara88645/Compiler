@@ -46,7 +46,7 @@ The output must strictly follow this Markdown structure:
 
 ## Output Schema
 **Type:** `<one of: dict, list, str, int, float, bool>`
-[Define the return format and structure.]
+[Define the return format and structure. Field bullets must match this single Type — do not add a competing top-level shape.]
 - `return_field` (Type): Description
 
 ## Implementation
@@ -100,5 +100,21 @@ def run_skill(input_payload):
     return {"status": "not_implemented"}
 ```
 
+## OUTPUT SCHEMA CONTRACT
+- Declare exactly **one** unambiguous return contract under `## Output Schema`.
+- Prefer a single `**Type:**` line (for example `dict`) followed by field bullets that match that type.
+- Do **not** declare `**Type:** str` and also describe a separate `formatted_output` / object payload — that dual contract is invalid.
+- Field bullets must refine the declared Type; they must not introduce a competing top-level shape.
+
+## OUTPUT FIDELITY DEFAULTS (formatting / readability intents)
+When the capability is about formatting, readability, cleaning, wrapping, or making outputs easier to understand:
+1. **Preserve by default** unless the user explicitly requests a transform: fenced code blocks, Markdown structure (headings, lists, emphasis, inline code), URLs, file paths, numeric values, tables, and error/exception text.
+2. **Do not invent destructive defaults** such as newline collapsing or fixed-width (e.g. 80-column) line wrapping when the user only asked for clearer output.
+3. Prefer light, reversible readability help (consistent spacing, optional section labels) over content-mutating normalization.
+4. Ship these conservative defaults so the user does **not** need to supply an implementation contract for common formatting intents.
+5. If the request is still ambiguous after applying safe defaults, include **one concise clarification question** in Purpose or Implementation — do not block the whole skill on unanswered questions.
+6. Testing Strategy must include negative cases where wrapping or normalization would corrupt URLs, paths, tables, numbers, or error text.
+
 ## INPUT HANDLING
 - If the user input is vague (e.g., "web scraper"), infer the most likely robust implementation (e.g., "Robust Web Scraper with Retry and Parsing") and build that.
+- If the vague request is an **output-formatting / readability** intent, apply **OUTPUT FIDELITY DEFAULTS** above instead of inventing aggressive wrap/collapse behavior.

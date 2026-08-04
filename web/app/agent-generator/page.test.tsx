@@ -28,6 +28,16 @@ vi.mock("../components/ContextManager", () => ({
   default: () => <div data-testid="context-manager" />,
 }));
 
+vi.mock("../hooks/useContextManager", () => ({
+  useContextManager: () => ({
+    contextAttached: false,
+    contextSource: "none",
+    indexStats: null,
+    attachContext: vi.fn(),
+    detachContext: vi.fn(),
+  }),
+}));
+
 vi.mock("./components/ExportPanel", () => ({
   default: () => null,
 }));
@@ -105,6 +115,7 @@ describe("Agent Generator page", () => {
       description: "Review this repo and generate an agent.",
       multi_agent: false,
       include_example_code: false,
+      enable_context_retrieval: false,
       repo_context: {
         normalized_repo_url: "https://github.com/openai/openai-python",
         repo_full_name: "openai/openai-python",
@@ -141,6 +152,7 @@ describe("Agent Generator page", () => {
       description: "Build a safe agent.",
       multi_agent: false,
       include_example_code: false,
+      enable_context_retrieval: false,
     });
   });
 
@@ -152,6 +164,39 @@ describe("Agent Generator page", () => {
 
     expect(classes).toContain("md:min-h-[220px]");
     expect(classes).not.toContain("md:min-h-0");
+  });
+
+  it("starts with a centered form and switches to the split layout while loading", async () => {
+    apiJsonMock.mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    render(<AgentGeneratorPage />);
+
+    const descriptionField = screen.getByLabelText("Agent Description");
+    const centeredFormPane = descriptionField.closest("div.relative")?.parentElement;
+    const centeredLayout = centeredFormPane?.parentElement;
+
+    expect(centeredFormPane?.getAttribute("class")).toContain("max-w-2xl");
+    expect(centeredFormPane?.getAttribute("class")).not.toContain("md:w-[35%]");
+    expect(centeredLayout?.getAttribute("class")).toContain("items-center");
+    expect(screen.queryByText("Architecting agent prompt...")).toBeNull();
+    expect(screen.queryByText("System Prompt")).toBeNull();
+    expect(screen.getByRole("button", { name: "or try an example" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a support agent." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Generate Agent/i }));
+
+    expect(await screen.findByText("Architecting agent prompt...")).toBeTruthy();
+
+    const splitFormPane = screen.getByLabelText("Agent Description").closest("div.relative")?.parentElement;
+    const splitLayout = splitFormPane?.parentElement;
+
+    expect(splitFormPane?.getAttribute("class")).toContain("md:w-[35%]");
+    expect(splitFormPane?.getAttribute("class")).not.toContain("max-w-2xl");
+    expect(splitLayout?.getAttribute("class")).toContain("md:flex-row");
   });
 
   it.each([
@@ -209,6 +254,36 @@ describe("Agent Generator page", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
+  it("treats timeout error markdown as an error, not an exportable previous result", async () => {
+    apiJsonMock
+      .mockResolvedValueOnce({
+        system_prompt: "# Error\n\nFailed to generate agent: Agent generation timed out after 30s.",
+        example_code_requested: false,
+        example_code_present: false,
+        example_code_warning: null,
+      })
+      .mockResolvedValueOnce(plainAgentResponse);
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Summarize technical findings safely." },
+    });
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+    expect(await screen.findByText("Agent generation failed")).toBeTruthy();
+    expect(screen.getByText("Agent generation timed out after 30s.")).toBeTruthy();
+    expect(screen.queryByText("System Prompt")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
+    expect(screen.queryByLabelText("Previous results")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry generation" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
+    await screen.findByRole("heading", { name: "Plain Agent" });
+    expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeTruthy();
+    expect(screen.getByLabelText("Previous results")).toBeTruthy();
+  });
+
   it("keeps example-code enabled after generation and preserves payload values", async () => {
     apiJsonMock.mockResolvedValueOnce({
       system_prompt: "# Swarm Agent",
@@ -232,6 +307,7 @@ describe("Agent Generator page", () => {
       description: "Build a collaborative agent.",
       multi_agent: true,
       include_example_code: true,
+      enable_context_retrieval: false,
     });
     expect(screen.getByRole("switch", { name: "Include Example Code toggle" }).getAttribute("aria-checked")).toBe(
       "true",

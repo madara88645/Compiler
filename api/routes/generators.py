@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Literal
 from urllib.parse import urlparse
@@ -17,6 +18,22 @@ from app.github_repo_context import (
     analyze_public_github_repo,
 )
 from app.llm_engine.example_code import inspect_agent_example_code, inspect_skill_example_code
+
+# HybridCompiler returns markdown error strings instead of raising. Those must not
+# become successful HTTP artifacts that the UI can export or store.
+_GENERATOR_ERROR_ARTIFACT_RE = re.compile(
+    r"^#\s*Error\s*\n+Failed to generate (?:agent|skill):\s*(.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _raise_if_generator_error_artifact(content: str, *, kind: str) -> None:
+    match = _GENERATOR_ERROR_ARTIFACT_RE.match((content or "").strip())
+    if not match:
+        return
+    message = match.group(1).strip() or f"{kind} generation failed."
+    status_code = 504 if "timed out" in message.lower() else 500
+    raise HTTPException(status_code=status_code, detail=message)
 
 
 def _safe_repo_full_name(repo_url: str) -> str | None:
@@ -102,6 +119,13 @@ class SkillGenRequest(BaseModel):
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",
     )
+    enable_context_retrieval: bool = Field(
+        default=False,
+        description=(
+            "When true, retrieve snippets from the local persisted RAG index for this request. "
+            "Defaults to false so prior-session documents are not silently injected."
+        ),
+    )
 
 
 class SkillGenResponse(BaseModel):
@@ -119,6 +143,13 @@ class AgentGenRequest(BaseModel):
     repo_context_mode: RepoContextMode = Field(
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",
+    )
+    enable_context_retrieval: bool = Field(
+        default=False,
+        description=(
+            "When true, retrieve snippets from the local persisted RAG index for this request. "
+            "Defaults to false so prior-session documents are not silently injected."
+        ),
     )
 
 
@@ -193,11 +224,15 @@ async def generate_skill_endpoint(
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
+            enable_context_retrieval=req.enable_context_retrieval,
         )
         if not req.include_example_code:
             result = _sanitize_skill_definition_plain(result)
+        _raise_if_generator_error_artifact(result, kind="skill")
         inspection = inspect_skill_example_code(result, requested=req.include_example_code)
         return SkillGenResponse(skill_definition=result, **inspection.__dict__)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("skill generation failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc
@@ -217,13 +252,17 @@ async def generate_agent_endpoint(
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
+            enable_context_retrieval=req.enable_context_retrieval,
         )
+        _raise_if_generator_error_artifact(result, kind="agent")
         inspection = inspect_agent_example_code(
             result,
             multi_agent=req.multi_agent,
             requested=req.include_example_code,
         )
         return AgentGenResponse(system_prompt=result, **inspection.__dict__)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("agent generation failed")
         raise HTTPException(status_code=500, detail="An internal error occurred.") from exc

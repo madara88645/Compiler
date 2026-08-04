@@ -112,6 +112,9 @@ class SafetyHandler:
             sec = ir2.metadata.setdefault(
                 "security", {"is_safe": True, "findings": [], "redacted_text": text}
             )
+            sec.setdefault("is_safe", True)
+            sec.setdefault("findings", [])
+            sec.setdefault("redacted_text", text)
             sec["is_safe"] = False
             sec["findings"].append(
                 {

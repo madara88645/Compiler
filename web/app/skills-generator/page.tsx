@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import type { GitHubRepoContextPayload, SkillGeneratorResponse } from "@/lib/api/types";
+import { assertUsableGeneratorArtifact } from "@/lib/generatorErrorArtifact";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import { copyToClipboard } from "../lib/copyToClipboard";
@@ -13,6 +14,7 @@ import ContextManager from "../components/ContextManager";
 import RepoContextPreviewCard from "../components/RepoContextPreviewCard";
 import SkillExportPanel from "./components/ExportPanel";
 import GeneratorErrorState from "../components/GeneratorErrorState";
+import { useContextManager } from "../hooks/useContextManager";
 
 const REPO_ANALYSIS_TIMEOUT_MS = 15000;
 function isSupportedGitHubRepoRootUrl(value: string): boolean {
@@ -55,6 +57,9 @@ export default function SkillsGenerator() {
   const [includeExampleCode, setIncludeExampleCode] = useState(false);
   const [history, setHistory] = useState<{ label: string; result: SkillGenerationView }[]>([]);
   const [copied, setCopied] = useState(false);
+
+  const contextManager = useContextManager();
+  const { contextAttached } = contextManager;
 
   const isGeneratingRef = useRef(false);
   const isValidRepoUrl = isSupportedGitHubRepoRootUrl(repoUrl);
@@ -104,9 +109,14 @@ export default function SkillsGenerator() {
         body: JSON.stringify({
           description,
           include_example_code: includeExampleCode,
+          enable_context_retrieval: contextAttached,
           ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
         }),
       });
+
+      // Same HybridCompiler error-as-markdown shape as Agent Generator — never treat
+      // it as an exportable previous result.
+      assertUsableGeneratorArtifact(data.skill_definition);
 
       const nextResult = toSkillGenerationView(data);
       setResult(nextResult);
@@ -375,6 +385,7 @@ export default function SkillsGenerator() {
 
             {/* Context Manager */}
             <ContextManager
+              context={contextManager}
               onInsertContext={(text) => setDescription(prev => prev + "\n\n---\nContext:\n" + text)}
             />
           </div>

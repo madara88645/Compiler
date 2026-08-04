@@ -49,6 +49,10 @@ describe("Compile-to-optimizer handoff", () => {
     });
     useContextManagerMock.mockReturnValue({
       indexStats: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
     });
   });
 

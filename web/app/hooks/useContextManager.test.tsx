@@ -264,6 +264,76 @@ describe("useContextManager", () => {
     expect(ingestContextPathMock).toHaveBeenCalledWith({ paths: ["docs/architecture"] });
     expect(result.current.filePath).toBe("");
     expect(result.current.status).toBe("Indexed 2 files (7 chunks)");
+    expect(result.current.contextAttached).toBe(true);
+    expect(result.current.contextSource).toBe("session");
     expect(fetchRagStatsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-attach persisted library docs on load", async () => {
+    fetchRagStatsMock.mockResolvedValue({ docs: 2858, chunks: 6899, total_bytes: 1_000_000 });
+
+    const { result } = renderHook(() => useContextManager());
+
+    await waitFor(() => {
+      expect(result.current.indexStats?.docs).toBe(2858);
+    });
+
+    expect(result.current.contextAttached).toBe(false);
+    expect(result.current.contextSource).toBe("none");
+  });
+
+  it("attaches and detaches session scope without wiping the library", async () => {
+    fetchRagStatsMock.mockResolvedValue({ docs: 4, chunks: 20, total_bytes: 2048 });
+
+    const { result } = renderHook(() => useContextManager());
+
+    await waitFor(() => {
+      expect(result.current.indexStats?.docs).toBe(4);
+    });
+
+    act(() => {
+      result.current.attachContext("library");
+    });
+
+    expect(result.current.contextAttached).toBe(true);
+    expect(result.current.contextSource).toBe("library");
+
+    act(() => {
+      result.current.detachContext();
+    });
+
+    expect(result.current.contextAttached).toBe(false);
+    expect(result.current.contextSource).toBe("none");
+    expect(result.current.indexStats?.docs).toBe(4);
+    expect(result.current.status).toContain("Detached library context");
+  });
+
+  it("attaches session scope after a successful upload", async () => {
+    const file = new File(["hello world"], "notes.md", { type: "text/markdown" });
+
+    uploadContextFileMock.mockResolvedValueOnce({
+      ingested_docs: 1,
+      total_chunks: 2,
+      elapsed_ms: 5,
+      filename: "notes.md",
+      success: true,
+      num_chunks: 2,
+      message: "Indexed notes.md into the RAG index.",
+    });
+
+    const { result } = renderHook(() => useContextManager());
+
+    await waitFor(() => {
+      expect(result.current.isConnected).toBe(true);
+    });
+
+    expect(result.current.contextAttached).toBe(false);
+
+    await act(async () => {
+      await result.current.uploadFiles([file]);
+    });
+
+    expect(result.current.contextAttached).toBe(true);
+    expect(result.current.contextSource).toBe("session");
   });
 });

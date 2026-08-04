@@ -66,6 +66,10 @@ describe("Compile output download buttons", () => {
     });
     useContextManagerMock.mockReturnValue({
       indexStats: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
     });
   });
 

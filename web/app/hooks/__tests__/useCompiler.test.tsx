@@ -97,6 +97,7 @@ describe("useCompiler", () => {
         v2: true,
         render_v2_prompts: true,
         mode: "conservative",
+        enable_context_retrieval: false,
       },
       expect.any(AbortSignal),
     );
@@ -214,6 +215,7 @@ describe("useCompiler", () => {
         v2: false,
         render_v2_prompts: true,
         mode: "conservative",
+        enable_context_retrieval: false,
       },
       expect.any(AbortSignal),
     );
@@ -315,6 +317,7 @@ describe("useCompiler", () => {
         v2: false,
         render_v2_prompts: true,
         mode: "conservative",
+        enable_context_retrieval: false,
       },
       expect.any(AbortSignal),
     );
