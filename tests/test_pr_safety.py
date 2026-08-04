@@ -7,6 +7,7 @@ def test_docs_only_pr_recommends_merge():
         title="docs: update README",
         description="Document the new install steps for contributors.",
         changed_files=["README.md", "docs/contributing.md"],
+        commits_behind=0,
     )
 
     assert report.verdict == "merge"
@@ -137,6 +138,7 @@ def test_colocated_tsx_test_file_clears_coverage_gap():
             "web/app/pr-safety/page.tsx",
             "web/app/pr-safety/page.test.tsx",
         ],
+        commits_behind=0,
     )
 
     assert report.test_coverage.status == "ok"
@@ -153,6 +155,7 @@ def test_hyphenated_test_name_clears_gap_for_underscored_module():
             "app/user_profile.py",
             "tests/test_user-profile.py",
         ],
+        commits_behind=0,
     )
 
     assert report.test_coverage.status == "ok"
@@ -183,6 +186,53 @@ def test_unknown_branch_freshness_when_commits_behind_not_provided():
 
     assert report.branch_freshness.status == "unknown"
     assert report.branch_freshness.commits_behind is None
+    assert report.verdict == "hold"
+    assert any("freshness is unknown" in item.lower() for item in report.recommendations)
+    assert any(
+        "missing checks or branch freshness" in item.lower() for item in report.recommendations
+    )
+
+
+def test_ci_workflow_change_with_unknown_freshness_recommends_hold():
+    report = analyze_pr_safety(
+        title="ci: tighten workflow permissions",
+        description="Limit token permissions in the main CI workflow.",
+        changed_files=[".github/workflows/ci.yml"],
+    )
+
+    assert report.branch_freshness.status == "unknown"
+    assert any(hit.category == "ci" for hit in report.risky_areas.hits)
+    assert report.verdict == "hold"
+    assert any("freshness is unknown" in item.lower() for item in report.recommendations)
+    assert any("ci/deploy" in item.lower() for item in report.recommendations)
+    assert not any("proceed with normal review" in item.lower() for item in report.recommendations)
+
+
+def test_ci_workflow_change_with_known_freshness_still_holds():
+    report = analyze_pr_safety(
+        title="ci: tighten workflow permissions",
+        description="Limit token permissions in the main CI workflow.",
+        changed_files=[".github/workflows/ci.yml"],
+        commits_behind=0,
+    )
+
+    assert report.branch_freshness.status == "ok"
+    assert any(hit.category == "ci" for hit in report.risky_areas.hits)
+    assert report.verdict == "hold"
+    assert any("ci/deploy" in item.lower() for item in report.recommendations)
+
+
+def test_deploy_infra_change_with_unknown_freshness_recommends_hold():
+    report = analyze_pr_safety(
+        title="chore: bump fly memory",
+        description="Raise API machine memory for generator workloads.",
+        changed_files=["fly.toml"],
+    )
+
+    assert report.branch_freshness.status == "unknown"
+    assert any(hit.category == "infrastructure" for hit in report.risky_areas.hits)
+    assert report.verdict == "hold"
+    assert any("ci/deploy" in item.lower() for item in report.recommendations)
 
 
 def test_changed_files_are_grouped_deterministically():
@@ -210,6 +260,7 @@ def test_nested_spec_test_file_clears_gap_for_component():
             "web/app/components/ReadinessBanner.tsx",
             "web/app/components/__tests__/ReadinessBanner.spec.tsx",
         ],
+        commits_behind=0,
     )
 
     assert report.test_coverage.status == "ok"
@@ -228,6 +279,7 @@ def test_scope_focus_term_can_match_a_later_file():
             "docs/contributing.md",
             "README.md",
         ],
+        commits_behind=0,
     )
 
     assert report.scope_match.status == "ok"

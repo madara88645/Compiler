@@ -102,6 +102,28 @@ const VERDICT_VIEW: Record<Verdict, { label: string; tone: Tone; hint: string }>
   rebase: { label: "Rebase", tone: "violet", hint: "Update the branch before merging" },
 };
 
+function verdictSummary(report: PrSafetyReport): string {
+  const base = VERDICT_VIEW[report.verdict].hint;
+  if (report.verdict !== "hold") {
+    return base;
+  }
+
+  const freshnessUnknown = report.branch_freshness.status === "unknown";
+  const ciOrDeployHit = report.risky_areas.hits.some(
+    (hit) => hit.category === "ci" || hit.category === "infrastructure",
+  );
+  if (freshnessUnknown && ciOrDeployHit) {
+    return "Confirm branch freshness and CI/deploy check status before merging";
+  }
+  if (freshnessUnknown) {
+    return "Confirm branch freshness before treating this as merge-ready";
+  }
+  if (ciOrDeployHit) {
+    return "Confirm CI/deploy checks passed; offline analysis cannot verify pipeline status";
+  }
+  return base;
+}
+
 function statusTone(status: SignalStatus): Tone {
   switch (status) {
     case "ok":
@@ -423,7 +445,7 @@ export default function PrSafetyPage() {
                       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT_CLASSES[verdictView.tone]}`} />
                       {verdictView.label}
                     </div>
-                    <p className="mt-2 text-xs text-zinc-400">{verdictView.hint}</p>
+                    <p className="mt-2 text-xs text-zinc-400">{verdictSummary(report)}</p>
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
                     <div className="text-xs text-zinc-500">

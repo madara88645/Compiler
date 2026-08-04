@@ -223,6 +223,48 @@ describe("PR Safety page", () => {
     ).toBeTruthy();
   });
 
+  test("explains missing freshness and CI evidence in the hold summary", async () => {
+    apiJson.mockResolvedValueOnce({
+      ...SAMPLE_REPORT,
+      verdict: "hold",
+      risky_areas: {
+        status: "hit",
+        hits: [
+          {
+            category: "ci",
+            file: ".github/workflows/ci.yml",
+            reason: "Touches CI/CD workflow configuration",
+          },
+        ],
+      },
+      test_coverage: { status: "ok", gaps: [], test_files: [] },
+      branch_freshness: {
+        status: "unknown",
+        commits_behind: null,
+        notes: ["Branch freshness was not provided"],
+      },
+      recommendations: [
+        "Hold merge pending confirmation of missing checks or branch freshness",
+        "Branch freshness is unknown; provide commits behind base before treating this as merge-ready",
+        "CI/deploy configuration changed; check run status was not verified offline — confirm pipelines pass before merging",
+      ],
+    });
+
+    render(<PrSafetyPage />);
+
+    fillRequiredFields();
+    fireEvent.change(screen.getByLabelText("Changed Files"), {
+      target: { value: ".github/workflows/ci.yml" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /analyze pr/i }));
+
+    expect((await screen.findByTestId("pr-verdict")).textContent).toMatch(/hold/i);
+    expect(
+      screen.getByText(/Confirm branch freshness and CI\/deploy check status before merging/i),
+    ).toBeTruthy();
+    expect(screen.queryByText(/No blocking safety signals detected/i)).toBeNull();
+  });
+
   test("copies the rendered report as GitHub-ready Markdown", async () => {
     render(<PrSafetyPage />);
 
