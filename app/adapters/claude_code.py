@@ -9,6 +9,7 @@ from typing import Any
 
 from .agent_ir import AgentExportIR
 from .mcp_servers import render_mcp_json, unregistered_servers
+from .skill_adapter import _needs_keyword_only_params, _to_python_param_identifier
 from .skill_ir import SkillExportIR
 
 
@@ -191,10 +192,12 @@ def to_claude_mcp_tool_stub(ir: SkillExportIR) -> list[dict[str, str]]:
     if python_name != tool_name:
         tool_decorator = f"@mcp.tool(name={json.dumps(tool_name)})"
     param_signature = ", ".join(
-        f"{param.name}: {param.type if param.type != 'Any' else 'str'}"
+        f"{_to_python_param_identifier(param.name)}: {param.type if param.type != 'Any' else 'str'}"
         + ("" if param.required else " | None = None")
         for param in ir.params
     )
+    if param_signature and _needs_keyword_only_params(ir.params):
+        param_signature = f"*, {param_signature}"
     content = textwrap.dedent(
         f"""\
 from mcp.server.fastmcp import FastMCP

@@ -471,6 +471,44 @@ def test_generated_python_normalizes_numeric_keyword_and_punctuation_skill_names
     assert f"def {python_name}(query: str) -> str:" in langchain_tool
 
 
+def test_generated_python_normalizes_keyword_param_names_and_allows_required_after_optional():
+    ir = SkillExportIR(
+        name="web-search",
+        purpose="Search the web.",
+        params=[
+            SkillParam(
+                name="include_suggestions",
+                type="bool",
+                description="Whether to include suggestions",
+                required=False,
+            ),
+            SkillParam(
+                name="class",
+                type="str",
+                description="Category to apply",
+                required=True,
+            ),
+        ],
+    )
+
+    mcp_server = next(
+        item["content"] for item in to_claude_mcp_tool_stub(ir) if item["path"] == "server.py"
+    )
+    langchain_tool = to_langchain_tool(ir)
+
+    compile(mcp_server, "<mcp_tool_stub_keyword_param>", "exec")
+    compile(langchain_tool, "<langchain_tool_keyword_param>", "exec")
+    assert (
+        "async def web_search(*, include_suggestions: bool | None = None, class_: str) -> str:"
+        in mcp_server
+    )
+    assert 'class_: str = Field(description="Category to apply", alias="class")' in langchain_tool
+    assert (
+        "def web_search(*, include_suggestions: bool | None = None, class_: str) -> str:"
+        in langchain_tool
+    )
+
+
 # ---------------------------------------------------------------------------
 # LangChain output tests
 # ---------------------------------------------------------------------------
