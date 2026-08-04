@@ -1,4 +1,5 @@
 import pytest
+import threading
 import time
 from unittest.mock import MagicMock, patch
 from app.llm_engine.client import WorkerClient
@@ -99,19 +100,29 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
 
+    # The stub blocks until the test releases it (with a 10s safety net so a bug here can
+    # never hang the suite), so generate_agent() can only return fast if the hard timeout
+    # actually short-circuits the call.
+    release = threading.Event()
+
     def slow_call_api(*args, **kwargs):
-        time.sleep(0.2)
+        release.wait(timeout=10)
         return "# Agent System Prompt"
 
-    with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
-        client, "_call_api", side_effect=slow_call_api
-    ):
-        started_at = time.perf_counter()
-        with pytest.raises(RuntimeError, match="Agent generation timed out after 0.01s."):
-            client.generate_agent("Test Agent")
-        elapsed = time.perf_counter() - started_at
+    try:
+        with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
+            client, "_call_api", side_effect=slow_call_api
+        ):
+            started_at = time.perf_counter()
+            with pytest.raises(RuntimeError, match="Agent generation timed out after 0.01s."):
+                client.generate_agent("Test Agent")
+            elapsed = time.perf_counter() - started_at
+    finally:
+        release.set()
 
-    assert elapsed < 0.15
+    # Deliberately generous: a loaded CI runner (windows-latest especially) can need a few
+    # hundred ms just to schedule threads, but nowhere near the 10s the stub would block for.
+    assert elapsed < 1.0
 
 
 def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
