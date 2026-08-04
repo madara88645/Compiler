@@ -1,5 +1,6 @@
 from app.compiler import compile_text
 from app.emitters import emit_system_prompt
+from app.heuristics import detect_coding_context
 
 
 def test_developer_persona_on_code_request_en():
@@ -74,3 +75,36 @@ def test_api_mention_does_not_force_developer_persona():
         "developer",
         "assistant",
     }, f"Expected developer or assistant, got {ir5.persona}"
+
+
+def test_detect_coding_context_matches_strong_api_build_request():
+    assert detect_coding_context("Build an API endpoint for user authentication") is True
+
+
+def test_detect_coding_context_matches_react_debug_request():
+    assert (
+        detect_coding_context("My React app re-renders too much, help me fix the performance")
+        is True
+    )
+
+
+def test_detect_coding_context_keeps_api_explanations_non_coding():
+    assert detect_coding_context("Explain REST API authentication methods") is False
+
+
+def test_detect_coding_context_keeps_teaching_api_design_non_coding():
+    assert detect_coding_context("Teach me about REST API design principles") is False
+
+
+def test_detect_coding_context_keeps_browser_bug_report_separate():
+    assert detect_coding_context("The download button is broken in Safari; help me fix it") is False
+
+
+def test_strong_api_build_request_gets_coding_role_and_constraints():
+    ir = compile_text("Build an API endpoint for user authentication")
+
+    assert ir.persona == "developer"
+    assert ir.role != "Helpful generative AI assistant"
+    assert "coding assistant" in ir.role.lower()
+    joined = " | ".join(ir.constraints).lower()
+    assert "runnable" in joined

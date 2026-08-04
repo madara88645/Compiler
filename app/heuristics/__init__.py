@@ -670,11 +670,13 @@ CODE_REQUEST_KEYWORDS = [
 
 def detect_coding_context(text: str) -> bool:
     """Broader coding trigger: either explicit code request or developer persona cues."""
-    lower = text.lower()
     if detect_code_request(text):
         return True
-    for p in PERSONA_KEYWORDS["developer"]:
-        if p in lower:
+    if detect_teaching_intent(text):
+        return False
+    lower = text.lower()
+    for pattern in _COMPILED_PERSONA_KEYWORDS["developer"]:
+        if pattern.search(lower):
             return True
     return False
 
