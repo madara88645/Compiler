@@ -154,6 +154,39 @@ describe("Agent Generator page", () => {
     expect(classes).not.toContain("md:min-h-0");
   });
 
+  it("starts with a centered form and switches to the split layout while loading", async () => {
+    apiJsonMock.mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    render(<AgentGeneratorPage />);
+
+    const descriptionField = screen.getByLabelText("Agent Description");
+    const centeredFormPane = descriptionField.closest("div.relative")?.parentElement;
+    const centeredLayout = centeredFormPane?.parentElement;
+
+    expect(centeredFormPane?.getAttribute("class")).toContain("max-w-2xl");
+    expect(centeredFormPane?.getAttribute("class")).not.toContain("md:w-[35%]");
+    expect(centeredLayout?.getAttribute("class")).toContain("items-center");
+    expect(screen.queryByText("Architecting agent prompt...")).toBeNull();
+    expect(screen.queryByText("System Prompt")).toBeNull();
+    expect(screen.getByRole("button", { name: "or try an example" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a support agent." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Generate Agent/i }));
+
+    expect(await screen.findByText("Architecting agent prompt...")).toBeTruthy();
+
+    const splitFormPane = screen.getByLabelText("Agent Description").closest("div.relative")?.parentElement;
+    const splitLayout = splitFormPane?.parentElement;
+
+    expect(splitFormPane?.getAttribute("class")).toContain("md:w-[35%]");
+    expect(splitFormPane?.getAttribute("class")).not.toContain("max-w-2xl");
+    expect(splitLayout?.getAttribute("class")).toContain("md:flex-row");
+  });
+
   it.each([
     ["empty", { system_prompt: "" }],
     ["missing", {}],

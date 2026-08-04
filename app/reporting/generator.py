@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import operator
 from datetime import datetime
-from jinja2 import Template
+from jinja2 import Environment, select_autoescape
 
 from app.optimizer.models import OptimizationRun
 
@@ -206,8 +206,8 @@ REPORT_TEMPLATE = """
 
     <script>
         const ctx = document.getElementById('scoreChart').getContext('2d');
-        const scores = {{ scores_json }};
-        const labels = {{ labels_json }};
+        const scores = {{ scores_json | safe }};
+        const labels = {{ labels_json | safe }};
 
         new Chart(ctx, {
             type: 'line',
@@ -309,7 +309,8 @@ class ReportGenerator:
         robustness_data = robustness_data[:10]
 
         # Render Template
-        template = Template(REPORT_TEMPLATE)
+        env = Environment(autoescape=select_autoescape(["html", "xml"]))
+        template = env.from_string(REPORT_TEMPLATE)
         html_content = template.render(
             run=run,
             baseline_candidate=baseline_candidate,
