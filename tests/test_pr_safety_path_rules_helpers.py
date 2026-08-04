@@ -9,6 +9,10 @@ including edge cases (empty/whitespace input, duplicate paths, backslash
 normalization, and empty pattern sets) relevant to path-matching correctness.
 """
 
+import os
+
+import pytest
+
 from app.pr_safety.path_rules import (
     TEST_FILE_PATTERNS,
     _matches_any_pattern,
@@ -68,6 +72,10 @@ def test_matches_any_pattern_false_for_empty_pattern_tuple():
     assert _matches_any_pattern("app/foo.py", ()) is False
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="fnmatch normalises case on Windows, so this POSIX-only behaviour does not hold",
+)
 def test_matches_any_pattern_is_case_sensitive_on_posix():
     # fnmatch on POSIX platforms is case-sensitive; a pattern matching
     # lowercase paths should not match an uppercase variant.
