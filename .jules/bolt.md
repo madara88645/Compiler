@@ -236,11 +236,3 @@
 ## 2024-07-13 - [Regex Optimization and Safety]
 **Learning:** Combining multiple regular expressions into a single compiled pattern using the regex OR operator `|` provides a significant performance boost for checking if *any* pattern matches (fast-path). However, when multiple specific patterns can match and trigger different flags, using `finditer()` on the combined pattern can return multiple matches per pattern, violating the original "one flag per pattern" behavior and potentially causing an explosion of matches (e.g. DoS risk).
 **Action:** When refactoring a list of regex patterns used for safety scanning or classification, use the combined regex pattern *only* as a boolean fast-path filter (`if combined_pattern.search(text):`). If a match is found, fallback to iterating over the individual patterns to preserve exact match counts and behavior.
-
-## 2025-02-23 - Fast Whitespace Normalization
-**Learning:** In Python, collapsing multiple spaces/tabs into a single space using `' '.join(text.split())` is significantly faster than using a compiled regular expression like `re.sub(r'[ \t]{2,}', ' ', text).strip()`.
-**Action:** Use `' '.join(text.split())` for simple whitespace normalization in strings instead of regex substitutions when performance is critical.
-
-## 2025-02-23 - Fast Word Counting
-**Learning:** For rough heuristics like estimating token counts, using the C-level `string.count(" ") + 1` is approximately 10x faster and far more memory efficient than using `len(string.split())`, as it entirely avoids allocating a list of split substrings.
-**Action:** When a precise count of non-empty words isn't strictly necessary and a rough estimate suffices, prefer `string.count(" ")` over `len(string.split())` to save memory and execution time.
