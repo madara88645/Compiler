@@ -11,6 +11,7 @@ from app.heuristics import (
 
 # --- detect_recency ---------------------------------------------------
 
+
 def test_detect_recency_english_keyword():
     assert detect_recency("Give me the latest news on this topic") is True
 
@@ -28,6 +29,7 @@ def test_detect_recency_case_insensitive():
 
 
 # --- extract_style_tone -------------------------------------------------
+
 
 def test_extract_style_tone_style_only():
     style, tone = extract_style_tone("Please keep it concise and structured")
@@ -61,6 +63,7 @@ def test_extract_style_tone_case_insensitive():
 
 # --- generate_clarify_questions_struct -----------------------------------
 
+
 def test_generate_clarify_questions_struct_empty():
     assert generate_clarify_questions_struct([]) == []
 
@@ -90,6 +93,7 @@ def test_generate_clarify_questions_struct_mixed_known_unknown():
 
 
 # --- detect_coding_context -----------------------------------------------
+
 
 def test_detect_coding_context_explicit_code_request():
     assert detect_coding_context("Write a Python function to reverse a string") is True
