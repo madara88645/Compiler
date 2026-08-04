@@ -49,6 +49,50 @@ def test_benchmark_endpoint_works_without_api_key(client_without_auth_override):
 
 
 @pytest.mark.auth_required
+def test_benchmark_endpoint_rejects_missing_api_key_before_quota_or_llm_work(
+    client_without_auth_override,
+):
+    """
+    Missing credentials must short-circuit before benchmark quota or model work runs.
+    """
+    with (
+        patch("app.routers.benchmark.enforce_benchmark_daily_cap") as mock_cap,
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+    ):
+        response = client_without_auth_override.post(
+            "/benchmark/run",
+            json={"text": "Test prompt", "model": "openai/gpt-oss-20b"},
+        )
+
+    assert response.status_code == 403
+    mock_cap.assert_not_called()
+    mock_llm.assert_not_called()
+
+
+@pytest.mark.auth_required
+def test_benchmark_endpoint_rejects_invalid_api_key_before_quota_or_llm_work(
+    client_without_auth_override,
+):
+    """
+    Invalid credentials must short-circuit before benchmark quota or model work runs.
+    """
+    with (
+        patch("app.routers.benchmark.enforce_benchmark_daily_cap") as mock_cap,
+        patch("app.routers.benchmark._generate_llm_output") as mock_llm,
+    ):
+        response = client_without_auth_override.post(
+            "/benchmark/run",
+            json={"text": "Test prompt", "model": "openai/gpt-oss-20b"},
+            headers={"x-api-key": "not-a-real-key"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Invalid API Key."
+    mock_cap.assert_not_called()
+    mock_llm.assert_not_called()
+
+
+@pytest.mark.auth_required
 def test_skills_generator_works_without_api_key(client_without_auth_override):
     """
     /skills-generator/generate should work without API key authentication.
