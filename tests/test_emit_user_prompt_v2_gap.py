@@ -1,55 +1,74 @@
-"""Direct unit tests for emit_user_prompt_v2, which builds the v2
-user-prompt string from an IRv2 and previously had no dedicated test file.
+"""Unit tests for app.emitters.emit_user_prompt_v2.
+
+This pure, deterministic string builder had zero test coverage despite being
+used by api/routes/compile.py (fallback / render_v2_prompts / language-
+mismatch-correction branches) and by the CLI export/transform commands.
 """
+
+from __future__ import annotations
+
 from app.emitters import emit_user_prompt_v2
 from app.models_v2 import IRv2
 
 
-def test_emit_user_prompt_v2_empty_ir():
+def test_all_sections_empty_returns_empty_string():
     ir = IRv2()
     assert emit_user_prompt_v2(ir) == ""
 
 
-def test_emit_user_prompt_v2_goals_only():
-    ir = IRv2(goals=["Ship the feature"])
+def test_goals_section_renders_bulleted_list():
+    ir = IRv2(goals=["Ship the feature", "Keep it simple"])
     result = emit_user_prompt_v2(ir)
-    assert result == "Goals:\n- Ship the feature"
+    assert result == "Goals:\n- Ship the feature\n- Keep it simple"
 
 
-def test_emit_user_prompt_v2_tasks_only():
-    ir = IRv2(tasks=["Write tests", "Open PR"])
+def test_tasks_section_renders_bulleted_list():
+    ir = IRv2(tasks=["Write the code", "Write the tests"])
     result = emit_user_prompt_v2(ir)
-    assert result == "Tasks:\n- Write tests\n- Open PR"
+    assert result == "Tasks:\n- Write the code\n- Write the tests"
 
 
-def test_emit_user_prompt_v2_inputs_only():
-    ir = IRv2(inputs={"repo": "compiler", "branch": "main"})
+def test_inputs_section_renders_key_value_pairs():
+    ir = IRv2(inputs={"language": "python", "framework": "fastapi"})
     result = emit_user_prompt_v2(ir)
-    assert result == "Inputs:\n- repo: compiler\n- branch: main"
+    assert result == "Inputs:\n- language: python\n- framework: fastapi"
 
 
-def test_emit_user_prompt_v2_tools_only():
-    ir = IRv2(tools=["search", "calculator"])
+def test_tools_section_renders_bulleted_list():
+    ir = IRv2(tools=["search", "python_exec"])
     result = emit_user_prompt_v2(ir)
-    assert result == "Tools:\n- search\n- calculator"
+    assert result == "Tools:\n- search\n- python_exec"
 
 
-def test_emit_user_prompt_v2_examples_only():
-    ir = IRv2(examples=["input -> output"])
+def test_examples_section_wraps_each_example_in_separators():
+    ir = IRv2(examples=["ex one", "ex two"])
     result = emit_user_prompt_v2(ir)
-    assert result == "Examples:\n---\ninput -> output\n---"
+    assert result == "Examples:\n---\nex one\n---\n---\nex two\n---"
 
 
-def test_emit_user_prompt_v2_all_fields_combined():
+def test_sections_render_in_fixed_order_and_are_joined_by_newline():
     ir = IRv2(
-        goals=["Goal A"],
-        tasks=["Task A"],
-        inputs={"key": "value"},
-        tools=["tool A"],
-        examples=["example A"],
+        goals=["g1"],
+        tasks=["t1"],
+        inputs={"k": "v"},
+        tools=["tool1"],
+        examples=["ex1"],
     )
     result = emit_user_prompt_v2(ir)
-    assert result.startswith("Goals:\n- Goal A\nTasks:\n- Task A\n")
-    assert "Inputs:\n- key: value" in result
-    assert "Tools:\n- tool A" in result
-    assert result.endswith("Examples:\n---\nexample A\n---")
+    assert result == (
+        "Goals:\n- g1\n"
+        "Tasks:\n- t1\n"
+        "Inputs:\n- k: v\n"
+        "Tools:\n- tool1\n"
+        "Examples:\n---\nex1\n---"
+    )
+
+
+def test_only_populated_sections_are_included():
+    ir = IRv2(goals=["only goals"])
+    result = emit_user_prompt_v2(ir)
+    assert "Goals:" in result
+    assert "Tasks:" not in result
+    assert "Inputs:" not in result
+    assert "Tools:" not in result
+    assert "Examples:" not in result
