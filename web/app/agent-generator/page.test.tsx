@@ -242,6 +242,36 @@ describe("Agent Generator page", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
+  it("treats timeout error markdown as an error, not an exportable previous result", async () => {
+    apiJsonMock
+      .mockResolvedValueOnce({
+        system_prompt: "# Error\n\nFailed to generate agent: Agent generation timed out after 30s.",
+        example_code_requested: false,
+        example_code_present: false,
+        example_code_warning: null,
+      })
+      .mockResolvedValueOnce(plainAgentResponse);
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Summarize technical findings safely." },
+    });
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+    expect(await screen.findByText("Agent generation failed")).toBeTruthy();
+    expect(screen.getByText("Agent generation timed out after 30s.")).toBeTruthy();
+    expect(screen.queryByText("System Prompt")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
+    expect(screen.queryByLabelText("Previous results")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry generation" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
+    await screen.findByRole("heading", { name: "Plain Agent" });
+    expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeTruthy();
+    expect(screen.getByLabelText("Previous results")).toBeTruthy();
+  });
+
   it("keeps example-code enabled after generation and preserves payload values", async () => {
     apiJsonMock.mockResolvedValueOnce({
       system_prompt: "# Swarm Agent",

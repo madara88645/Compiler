@@ -233,6 +233,22 @@ def test_api_generate_agent_endpoint_warns_when_example_code_is_missing():
         }
 
 
+def test_api_generate_agent_endpoint_rejects_error_artifact():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = (
+            "# Error\n\nFailed to generate agent: Agent generation timed out after 30s."
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request"},
+        )
+
+        assert response.status_code == 504
+        assert response.json() == {"detail": "Agent generation timed out after 30s."}
+
+
 # ── New section-coverage regression tests ─────────────────────────────────────
 
 
