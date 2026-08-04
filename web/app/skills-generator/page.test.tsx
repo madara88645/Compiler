@@ -226,6 +226,29 @@ describe("Skills Generator page", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(2);
   });
 
+  it("treats timeout error markdown as an error, not an exportable previous result", async () => {
+    apiJsonMock.mockResolvedValueOnce({
+      skill_definition: "# Error\n\nFailed to generate skill: Skill generation timed out after 30s.",
+      example_code_requested: false,
+      example_code_present: false,
+      example_code_warning: null,
+    });
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Summarize pages into three bullets." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    expect(await screen.findByText("Skill generation failed")).toBeTruthy();
+    expect(screen.getByText("Skill generation timed out after 30s.")).toBeTruthy();
+    expect(screen.queryByText("Skill Definition")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy Markdown" })).toBeNull();
+    expect(screen.queryByLabelText("Previous results")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry generation" })).toBeTruthy();
+  });
+
   it("keeps example-code enabled after generation and preserves payload values", async () => {
     apiJsonMock.mockResolvedValueOnce({
       skill_definition: "## example-skill",

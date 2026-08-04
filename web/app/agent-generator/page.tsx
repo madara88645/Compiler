@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Bot } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
 import type { AgentGeneratorResponse, GitHubRepoContextPayload } from "@/lib/api/types";
+import { assertUsableGeneratorArtifact } from "@/lib/generatorErrorArtifact";
 import { withTimeout } from "@/lib/promise/withTimeout";
 import { showError } from "../lib/showError";
 import { copyToClipboard } from "../lib/copyToClipboard";
@@ -130,6 +131,9 @@ export default function AgentGenerator() {
       if (!hasNonemptySystemPrompt(data)) {
         throw new Error(EMPTY_SYSTEM_PROMPT_MESSAGE);
       }
+      // HybridCompiler may still return "# Error / Failed to generate agent: ..." as
+      // a 200 body; treat that as an error, never an exportable previous result.
+      assertUsableGeneratorArtifact(data.system_prompt);
 
       const nextResult = toAgentGenerationView(data, multiAgent);
       setResult(nextResult);
