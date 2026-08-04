@@ -223,14 +223,22 @@ class HybridCompiler:
         include_example_code: bool = False,
         repo_context: dict[str, Any] | None = None,
         repo_context_mode: str = "full",
+        enable_context_retrieval: bool = False,
     ) -> str:
         """
-        Generate a comprehensive AI Agent system prompt, aware of RAG context.
+        Generate a comprehensive AI Agent system prompt, optionally aware of RAG context.
+
+        Local RAG retrieval is opt-in: unless ``enable_context_retrieval`` is True,
+        no persisted index content is read or sent to the worker LLM.
         """
         try:
-            # Retrieve relevant code context using Agent 6
+            rag_context = (
+                self.context_strategist.process(text, expand_with_llm=False)
+                if enable_context_retrieval
+                else None
+            )
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text, expand_with_llm=False),
+                rag_context,
                 repo_context,
                 repo_context_mode,
             )
@@ -250,14 +258,22 @@ class HybridCompiler:
         include_example_code: bool = False,
         repo_context: dict[str, Any] | None = None,
         repo_context_mode: str = "full",
+        enable_context_retrieval: bool = False,
     ) -> str:
         """
-        Generate a comprehensive AI Skill definition, aware of RAG context.
+        Generate a comprehensive AI Skill definition, optionally aware of RAG context.
+
+        Local RAG retrieval is opt-in: unless ``enable_context_retrieval`` is True,
+        no persisted index content is read or sent to the worker LLM.
         """
         try:
-            # Retrieve relevant code context using Agent 6
+            rag_context = (
+                self.context_strategist.process(text, expand_with_llm=False)
+                if enable_context_retrieval
+                else None
+            )
             rag_context = self._merge_generator_context(
-                self.context_strategist.process(text, expand_with_llm=False),
+                rag_context,
                 repo_context,
                 repo_context_mode,
             )

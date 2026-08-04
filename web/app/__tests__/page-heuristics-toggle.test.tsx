@@ -45,6 +45,10 @@ describe("Heuristics-only engine toggle", () => {
     });
     useContextManagerMock.mockReturnValue({
       indexStats: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
     });
   });
 
@@ -86,6 +90,11 @@ describe("Heuristics-only engine toggle", () => {
     });
     fireEvent.click(screen.getAllByRole("button", { name: /Compile Prompt/i })[0]);
 
-    expect(runCompileMock).toHaveBeenCalledWith("Summarize this incident report.", "conservative", false);
+    expect(runCompileMock).toHaveBeenCalledWith(
+      "Summarize this incident report.",
+      "conservative",
+      false,
+      false,
+    );
   });
 });

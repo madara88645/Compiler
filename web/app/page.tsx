@@ -156,7 +156,8 @@ export default function Home() {
     cancelSecurityReview,
   } = useCompiler();
 
-  const { indexStats } = useContextManager();
+  const contextManager = useContextManager();
+  const { indexStats, contextAttached, detachContext } = contextManager;
 
   useEffect(() => {
     window.localStorage.setItem("promptc_compiler_prompt", prompt);
@@ -174,11 +175,11 @@ export default function Home() {
   const useLlm = !heuristicsOnly;
 
   const handleGenerate = async () => {
-    await runCompile(prompt, activeMode, useLlm);
+    await runCompile(prompt, activeMode, useLlm, contextAttached);
   };
 
   const handleSecurityDecision = async (useRedacted: boolean) => {
-    await resolveSecurityDecision(useRedacted, activeMode, useLlm);
+    await resolveSecurityDecision(useRedacted, activeMode, useLlm, contextAttached);
   };
 
   const handleBenchmarkThisPrompt = () => {
@@ -224,7 +225,7 @@ export default function Home() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
       setPrompt(text);
-      if (autoCompile) void runCompile(text, activeMode, useLlm);
+      if (autoCompile) void runCompile(text, activeMode, useLlm, contextAttached);
       return;
     }
     setPrompt("");
@@ -235,7 +236,7 @@ export default function Home() {
       setPrompt(text.slice(0, i));
       if (i >= text.length) {
         stopTypewriter();
-        if (autoCompile) void runCompile(text, activeMode, useLlm);
+        if (autoCompile) void runCompile(text, activeMode, useLlm, contextAttached);
       }
     }, 16);
   };
@@ -401,7 +402,7 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-4">
-              {indexStats && indexStats.docs > 0 && (
+              {contextAttached && indexStats && indexStats.docs > 0 && (
                 <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 animate-fade-in shadow-lg shadow-emerald-950/20">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
@@ -410,9 +411,18 @@ export default function Home() {
                     </span>
                     <span className="font-semibold tracking-wide uppercase text-[10px]">RAG Context Active</span>
                   </div>
-                  <span className="font-mono text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-md text-emerald-200">
-                    {indexStats.docs} {indexStats.docs === 1 ? 'doc' : 'docs'} attached
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-md text-emerald-200">
+                      {indexStats.docs} {indexStats.docs === 1 ? "doc" : "docs"} attached
+                    </span>
+                    <button
+                      type="button"
+                      onClick={detachContext}
+                      className="rounded-md border border-emerald-500/30 bg-black/20 px-2 py-0.5 text-[10px] font-medium text-emerald-100 transition-colors hover:bg-emerald-500/20"
+                    >
+                      Detach
+                    </button>
+                  </div>
                 </div>
               )}
               <button
@@ -433,6 +443,7 @@ export default function Home() {
 
             {/* Context Manager */}
             <ContextManager
+              context={contextManager}
               onInsertContext={(text) => setPrompt(prev => prev + "\n\n---\nContext:\n" + text)}
               suggestions={result?.ir?.metadata?.context_suggestions}
             />

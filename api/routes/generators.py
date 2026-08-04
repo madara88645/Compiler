@@ -119,6 +119,13 @@ class SkillGenRequest(BaseModel):
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",
     )
+    enable_context_retrieval: bool = Field(
+        default=False,
+        description=(
+            "When true, retrieve snippets from the local persisted RAG index for this request. "
+            "Defaults to false so prior-session documents are not silently injected."
+        ),
+    )
 
 
 class SkillGenResponse(BaseModel):
@@ -136,6 +143,13 @@ class AgentGenRequest(BaseModel):
     repo_context_mode: RepoContextMode = Field(
         default="full",
         description="Whether to use the full or the compact repo brief in the generator prompt.",
+    )
+    enable_context_retrieval: bool = Field(
+        default=False,
+        description=(
+            "When true, retrieve snippets from the local persisted RAG index for this request. "
+            "Defaults to false so prior-session documents are not silently injected."
+        ),
     )
 
 
@@ -210,6 +224,7 @@ async def generate_skill_endpoint(
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
+            enable_context_retrieval=req.enable_context_retrieval,
         )
         if not req.include_example_code:
             result = _sanitize_skill_definition_plain(result)
@@ -237,6 +252,7 @@ async def generate_agent_endpoint(
             include_example_code=req.include_example_code,
             repo_context=req.repo_context.model_dump() if req.repo_context else None,
             repo_context_mode=req.repo_context_mode,
+            enable_context_retrieval=req.enable_context_retrieval,
         )
         _raise_if_generator_error_artifact(result, kind="agent")
         inspection = inspect_agent_example_code(

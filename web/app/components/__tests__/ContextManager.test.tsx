@@ -23,6 +23,10 @@ describe("ContextManager", () => {
       isConnected: true,
       indexStats: { docs: 2, chunks: 8, total_bytes: 4096 },
       uploadProgress: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
       uploadFiles: vi.fn(),
       ingestPath: vi.fn(),
       runSearch: vi.fn(),
@@ -42,14 +46,47 @@ describe("ContextManager", () => {
     );
 
     expect(screen.getByText("Context Manager")).toBeTruthy();
-    expect(screen.getByText("Connected")).toBeTruthy();
+    expect(screen.getByText("Backend OK")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();
     expect(screen.getByText("4.0 KB")).toBeTruthy();
     expect(screen.getByText("Indexed 2/2 files (8 chunks)")).toBeTruthy();
+    expect(screen.getByText(/Library available/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Use library for this session" })).toBeTruthy();
 
     const ingestButton = screen.getByRole("button", { name: "Ingest Path" });
     expect(ingestButton.getAttribute("type")).toBe("button");
     expect(ingestButton.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("shows active scope and detach when context is attached", () => {
+    const detachContext = vi.fn();
+
+    useContextManagerMock.mockReturnValue({
+      ingesting: false,
+      searching: false,
+      query: "",
+      setQuery: vi.fn(),
+      results: [],
+      filePath: "",
+      setFilePath: vi.fn(),
+      status: "",
+      isConnected: true,
+      indexStats: { docs: 3, chunks: 12, total_bytes: 8192 },
+      uploadProgress: null,
+      contextAttached: true,
+      contextSource: "library",
+      attachContext: vi.fn(),
+      detachContext,
+      uploadFiles: vi.fn(),
+      ingestPath: vi.fn(),
+      runSearch: vi.fn(),
+    });
+
+    render(<ContextManager onInsertContext={vi.fn()} />);
+
+    expect(screen.getByText(/Active for this request/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Detach context" }));
+    expect(detachContext).toHaveBeenCalledTimes(1);
   });
 
   it("runs path ingest on Enter when a file path is present", () => {
@@ -67,6 +104,10 @@ describe("ContextManager", () => {
       isConnected: true,
       indexStats: null,
       uploadProgress: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
       uploadFiles: vi.fn(),
       ingestPath,
       runSearch: vi.fn(),
@@ -95,6 +136,10 @@ describe("ContextManager", () => {
       isConnected: true,
       indexStats: null,
       uploadProgress: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
       uploadFiles: vi.fn(),
       ingestPath,
       runSearch: vi.fn(),
@@ -122,6 +167,10 @@ describe("ContextManager", () => {
       isConnected: true,
       indexStats: null,
       uploadProgress: null,
+      contextAttached: false,
+      contextSource: "none",
+      attachContext: vi.fn(),
+      detachContext: vi.fn(),
       uploadFiles: vi.fn(),
       ingestPath,
       runSearch: vi.fn(),

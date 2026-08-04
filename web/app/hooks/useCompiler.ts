@@ -56,13 +56,23 @@ export function useCompiler() {
   const [lastError, setLastError] = useState<unknown>(null);
 
   const controllerRef = useRef<AbortController | null>(null);
-  const lastCallRef = useRef<{ text: string; mode: CompileMode; useLlm: boolean } | null>(null);
+  const lastCallRef = useRef<{
+    text: string;
+    mode: CompileMode;
+    useLlm: boolean;
+    enableContextRetrieval: boolean;
+  } | null>(null);
 
   // `useLlm` selects the execution engine: true calls the OpenRouter-backed LLM
   // pipeline, false stays on the server's deterministic heuristic pipeline only
   // (no LLM call is made — but this is still a network request to the same
   // backend, never claim "local-only" or "no API keys" based on this flag).
-  const runCompile = useCallback(async (text: string, mode: CompileMode, useLlm: boolean = true) => {
+  const runCompile = useCallback(async (
+    text: string,
+    mode: CompileMode,
+    useLlm: boolean = true,
+    enableContextRetrieval: boolean = false,
+  ) => {
     if (!text.trim()) {
       return;
     }
@@ -74,7 +84,7 @@ export function useCompiler() {
     controllerRef.current = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    lastCallRef.current = { text, mode, useLlm };
+    lastCallRef.current = { text, mode, useLlm, enableContextRetrieval };
     setLastError(null);
     setResult(null);
     setLoading(true);
@@ -90,6 +100,7 @@ export function useCompiler() {
           v2: useLlm,
           render_v2_prompts: true,
           mode,
+          enable_context_retrieval: enableContextRetrieval,
         },
         controller.signal,
       );
@@ -128,19 +139,29 @@ export function useCompiler() {
 
   const retry = useCallback(async () => {
     if (lastCallRef.current) {
-      await runCompile(lastCallRef.current.text, lastCallRef.current.mode, lastCallRef.current.useLlm);
+      await runCompile(
+        lastCallRef.current.text,
+        lastCallRef.current.mode,
+        lastCallRef.current.useLlm,
+        lastCallRef.current.enableContextRetrieval,
+      );
     }
   }, [runCompile]);
 
   const resolveSecurityDecision = useCallback(
-    async (useRedacted: boolean, mode: CompileMode, useLlm: boolean = true) => {
+    async (
+      useRedacted: boolean,
+      mode: CompileMode,
+      useLlm: boolean = true,
+      enableContextRetrieval: boolean = false,
+    ) => {
       const textToCompile = useRedacted ? redactedText : pendingText;
       if (!textToCompile.trim()) {
         return;
       }
 
       setSecurityFindings([]);
-      await runCompile(textToCompile, mode, useLlm);
+      await runCompile(textToCompile, mode, useLlm, enableContextRetrieval);
     },
     [pendingText, redactedText, runCompile],
   );
