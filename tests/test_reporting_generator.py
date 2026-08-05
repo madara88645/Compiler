@@ -123,3 +123,86 @@ def test_generate_report_insufficient_data(tmp_path, capsys):
 
     captured = capsys.readouterr()
     assert "Warning: Insufficient data to generate full report." in captured.out
+
+
+def test_generate_report_escapes_untrusted_html_content(tmp_path):
+    config = OptimizationConfig(model="gpt-4o")
+    baseline = Candidate(
+        id="baseline",
+        generation=0,
+        prompt_text="baseline prompt",
+        result=EvaluationResult(
+            score=0.4, passed_count=4, failed_count=6, error_count=0, avg_latency_ms=100.0
+        ),
+    )
+    best = Candidate(
+        id="best",
+        generation=1,
+        prompt_text="<img src=x onerror=alert(1)>",
+        mutation_type="<svg/onload=alert(3)>",
+        metadata={"validation_scores": {"<script>alert(4)</script>": 0.6}},
+        result=EvaluationResult(
+            score=0.8,
+            passed_count=8,
+            failed_count=2,
+            error_count=0,
+            avg_latency_ms=120.0,
+            failures=["<script>alert(2)</script>"],
+        ),
+    )
+    run = OptimizationRun(
+        id="test-run-escaped",
+        config=config,
+        created_at=datetime.now(),
+        generations=[[baseline], [best]],
+        best_candidate=best,
+    )
+
+    output_path = tmp_path / "report_escaped.html"
+    ReportGenerator().generate_report(run, output_path)
+
+    html_content = output_path.read_text(encoding="utf-8")
+
+    assert "<img src=x onerror=alert(1)>" not in html_content
+    assert "<script>alert(2)</script>" not in html_content
+    assert "<svg/onload=alert(3)>" not in html_content
+    assert "<script>alert(4)</script>" not in html_content
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html_content
+    assert "&lt;script&gt;alert(2)&lt;/script&gt;" in html_content
+    assert "&lt;svg/onload=alert(3)&gt;" in html_content
+    assert "&lt;script&gt;alert(4)&lt;/script&gt;" in html_content
+
+
+def test_generate_report_preserves_chart_json_literals(tmp_path):
+    config = OptimizationConfig(model="gpt-4o")
+    baseline = Candidate(
+        id="baseline",
+        generation=0,
+        prompt_text="baseline prompt",
+        result=EvaluationResult(
+            score=0.4, passed_count=4, failed_count=6, error_count=0, avg_latency_ms=100.0
+        ),
+    )
+    best = Candidate(
+        id="best",
+        generation=1,
+        prompt_text="improved prompt",
+        result=EvaluationResult(
+            score=0.8, passed_count=8, failed_count=2, error_count=0, avg_latency_ms=120.0
+        ),
+    )
+    run = OptimizationRun(
+        id="test-run-chart",
+        config=config,
+        created_at=datetime.now(),
+        generations=[[baseline], [best]],
+        best_candidate=best,
+    )
+
+    output_path = tmp_path / "report_chart.html"
+    ReportGenerator().generate_report(run, output_path)
+
+    html_content = output_path.read_text(encoding="utf-8")
+
+    assert 'const scores = [0.4, 0.8];' in html_content
+    assert 'const labels = ["Gen 0", "Gen 1"];' in html_content
