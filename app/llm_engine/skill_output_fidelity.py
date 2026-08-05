@@ -10,6 +10,7 @@ preserved content so tests can lock the contract without calling an LLM.
 
 from __future__ import annotations
 
+import functools
 import re
 import textwrap
 from dataclasses import dataclass
@@ -35,21 +36,29 @@ UNSAFE_DEFAULT_TRANSFORMS: tuple[str, ...] = (
     "rewrite_error_messages",
 )
 
-_FORMAT_INTENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\bformat(?:ting|ter)?\b",
-        r"\breformat\b",
-        r"\bpretty[\s-]?print\b",
-        r"\breadab(?:le|ility)\b",
-        r"\beasier to (?:read|understand|scan)\b",
-        r"\bmake (?:it |output |outputs |the (?:output|response) )?clear(?:er)?\b",
-        r"\bclean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)\b",
-        r"\bnormalize\s+(?:the\s+)?(?:output|text|whitespace)\b",
-        r"\bwrap\s+(?:lines?|text|output)\b",
-        r"\boutput\s+(?:format|style|clarity)\b",
+
+@functools.lru_cache(maxsize=1)
+def _get_combined_format_intent_pattern() -> re.Pattern[str]:
+    return re.compile(
+        r"\b("
+        + r"|".join(
+            (
+                r"format(?:ting|ter)?",
+                r"reformat",
+                r"pretty[\s-]?print",
+                r"readab(?:le|ility)",
+                r"easier to (?:read|understand|scan)",
+                r"make (?:it |output |outputs |the (?:output|response) )?clear(?:er)?",
+                r"clean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)",
+                r"normalize\s+(?:the\s+)?(?:output|text|whitespace)",
+                r"wrap\s+(?:lines?|text|output)",
+                r"output\s+(?:format|style|clarity)",
+            )
+        )
+        + r")\b",
+        re.IGNORECASE,
     )
-)
+
 
 # Samples used by value tests / corruption checks — intentionally fragile under
 # naive wrap/collapse transforms.
@@ -93,7 +102,9 @@ def is_output_formatting_intent(description: str) -> bool:
     text = (description or "").strip()
     if not text:
         return False
-    return any(pattern.search(text) for pattern in _FORMAT_INTENT_PATTERNS)
+    # Bolt Optimization: Replace any() generator expression with a compiled combined regex
+    pattern = _get_combined_format_intent_pattern()
+    return bool(pattern.search(text))
 
 
 def detect_explicit_transform_requests(description: str) -> tuple[str, ...]:
