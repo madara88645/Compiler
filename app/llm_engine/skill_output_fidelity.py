@@ -10,6 +10,7 @@ preserved content so tests can lock the contract without calling an LLM.
 
 from __future__ import annotations
 
+import functools
 import re
 import textwrap
 from dataclasses import dataclass
@@ -35,20 +36,17 @@ UNSAFE_DEFAULT_TRANSFORMS: tuple[str, ...] = (
     "rewrite_error_messages",
 )
 
-_FORMAT_INTENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\bformat(?:ting|ter)?\b",
-        r"\breformat\b",
-        r"\bpretty[\s-]?print\b",
-        r"\breadab(?:le|ility)\b",
-        r"\beasier to (?:read|understand|scan)\b",
-        r"\bmake (?:it |output |outputs |the (?:output|response) )?clear(?:er)?\b",
-        r"\bclean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)\b",
-        r"\bnormalize\s+(?:the\s+)?(?:output|text|whitespace)\b",
-        r"\bwrap\s+(?:lines?|text|output)\b",
-        r"\boutput\s+(?:format|style|clarity)\b",
-    )
+_FORMAT_INTENT_RAW_PATTERNS: tuple[str, ...] = (
+    r"\bformat(?:ting|ter)?\b",
+    r"\breformat\b",
+    r"\bpretty[\s-]?print\b",
+    r"\breadab(?:le|ility)\b",
+    r"\beasier to (?:read|understand|scan)\b",
+    r"\bmake (?:it |output |outputs |the (?:output|response) )?clear(?:er)?\b",
+    r"\bclean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)\b",
+    r"\bnormalize\s+(?:the\s+)?(?:output|text|whitespace)\b",
+    r"\bwrap\s+(?:lines?|text|output)\b",
+    r"\boutput\s+(?:format|style|clarity)\b",
 )
 
 # Samples used by value tests / corruption checks — intentionally fragile under
@@ -88,12 +86,18 @@ class OutputFidelityPolicy:
     clarification_question: str | None
 
 
+@functools.lru_cache(maxsize=1)
+def _get_combined_format_intent_pattern() -> re.Pattern[str]:
+    # Bolt Optimization: Combine regexes with OR and cache to eliminate redundant compilation overhead
+    return re.compile(r"|".join(_FORMAT_INTENT_RAW_PATTERNS), re.IGNORECASE)
+
+
 def is_output_formatting_intent(description: str) -> bool:
     """Return True when the request is primarily about formatting / readability."""
     text = (description or "").strip()
     if not text:
         return False
-    return any(pattern.search(text) for pattern in _FORMAT_INTENT_PATTERNS)
+    return _get_combined_format_intent_pattern().search(text) is not None
 
 
 def detect_explicit_transform_requests(description: str) -> tuple[str, ...]:
