@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import datetime
 from app.reporting.generator import ReportGenerator
 from app.optimizer.models import OptimizationRun, OptimizationConfig, Candidate, EvaluationResult
@@ -204,5 +206,10 @@ def test_generate_report_preserves_chart_json_literals(tmp_path):
 
     html_content = output_path.read_text(encoding="utf-8")
 
-    assert 'const scores = [0.4, 0.8];' in html_content
-    assert 'const labels = ["Gen 0", "Gen 1"];' in html_content
+    scores_match = re.search(r"const scores = (\[.*?\]);", html_content)
+    labels_match = re.search(r"const labels = (\[.*?\]);", html_content)
+
+    assert scores_match is not None
+    assert labels_match is not None
+    assert json.loads(scores_match.group(1)) == [0.4, 0.8]
+    assert json.loads(labels_match.group(1)) == ["Gen 0", "Gen 1"]
