@@ -222,6 +222,47 @@ describe("useCompiler", () => {
     expect(result.current.status).toBe("Done in 55ms");
   });
 
+  it("preserves attached context retrieval when resolving a security alert", async () => {
+    compilePromptMock
+      .mockResolvedValueOnce(
+        buildSuccessResponse({
+          ir: {
+            metadata: {
+              security: {
+                is_safe: false,
+                findings: [{ type: "openai_key", original: "sk-live-abc", masked: "sk-live-***" }],
+                redacted_text: "Summarize the [REDACTED] report.",
+              },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(buildSuccessResponse({ processing_ms: 61 }));
+
+    const { result } = renderHook(() => useCompiler());
+
+    await act(async () => {
+      await result.current.runCompile("Summarize the sk-live-abc report.", "default", true, true);
+    });
+
+    await act(async () => {
+      await result.current.resolveSecurityDecision(true, "default", true, true);
+    });
+
+    expect(compilePromptMock).toHaveBeenLastCalledWith(
+      {
+        text: "Summarize the [REDACTED] report.",
+        diagnostics: true,
+        v2: true,
+        render_v2_prompts: true,
+        mode: "default",
+        enable_context_retrieval: true,
+      },
+      expect.any(AbortSignal),
+    );
+    expect(result.current.status).toBe("Done in 61ms");
+  });
+
   it("cancels the security review and returns to a cancelled status", async () => {
     compilePromptMock.mockResolvedValueOnce(
       buildSuccessResponse({
@@ -318,6 +359,34 @@ describe("useCompiler", () => {
         render_v2_prompts: true,
         mode: "conservative",
         enable_context_retrieval: false,
+      },
+      expect.any(AbortSignal),
+    );
+    expect(result.current.status).toBe("Done in 33ms");
+  });
+
+  it("retries with the prior context retrieval choice", async () => {
+    compilePromptMock.mockResolvedValue(buildSuccessResponse({ processing_ms: 33 }));
+
+    const { result } = renderHook(() => useCompiler());
+
+    await act(async () => {
+      await result.current.runCompile("Retry me with docs.", "conservative", false, true);
+    });
+    compilePromptMock.mockClear();
+
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    expect(compilePromptMock).toHaveBeenCalledWith(
+      {
+        text: "Retry me with docs.",
+        diagnostics: true,
+        v2: false,
+        render_v2_prompts: true,
+        mode: "conservative",
+        enable_context_retrieval: true,
       },
       expect.any(AbortSignal),
     );
