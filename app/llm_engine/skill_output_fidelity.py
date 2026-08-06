@@ -35,20 +35,22 @@ UNSAFE_DEFAULT_TRANSFORMS: tuple[str, ...] = (
     "rewrite_error_messages",
 )
 
-_FORMAT_INTENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\bformat(?:ting|ter)?\b",
-        r"\breformat\b",
-        r"\bpretty[\s-]?print\b",
-        r"\breadab(?:le|ility)\b",
-        r"\beasier to (?:read|understand|scan)\b",
-        r"\bmake (?:it |output |outputs |the (?:output|response) )?clear(?:er)?\b",
-        r"\bclean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)\b",
-        r"\bnormalize\s+(?:the\s+)?(?:output|text|whitespace)\b",
-        r"\bwrap\s+(?:lines?|text|output)\b",
-        r"\boutput\s+(?:format|style|clarity)\b",
-    )
+_FORMAT_INTENT_PATTERN = re.compile(
+    r"|".join(
+        (
+            r"\bformat(?:ting|ter)?\b",
+            r"\breformat\b",
+            r"\bpretty[\s-]?print\b",
+            r"\breadab(?:le|ility)\b",
+            r"\beasier to (?:read|understand|scan)\b",
+            r"\bmake (?:it |output |outputs |the (?:output|response) )?clear(?:er)?\b",
+            r"\bclean(?:\s+up)?\s+(?:the\s+)?(?:output|response|text)\b",
+            r"\bnormalize\s+(?:the\s+)?(?:output|text|whitespace)\b",
+            r"\bwrap\s+(?:lines?|text|output)\b",
+            r"\boutput\s+(?:format|style|clarity)\b",
+        )
+    ),
+    re.IGNORECASE,
 )
 
 # Samples used by value tests / corruption checks — intentionally fragile under
@@ -93,7 +95,8 @@ def is_output_formatting_intent(description: str) -> bool:
     text = (description or "").strip()
     if not text:
         return False
-    return any(pattern.search(text) for pattern in _FORMAT_INTENT_PATTERNS)
+    # Bolt Optimization: Use a single compiled regex with OR instead of any() loop
+    return bool(_FORMAT_INTENT_PATTERN.search(text))
 
 
 def detect_explicit_transform_requests(description: str) -> tuple[str, ...]:
