@@ -236,3 +236,7 @@
 ## 2024-07-13 - [Regex Optimization and Safety]
 **Learning:** Combining multiple regular expressions into a single compiled pattern using the regex OR operator `|` provides a significant performance boost for checking if *any* pattern matches (fast-path). However, when multiple specific patterns can match and trigger different flags, using `finditer()` on the combined pattern can return multiple matches per pattern, violating the original "one flag per pattern" behavior and potentially causing an explosion of matches (e.g. DoS risk).
 **Action:** When refactoring a list of regex patterns used for safety scanning or classification, use the combined regex pattern *only* as a boolean fast-path filter (`if combined_pattern.search(text):`). If a match is found, fallback to iterating over the individual patterns to preserve exact match counts and behavior.
+
+## 2024-05-18 - Optimized is_output_formatting_intent Regex Match
+**Learning:** Checking a string against multiple regular expressions iteratively using an `any()` generator expression with `pattern.search(text)` introduces unnecessary overhead from generator setup/teardown and redundant regex compilation/evaluation.
+**Action:** Combine the multiple patterns into a single compiled regular expression using the regex OR operator (`|`) and check if the combined pattern matches the string. This pushes the search iteration directly to the C-based regex engine, which is much faster.
