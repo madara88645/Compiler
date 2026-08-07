@@ -90,3 +90,8 @@
 **Vulnerability:** XSS vulnerability in HTML report generation due to using `jinja2.Template()` without `autoescape=True`.
 **Learning:** `jinja2.Template` defaults to not autoescaping variables, leading to potential XSS if user-controlled input (like generated prompts) is included in the HTML.
 **Prevention:** Always use `Environment(autoescape=select_autoescape(['html', 'xml']))` rather than bare `Template()` when rendering HTML containing user input.
+
+## 2024-05-20 - Prevent SQL Injection via Malformed ESCAPE in SQLite LIKE Clause
+**Vulnerability:** The RAG index fallback search used `WHERE lower(c.content) LIKE lower(?) ESCAPE '\'` to filter queries. In Python string literals without the `r` prefix, `\'` evaluates to a single quote (`'`), not a backslash (`\`). This effectively made the ESCAPE character a single quote, leaving the literal backslash (`\`) unassigned as an escape character, allowing attackers to inject literal `%` and `_` characters in their queries to bypass search limits and logic.
+**Learning:** In Python, string escape sequences are evaluated before they are passed to the database. An intended backslash escape character (`\`) in a SQL string must be properly escaped in the Python string literal (as `'\\'`) to ensure the correct literal string is passed to the database driver. Furthermore, SQLite's `ESCAPE` clause strictly requires a single character; providing two literal backslashes to SQLite will result in an `OperationalError`.
+**Prevention:** When defining SQL `ESCAPE` clauses in Python strings, use `ESCAPE '\\'` (two backslashes in Python, evaluating to one literal backslash in SQL). Avoid using raw strings (e.g., `r"ESCAPE '\'"`) if the string ends in a backslash, as this causes a Python SyntaxError.
