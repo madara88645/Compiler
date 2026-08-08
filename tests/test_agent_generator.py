@@ -251,6 +251,36 @@ def test_api_generate_agent_endpoint_rejects_error_artifact():
         assert response.json() == {"detail": "Agent generation timed out after 30s."}
 
 
+def test_api_generate_agent_endpoint_rejects_multiline_non_timeout_error_artifact():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = (
+            "# Error\n\nFailed to generate agent: Gateway unavailable.\nRetry later."
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Gateway unavailable.\nRetry later."}
+
+
+def test_api_generate_agent_endpoint_hides_unexpected_internal_errors():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.side_effect = RuntimeError("boom")
+
+        client = TestClient(app)
+        response = client.post(
+            "/agent-generator/generate",
+            json={"description": "Test Agent Request"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "An internal error occurred."}
+
+
 # ── New section-coverage regression tests ─────────────────────────────────────
 
 

@@ -338,6 +338,36 @@ def test_api_generate_skill_endpoint_rejects_error_artifact():
         assert response.json() == {"detail": "Skill generation timed out after 30s."}
 
 
+def test_api_generate_skill_endpoint_rejects_multiline_non_timeout_error_artifact():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.return_value = (
+            "# Error\n\nFailed to generate skill: API Key is missing.\nRetry later."
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "API Key is missing.\nRetry later."}
+
+
+def test_api_generate_skill_endpoint_hides_unexpected_internal_errors():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_skill.side_effect = RuntimeError("boom")
+
+        client = TestClient(app)
+        response = client.post(
+            "/skills-generator/generate",
+            json={"description": "Test Skill Request"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "An internal error occurred."}
+
+
 def test_skill_prompt_omits_examples_section_when_disabled():
     with patch("app.llm_engine.client.OpenAI"):
         client = WorkerClient(api_key="test")
