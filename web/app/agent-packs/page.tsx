@@ -452,6 +452,7 @@ export default function AgentPacksPage() {
                       onClick={handleDownload}
                       disabled={downloading}
                       aria-busy={downloading}
+                      title={downloading ? "Preparing your pack for download..." : "Download Pack"}
                       className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                     >
                       <Download size={14} aria-hidden="true" />
