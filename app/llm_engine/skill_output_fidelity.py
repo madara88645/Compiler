@@ -10,6 +10,7 @@ preserved content so tests can lock the contract without calling an LLM.
 
 from __future__ import annotations
 
+import functools
 import re
 import textwrap
 from dataclasses import dataclass
@@ -35,9 +36,10 @@ UNSAFE_DEFAULT_TRANSFORMS: tuple[str, ...] = (
     "rewrite_error_messages",
 )
 
-_FORMAT_INTENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
+
+@functools.lru_cache
+def _get_format_intent_pattern() -> re.Pattern[str]:
+    patterns = (
         r"\bformat(?:ting|ter)?\b",
         r"\breformat\b",
         r"\bpretty[\s-]?print\b",
@@ -49,7 +51,8 @@ _FORMAT_INTENT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\bwrap\s+(?:lines?|text|output)\b",
         r"\boutput\s+(?:format|style|clarity)\b",
     )
-)
+    return re.compile(r"|".join(patterns), re.IGNORECASE)
+
 
 # Samples used by value tests / corruption checks — intentionally fragile under
 # naive wrap/collapse transforms.
@@ -93,7 +96,9 @@ def is_output_formatting_intent(description: str) -> bool:
     text = (description or "").strip()
     if not text:
         return False
-    return any(pattern.search(text) for pattern in _FORMAT_INTENT_PATTERNS)
+    # Bolt Optimization: combine patterns into a single regex cached via lru_cache
+    # to eliminate Python generator overhead and push iteration to the C-based regex engine.
+    return bool(_get_format_intent_pattern().search(text))
 
 
 def detect_explicit_transform_requests(description: str) -> tuple[str, ...]:
