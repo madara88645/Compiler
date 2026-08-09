@@ -166,3 +166,48 @@ def test_repo_aware_report_adds_advisory_repository_section():
     assert "`.github/workflows/ci.yml` (CI)" in md
     assert "`pytest -q` (from `Makefile`)" in md
     assert "python (fastapi)" in md
+
+
+def test_repo_aware_report_with_no_signals_uses_fallback_message():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(
+            source="local_checkout",
+            owners=[],
+            overlapping_workflows=[],
+            detected_commands=[],
+            stacks=[],
+            warnings=[],
+        ),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "## Repository signals (advisory)" in md
+    assert "- Source: local checkout" in md
+    assert "- No repository-specific signals detected" in md
+    assert "### Suggested owners" not in md
+    assert "### Overlapping PR workflows" not in md
+    assert "### Detected commands" not in md
+    assert "### Detected stacks" not in md
+    assert "### Collection warnings" not in md
+
+
+def test_repo_aware_report_with_warnings_only_skips_empty_fallback():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(
+            source="local_checkout",
+            owners=[],
+            overlapping_workflows=[],
+            detected_commands=[],
+            stacks=[],
+            warnings=["CODEOWNERS parse failed"],
+        ),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "### Collection warnings" in md
+    assert "- CODEOWNERS parse failed" in md
+    assert "- No repository-specific signals detected" not in md
