@@ -32,6 +32,13 @@ VAGUE_FORMATTING_REQUESTS = (
     "pretty-print agent replies",
 )
 
+RECENT_REGEX_VARIANT_REQUESTS = (
+    "make the response clearer",
+    "normalize the output whitespace",
+    "wrap output for readability",
+    "improve output style for support replies",
+)
+
 NON_FORMATTING_REQUESTS = (
     "validate JSON payloads against a schema",
     "scrape product prices from a public page",
@@ -49,6 +56,14 @@ def test_detects_vague_formatting_intents(description: str) -> None:
     assert "wrap_at_80_columns" in policy.forbid_by_default
 
 
+@pytest.mark.parametrize("description", RECENT_REGEX_VARIANT_REQUESTS)
+def test_recent_regex_variants_trigger_formatting_policy(description: str) -> None:
+    assert is_output_formatting_intent(description) is True
+    policy = build_output_fidelity_policy(description)
+    assert policy.is_formatting_intent is True
+    assert policy.preserve == PRESERVED_CONTENT_CATEGORIES
+
+
 @pytest.mark.parametrize("description", NON_FORMATTING_REQUESTS)
 def test_non_formatting_requests_skip_fidelity_policy(description: str) -> None:
     assert is_output_formatting_intent(description) is False
@@ -56,6 +71,13 @@ def test_non_formatting_requests_skip_fidelity_policy(description: str) -> None:
     policy = build_output_fidelity_policy(description)
     assert policy.preserve == ()
     assert policy.forbid_by_default == ()
+
+
+def test_generic_wrap_request_still_forbids_fixed_width_wrap_by_default() -> None:
+    policy = build_output_fidelity_policy("wrap output for readability")
+    assert policy.user_requested_transforms == ()
+    assert "wrap_at_80_columns" in policy.forbid_by_default
+    assert policy.clarification_needed is True
 
 
 def test_vague_formatting_policy_preserves_required_categories() -> None:
@@ -158,6 +180,29 @@ def test_generate_skill_injects_fidelity_guidance_for_vague_formatting() -> None
     assert any("Preserve by default" in message for message in system_messages)
     assert any("wrap_at_80_columns" in message for message in system_messages)
     assert any("formatted_text" in message for message in system_messages)
+
+
+def test_generate_skill_injects_fidelity_guidance_for_normalize_output_request() -> None:
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    captured: dict = {}
+
+    def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        captured["messages"] = messages
+        return "# Skill Definition"
+
+    with patch.object(client, "_call_api", side_effect=fake_call_api):
+        result = client.generate_skill(
+            "normalize the output whitespace",
+            include_example_code=False,
+        )
+
+    assert result == "# Skill Definition"
+    system_messages = [msg["content"] for msg in captured["messages"] if msg["role"] == "system"]
+    assert any("Output-fidelity requirements" in message for message in system_messages)
+    assert any("Preserve by default" in message for message in system_messages)
+    assert any("clarification step" in message for message in system_messages)
 
 
 def test_generate_skill_skips_fidelity_guidance_for_unrelated_skills() -> None:
