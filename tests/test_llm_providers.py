@@ -167,9 +167,10 @@ class TestOpenAIProvider:
         config = ProviderConfig()
         provider = OpenAIProvider(config)
 
-        with patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}, clear=False), patch.object(
-            provider.client, "post"
-        ) as mock_post:
+        with (
+            patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}, clear=False),
+            patch.object(provider.client, "post") as mock_post,
+        ):
             response = provider.generate("Hello")
 
         assert response.content == "Error: Missing OpenRouter API Key"
@@ -186,15 +187,18 @@ class TestOpenAIProvider:
             "usage": {"prompt_tokens": 21, "completion_tokens": 8},
         }
 
-        with patch.dict(
-            os.environ,
-            {
-                "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-                "OPENROUTER_HTTP_REFERER": "https://promptc.example",
-                "OPENROUTER_TITLE": "Prompt Compiler",
-            },
-            clear=False,
-        ), patch.object(provider.client, "post", return_value=mock_response) as mock_post:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+                    "OPENROUTER_HTTP_REFERER": "https://promptc.example",
+                    "OPENROUTER_TITLE": "Prompt Compiler",
+                },
+                clear=False,
+            ),
+            patch.object(provider.client, "post", return_value=mock_response) as mock_post,
+        ):
             response = provider.generate(
                 "Hello",
                 system_prompt="Be concise",

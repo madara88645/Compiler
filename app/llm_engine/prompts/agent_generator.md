@@ -114,6 +114,7 @@ When explicitly enabled by a later instruction, you MUST append this section aft
 ```python
 # Pseudo-code only. Replace TODO items with real project APIs.
 
+
 def run_agent_task(payload):
     # TODO: Parse validated input based on the actual schema.
     # TODO: Call real project services or APIs confirmed in context.

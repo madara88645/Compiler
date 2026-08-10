@@ -18,10 +18,11 @@ from app.quick_actions import QuickActions, get_quick_actions
 
 
 def test_get_quick_actions_singleton():
-    with patch("app.quick_actions.get_search_history_manager"), patch(
-        "app.quick_actions.get_favorites_manager"
-    ), patch("app.quick_actions.get_templates_manager"), patch(
-        "app.quick_actions.get_snippets_manager"
+    with (
+        patch("app.quick_actions.get_search_history_manager"),
+        patch("app.quick_actions.get_favorites_manager"),
+        patch("app.quick_actions.get_templates_manager"),
+        patch("app.quick_actions.get_snippets_manager"),
     ):
         inst1 = get_quick_actions()
         inst2 = get_quick_actions()
@@ -30,11 +31,12 @@ def test_get_quick_actions_singleton():
 
 @pytest.fixture
 def mock_managers():
-    with patch("app.quick_actions.get_search_history_manager") as m_hist, patch(
-        "app.quick_actions.get_favorites_manager"
-    ) as m_fav, patch("app.quick_actions.get_templates_manager") as m_temp, patch(
-        "app.quick_actions.get_snippets_manager"
-    ) as m_snip:
+    with (
+        patch("app.quick_actions.get_search_history_manager") as m_hist,
+        patch("app.quick_actions.get_favorites_manager") as m_fav,
+        patch("app.quick_actions.get_templates_manager") as m_temp,
+        patch("app.quick_actions.get_snippets_manager") as m_snip,
+    ):
         hist_mgr = MagicMock()
         fav_mgr = MagicMock()
         temp_mgr = MagicMock()
