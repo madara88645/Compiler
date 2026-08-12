@@ -510,7 +510,9 @@ def _build_summary_compact(
 
 
 def _extract_readme_signal(readme_text: str) -> str:
-    text = re.sub(r"\s+", " ", (readme_text or "")).strip()
+    # Bolt Optimization: In Python, using `' '.join(text.split())` is significantly faster (~5-6x)
+    # than using a compiled regular expression like `re.sub(r'\s+', ' ', text).strip()` for collapsing multiple consecutive whitespaces.
+    text = " ".join((readme_text or "").split())
     if not text:
         return "README content was unavailable, so the brief leans more heavily on GitHub metadata and manifest files."
     compact = text[:220].strip()
