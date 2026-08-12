@@ -6,7 +6,6 @@ ConstraintV2 objects, so they can be tested directly without invoking the
 compiler or any LLM call.
 """
 
-
 import pytest
 
 from app.emitters import (

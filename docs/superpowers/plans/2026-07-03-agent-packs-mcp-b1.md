@@ -49,12 +49,20 @@ from app.repo_inspect import RepoFacts, derive_repo_context
 
 
 def _facts(files, tree=None, has_claude_md=False):
-    return RepoFacts(files=files, tree=tree or list(files.keys()),
-                     has_claude_md=has_claude_md, has_claude_dir=False)
+    return RepoFacts(
+        files=files,
+        tree=tree or list(files.keys()),
+        has_claude_md=has_claude_md,
+        has_claude_dir=False,
+    )
 
 
 def test_detects_node_stack_and_scripts():
-    facts = _facts({"web/package.json": '{"scripts": {"test": "vitest run", "build": "next build", "lint": "eslint ."}}'})
+    facts = _facts(
+        {
+            "web/package.json": '{"scripts": {"test": "vitest run", "build": "next build", "lint": "eslint ."}}'
+        }
+    )
     ctx = derive_repo_context(facts)
     assert "javascript" in {s.language for s in ctx.stacks}
     cmds = {c.name: c.command for c in ctx.commands}
@@ -64,10 +72,12 @@ def test_detects_node_stack_and_scripts():
 
 
 def test_detects_python_pyproject_and_makefile():
-    facts = _facts({
-        "pyproject.toml": '[project]\nname = "x"\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
-        "Makefile": "test:\n\tpython -m pytest tests/ -q\nbuild:\n\techo build\n",
-    })
+    facts = _facts(
+        {
+            "pyproject.toml": '[project]\nname = "x"\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
+            "Makefile": "test:\n\tpython -m pytest tests/ -q\nbuild:\n\techo build\n",
+        }
+    )
     ctx = derive_repo_context(facts)
     assert "python" in {s.language for s in ctx.stacks}
     cmds = {c.name: c.command for c in ctx.commands}
@@ -104,21 +114,21 @@ class RepoFacts(BaseModel):
     """Raw repository facts collected client-side (contents only; no paths read here)."""
 
     files: dict[str, str] = Field(default_factory=dict)  # repo-relative path -> content
-    tree: list[str] = Field(default_factory=list)         # shallow list of top-level entries
+    tree: list[str] = Field(default_factory=list)  # shallow list of top-level entries
     has_claude_md: bool = False
     has_claude_dir: bool = False
 
 
 @dataclass(frozen=True)
 class DetectedCommand:
-    name: str      # "test" | "build" | "lint" | "dev" | "format"
-    command: str   # e.g. "npm run test", "python -m pytest tests/ -q"
-    source: str    # e.g. "web/package.json", "Makefile"
+    name: str  # "test" | "build" | "lint" | "dev" | "format"
+    command: str  # e.g. "npm run test", "python -m pytest tests/ -q"
+    source: str  # e.g. "web/package.json", "Makefile"
 
 
 @dataclass(frozen=True)
 class StackInfo:
-    language: str            # "python" | "javascript" | "go" | "rust" | ...
+    language: str  # "python" | "javascript" | "go" | "rust" | ...
     frameworks: tuple[str, ...] = ()
 
 
@@ -170,12 +180,21 @@ _LANG_BY_MANIFEST = {
 
 # npm script name -> canonical command name we care about.
 _NPM_SCRIPT_ALIASES = {
-    "test": "test", "build": "build", "lint": "lint", "dev": "dev",
-    "format": "format", "fmt": "format", "start": "dev",
+    "test": "test",
+    "build": "build",
+    "lint": "lint",
+    "dev": "dev",
+    "format": "format",
+    "fmt": "format",
+    "start": "dev",
 }
 _MAKE_TARGET_ALIASES = {
-    "test": "test", "build": "build", "lint": "lint", "dev": "dev",
-    "format": "format", "fmt": "format",
+    "test": "test",
+    "build": "build",
+    "lint": "lint",
+    "dev": "dev",
+    "format": "format",
+    "fmt": "format",
 }
 
 
@@ -190,7 +209,9 @@ def parse_package_json_scripts(content: str, source: str) -> list[DetectedComman
     cmds: list[DetectedCommand] = []
     for raw_name, canonical in _NPM_SCRIPT_ALIASES.items():
         if raw_name in scripts:
-            cmds.append(DetectedCommand(name=canonical, command=f"npm run {raw_name}", source=source))
+            cmds.append(
+                DetectedCommand(name=canonical, command=f"npm run {raw_name}", source=source)
+            )
     return cmds
 
 
@@ -207,13 +228,15 @@ def parse_makefile_targets(content: str, source: str) -> list[DetectedCommand]:
             continue
         # Prefer the first recipe line (tab-indented) as the concrete command.
         recipe = ""
-        for follow in lines[i + 1:]:
+        for follow in lines[i + 1 :]:
             if follow.startswith("\t"):
                 recipe = follow.strip()
                 break
             if follow.strip() and not follow.startswith("\t"):
                 break
-        cmds.append(DetectedCommand(name=canonical, command=recipe or f"make {target}", source=source))
+        cmds.append(
+            DetectedCommand(name=canonical, command=recipe or f"make {target}", source=source)
+        )
     return cmds
 
 
@@ -226,10 +249,23 @@ def detect_stacks(files: dict[str, str]) -> list[StackInfo]:
             continue
         fw = langs.setdefault(lang, set())
         low = content.lower()
-        for name in ("fastapi", "django", "flask", "next", "react", "vue", "svelte", "express", "nestjs"):
+        for name in (
+            "fastapi",
+            "django",
+            "flask",
+            "next",
+            "react",
+            "vue",
+            "svelte",
+            "express",
+            "nestjs",
+        ):
             if name in low:
                 fw.add(name)
-    return [StackInfo(language=lang, frameworks=tuple(sorted(fws))) for lang, fws in sorted(langs.items())]
+    return [
+        StackInfo(language=lang, frameworks=tuple(sorted(fws)))
+        for lang, fws in sorted(langs.items())
+    ]
 ```
 
 - [ ] **Step 5: Implement `app/repo_inspect/__init__.py`**
@@ -313,8 +349,13 @@ class _StubCompiler:
 
 
 def _settings(risk_mode):
-    req = AgentPackRequest(project_type="svc", stack="Python, FastAPI",
-                           goal="Do a thing", pack_type="project-pack", risk_mode=risk_mode)
+    req = AgentPackRequest(
+        project_type="svc",
+        stack="Python, FastAPI",
+        goal="Do a thing",
+        pack_type="project-pack",
+        risk_mode=risk_mode,
+    )
     manifest = ClaudeAgentPackAdapter().build_manifest(req, _StubCompiler())
     settings = next(f.content for f in manifest.files if f.path.endswith("settings.json"))
     return json.loads(settings)
@@ -438,8 +479,11 @@ class _StubCompiler:
 
 def test_detected_commands_land_in_claude_md():
     req = AgentPackRequest(
-        project_type="svc", stack="Python, FastAPI", goal="Add a health route",
-        pack_type="project-pack", risk_mode="balanced",
+        project_type="svc",
+        stack="Python, FastAPI",
+        goal="Add a health route",
+        pack_type="project-pack",
+        risk_mode="balanced",
         detected_commands={"test": "python -m pytest tests/ -q", "build": "next build"},
         detected_stack="python / fastapi, next",
     )
@@ -475,7 +519,7 @@ class AgentPackRequest(BaseModel):
 In `app/adapters/agent_packs.py` `_build_agent_ir`, replace the generic discovery workflow line (currently lines 300–303, the "Discover the repository's existing validation commands..." entry) with a real-commands line when available:
 
 ```python
-            _validation_workflow(req),
+(_validation_workflow(req),)
 ```
 
 and add this helper near the other `_build_*` helpers:
@@ -562,8 +606,10 @@ def test_repo_plan_returns_manifest_and_diffs():
         "goal": "Add a health route",
         "risk_mode": "strict",
         "repo_facts": {
-            "files": {"package.json": '{"scripts": {"test": "vitest run"}}',
-                       "CLAUDE.md": "# existing guide"},
+            "files": {
+                "package.json": '{"scripts": {"test": "vitest run"}}',
+                "CLAUDE.md": "# existing guide",
+            },
             "tree": ["package.json", "CLAUDE.md", "src"],
             "has_claude_md": True,
             "has_claude_dir": False,
@@ -702,9 +748,21 @@ import os
 
 # Small allowlist of non-secret manifest/config files worth sending to the backend.
 _MANIFEST_FILES = (
-    "package.json", "pyproject.toml", "requirements.txt", "setup.py", "Pipfile",
-    "go.mod", "Cargo.toml", "pom.xml", "build.gradle", "composer.json", "Gemfile",
-    "Makefile", "makefile", "tox.ini", "setup.cfg",
+    "package.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "setup.py",
+    "Pipfile",
+    "go.mod",
+    "Cargo.toml",
+    "pom.xml",
+    "build.gradle",
+    "composer.json",
+    "Gemfile",
+    "Makefile",
+    "makefile",
+    "tox.ini",
+    "setup.cfg",
 )
 _MAX_BYTES = 64_000  # never read large files
 
@@ -782,16 +840,18 @@ def test_creates_new_and_never_clobbers(tmp_path: Path):
 
     result = write_pack_files(str(tmp_path), files, overwrite=[])
 
-    assert (tmp_path / ".claude/settings.json").read_text() == "{}"   # created
-    assert (tmp_path / "CLAUDE.md").read_text() == "OLD"               # NOT clobbered
-    assert (tmp_path / "CLAUDE.md.new").read_text() == "NEW"           # written aside
+    assert (tmp_path / ".claude/settings.json").read_text() == "{}"  # created
+    assert (tmp_path / "CLAUDE.md").read_text() == "OLD"  # NOT clobbered
+    assert (tmp_path / "CLAUDE.md.new").read_text() == "NEW"  # written aside
     assert result["created"] == [".claude/settings.json"]
     assert result["conflicts"] == ["CLAUDE.md"]
 
 
 def test_overwrite_list_allows_replacement(tmp_path: Path):
     (tmp_path / "CLAUDE.md").write_text("OLD")
-    result = write_pack_files(str(tmp_path), [{"path": "CLAUDE.md", "content": "NEW"}], overwrite=["CLAUDE.md"])
+    result = write_pack_files(
+        str(tmp_path), [{"path": "CLAUDE.md", "content": "NEW"}], overwrite=["CLAUDE.md"]
+    )
     assert (tmp_path / "CLAUDE.md").read_text() == "NEW"
     assert result["overwritten"] == ["CLAUDE.md"]
 ```
@@ -850,6 +910,7 @@ Add to `integrations/mcp-server/test_server.py` (following the existing `_MockAs
 ```python
 def test_plan_agent_pack_posts_repo_facts(tmp_path, monkeypatch):
     import server
+
     (tmp_path / "package.json").write_text('{"scripts": {"test": "vitest run"}}')
     mock = _MockAsyncClient({"manifest": {"files": []}, "plan": [], "detected": {}})
     monkeypatch.setattr(server.httpx, "AsyncClient", lambda *a, **k: mock)
@@ -874,7 +935,9 @@ from repo_write import write_pack_files
 
 
 @mcp.tool()
-async def plan_agent_pack(pack_type: str, goal: str = "", risk_mode: str = "balanced", path: str = ".") -> dict:
+async def plan_agent_pack(
+    pack_type: str, goal: str = "", risk_mode: str = "balanced", path: str = "."
+) -> dict:
     """Preview a repo-aware Claude agent pack for the local repository (writes nothing).
 
     Reads the repo at `path`, generates a tailored pack, and returns the file plan with
@@ -883,14 +946,21 @@ async def plan_agent_pack(pack_type: str, goal: str = "", risk_mode: str = "bala
     facts = collect_repo_facts(path)
     body = {"pack_type": pack_type, "goal": goal, "risk_mode": risk_mode, "repo_facts": facts}
     async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BACKEND_URL}/agent-packs/claude/repo-plan", json=body, timeout=60.0)
+        resp = await client.post(
+            f"{BACKEND_URL}/agent-packs/claude/repo-plan", json=body, timeout=60.0
+        )
         resp.raise_for_status()
         return resp.json()
 
 
 @mcp.tool()
-async def apply_agent_pack(pack_type: str, goal: str = "", risk_mode: str = "balanced",
-                           path: str = ".", overwrite: list[str] | None = None) -> dict:
+async def apply_agent_pack(
+    pack_type: str,
+    goal: str = "",
+    risk_mode: str = "balanced",
+    path: str = ".",
+    overwrite: list[str] | None = None,
+) -> dict:
     """Generate and WRITE a repo-aware Claude agent pack into the local repository.
 
     Existing files are never silently overwritten: a conflicting path is written as
@@ -899,7 +969,9 @@ async def apply_agent_pack(pack_type: str, goal: str = "", risk_mode: str = "bal
     facts = collect_repo_facts(path)
     body = {"pack_type": pack_type, "goal": goal, "risk_mode": risk_mode, "repo_facts": facts}
     async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BACKEND_URL}/agent-packs/claude/repo-plan", json=body, timeout=60.0)
+        resp = await client.post(
+            f"{BACKEND_URL}/agent-packs/claude/repo-plan", json=body, timeout=60.0
+        )
         resp.raise_for_status()
         manifest = resp.json()["manifest"]
     written = write_pack_files(path, manifest["files"], overwrite or [])

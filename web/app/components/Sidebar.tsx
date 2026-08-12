@@ -153,8 +153,11 @@ export default function Sidebar() {
                         rel="noopener noreferrer"
                         className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative group text-zinc-500 hover:text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                         aria-label={item.name}
+                        aria-describedby={`tooltip-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                     >
                         <span
+                            id={`tooltip-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                            role="tooltip"
                             className="absolute left-full ml-4 z-[60] bg-zinc-800 border border-white/10 text-zinc-100 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 shadow-xl pointer-events-none -translate-x-2 group-hover:translate-x-0"
                             aria-hidden="true"
                         >

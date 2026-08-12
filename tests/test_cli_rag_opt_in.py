@@ -1,4 +1,5 @@
 """CLI `compile` RAG context retrieval is opt-in (default off) — path-leak guard."""
+
 from unittest.mock import patch
 
 from typer.testing import CliRunner

@@ -115,11 +115,14 @@ New module `app/adapters/mcp_servers.py`:
   verified (2026-07-04) against code.claude.com/docs/en/mcp. All four are remote HTTP:
   ```python
   {
-    "github":  {"type": "http", "url": "https://api.githubcopilot.com/mcp/",
-                "headers": {"Authorization": "Bearer ${GITHUB_PAT}"}},
-    "slack":   {"type": "http", "url": "https://mcp.slack.com/mcp"},
-    "notion":  {"type": "http", "url": "https://mcp.notion.com/mcp"},
-    "sentry":  {"type": "http", "url": "https://mcp.sentry.dev/mcp"},
+      "github": {
+          "type": "http",
+          "url": "https://api.githubcopilot.com/mcp/",
+          "headers": {"Authorization": "Bearer ${GITHUB_PAT}"},
+      },
+      "slack": {"type": "http", "url": "https://mcp.slack.com/mcp"},
+      "notion": {"type": "http", "url": "https://mcp.notion.com/mcp"},
+      "sentry": {"type": "http", "url": "https://mcp.sentry.dev/mcp"},
   }
   ```
   `figma` and `jira` are **deliberately not registered** — the Claude Code docs do not

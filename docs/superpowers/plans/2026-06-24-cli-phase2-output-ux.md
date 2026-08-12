@@ -156,6 +156,7 @@ IMPORTANT: machine-output paths (--json-only / --out / --format / --quiet /
 batch) must NOT use these helpers — they must emit plain, unstyled payloads so
 piping and golden-file tests stay stable.
 """
+
 from __future__ import annotations
 
 from rich.console import Console
@@ -274,22 +275,20 @@ Expected: FAIL — default shows raw IR (no "System Prompt"); `--quiet` stdout i
 In `cli/commands/core.py`, in `_run_compile`, replace the gated emitter block (lines 197-213) so the `and render_v2` conditions become "whenever ir2 exists":
 
 ```python
-    # Resolve quiet vs json_only
-    if json_only and quiet:
-        quiet = False
-    system_prompt = (
-        emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if ir2 else "")
-    )
-    if quiet:
-        print(system_prompt)
-        return
-    user_prompt = emit_user_prompt(ir) if ir else (emit_user_prompt_v2(ir2) if ir2 else "")
-    plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if ir2 else "")
-    expanded = (
-        emit_expanded_prompt(ir, diagnostics=diagnostics)
-        if ir
-        else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if ir2 else "")
-    )
+# Resolve quiet vs json_only
+if json_only and quiet:
+    quiet = False
+system_prompt = emit_system_prompt(ir) if ir else (emit_system_prompt_v2(ir2) if ir2 else "")
+if quiet:
+    print(system_prompt)
+    return
+user_prompt = emit_user_prompt(ir) if ir else (emit_user_prompt_v2(ir2) if ir2 else "")
+plan = emit_plan(ir) if ir else (emit_plan_v2(ir2) if ir2 else "")
+expanded = (
+    emit_expanded_prompt(ir, diagnostics=diagnostics)
+    if ir
+    else (emit_expanded_prompt_v2(ir2, diagnostics=diagnostics) if ir2 else "")
+)
 ```
 
 - [ ] **Step 4: Allow `--format md` to include v2 prompts**
@@ -426,33 +425,25 @@ def _render_prompt_pack_txt(
 In `cli/commands/core.py`, inside `pack_command`, just before the `fmt_l = (format or "md").lower()` line (line ~961), add:
 
 ```python
-    if v1:
-        _domain = "—"
-        _persona = getattr(ir, "persona", "—")
-        _risk = "—"
-    else:
-        _ir2_json = ir2.model_dump()
-        _domain = _ir2_json.get("domain") or "—"
-        _persona = _ir2_json.get("persona") or "—"
-        _risk = ((_ir2_json.get("metadata") or {}).get("policy_summary") or {}).get(
-            "risk_level"
-        ) or "—"
-    pack_header = (
-        f"Domain: {_domain} | Persona: {_persona} | Risk: {_risk} | IR version: {ir_ver}"
-    )
+if v1:
+    _domain = "—"
+    _persona = getattr(ir, "persona", "—")
+    _risk = "—"
+else:
+    _ir2_json = ir2.model_dump()
+    _domain = _ir2_json.get("domain") or "—"
+    _persona = _ir2_json.get("persona") or "—"
+    _risk = ((_ir2_json.get("metadata") or {}).get("policy_summary") or {}).get("risk_level") or "—"
+pack_header = f"Domain: {_domain} | Persona: {_persona} | Risk: {_risk} | IR version: {ir_ver}"
 ```
 
 Then update the md and txt calls (lines ~963 and ~966) to pass the header:
 
 ```python
-        payload = _render_prompt_pack_md(
-            system_prompt, user_prompt, plan, expanded, header=pack_header
-        )
+payload = _render_prompt_pack_md(system_prompt, user_prompt, plan, expanded, header=pack_header)
 ```
 ```python
-        payload = _render_prompt_pack_txt(
-            system_prompt, user_prompt, plan, expanded, header=pack_header
-        )
+payload = _render_prompt_pack_txt(system_prompt, user_prompt, plan, expanded, header=pack_header)
 ```
 
 (The `json` format branch is left unchanged — it already carries `ir_version`/`heuristic_version`.)

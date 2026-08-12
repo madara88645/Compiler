@@ -23,6 +23,7 @@
 from app.heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from app.models import IR
 
+
 def test_format_enforcer_injects_constraint():
     handler = FormatEnforcerHandler()
     ir = IR(text="Extract the emails into a JSON file", language="en")
@@ -42,6 +43,7 @@ Expected: FAIL with "ModuleNotFoundError"
 # app/heuristics/handlers/format_enforcer.py
 from app.heuristics.handlers.base import BaseHandler
 from app.models import IR
+
 
 class FormatEnforcerHandler(BaseHandler):
     """Injects strict constraints when data formats are requested."""
@@ -84,6 +86,7 @@ git commit -m "feat: add FormatEnforcerHandler for offline compilation"
 from app.heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from app.models import IR
 
+
 def test_paradox_resolver_detects_length_conflict():
     handler = ParadoxResolverHandler()
     ir = IR(text="Make it very short but also explain everything in detail", language="en")
@@ -104,6 +107,7 @@ Expected: FAIL with "ModuleNotFoundError"
 # app/heuristics/handlers/paradox_resolver.py
 from app.heuristics.handlers.base import BaseHandler
 from app.models import IR
+
 
 class ParadoxResolverHandler(BaseHandler):
     """Detects constraint paradoxes and injects resolution rules."""
@@ -151,6 +155,7 @@ git commit -m "feat: add ParadoxResolverHandler for offline compilation"
 # append to tests/test_comprehensive.py or create a new small test inside it
 # tests/test_offline_new_heuristics.py
 from app.compiler import compile_text
+
 
 def test_new_heuristics_integration():
     ir = compile_text("Extract a list of items to JSON, make it short but very detailed.")

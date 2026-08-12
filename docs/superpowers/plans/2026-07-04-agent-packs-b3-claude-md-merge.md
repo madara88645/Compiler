@@ -168,7 +168,7 @@ import re
 MARKER = "<!-- Added by Prompt Compiler: sections not already in your CLAUDE.md -->"
 
 _HEADING_RE = re.compile(r"^##[ \t]+(.+?)\s*$")  # level-2 only; "##Foo" (no space) is not a heading
-_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")         # >=3 backticks or tildes after leading whitespace
+_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")  # >=3 backticks or tildes after leading whitespace
 
 
 def _heading_key(text: str) -> str:
@@ -378,7 +378,7 @@ def test_apply_agent_pack_merges_claude_md_in_place(tmp_path, monkeypatch: pytes
         result = asyncio.run(server.apply_agent_pack("project-pack", goal="x", path=str(tmp_path)))
 
     assert (tmp_path / "CLAUDE.md").read_text() == merged  # written in place
-    assert not (tmp_path / "CLAUDE.md.new").exists()       # not a .new conflict
+    assert not (tmp_path / "CLAUDE.md.new").exists()  # not a .new conflict
     assert result["written"]["overwritten"] == ["CLAUDE.md"]
 
 
@@ -387,7 +387,9 @@ def test_apply_agent_pack_non_merge_conflict_still_new(tmp_path, monkeypatch: py
     manifest = {"files": [{"path": "README.md", "content": "new"}]}
     client = _MockAsyncClient()
     client.responses.append(
-        _MockResponse({"manifest": manifest, "plan": [{"path": "README.md", "action": "overwrite"}]})
+        _MockResponse(
+            {"manifest": manifest, "plan": [{"path": "README.md", "action": "overwrite"}]}
+        )
     )
 
     monkeypatch.setenv("PROMPTC_BACKEND_URL", "https://api.example")
