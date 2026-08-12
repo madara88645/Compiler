@@ -11,6 +11,8 @@ vi.hoisted(() => {
 import AgentGeneratorPage from "./page";
 import { apiJson } from "@/config";
 
+let mockContextAttached = false;
+
 vi.mock("@/config", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/config")>();
   return {
@@ -30,7 +32,7 @@ vi.mock("../components/ContextManager", () => ({
 
 vi.mock("../hooks/useContextManager", () => ({
   useContextManager: () => ({
-    contextAttached: false,
+    contextAttached: mockContextAttached,
     contextSource: "none",
     indexStats: null,
     attachContext: vi.fn(),
@@ -61,6 +63,7 @@ describe("Agent Generator page", () => {
 
   beforeEach(() => {
     apiJsonMock.mockReset();
+    mockContextAttached = false;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: {
@@ -153,6 +156,26 @@ describe("Agent Generator page", () => {
       multi_agent: false,
       include_example_code: false,
       enable_context_retrieval: false,
+    });
+  });
+
+  it("includes attached context in the generate request when context is attached", async () => {
+    mockContextAttached = true;
+    apiJsonMock.mockResolvedValueOnce(plainAgentResponse);
+
+    render(<AgentGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Agent Description"), {
+      target: { value: "Build a context-aware agent." },
+    });
+    fireEvent.click(screen.getAllByTitle("Generate Agent")[0]!);
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
+      description: "Build a context-aware agent.",
+      multi_agent: false,
+      include_example_code: false,
+      enable_context_retrieval: true,
     });
   });
 

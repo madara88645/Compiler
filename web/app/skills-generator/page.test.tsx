@@ -11,6 +11,8 @@ vi.hoisted(() => {
 import SkillsGeneratorPage from "./page";
 import { apiJson } from "@/config";
 
+let mockContextAttached = false;
+
 vi.mock("@/config", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/config")>();
   return {
@@ -30,7 +32,7 @@ vi.mock("../components/ContextManager", () => ({
 
 vi.mock("../hooks/useContextManager", () => ({
   useContextManager: () => ({
-    contextAttached: false,
+    contextAttached: mockContextAttached,
     contextSource: "none",
     indexStats: null,
     attachContext: vi.fn(),
@@ -61,6 +63,7 @@ describe("Skills Generator page", () => {
 
   beforeEach(() => {
     apiJsonMock.mockReset();
+    mockContextAttached = false;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: {
@@ -158,6 +161,25 @@ describe("Skills Generator page", () => {
       description: "Generate a skill for this repo.",
       include_example_code: false,
       enable_context_retrieval: false,
+    });
+  });
+
+  it("includes attached context in the skill request when context is attached", async () => {
+    mockContextAttached = true;
+    apiJsonMock.mockResolvedValueOnce(plainSkillResponse);
+
+    render(<SkillsGeneratorPage />);
+
+    fireEvent.change(screen.getByLabelText("Skill Description"), {
+      target: { value: "Generate a context-aware skill." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Generate Skill/i })[0]!);
+
+    await waitFor(() => expect(apiJsonMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(apiJsonMock.mock.calls[0]?.[1]?.body))).toEqual({
+      description: "Generate a context-aware skill.",
+      include_example_code: false,
+      enable_context_retrieval: true,
     });
   });
 
