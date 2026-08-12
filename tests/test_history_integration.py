@@ -1,13 +1,13 @@
-from app.history import get_history_manager, HistoryEntry
-from app.prompt_diff import get_prompt_comparison
+from app.history import HistoryEntry, HistoryManager
+from app.prompt_diff import PromptComparison
 import uuid
 
 
-def test_history_diff_integration():
+def test_history_diff_integration(tmp_path):
     print("Testing History <-> Le Prompt Diff Integration...")
 
     # 1. Seed History
-    history = get_history_manager()
+    history = HistoryManager(str(tmp_path / "history.db"))
     prompt_id = str(uuid.uuid4())
     entry = HistoryEntry(
         id=prompt_id,
@@ -19,7 +19,8 @@ def test_history_diff_integration():
     print(f"Seeded prompt {prompt_id}")
 
     # 2. Use PromptComparison to retrieve it
-    differ = get_prompt_comparison()
+    differ = PromptComparison.__new__(PromptComparison)
+    differ.history = history
     success, text, source = differ.get_prompt_text(prompt_id, source="history")
 
     print(f"Retrieval result: success={success}, text='{text}', source='{source}'")
@@ -42,7 +43,3 @@ def test_history_diff_integration():
     # They are different lines.
 
     print("✅ History Diff integration passed!")
-
-
-if __name__ == "__main__":
-    test_history_diff_integration()

@@ -3,7 +3,7 @@ import orjson
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from .models import HistoryEntry
 
 DEFAULT_DB_PATH = os.path.expanduser("~/.promptc_history.db")
@@ -84,6 +84,43 @@ class HistoryManager:
             cur = conn.execute("SELECT * FROM history ORDER BY timestamp DESC LIMIT ?", (limit,))
             rows = cur.fetchall()
             return [self._row_to_entry(row) for row in rows]
+        finally:
+            conn.close()
+
+    def get_recent(self, limit: int = 20) -> List[HistoryEntry]:
+        """Compatibility alias for consumers that call the older query name."""
+        return self.list_recent(limit=limit)
+
+    def search(self, query: str, limit: int = 20) -> List[HistoryEntry]:
+        """Search prompt text, source, and serialized metadata."""
+        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped_query}%"
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT *
+                FROM history
+                WHERE prompt_text LIKE ? ESCAPE '\\'
+                   OR source LIKE ? ESCAPE '\\'
+                   OR metadata LIKE ? ESCAPE '\\'
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (pattern, pattern, pattern, limit),
+            )
+            return [self._row_to_entry(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Return aggregate statistics used by the history CLI."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*), MIN(timestamp), MAX(timestamp) FROM history"
+            ).fetchone()
+            return {"total": row[0], "first": row[1], "last": row[2]}
         finally:
             conn.close()
 

@@ -12,23 +12,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
 from app.favorites import get_favorites_manager
-
-
-def get_history_manager():
-    """Stub for removed history manager."""
-
-    class HistoryManagerStub:
-        def get_by_id(self, *args, **kwargs):
-            return None
-
-        def _save(self):
-            pass
-
-        @property
-        def entries(self):
-            return []
-
-    return HistoryManagerStub()
+from app.history import get_history_manager
 
 
 console = Console()
@@ -86,15 +70,18 @@ class QuickEditor:
 
         info_text = f"[bold cyan]ID:[/bold cyan] {prompt_dict.get('id', 'N/A')}\n"
         info_text += f"[bold cyan]Timestamp:[/bold cyan] {prompt_dict.get('timestamp', 'N/A')}\n"
-        info_text += f"[bold cyan]Domain:[/bold cyan] {prompt_dict.get('domain', 'N/A')}\n"
-        info_text += f"[bold cyan]Language:[/bold cyan] {prompt_dict.get('language', 'N/A')}\n"
+        if source == "history":
+            info_text += f"[bold cyan]Source:[/bold cyan] {prompt_dict.get('source', 'N/A')}\n"
+        else:
+            info_text += f"[bold cyan]Domain:[/bold cyan] {prompt_dict.get('domain', 'N/A')}\n"
+            info_text += f"[bold cyan]Language:[/bold cyan] {prompt_dict.get('language', 'N/A')}\n"
         info_text += f"[bold cyan]Score:[/bold cyan] {prompt_dict.get('score', 0.0)}\n"
 
         console.print(Panel(info_text, title="📋 Current Prompt Info", border_style="cyan"))
 
         console.print("\n[bold yellow]What would you like to edit?[/bold yellow]")
         console.print("1. Prompt text")
-        console.print("2. Domain and Language")
+        console.print("2. Source" if source == "history" else "2. Domain and Language")
         console.print("3. Tags")
 
         choice = Prompt.ask("\n[cyan]Choose option[/cyan]", choices=["1", "2", "3"], default="1")
@@ -117,31 +104,46 @@ class QuickEditor:
                     changes_made = True
 
         elif choice == "2":
-            console.print("\n[bold]Edit Domain and Language:[/bold]")
+            if source == "history":
+                new_source = Prompt.ask(
+                    "[cyan]Source[/cyan]", default=prompt_dict.get("source", "user")
+                )
+                if new_source != prompt_dict.get("source", ""):
+                    prompt_dict["source"] = new_source
+                    changes_made = True
+            else:
+                console.print("\n[bold]Edit Domain and Language:[/bold]")
 
-            new_domain = Prompt.ask(
-                "[cyan]Domain[/cyan]", default=prompt_dict.get("domain", "general")
-            )
-            new_language = Prompt.ask(
-                "[cyan]Language[/cyan]", default=prompt_dict.get("language", "en")
-            )
+                new_domain = Prompt.ask(
+                    "[cyan]Domain[/cyan]", default=prompt_dict.get("domain", "general")
+                )
+                new_language = Prompt.ask(
+                    "[cyan]Language[/cyan]", default=prompt_dict.get("language", "en")
+                )
 
-            if new_domain != prompt_dict.get("domain", ""):
-                prompt_dict["domain"] = new_domain
-                changes_made = True
-            if new_language != prompt_dict.get("language", ""):
-                prompt_dict["language"] = new_language
-                changes_made = True
+                if new_domain != prompt_dict.get("domain", ""):
+                    prompt_dict["domain"] = new_domain
+                    changes_made = True
+                if new_language != prompt_dict.get("language", ""):
+                    prompt_dict["language"] = new_language
+                    changes_made = True
 
         elif choice == "3":
             console.print("\n[bold]Edit Tags:[/bold]")
 
-            current_tags = ", ".join(prompt_dict.get("tags", []))
+            if source == "history":
+                current_tags_list = prompt_dict.get("metadata", {}).get("tags", [])
+            else:
+                current_tags_list = prompt_dict.get("tags", [])
+            current_tags = ", ".join(current_tags_list)
             new_tags_str = Prompt.ask("[cyan]Tags (comma-separated)[/cyan]", default=current_tags)
             new_tags = [tag.strip() for tag in new_tags_str.split(",") if tag.strip()]
 
-            if new_tags != prompt_dict.get("tags", []):
-                prompt_dict["tags"] = new_tags
+            if new_tags != current_tags_list:
+                if source == "history":
+                    prompt_dict.setdefault("metadata", {})["tags"] = new_tags
+                else:
+                    prompt_dict["tags"] = new_tags
                 changes_made = True
 
         if not changes_made:
@@ -149,14 +151,14 @@ class QuickEditor:
             return False
 
         if source == "history":
-            for entry in self.history_manager.entries:
-                if entry.id == prompt_id:
-                    entry.prompt_text = prompt_dict.get("prompt_text", entry.prompt_text)
-                    entry.domain = prompt_dict.get("domain", entry.domain)
-                    entry.language = prompt_dict.get("language", entry.language)
-                    entry.tags = prompt_dict.get("tags", entry.tags)
-                    break
-            self.history_manager._save()
+            entry = self.history_manager.get_by_id(prompt_id)
+            if entry is None:
+                console.print(f"\n[red]❌ Prompt not found:[/red] {prompt_id}\n")
+                return False
+            entry.prompt_text = prompt_dict.get("prompt_text", entry.prompt_text)
+            entry.source = prompt_dict.get("source", entry.source)
+            entry.metadata = prompt_dict.get("metadata", entry.metadata)
+            self.history_manager.save(entry)
         else:
             for entry in self.favorites_manager.entries:
                 if entry.id == prompt_id:
