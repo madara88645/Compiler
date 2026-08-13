@@ -20,6 +20,14 @@ def test_no_new_sections_returns_existing_unchanged():
     assert merge_claude_md(existing, generated) == existing
 
 
+def test_heading_whitespace_normalization_prevents_duplicate_append():
+    existing = "# Guide\n\n##   Team    Practices   \nkeep existing\n"
+    generated = "# Gen\n\n## team\tpractices\t\nshould not append\n\n## Deploy\nship it\n"
+    merged = merge_claude_md(existing, generated)
+    assert "should not append" not in merged
+    assert "## Deploy\nship it" in merged
+
+
 def test_idempotent():
     existing = "# G\n\n## Setup\na\n"
     generated = "# Gen\n\n## Setup\na\n\n## Deploy\nb\n"

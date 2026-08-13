@@ -166,3 +166,32 @@ def test_repo_aware_report_adds_advisory_repository_section():
     assert "`.github/workflows/ci.yml` (CI)" in md
     assert "`pytest -q` (from `Makefile`)" in md
     assert "python (fastapi)" in md
+
+
+def test_repo_aware_report_with_no_signals_shows_empty_advisory_fallback():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(source="local_checkout"),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "## Repository signals (advisory)" in md
+    assert "- Source: local checkout" in md
+    assert "- No repository-specific signals detected" in md
+
+
+def test_repo_aware_report_with_warnings_omits_empty_advisory_fallback():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(
+            source="local_checkout",
+            warnings=["Could not parse .github/workflows/ci.yml"],
+        ),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "### Collection warnings" in md
+    assert "- Could not parse .github/workflows/ci.yml" in md
+    assert "- No repository-specific signals detected" not in md
