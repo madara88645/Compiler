@@ -11,3 +11,7 @@ class HistoryEntry(BaseModel):
     parent_id: Optional[str] = Field(default=None, max_length=100)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     score: Optional[float] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a JSON-serializable representation for CLI consumers."""
+        return self.model_dump(mode="json")

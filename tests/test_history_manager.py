@@ -86,6 +86,42 @@ def test_list_recent(manager):
     assert len(all_recent) == 5
 
 
+def test_search_and_stats_use_the_real_sqlite_store(manager):
+    manager.save(
+        HistoryEntry(
+            id="optimizer-entry",
+            prompt_text="Explain retry budgets clearly",
+            source="evolution",
+            score=87.5,
+            metadata={"run_id": "run-1"},
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="user-entry",
+            prompt_text="Draft a release note",
+            source="user",
+        )
+    )
+
+    matches = manager.search("retry", limit=10)
+    stats = manager.get_stats()
+
+    assert [entry.id for entry in matches] == ["optimizer-entry"]
+    assert stats["total"] == 2
+    assert stats["first"] is not None
+    assert stats["last"] is not None
+
+
+def test_history_entry_to_dict_is_cli_serializable():
+    entry = HistoryEntry(id="json-entry", prompt_text="JSON ready")
+
+    payload = entry.to_dict()
+
+    assert payload["id"] == "json-entry"
+    assert isinstance(payload["timestamp"], str)
+
+
 def test_get_history_manager_singleton(monkeypatch, temp_db_path):
     # Mock default arg in __init__ instead of module constant because the
     # module constant is likely already evaluated at import time by Python.

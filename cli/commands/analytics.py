@@ -10,32 +10,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from app.analytics import AnalyticsManager, create_record_from_ir
-
-# from app.history import get_history_manager
+from app.history import get_history_manager
 from app.compiler import compile_text_v2
 from app.validator import validate_prompt
-
-
-def get_history_manager():
-    """Stub for removed history manager."""
-
-    class HistoryManagerStub:
-        def get_by_domain(self, *args, **kwargs):
-            return []
-
-        def get_recent(self, *args, **kwargs):
-            return []
-
-        def search(self, *args, **kwargs):
-            return []
-
-        def get_by_id(self, *args, **kwargs):
-            return None
-
-        def get_stats(self):
-            return {"total": 0}
-
-    return HistoryManagerStub()
 
 
 analytics_app = typer.Typer(help="Prompt analytics and metrics")
@@ -499,7 +476,7 @@ def analytics_clean(
 @history_app.command("list")
 def history_list(
     limit: int = typer.Option(10, help="Number of entries to show"),
-    domain: Optional[str] = typer.Option(None, help="Filter by domain"),
+    source: Optional[str] = typer.Option(None, help="Filter by entry source"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
     """
@@ -508,11 +485,9 @@ def history_list(
     console = Console()
     history_mgr = get_history_manager()
 
-    # Get entries
-    if domain:
-        entries = history_mgr.get_by_domain(domain, limit=limit)
-    else:
-        entries = history_mgr.get_recent(limit=limit)
+    entries = history_mgr.get_recent(limit=limit)
+    if source:
+        entries = [entry for entry in entries if entry.source == source]
 
     if not entries:
         console.print("[yellow]No history entries found[/yellow]")
@@ -529,16 +504,15 @@ def history_list(
     console.print(f"\n[bold cyan]Prompt History[/bold cyan] [dim](Last {limit})[/dim]\n")
 
     table = Table(show_header=True)
-    table.add_column("ID", style="dim", width=12)
+    table.add_column("ID", style="dim", width=8)
     table.add_column("Date", style="cyan", width=10)
     table.add_column("Score", justify="right", style="yellow", width=6)
-    table.add_column("Domain", style="magenta", width=12)
-    table.add_column("Lang", width=4)
-    table.add_column("Prompt", style="dim", width=50)
+    table.add_column("Source", style="magenta", width=9)
+    table.add_column("Prompt", style="dim", width=36)
 
     for entry in entries:
         # Format date
-        date_str = entry.timestamp[:10]
+        date_str = entry.timestamp.date().isoformat()
 
         # Truncate prompt
         prompt_preview = entry.prompt_text.replace("\n", " ")[:50]
@@ -546,21 +520,21 @@ def history_list(
             prompt_preview += "..."
 
         # Score color
-        if entry.score >= 80:
+        score = entry.score or 0.0
+        if score >= 80:
             score_style = "green"
-        elif entry.score >= 60:
+        elif score >= 60:
             score_style = "yellow"
         else:
-            score_style = "red" if entry.score > 0 else "dim"
+            score_style = "red" if score > 0 else "dim"
 
-        score_str = f"{entry.score:.1f}" if entry.score > 0 else "—"
+        score_str = f"{score:.1f}" if score > 0 else "—"
 
         table.add_row(
             entry.id[:8],
             date_str,
             f"[{score_style}]{score_str}[/{score_style}]",
-            entry.domain,
-            entry.language.upper(),
+            entry.source,
             prompt_preview,
         )
 
@@ -589,11 +563,11 @@ def history_search(
     table = Table(show_header=True)
     table.add_column("ID", style="dim", width=12)
     table.add_column("Date", style="cyan", width=10)
-    table.add_column("Domain", style="magenta", width=12)
+    table.add_column("Source", style="magenta", width=12)
     table.add_column("Prompt", style="white", width=60)
 
     for entry in entries:
-        date_str = entry.timestamp[:10]
+        date_str = entry.timestamp.date().isoformat()
         prompt_preview = entry.prompt_text.replace("\n", " ")[:60]
         if len(entry.prompt_text) > 60:
             prompt_preview += "..."
@@ -608,7 +582,7 @@ def history_search(
             flags=re.IGNORECASE,
         )
 
-        table.add_row(entry.id[:8], date_str, entry.domain, highlighted)
+        table.add_row(entry.id[:8], date_str, entry.source, highlighted)
 
     console.print(table)
 
@@ -632,12 +606,11 @@ def history_show(entry_id: str = typer.Argument(..., help="Entry ID")):
 
     info = (
         f"[cyan]Date:[/cyan] {entry.timestamp}\n"
-        f"[cyan]Domain:[/cyan] {entry.domain}\n"
-        f"[cyan]Language:[/cyan] {entry.language}\n"
-        f"[cyan]IR Version:[/cyan] {entry.ir_version}\n"
+        f"[cyan]Source:[/cyan] {entry.source}\n"
+        f"[cyan]Parent ID:[/cyan] {entry.parent_id or 'N/A'}\n"
     )
 
-    if entry.score > 0:
+    if entry.score is not None and entry.score > 0:
         score_color = "green" if entry.score >= 80 else "yellow"
         info += f"[cyan]Score:[/cyan] [{score_color}]{entry.score:.1f}[/{score_color}]\n"
 

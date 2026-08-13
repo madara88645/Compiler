@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 
 import click
 
+from app.history import HistoryEntry, HistoryManager
 from app.quick_edit import QuickEditor
 
 
@@ -71,20 +72,29 @@ def test_get_quick_editor_singleton():
     assert inst1 is inst2
 
 
-def test_quick_editor_find_prompt():
+def test_quick_editor_find_prompt_reads_real_history_store(tmp_path, monkeypatch):
+    history_manager = HistoryManager(str(tmp_path / "history.db"))
+    history_manager.save(
+        HistoryEntry(
+            id="h1",
+            prompt_text="history text",
+            source="evolution",
+            metadata={"run_id": "run-1"},
+        )
+    )
+
+    monkeypatch.setattr("app.quick_edit.get_history_manager", lambda: history_manager)
     editor = QuickEditor()
-    editor.history_manager = MagicMock()
     editor.favorites_manager = MagicMock()
 
-    h_entry = MockEntry("h1", "history text")
     f_entry = MockEntry("f1", "favorites text")
 
-    editor.history_manager.get_by_id.side_effect = lambda x: h_entry if x == "h1" else None
     editor.favorites_manager.get_by_id.side_effect = lambda x: f_entry if x == "f1" else None
 
     # Find in history
     p, src = editor.find_prompt("h1")
     assert p["prompt_text"] == "history text"
+    assert p["source"] == "evolution"
     assert src == "history"
 
     # Find in favorites
@@ -96,6 +106,23 @@ def test_quick_editor_find_prompt():
     p, src = editor.find_prompt("nonexistent")
     assert p is None
     assert src is None
+
+
+@patch("rich.prompt.Prompt.ask")
+@patch("rich.prompt.Confirm.ask")
+def test_quick_editor_persists_history_text_edit(mock_confirm, mock_ask, tmp_path, monkeypatch):
+    history_manager = HistoryManager(str(tmp_path / "history.db"))
+    history_manager.save(HistoryEntry(id="h1", prompt_text="before"))
+    monkeypatch.setattr("app.quick_edit.get_history_manager", lambda: history_manager)
+
+    editor = QuickEditor()
+    mock_ask.side_effect = ["1"]
+    mock_confirm.return_value = True
+
+    with patch.object(editor, "edit_text_in_editor", return_value="after"):
+        assert editor.edit_prompt("h1") is True
+
+    assert history_manager.get_by_id("h1").prompt_text == "after"
 
 
 @patch("rich.prompt.Prompt.ask")
@@ -118,23 +145,24 @@ def test_edit_prompt_no_changes(mock_confirm, mock_ask):
 
 @patch("rich.prompt.Prompt.ask")
 @patch("rich.prompt.Confirm.ask")
-def test_edit_prompt_text_external_editor(mock_confirm, mock_ask):
+def test_edit_favorite_text_external_editor(mock_confirm, mock_ask):
     editor = QuickEditor()
     editor.history_manager = MagicMock()
     editor.favorites_manager = MagicMock()
 
-    entry = MockEntry("h1", "hello")
-    editor.history_manager.get_by_id.return_value = entry
-    editor.history_manager.entries = [entry]
+    editor.history_manager.get_by_id.return_value = None
+    entry = MockEntry("f1", "hello")
+    editor.favorites_manager.get_by_id.return_value = entry
+    editor.favorites_manager.entries = [entry]
 
     # Choice 1, confirm edit, editor returns new text
     mock_ask.side_effect = ["1"]
     mock_confirm.return_value = True
     with patch.object(editor, "edit_text_in_editor", return_value="hello modified"):
-        res = editor.edit_prompt("h1")
+        res = editor.edit_prompt("f1")
         assert res is True
         assert entry.prompt_text == "hello modified"
-        editor.history_manager._save.assert_called_once()
+        editor.favorites_manager._save.assert_called_once()
 
 
 @patch("rich.prompt.Prompt.ask")
@@ -160,42 +188,39 @@ def test_edit_prompt_text_manual(mock_confirm, mock_ask):
 
 
 @patch("rich.prompt.Prompt.ask")
-def test_edit_prompt_domain_and_language(mock_ask):
+def test_edit_favorite_domain_and_language(mock_ask):
     editor = QuickEditor()
     editor.history_manager = MagicMock()
     editor.favorites_manager = MagicMock()
 
-    entry = MockEntry("h1", "hello", domain="general", language="en")
-    editor.history_manager.get_by_id.return_value = entry
-    editor.history_manager.entries = [entry]
+    editor.history_manager.get_by_id.return_value = None
+    entry = MockEntry("f1", "hello", domain="general", language="en")
+    editor.favorites_manager.get_by_id.return_value = entry
+    editor.favorites_manager.entries = [entry]
 
     # Choice 2, enter new domain and language
     mock_ask.side_effect = ["2", "tech", "tr"]
 
-    res = editor.edit_prompt("h1")
+    res = editor.edit_prompt("f1")
     assert res is True
     assert entry.domain == "tech"
     assert entry.language == "tr"
-    editor.history_manager._save.assert_called_once()
+    editor.favorites_manager._save.assert_called_once()
 
 
 @patch("rich.prompt.Prompt.ask")
-def test_edit_prompt_tags(mock_ask):
+def test_edit_history_tags(mock_ask, tmp_path, monkeypatch):
+    history_manager = HistoryManager(str(tmp_path / "history.db"))
+    history_manager.save(HistoryEntry(id="h1", prompt_text="hello", metadata={"tags": ["tag1"]}))
+    monkeypatch.setattr("app.quick_edit.get_history_manager", lambda: history_manager)
     editor = QuickEditor()
-    editor.history_manager = MagicMock()
-    editor.favorites_manager = MagicMock()
-
-    entry = MockEntry("h1", "hello", tags=["tag1"])
-    editor.history_manager.get_by_id.return_value = entry
-    editor.history_manager.entries = [entry]
 
     # Choice 3, enter new tags
     mock_ask.side_effect = ["3", "tag1, tag2, tag3"]
 
     res = editor.edit_prompt("h1")
     assert res is True
-    assert entry.tags == ["tag1", "tag2", "tag3"]
-    editor.history_manager._save.assert_called_once()
+    assert history_manager.get_by_id("h1").metadata["tags"] == ["tag1", "tag2", "tag3"]
 
 
 def test_edit_prompt_not_found(capsys):
