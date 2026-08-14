@@ -1,3 +1,6 @@
+import json
+from datetime import datetime, timedelta
+
 from typer.testing import CliRunner
 
 from app.history import HistoryEntry, HistoryManager
@@ -49,13 +52,44 @@ def test_history_cli_json_serializes_real_entries(tmp_path, monkeypatch):
 
 def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
     manager = HistoryManager(str(tmp_path / "history.db"))
-    manager.save(HistoryEntry(id="evolution-entry", prompt_text="Planner hint", source="evolution"))
+    base = datetime(2026, 1, 1, 12, 0, 0)
+    manager.save(
+        HistoryEntry(
+            id="evolution-oldest",
+            prompt_text="Planner hint oldest",
+            source="evolution",
+            timestamp=base,
+        )
+    )
     for i in range(12):
-        manager.save(HistoryEntry(id=f"user-{i}", prompt_text=f"user prompt {i}", source="user"))
+        manager.save(
+            HistoryEntry(
+                id=f"user-{i}",
+                prompt_text=f"user prompt {i}",
+                source="user",
+                timestamp=base + timedelta(minutes=i + 1),
+            )
+        )
+    manager.save(
+        HistoryEntry(
+            id="evolution-middle",
+            prompt_text="Planner hint middle",
+            source="evolution",
+            timestamp=base + timedelta(minutes=20),
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="evolution-newest",
+            prompt_text="Planner hint newest",
+            source="evolution",
+            timestamp=base + timedelta(minutes=21),
+        )
+    )
     monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
 
-    result = runner.invoke(app, ["history", "list", "--source", "evolution"])
+    result = runner.invoke(app, ["history", "list", "--source", "evolution", "--json", "--limit", "2"])
 
     assert result.exit_code == 0, result.exception
-    assert "Planner hint" in result.stdout
-    assert "No history entries found" not in result.stdout
+    payload = json.loads(result.stdout)
+    assert [entry["id"] for entry in payload] == ["evolution-newest", "evolution-middle"]

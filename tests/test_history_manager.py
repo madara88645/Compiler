@@ -1,6 +1,8 @@
-import pytest
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 from app.history.manager import HistoryManager
 from app.history.models import HistoryEntry
@@ -87,13 +89,44 @@ def test_list_recent(manager):
 
 
 def test_list_recent_by_source_filters_before_limit(manager):
-    manager.save(HistoryEntry(id="evolution-entry", prompt_text="Planner hint", source="evolution"))
+    base = datetime(2026, 1, 1, 12, 0, 0)
+    manager.save(
+        HistoryEntry(
+            id="evolution-oldest",
+            prompt_text="Planner hint oldest",
+            source="evolution",
+            timestamp=base,
+        )
+    )
     for i in range(12):
-        manager.save(HistoryEntry(id=f"user-{i}", prompt_text=f"User prompt {i}", source="user"))
+        manager.save(
+            HistoryEntry(
+                id=f"user-{i}",
+                prompt_text=f"User prompt {i}",
+                source="user",
+                timestamp=base + timedelta(minutes=i + 1),
+            )
+        )
+    manager.save(
+        HistoryEntry(
+            id="evolution-middle",
+            prompt_text="Planner hint middle",
+            source="evolution",
+            timestamp=base + timedelta(minutes=20),
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="evolution-newest",
+            prompt_text="Planner hint newest",
+            source="evolution",
+            timestamp=base + timedelta(minutes=21),
+        )
+    )
 
-    entries = manager.list_recent_by_source("evolution", limit=10)
+    entries = manager.list_recent_by_source("evolution", limit=2)
 
-    assert [entry.id for entry in entries] == ["evolution-entry"]
+    assert [entry.id for entry in entries] == ["evolution-newest", "evolution-middle"]
 
 
 def test_search_and_stats_use_the_real_sqlite_store(manager):
