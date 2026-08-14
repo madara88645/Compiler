@@ -485,9 +485,10 @@ def history_list(
     console = Console()
     history_mgr = get_history_manager()
 
-    entries = history_mgr.get_recent(limit=limit)
     if source:
-        entries = [entry for entry in entries if entry.source == source]
+        entries = history_mgr.list_recent_by_source(source, limit=limit)
+    else:
+        entries = history_mgr.get_recent(limit=limit)
 
     if not entries:
         console.print("[yellow]No history entries found[/yellow]")

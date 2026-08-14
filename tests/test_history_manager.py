@@ -86,6 +86,16 @@ def test_list_recent(manager):
     assert len(all_recent) == 5
 
 
+def test_list_recent_by_source_filters_before_limit(manager):
+    manager.save(HistoryEntry(id="evolution-entry", prompt_text="Planner hint", source="evolution"))
+    for i in range(12):
+        manager.save(HistoryEntry(id=f"user-{i}", prompt_text=f"User prompt {i}", source="user"))
+
+    entries = manager.list_recent_by_source("evolution", limit=10)
+
+    assert [entry.id for entry in entries] == ["evolution-entry"]
+
+
 def test_search_and_stats_use_the_real_sqlite_store(manager):
     manager.save(
         HistoryEntry(

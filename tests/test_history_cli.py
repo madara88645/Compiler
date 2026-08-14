@@ -45,3 +45,17 @@ def test_history_cli_json_serializes_real_entries(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.exception
     assert '"id": "json-entry"' in result.stdout
+
+
+def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
+    manager = HistoryManager(str(tmp_path / "history.db"))
+    manager.save(HistoryEntry(id="evolution-entry", prompt_text="Planner hint", source="evolution"))
+    for i in range(12):
+        manager.save(HistoryEntry(id=f"user-{i}", prompt_text=f"user prompt {i}", source="user"))
+    monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
+
+    result = runner.invoke(app, ["history", "list", "--source", "evolution"])
+
+    assert result.exit_code == 0, result.exception
+    assert "Planner hint" in result.stdout
+    assert "No history entries found" not in result.stdout

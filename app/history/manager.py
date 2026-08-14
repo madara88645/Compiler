@@ -91,6 +91,19 @@ class HistoryManager:
         """Compatibility alias for consumers that call the older query name."""
         return self.list_recent(limit=limit)
 
+    def list_recent_by_source(self, source: str, limit: int = 20) -> List[HistoryEntry]:
+        """Return the most recent entries for a specific source."""
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                "SELECT * FROM history WHERE source = ? ORDER BY timestamp DESC LIMIT ?",
+                (source, limit),
+            )
+            rows = cur.fetchall()
+            return [self._row_to_entry(row) for row in rows]
+        finally:
+            conn.close()
+
     def search(self, query: str, limit: int = 20) -> List[HistoryEntry]:
         """Search prompt text, source, and serialized metadata."""
         escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
