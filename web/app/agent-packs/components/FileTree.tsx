@@ -49,6 +49,7 @@ function FileTreeItem({ node, depth, selectedPath, onSelect, onDownloadFile }: F
         <button
           type="button"
           aria-expanded={expanded}
+          aria-label={node.name}
           onClick={() => setExpanded((value) => !value)}
           style={indent}
           className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs text-zinc-300 transition hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
@@ -86,6 +87,7 @@ function FileTreeItem({ node, depth, selectedPath, onSelect, onDownloadFile }: F
         type="button"
         onClick={() => onSelect(node.path)}
         style={indent}
+        aria-label={node.name}
         className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 ${
           active
             ? "bg-cyan-500/10 text-cyan-100"
