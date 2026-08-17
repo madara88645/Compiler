@@ -297,13 +297,17 @@ export default function AgentPacksPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="agent-pack-goal" className="text-sm font-medium text-zinc-300">
+              <label htmlFor="agent-pack-goal" className="text-sm font-medium text-zinc-300" id="agent-pack-goal-label">
                 What should Claude do?
               </label>
+              <p id="agent-pack-goal-help" className="sr-only">
+                Enter the primary goal, task, or role that you want the agent pack to accomplish.
+              </p>
               <div className="relative group">
               <textarea
                 id="agent-pack-goal"
-                aria-label="Agent Pack Goal"
+                aria-labelledby="agent-pack-goal-label"
+                aria-describedby="agent-pack-goal-help"
                 value={request.goal}
                 onChange={(event) => handleFieldChange("goal", event.target.value)}
                 className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 pr-14 font-mono text-sm leading-relaxed text-zinc-200 shadow-inner transition placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
