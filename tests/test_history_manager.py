@@ -113,6 +113,63 @@ def test_search_and_stats_use_the_real_sqlite_store(manager):
     assert stats["last"] is not None
 
 
+def test_search_treats_sql_wildcards_as_literal_characters(manager):
+    manager.save(
+        HistoryEntry(
+            id="percent-entry",
+            prompt_text="Keep budget under 50% for launch",
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="underscore-entry",
+            prompt_text="Prefer snake_case variable names",
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="plain-entry",
+            prompt_text="No wildcard characters live here",
+        )
+    )
+
+    percent_matches = manager.search("%", limit=10)
+    underscore_matches = manager.search("_", limit=10)
+
+    assert [entry.id for entry in percent_matches] == ["percent-entry"]
+    assert [entry.id for entry in underscore_matches] == ["underscore-entry"]
+
+
+def test_search_matches_source_and_metadata_fields(manager):
+    manager.save(
+        HistoryEntry(
+            id="metadata-entry",
+            prompt_text="Summarize notes",
+            source="evolution",
+            metadata={"run_id": "run-42"},
+        )
+    )
+
+    source_matches = manager.search("evolution", limit=10)
+    metadata_matches = manager.search("run-42", limit=10)
+
+    assert [entry.id for entry in source_matches] == ["metadata-entry"]
+    assert [entry.id for entry in metadata_matches] == ["metadata-entry"]
+
+
+def test_get_recent_is_a_compatibility_alias_for_list_recent(manager):
+    entries = [
+        HistoryEntry(id=f"recent-{index}", prompt_text=f"Prompt {index}")
+        for index in range(4)
+    ]
+    for entry in entries:
+        manager.save(entry)
+
+    assert [entry.id for entry in manager.get_recent(limit=3)] == [
+        entry.id for entry in manager.list_recent(limit=3)
+    ]
+
+
 def test_history_entry_to_dict_is_cli_serializable():
     entry = HistoryEntry(id="json-entry", prompt_text="JSON ready")
 
