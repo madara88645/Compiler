@@ -66,25 +66,11 @@ from cli.main import app
 runner = CliRunner()
 
 EXPECTED_TOP_LEVEL = {
-    "version",
-    "compile",
-    "validate",
-    "fix",
-    "compare",
-    "batch",
-    "pack",
-    "json-path",
-    "diff",
+    "version", "compile", "validate", "fix", "compare",
+    "batch", "pack", "json-path", "diff",
     # sub-apps mounted in cli/main.py:
-    "rag",
-    "template",
-    "analytics",
-    "history",
-    "test",
-    "optimize",
-    "github",
-    "plugins",
-    "profile",
+    "rag", "template", "analytics", "history", "test",
+    "optimize", "github", "plugins", "profile",
 }
 
 
@@ -134,7 +120,6 @@ def test_pack_md_smoke():
 
 ```python
 """Shared Typer app instance + CLI meta commands (version)."""
-
 from __future__ import annotations
 
 from typing import Optional
@@ -184,7 +169,6 @@ def version():
 
 ```python
 """Shared CLI output helpers."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -239,7 +223,6 @@ Kept for import-compatibility — `cli/main.py` and tests do
 `from cli.commands.core import app`. Command implementations live in the
 sibling modules imported below (imported for their registration side-effects).
 """
-
 from __future__ import annotations
 
 from cli.commands._base import app

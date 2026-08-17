@@ -727,7 +727,8 @@ async def optimize_endpoint(
 
         if optimized_cost.tokens > source_cost.tokens > 0:
             warnings.append(
-                "Optimized output uses more tokens than the input; consider keeping the original."
+                "Optimized output uses more tokens than the input; "
+                "consider keeping the original."
             )
 
         english_variant = ""

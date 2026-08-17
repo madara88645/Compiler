@@ -8,7 +8,7 @@ prompts = [
 ]
 
 for i, text in enumerate(prompts, 1):
-    print(f"\n{'=' * 50}\nTEST {i}: {text}\n{'=' * 50}")
+    print(f"\n{'='*50}\nTEST {i}: {text}\n{'='*50}")
     ir2 = compile_text_v2(text)
     system_prompt = emit_system_prompt_v2(ir2)
     user_prompt = emit_user_prompt_v2(ir2)

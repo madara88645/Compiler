@@ -54,9 +54,9 @@ def test_live_turkish_diacritic_input_stays_turkish(client: TestClient) -> None:
     data = _post_optimize(client, text)
 
     assert data["source_language"] == "tr"
-    assert detect_language(data["text"]) == "tr", (
-        f"Expected Turkish output but got: {data['text']!r}"
-    )
+    assert (
+        detect_language(data["text"]) == "tr"
+    ), f"Expected Turkish output but got: {data['text']!r}"
     assert "{{user_level}}" in data["text"], "Placeholder must survive optimization"
     assert data["english_variant"], "English compact variant should be populated for TR input"
     assert data["english_variant_tokens"] > 0

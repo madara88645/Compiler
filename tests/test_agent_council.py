@@ -45,7 +45,7 @@ class TestAgentCouncil(unittest.TestCase):
             # Verify Retrieval
             print(f"Retrieved {len(results)} snippets.")
             for r in results:
-                print(f" - Found: {r['path']} (Score: {r.get('score', 0):.2f})")
+                print(f" - Found: {r['path']} (Score: {r.get('score',0):.2f})")
 
             self.assertTrue(len(results) > 0)
             self.assertEqual(results[0]["path"], "auth.py")

@@ -165,7 +165,9 @@ def test_flags_camelcase_product_token():
 
 
 def test_known_tech_not_flagged():
-    refs = detect_unverifiable_references("build a FastAPI endpoint that stores rows in Postgres")
+    refs = detect_unverifiable_references(
+        "build a FastAPI endpoint that stores rows in Postgres"
+    )
     assert refs == []
 
 
@@ -189,50 +191,19 @@ import re
 # Well-known technologies that must NOT be flagged as unverifiable.
 KNOWN_TECH = frozenset(
     {
-        "aws",
-        "gcp",
-        "azure",
-        "openai",
-        "anthropic",
-        "openrouter",
-        "github",
-        "gitlab",
-        "docker",
-        "kubernetes",
-        "k8s",
-        "postgres",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "mongodb",
-        "redis",
-        "react",
-        "nextjs",
-        "fastapi",
-        "django",
-        "flask",
-        "express",
-        "node",
-        "nodejs",
-        "python",
-        "typescript",
-        "javascript",
-        "stripe",
-        "vercel",
-        "netlify",
-        "cloudflare",
-        "huggingface",
-        "pytorch",
-        "tensorflow",
-        "langchain",
-        "llamaindex",
-        "supabase",
-        "firebase",
+        "aws", "gcp", "azure", "openai", "anthropic", "openrouter", "github",
+        "gitlab", "docker", "kubernetes", "k8s", "postgres", "postgresql",
+        "mysql", "sqlite", "mongodb", "redis", "react", "nextjs", "fastapi",
+        "django", "flask", "express", "node", "nodejs", "python", "typescript",
+        "javascript", "stripe", "vercel", "netlify", "cloudflare", "huggingface",
+        "pytorch", "tensorflow", "langchain", "llamaindex", "supabase", "firebase",
     }
 )
 
 # "AcmeCloud SDK", "FooBar API", "Baz CLI" — a name followed by a product suffix.
-_SUFFIX_RE = re.compile(r"\b([A-Z][a-zA-Z0-9]+)\s+(SDK|API|CLI|Cloud|Platform|Service)\b")
+_SUFFIX_RE = re.compile(
+    r"\b([A-Z][a-zA-Z0-9]+)\s+(SDK|API|CLI|Cloud|Platform|Service)\b"
+)
 # Standalone CamelCase product tokens like "AcmeCloud", "FooBarHub".
 _CAMEL_RE = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-zA-Z0-9]+)+)\b")
 
@@ -483,7 +454,9 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
 
     risk_flags = [f for f in detect_risk_flags(text) if f in SENSITIVE_RISK]
     for flag in risk_flags:
-        signals.append(ReadinessSignal(kind="risk", message=f"Touches a sensitive area: {flag}."))
+        signals.append(
+            ReadinessSignal(kind="risk", message=f"Touches a sensitive area: {flag}.")
+        )
 
     references = detect_unverifiable_references(text)
     for ref in references:
@@ -500,9 +473,7 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
     is_vague = bool(ambiguous) or bool(lower_words & VAGUE_WORDS)
     if is_vague:
         signals.append(
-            ReadinessSignal(
-                kind="vagueness", message="The request is vague — specifics are missing."
-            )
+            ReadinessSignal(kind="vagueness", message="The request is vague — specifics are missing.")
         )
         for question in generate_clarify_questions(ambiguous):
             if question not in questions:

@@ -19,11 +19,9 @@ def test_jules_reply_endpoint_uses_latest_agent_message():
         ]
     }
 
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-        patch("app.routers.jules.generate_jules_reply") as mock_reply,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls, patch("app.routers.jules.generate_jules_reply") as mock_reply:
         mock_client = mock_client_cls.return_value
         mock_client.list_activities.return_value = activities
         mock_client.get_session.return_value = {}
@@ -59,10 +57,9 @@ def test_jules_sources_endpoint_requires_auth():
 
 
 def test_jules_sources_endpoint_closes_client_after_success():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.list_sources.return_value = {"sources": [{"name": "sources/github/acme/repo"}]}
 
@@ -94,11 +91,9 @@ def test_jules_reply_endpoint_supports_plan_generated_activities():
         ]
     }
 
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-        patch("app.routers.jules.generate_jules_reply") as mock_reply,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls, patch("app.routers.jules.generate_jules_reply") as mock_reply:
         mock_client = mock_client_cls.return_value
         mock_client.list_activities.return_value = activities
         mock_client.get_session.return_value = {}
@@ -132,11 +127,9 @@ def test_jules_reply_endpoint_passes_session_context_into_generation():
         "prompt": "Inspect the repo and answer the current agent question.",
     }
 
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-        patch("app.routers.jules.generate_jules_reply") as mock_reply,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls, patch("app.routers.jules.generate_jules_reply") as mock_reply:
         mock_client = mock_client_cls.return_value
         mock_client.list_activities.return_value = activities
         mock_client.get_session.return_value = session_data
@@ -172,10 +165,9 @@ def test_jules_reply_endpoint_missing_agent_activity():
         ]
     }
 
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.list_activities.return_value = activities
         mock_client.get_session.return_value = {}
@@ -193,10 +185,9 @@ def test_jules_reply_endpoint_missing_agent_activity():
 
 
 def test_jules_reply_endpoint_client_runtime_error():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.get_session.side_effect = RuntimeError("Failed to connect")
 
@@ -213,10 +204,9 @@ def test_jules_reply_endpoint_client_runtime_error():
 
 
 def test_jules_reply_endpoint_client_generic_error():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.get_session.side_effect = Exception("Unknown failure")
 
@@ -233,10 +223,9 @@ def test_jules_reply_endpoint_client_generic_error():
 
 
 def test_jules_create_session_success():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.create_session.return_value = {"id": "s-new-123"}
 
@@ -271,10 +260,9 @@ def test_jules_create_session_success():
 
 
 def test_jules_create_session_errors():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
 
         # 1. Runtime Error -> 500
@@ -294,10 +282,9 @@ def test_jules_create_session_errors():
 
 
 def test_jules_get_session_success():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.get_session.return_value = {"id": "s1", "title": "my title"}
 
@@ -309,10 +296,9 @@ def test_jules_get_session_success():
 
 
 def test_jules_get_session_errors():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
 
         mock_client.get_session.side_effect = RuntimeError("err")
@@ -324,10 +310,9 @@ def test_jules_get_session_errors():
 
 
 def test_jules_get_session_activities_success():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
         mock_client.list_activities.return_value = {"activities": []}
 
@@ -338,10 +323,9 @@ def test_jules_get_session_activities_success():
 
 
 def test_jules_get_session_activities_errors():
-    with (
-        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
-        patch("app.routers.jules.JulesClient") as mock_client_cls,
-    ):
+    with patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False), patch(
+        "app.routers.jules.JulesClient"
+    ) as mock_client_cls:
         mock_client = mock_client_cls.return_value
 
         mock_client.list_activities.side_effect = RuntimeError("err")
@@ -376,10 +360,9 @@ def test_generate_jules_reply_fallback_mode():
 def test_generate_jules_reply_api_call():
     from app.routers.jules import generate_jules_reply
 
-    with (
-        patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}, clear=False),
-        patch("app.routers.jules.WorkerClient") as mock_worker_cls,
-    ):
+    with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}, clear=False), patch(
+        "app.routers.jules.WorkerClient"
+    ) as mock_worker_cls:
         mock_worker = mock_worker_cls.return_value
         mock_worker._call_api.return_value = " LLM generated reply \n"
 

@@ -53,8 +53,8 @@ import re
 
 MARKER = "<!-- Added by Prompt Compiler: sections not already in your CLAUDE.md -->"
 
-_HEADING_RE = re.compile(r"^##[ \t]+(.+?)\s*$")  # level-2 only; "##Foo" (no space) is NOT a heading
-_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")  # >=3 backticks or tildes after leading whitespace
+_HEADING_RE = re.compile(r"^##[ \t]+(.+?)\s*$")   # level-2 only; "##Foo" (no space) is NOT a heading
+_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")          # >=3 backticks or tildes after leading whitespace
 
 
 def _heading_key(text: str) -> str:
@@ -99,12 +99,12 @@ def _iter_sections(md: str) -> list[tuple[str, str]]:
 
 
 def merge_claude_md(existing: str, generated: str) -> str:
-    seen = {k for k, _ in _iter_sections(existing)}  # existing headings (fence-aware)
+    seen = {k for k, _ in _iter_sections(existing)}   # existing headings (fence-aware)
     new_sections: list[str] = []
     for key, text in _iter_sections(generated):
-        if key in seen:  # already in the user's file OR already chosen this run
+        if key in seen:          # already in the user's file OR already chosen this run
             continue
-        seen.add(key)  # de-dupe within generated too (keep first)
+        seen.add(key)            # de-dupe within generated too (keep first)
         new_sections.append(text.rstrip())
     if not new_sections:
         return existing

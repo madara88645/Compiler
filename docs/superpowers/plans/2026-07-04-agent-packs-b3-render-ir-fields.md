@@ -135,7 +135,9 @@ def render_mcp_json(server_names: list[str]) -> str | None:
     for deterministic output; unregistered names are ignored.
     """
     selected = {
-        name: config for name, config in MCP_SERVER_REGISTRY.items() if name in server_names
+        name: config
+        for name, config in MCP_SERVER_REGISTRY.items()
+        if name in server_names
     }
     if not selected:
         return None
@@ -347,7 +349,7 @@ def test_hooks_example_shape_and_shell_safety():
 
     from app.adapters.claude_code import _hooks_example_json
 
-    tricky = 'Run tests after code edits: it\'s `safe` $HOME "ok"'
+    tricky = "Run tests after code edits: it's `safe` $HOME \"ok\""
     ir = AgentExportIR(name="X", hook_suggestions=[tricky])
     content = _hooks_example_json(ir)
     data = json.loads(content)
