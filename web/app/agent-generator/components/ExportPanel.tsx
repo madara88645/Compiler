@@ -233,6 +233,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-controls={panelId}
+        aria-label={isOpen ? "Collapse export options" : "Expand export options"}
         className="w-full flex items-center justify-between px-2 py-1 group"
       >
         <div className="flex items-center gap-2">
