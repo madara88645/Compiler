@@ -144,7 +144,7 @@ def test_detect_story_structure_save_the_cat():
     handler = DomainHandler()
     structures = DOMAIN_RULES["creative_writing"]["structures"]
     text_lower = (
-        "following the save the cat beat sheet, the opening image sets the theme stated clearly."
+        "following the save the cat beat sheet, the opening image sets the theme " "stated clearly."
     )
 
     assert handler._detect_story_structure(text_lower, structures) == "save_the_cat"

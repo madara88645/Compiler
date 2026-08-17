@@ -56,7 +56,11 @@ def test_sections_render_in_fixed_order_and_are_joined_by_newline():
     )
     result = emit_user_prompt_v2(ir)
     assert result == (
-        "Goals:\n- g1\nTasks:\n- t1\nInputs:\n- k: v\nTools:\n- tool1\nExamples:\n---\nex1\n---"
+        "Goals:\n- g1\n"
+        "Tasks:\n- t1\n"
+        "Inputs:\n- k: v\n"
+        "Tools:\n- tool1\n"
+        "Examples:\n---\nex1\n---"
     )
 
 

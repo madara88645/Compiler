@@ -198,9 +198,9 @@ def test_analyze_public_github_repo_uses_ref_and_subdir_cache_key(monkeypatch):
     assert first == second
     assert third["requested_ref"] == "v4"
     assert "summary_compact" in first and first["summary_compact"]
-    assert call_log.count("/repos/openai/openai-python") == 2, (
-        f"expected GitHub API to be hit twice for two refs, got call log: {call_log}"
-    )
+    assert (
+        call_log.count("/repos/openai/openai-python") == 2
+    ), f"expected GitHub API to be hit twice for two refs, got call log: {call_log}"
     assert call_log.count("/repos/openai/openai-python/contents?ref=main") == 1
     assert call_log.count("/repos/openai/openai-python/contents?ref=v4") == 1
 
@@ -264,9 +264,9 @@ def test_analyze_public_github_repo_uses_in_memory_cache_for_root_url(monkeypatc
     assert first == second
     assert first["requested_ref"] is None
     assert first["requested_subdir"] is None
-    assert call_log.count("/repos/openai/openai-python") == 1, (
-        f"expected GitHub API to be hit once for root URL, got call log: {call_log}"
-    )
+    assert (
+        call_log.count("/repos/openai/openai-python") == 1
+    ), f"expected GitHub API to be hit once for root URL, got call log: {call_log}"
 
     reset_repo_cache_for_tests()
 
@@ -652,12 +652,8 @@ def test_analyze_public_github_repo_authorization_leakage_regression(monkeypatch
     has_auth_client = any(k.lower() == "authorization" for k in captured_client_headers[1])
     has_auth_request = any(k.lower() == "authorization" for k in captured_request_headers[1])
 
-    assert not has_auth_client, (
-        f"Leakage detected: Authorization persisted in global client headers! Headers: {captured_client_headers[1]}"
-    )
-    assert not has_auth_request, (
-        f"Leakage detected: Authorization sent in second request! Headers: {captured_request_headers[1]}"
-    )
+    assert not has_auth_client, f"Leakage detected: Authorization persisted in global client headers! Headers: {captured_client_headers[1]}"
+    assert not has_auth_request, f"Leakage detected: Authorization sent in second request! Headers: {captured_request_headers[1]}"
 
 
 def test_close_github_http_client():

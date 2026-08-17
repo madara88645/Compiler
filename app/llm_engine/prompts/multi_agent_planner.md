@@ -68,7 +68,6 @@ When explicitly enabled by a later instruction, you MUST append this section aft
 ```python
 # Pseudo-code only. Replace TODO items with real project APIs.
 
-
 def run_swarm(mission_input):
     agent_1_output = agent_1_execute(mission_input)
     # TODO: Validate and transform Agent 1 output schema before handoff.

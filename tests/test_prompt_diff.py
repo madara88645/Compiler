@@ -323,8 +323,8 @@ def test_display_comparison(capsys):
     entry1 = MockEntry("id1", "hello\nworld")
     entry2 = MockEntry("id2", "hello\nthere\nworld")
 
-    comp.favorites.get_by_id.side_effect = lambda x: (
-        entry1 if x == "id1" else entry2 if x == "id2" else None
+    comp.favorites.get_by_id.side_effect = (
+        lambda x: entry1 if x == "id1" else entry2 if x == "id2" else None
     )
     comp.favorites.entries = [entry1, entry2]
 

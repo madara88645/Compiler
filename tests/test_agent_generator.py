@@ -103,9 +103,8 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
         time.sleep(1.0)
         return "# Agent System Prompt"
 
-    with (
-        patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01),
-        patch.object(client, "_call_api", side_effect=slow_call_api),
+    with patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01), patch.object(
+        client, "_call_api", side_effect=slow_call_api
     ):
         started_at = time.perf_counter()
         with pytest.raises(RuntimeError, match="Agent generation timed out after 0.01s."):
@@ -263,15 +262,15 @@ def test_single_agent_template_includes_new_sections():
     # Both enabled and disabled example-code modes should include the new sections.
     for include_example_code in (True, False):
         rendered = client._single_agent_prompt(include_example_code)
-        assert "## Tools & Integrations" in rendered, (
-            f"Missing '## Tools & Integrations' (include_example_code={include_example_code})"
-        )
-        assert "## Stop Conditions" in rendered, (
-            f"Missing '## Stop Conditions' (include_example_code={include_example_code})"
-        )
-        assert "## Self-Verification" in rendered, (
-            f"Missing '## Self-Verification' (include_example_code={include_example_code})"
-        )
+        assert (
+            "## Tools & Integrations" in rendered
+        ), f"Missing '## Tools & Integrations' (include_example_code={include_example_code})"
+        assert (
+            "## Stop Conditions" in rendered
+        ), f"Missing '## Stop Conditions' (include_example_code={include_example_code})"
+        assert (
+            "## Self-Verification" in rendered
+        ), f"Missing '## Self-Verification' (include_example_code={include_example_code})"
 
 
 def test_multi_agent_template_includes_topology_and_io():
@@ -281,18 +280,18 @@ def test_multi_agent_template_includes_topology_and_io():
 
     for include_example_code in (True, False):
         rendered = client._multi_agent_prompt(include_example_code)
-        assert "> **Topology:**" in rendered, (
-            f"Missing '> **Topology:**' declaration guidance (include_example_code={include_example_code})"
-        )
-        assert "## Inputs" in rendered, (
-            f"Missing '## Inputs' (include_example_code={include_example_code})"
-        )
-        assert "## Outputs" in rendered, (
-            f"Missing '## Outputs' (include_example_code={include_example_code})"
-        )
-        assert "## Swarm Stop Conditions" in rendered, (
-            f"Missing '## Swarm Stop Conditions' (include_example_code={include_example_code})"
-        )
+        assert (
+            "> **Topology:**" in rendered
+        ), f"Missing '> **Topology:**' declaration guidance (include_example_code={include_example_code})"
+        assert (
+            "## Inputs" in rendered
+        ), f"Missing '## Inputs' (include_example_code={include_example_code})"
+        assert (
+            "## Outputs" in rendered
+        ), f"Missing '## Outputs' (include_example_code={include_example_code})"
+        assert (
+            "## Swarm Stop Conditions" in rendered
+        ), f"Missing '## Swarm Stop Conditions' (include_example_code={include_example_code})"
 
 
 def test_example_code_strip_still_works():

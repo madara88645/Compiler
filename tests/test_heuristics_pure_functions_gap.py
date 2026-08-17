@@ -1,7 +1,6 @@
 """Direct unit tests for pure heuristic helpers that were previously only
 exercised indirectly through compile_text() integration tests.
 """
-
 from app.heuristics import (
     detect_coding_context,
     detect_recency,

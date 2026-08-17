@@ -38,8 +38,7 @@ def _is_noise(text: str) -> bool:
     words = _WORD_RE.findall(stripped)
     if not words:
         return True
-    # Bolt Optimization: all() generator is slow for string checks, issubset is much faster
-    if len(stripped) <= 20 and set(w.lower() for w in words).issubset(GREETINGS):
+    if len(stripped) <= 20 and all(w.lower() in GREETINGS for w in words):
         return True
     if _SYMBOL_RUN_RE.search(stripped) and len(words) <= 2:
         return True

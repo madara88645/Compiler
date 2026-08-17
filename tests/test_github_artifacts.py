@@ -249,9 +249,9 @@ def test_enforcement_checklist_high_risk_no_sanitization_rules_shows_only_gate()
     assert "## Enforcement Checklist" in artifact
     assert "**GATE:** Human review required before merge/deploy" in artifact
     checklist_lines = [line for line in artifact.splitlines() if line.startswith("- [ ]")]
-    assert len(checklist_lines) == 1, (
-        f"Expected exactly 1 checklist item (GATE only), got: {checklist_lines}"
-    )
+    assert (
+        len(checklist_lines) == 1
+    ), f"Expected exactly 1 checklist item (GATE only), got: {checklist_lines}"
 
 
 def test_enforcement_checklist_unknown_rule_uses_fallback_label():
