@@ -228,6 +228,15 @@ describe("Agent Packs page", () => {
     expect(screen.getByText(/so the generated files match your setup/i)).toBeTruthy();
   });
 
+  test("keeps the goal textarea tied to its visible label and helper copy", () => {
+    render(<AgentPacksPage />);
+
+    const goalTextarea = screen.getByLabelText("What should Claude do?");
+    expect(goalTextarea).toHaveAttribute("aria-labelledby", "agent-pack-goal-label");
+    expect(goalTextarea).toHaveAttribute("aria-describedby", "agent-pack-goal-help");
+    expect(goalTextarea).not.toHaveAttribute("aria-label");
+  });
+
   test("closing the preview clears the pack, checklist, and checked state", async () => {
     render(<AgentPacksPage />);
 
