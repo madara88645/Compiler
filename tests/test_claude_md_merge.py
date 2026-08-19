@@ -98,3 +98,13 @@ def test_crlf_existing_preserved():
     merged = merge_claude_md(existing, generated)
     assert merged.startswith("# Guide\r\n")
     assert "\r\n## Setup\r\nrun" in merged
+
+
+def test_heading_key_normalizes_internal_whitespace_before_deduping():
+    existing = "## Working   Approach\nkeep this body\n"
+    generated = "## Working\tApproach\nnew body should be dropped\n\n## Deploy\nship it\n"
+
+    merged = merge_claude_md(existing, generated)
+
+    assert "new body should be dropped" not in merged
+    assert "## Deploy\nship it" in merged
