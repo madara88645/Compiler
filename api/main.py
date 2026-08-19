@@ -87,7 +87,7 @@ async def log_requests(request, call_next):
 
     try:
         response = await call_next(request)
-    except Exception:
+    except Exception as exc:
         duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
         logger.exception(
             "request failed",
@@ -100,7 +100,13 @@ async def log_requests(request, call_next):
                 "api_key_owner": getattr(request.state, "api_key_owner", None),
             },
         )
-        raise
+        from fastapi import HTTPException
+
+        if isinstance(exc, HTTPException):
+            raise
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=500, content={"detail": "An internal error occurred."})
 
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
