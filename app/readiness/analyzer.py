@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import re
 
 from app.heuristics import (
@@ -67,6 +68,11 @@ def _policy_review(ir: object | None) -> tuple[str | None, bool]:
     return "Policy requires review: " + ", ".join(reasons) + ".", risk_level == "high"
 
 
+@functools.lru_cache(maxsize=1024)
+def _get_ambiguous_term_pattern(term: str) -> re.Pattern:
+    return re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+
+
 def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
     if _is_noise(text):
         return ReadinessReport(
@@ -103,9 +109,9 @@ def analyze_readiness(text: str, ir: object | None = None) -> ReadinessReport:
 
     ambiguous_raw = detect_ambiguous_terms(text)
     # Reject terms that only appear as substrings of longer tokens (e.g. "fast" in "FastAPI").
-    ambiguous = [
-        t for t in ambiguous_raw if re.search(r"\b" + re.escape(t) + r"\b", text, re.IGNORECASE)
-    ]
+    # Bolt Optimization: cache compiled regexes for individual terms to eliminate
+    # repetitive compilation overhead while preserving overlapping matches.
+    ambiguous = [t for t in ambiguous_raw if _get_ambiguous_term_pattern(t).search(text)]
     lower_words = set(re.findall(r"\b\w+\b", text.lower()))
     is_vague = bool(ambiguous) or bool(lower_words & VAGUE_WORDS)
     if is_vague:
