@@ -4,7 +4,6 @@ This module provides functionality to quickly edit prompts from history and favo
 including text editing, metadata updates, and re-compilation.
 """
 
-import click
 from typing import Any, Dict, Literal, Optional
 
 from rich.console import Console
@@ -50,11 +49,41 @@ class QuickEditor:
     def edit_text_in_editor(self, text: str) -> Optional[str]:
         """Open text in external editor and return edited content."""
         try:
+            import click
+
             return click.edit(text, require_save=True)
-        except click.ClickException as e:
-            console.print(f"[yellow]⚠️ Editor failed: {e}[/yellow]")
+        except ImportError:
+            console.print("[red]⚠️ The 'click' package is not installed. Editor unavailable.[/red]")
             return None
         except Exception as exc:
+            try:
+                import click
+
+                if isinstance(exc, click.ClickException):
+                    console.print(f"[yellow]⚠️ Editor failed: {exc}[/yellow]")
+                    return None
+            except ImportError:
+                pass
+            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
+            return None
+        except Exception as exc:
+            try:
+                import click
+
+                if isinstance(exc, click.ClickException):
+                    console.print(f"[yellow]⚠️ Editor failed: {exc}[/yellow]")
+                    return None
+            except ImportError:
+                pass
+            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
+            return None
+        except Exception as exc:
+            try:
+                if isinstance(exc, click.ClickException):
+                    console.print(f"[yellow]⚠️ Editor failed: {exc}[/yellow]")
+                    return None
+            except ImportError:
+                pass
             console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
             return None
 
