@@ -22,8 +22,8 @@ from app.pr_safety.models import (
     RiskyAreaHit,
     RiskyAreasSection,
     ScopeMatchSection,
-    TestCoverageSection,
-    TestGapSignal,
+    TestCoverageSection as CoverageSection,
+    TestGapSignal as GapSignal,
 )
 
 
@@ -48,9 +48,9 @@ def _full_report() -> PrSafetyReport:
                 )
             ],
         ),
-        test_coverage=TestCoverageSection(
+        test_coverage=CoverageSection(
             status="gap",
-            gaps=[TestGapSignal(file="app/auth.py", reason="missing test")],
+            gaps=[GapSignal(file="app/auth.py", reason="missing test")],
             test_files=["tests/test_auth.py"],
         ),
         branch_freshness=BranchFreshnessSection(
@@ -117,7 +117,7 @@ def test_empty_report_fallbacks():
         title="",
         changed_files=ChangedFilesSection(total=0, groups=[]),
         risky_areas=RiskyAreasSection(status="ok", hits=[]),
-        test_coverage=TestCoverageSection(status="ok", gaps=[], test_files=[]),
+        test_coverage=CoverageSection(status="ok", gaps=[], test_files=[]),
         branch_freshness=BranchFreshnessSection(status="unknown", commits_behind=None, notes=[]),
         scope_match=ScopeMatchSection(status="ok", notes=[]),
         recommendations=[],
@@ -166,3 +166,34 @@ def test_repo_aware_report_adds_advisory_repository_section():
     assert "`.github/workflows/ci.yml` (CI)" in md
     assert "`pytest -q` (from `Makefile`)" in md
     assert "python (fastapi)" in md
+
+
+def test_repo_aware_report_shows_warnings_without_empty_fallback():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(
+            source="local_checkout",
+            warnings=["Unable to parse CODEOWNERS from fixture checkout"],
+        ),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "## Repository signals (advisory)" in md
+    assert "### Collection warnings" in md
+    assert "- Unable to parse CODEOWNERS from fixture checkout" in md
+    assert "- No repository-specific signals detected" not in md
+
+
+def test_repo_aware_report_shows_empty_fallback_only_when_all_signals_are_empty():
+    report = RepoAwarePrSafetyReport(
+        **_full_report().model_dump(),
+        repo_signals=RepoSignalsSection(source="local_checkout"),
+    )
+
+    md = report_to_markdown(report)
+
+    assert "## Repository signals (advisory)" in md
+    assert "- Source: local checkout" in md
+    assert "- No repository-specific signals detected" in md
+    assert "### Collection warnings" not in md
