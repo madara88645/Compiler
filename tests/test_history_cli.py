@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from typer.testing import CliRunner
 
 from app.history import HistoryEntry, HistoryManager
@@ -45,3 +47,31 @@ def test_history_cli_json_serializes_real_entries(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.exception
     assert '"id": "json-entry"' in result.stdout
+
+
+def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
+    manager = HistoryManager(str(tmp_path / "history.db"))
+    base_time = datetime(2026, 8, 13, 12, 0, 0)
+    manager.save(
+        HistoryEntry(
+            id="matching-older",
+            prompt_text="Show this filtered entry",
+            source="evolution",
+            timestamp=base_time,
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="newer-other-source",
+            prompt_text="Hide this unfiltered entry",
+            source="user",
+            timestamp=base_time + timedelta(minutes=1),
+        )
+    )
+    monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
+
+    result = runner.invoke(app, ["history", "list", "--source", "evolution", "--limit", "1"])
+
+    assert result.exit_code == 0, result.exception
+    assert "Show this filtered entry" in result.stdout
+    assert "Hide this unfiltered entry" not in result.stdout
