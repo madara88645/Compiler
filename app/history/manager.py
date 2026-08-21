@@ -78,18 +78,24 @@ class HistoryManager:
         finally:
             conn.close()
 
-    def list_recent(self, limit: int = 20) -> List[HistoryEntry]:
+    def list_recent(self, limit: int = 20, source: Optional[str] = None) -> List[HistoryEntry]:
         conn = self._connect()
         try:
-            cur = conn.execute("SELECT * FROM history ORDER BY timestamp DESC LIMIT ?", (limit,))
+            if source:
+                cur = conn.execute(
+                    "SELECT * FROM history WHERE source = ? ORDER BY timestamp DESC LIMIT ?",
+                    (source, limit),
+                )
+            else:
+                cur = conn.execute("SELECT * FROM history ORDER BY timestamp DESC LIMIT ?", (limit,))
             rows = cur.fetchall()
             return [self._row_to_entry(row) for row in rows]
         finally:
             conn.close()
 
-    def get_recent(self, limit: int = 20) -> List[HistoryEntry]:
+    def get_recent(self, limit: int = 20, source: Optional[str] = None) -> List[HistoryEntry]:
         """Compatibility alias for consumers that call the older query name."""
-        return self.list_recent(limit=limit)
+        return self.list_recent(limit=limit, source=source)
 
     def search(self, query: str, limit: int = 20) -> List[HistoryEntry]:
         """Search prompt text, source, and serialized metadata."""
