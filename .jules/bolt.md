@@ -1,6 +1,3 @@
-## 2024-08-08 - Use built-in str.split and join instead of re.sub for collapsing spaces
-**Learning:** In Python, to optimize collapsing multiple consecutive whitespaces (spaces/tabs) into a single space, using `' '.join(text.split())` is significantly faster (~5-6x) than using a compiled regular expression like `re.sub(r'\s+', ' ', text).strip()`.
-**Action:** Replace `re.sub(r'\s+', ' ', text).strip()` with `' '.join(text.split())` for collapsing spaces in Python strings.
-## 2024-08-08 - Use built-in str.split and join instead of re.sub for collapsing spaces
-**Learning:** In Python, to optimize collapsing multiple consecutive whitespaces (spaces/tabs) into a single space, using `' '.join(text.split())` is significantly faster (~5-6x) than using a compiled regular expression like `re.sub(r'\s+', ' ', text).strip()`.
-**Action:** Replace `re.sub(r'\s+', ' ', text).strip()` with `' '.join(text.split())` for collapsing spaces in Python strings.
+## 2025-03-09 - Faster Newline Checking
+**Learning:** Checking for the presence of a newline simply to detect if a sample contains multiple lines is significantly faster (~16x speedup) using direct `in` checks (e.g., `'\n' in sample`) than performing a regular expression replacement (e.g., `re.sub(r'\n+', ' ', sample) != sample`).
+**Action:** Replace `re.sub` calls with direct character inclusion checks (`in`) when checking for the presence of elements like newlines, rather than evaluating equality after replacement, specifically when checking the state instead of transforming the text for output.
