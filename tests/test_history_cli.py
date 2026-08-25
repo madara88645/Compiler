@@ -69,8 +69,9 @@ def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
 
-    result = runner.invoke(app, ["history", "list", "--source", "evolution", "--limit", "1"])
+    result = runner.invoke(app, ["history", "list", "--source", "evolution", "--limit", "1", "--json"])
 
     assert result.exit_code == 0, result.exception
-    assert "Evolution prompt that should still appear" in result.stdout
-    assert "Latest user prompt" not in result.stdout
+    assert '"id": "older-evolution"' in result.stdout
+    assert '"prompt_text": "Evolution prompt that should still appear"' in result.stdout
+    assert "latest-user" not in result.stdout
