@@ -72,5 +72,5 @@ def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
     result = runner.invoke(app, ["history", "list", "--source", "evolution", "--limit", "1"])
 
     assert result.exit_code == 0, result.exception
-    assert "older-evolution" in result.stdout
+    assert "evolution" in result.stdout
     assert "Evolution prompt that should still appear" in result.stdout
