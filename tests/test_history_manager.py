@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.history.manager import HistoryManager
@@ -84,6 +85,38 @@ def test_list_recent(manager):
 
     all_recent = manager.list_recent(limit=10)
     assert len(all_recent) == 5
+
+
+def test_list_recent_applies_source_filter_before_limit(manager):
+    base = datetime(2026, 8, 25, 10, 0, 0)
+    manager.save(
+        HistoryEntry(
+            id="user-newest",
+            prompt_text="Newest general prompt",
+            source="user",
+            timestamp=base,
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="evolution-match",
+            prompt_text="Older evolution prompt",
+            source="evolution",
+            timestamp=base - timedelta(minutes=1),
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="user-older",
+            prompt_text="Oldest user prompt",
+            source="user",
+            timestamp=base - timedelta(minutes=2),
+        )
+    )
+
+    recent = manager.list_recent(limit=1, source="evolution")
+
+    assert [entry.id for entry in recent] == ["evolution-match"]
 
 
 def test_search_and_stats_use_the_real_sqlite_store(manager):

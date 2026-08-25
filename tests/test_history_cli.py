@@ -1,4 +1,5 @@
 from typer.testing import CliRunner
+from datetime import datetime, timedelta
 
 from app.history import HistoryEntry, HistoryManager
 from cli.main import app
@@ -45,3 +46,31 @@ def test_history_cli_json_serializes_real_entries(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.exception
     assert '"id": "json-entry"' in result.stdout
+
+
+def test_history_cli_source_filter_applies_before_limit(tmp_path, monkeypatch):
+    manager = HistoryManager(str(tmp_path / "history.db"))
+    base = datetime(2026, 8, 25, 10, 0, 0)
+    manager.save(
+        HistoryEntry(
+            id="latest-user",
+            prompt_text="Latest user prompt",
+            source="user",
+            timestamp=base,
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="older-evolution",
+            prompt_text="Evolution prompt that should still appear",
+            source="evolution",
+            timestamp=base - timedelta(minutes=1),
+        )
+    )
+    monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
+
+    result = runner.invoke(app, ["history", "list", "--source", "evolution", "--limit", "1"])
+
+    assert result.exit_code == 0, result.exception
+    assert "older-evolution" in result.stdout
+    assert "Evolution prompt that should still appear" in result.stdout
