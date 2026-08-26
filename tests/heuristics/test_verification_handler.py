@@ -209,6 +209,30 @@ def test_system_prompt_includes_the_checklist_end_to_end():
         assert line.rstrip(".") in constraint_text
 
 
+def test_checklist_is_ordered_by_priority_not_by_phrasing_length(handler):
+    """Truncation must drop the least important item, not the most briefly worded."""
+    ir2 = _ir_v2(
+        _c("A very long but merely advisory sounding requirement about rows.", priority=75),
+        _c("Never: log.", origin="heuristic:logic_negation", priority=95),
+        _c("Do not: cache.", origin="heuristic:logic_negation", priority=85),
+    )
+
+    handler.handle(ir2, _ir_v1())
+
+    assert ir2.metadata["verification_checklist"][0] == "Never: log."
+    assert ir2.metadata["verification_checklist"][-1].startswith("A very long")
+
+
+def test_cap_keeps_the_highest_priority_requirements(handler):
+    low = [_c(f"❌ RESTRICTION: Minor point {i}.", priority=70) for i in range(10)]
+    high = _c("Never: ship secrets.", origin="heuristic:logic_negation", priority=95)
+
+    ir2 = _ir_v2(*low, high)
+    handler.handle(ir2, _ir_v1())
+
+    assert "Never: ship secrets." in ir2.metadata["verification_checklist"]
+
+
 def test_checklist_never_exceeds_the_display_cap(handler):
     many = [_c(f"❌ RESTRICTION: Requirement number {i} must hold.") for i in range(20)]
     ir2 = _ir_v2(*many)

@@ -34,10 +34,22 @@ Design rules (mirroring exploration.py):
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from app.heuristics.handlers.base import BaseHandler
 from app.models import IR
 from app.models_v2 import IRv2
+
+
+@dataclass(frozen=True)
+class _Candidate:
+    """A constraint considered for the checklist."""
+
+    display: str  # shown to the user, decoration stripped
+    comparable: str  # normalised, for containment de-duplication
+    priority: int
+    position: int  # index on ir.constraints, to break priority ties stably
+
 
 # Constraint origins that represent a checkable requirement stated by the user.
 # Everything else is either a clarification request, a description of the data
@@ -107,8 +119,8 @@ class VerificationHandler(BaseHandler):
             ir_v2.metadata["verification_checklist"] = checklist
 
     def build_checklist(self, ir_v2: IRv2) -> list[str]:
-        candidates: list[tuple[str, str]] = []  # (display, comparable)
-        for constraint in ir_v2.constraints:
+        candidates: list[_Candidate] = []
+        for position, constraint in enumerate(ir_v2.constraints):
             origin = getattr(constraint, "origin", "") or ""
             priority = getattr(constraint, "priority", 0) or 0
             text = getattr(constraint, "text", "") or ""
@@ -121,15 +133,19 @@ class VerificationHandler(BaseHandler):
             comparable = _comparable(text)
             if not comparable:
                 continue
-            candidates.append((_display(text), comparable))
+            candidates.append(_Candidate(_display(text), comparable, priority, position))
 
         deduped = self._collapse_contained(candidates)
         if len(deduped) < MIN_ITEMS:
             return []
-        return deduped[:MAX_ITEMS]
+        # Rank by priority, then by the order the constraints were recorded, so
+        # truncating to MAX_ITEMS drops the least important requirement rather
+        # than whichever happened to be phrased most briefly.
+        deduped.sort(key=lambda c: (-c.priority, c.position))
+        return [c.display for c in deduped[:MAX_ITEMS]]
 
     @staticmethod
-    def _collapse_contained(candidates: list[tuple[str, str]]) -> list[str]:
+    def _collapse_contained(candidates: list[_Candidate]) -> list[_Candidate]:
         """Drop items whose meaning is fully contained in another item.
 
         The compiler records a restriction twice — once as a scoped clause
@@ -138,14 +154,12 @@ class VerificationHandler(BaseHandler):
         bodies."). Keeping the longer one preserves the parts of the sentence
         the scoped clause left behind.
         """
-        kept: list[str] = []
-        seen: list[str] = []
+        kept: list[_Candidate] = []
         # Longest first, so a container is considered before what it contains.
-        for display, comparable in sorted(candidates, key=lambda c: len(c[1]), reverse=True):
-            if any(comparable in existing for existing in seen):
+        for candidate in sorted(candidates, key=lambda c: len(c.comparable), reverse=True):
+            if any(candidate.comparable in other.comparable for other in kept):
                 continue
-            seen.append(comparable)
-            kept.append(display)
+            kept.append(candidate)
         return kept
 
 
