@@ -5,6 +5,7 @@ import os
 from .models import IR
 from .models_v2 import IRv2, ConstraintV2, StepV2
 from .heuristics import detect_frontend_download_feature
+from .heuristics.handlers.verification import render_verification_block
 
 
 def emit_system_prompt(ir: IR) -> str:
@@ -906,6 +907,13 @@ def emit_system_prompt_v2(ir: IRv2) -> str:
         parts.append("Tone: " + ", ".join(ir.tone))
     if ir.banned:
         parts.append("Avoid: " + ", ".join(ir.banned))
+
+    # Constraint-grounded self-check. Kept with the instructions rather than
+    # after the Context dump below, which is reference material.
+    verification_lines = render_verification_block(ir, ir.language)
+    if verification_lines:
+        parts.append("")
+        parts.extend(verification_lines)
 
     # --- Agent 6: The Strategist (Render Context) ---
     context_snippets = (ir.metadata or {}).get("context_snippets")

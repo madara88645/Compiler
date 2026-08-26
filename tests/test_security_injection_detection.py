@@ -275,9 +275,9 @@ def test_end_to_end_injection_blocked_in_real_pipeline():
     assert "security" in ir2.metadata, "Security metadata should exist"
     assert ir2.metadata["security"]["is_safe"] is False, "Injection should be marked as unsafe"
     assert len(ir2.metadata["security"]["findings"]) > 0, "Should have security findings"
-    assert any(
-        "injection" in str(f).lower() for f in ir2.metadata["security"]["findings"]
-    ), "Should have injection finding"
+    assert any("injection" in str(f).lower() for f in ir2.metadata["security"]["findings"]), (
+        "Should have injection finding"
+    )
 
     # Verify policy escalation survived the full handler chain
     assert ir2.policy.risk_level == "high", "Risk level should be high after full pipeline"
@@ -285,9 +285,9 @@ def test_end_to_end_injection_blocked_in_real_pipeline():
 
     # Verify the security_injection_attempt flag is in the metadata
     # (This is what makes the refusal gate work)
-    assert (
-        ir2.metadata.get("security", {}).get("is_safe") is False
-    ), "The refusal gate reads metadata.security.is_safe - it must be False"
+    assert ir2.metadata.get("security", {}).get("is_safe") is False, (
+        "The refusal gate reads metadata.security.is_safe - it must be False"
+    )
 
 
 def test_end_to_end_benign_prompt_not_blocked():

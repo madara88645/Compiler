@@ -1,4 +1,5 @@
 """Generator RAG context retrieval is opt-in (default off) — session isolation guard."""
+
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient

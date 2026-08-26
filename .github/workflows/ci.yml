@@ -42,6 +42,14 @@ jobs:
             tests/test_rag_upload.py \
             tests/test_benchmark_api.py
 
+      # The MCP bridge lives outside tests/ and has its own dependency set, so
+      # the other jobs never exercise it. Without this step an incompatible
+      # `mcp` release breaks the bridge at import time and CI stays green.
+      - name: MCP bridge tests
+        run: |
+          pip install -r integrations/mcp-server/requirements.txt
+          pytest -q integrations/mcp-server/
+
       - name: Run pre-commit
         run: pre-commit run --all-files --show-diff-on-failure
 

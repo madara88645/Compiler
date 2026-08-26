@@ -16,7 +16,7 @@ def test_detect_negations_preserves_later_negations_in_same_sentence():
     assert len(negations) == 1
     assert negations[0].negation_word == "do not"
     assert negations[0].stripped_text == "use JOIN operations and do not nest subqueries."
-    assert negations[0].anti_pattern == "Instead: use JOIN operations and do not nest subqueries."
+    assert negations[0].anti_pattern == "Do not: use JOIN operations and do not nest subqueries."
 
 
 def test_detect_dependencies_keeps_because_matches_with_fast_path():
@@ -67,7 +67,7 @@ def test_detect_negations_edge_cases():
     negations = analyzer.detect_negations("Never query all columns.")
     assert len(negations) == 1
     assert negations[0].negation_word == "never"
-    assert negations[0].anti_pattern == "Always consider: query all columns."
+    assert negations[0].anti_pattern == "Never: query all columns."
 
     # 2. Duplicate sentences seen
     negations_dup = analyzer.detect_negations(
@@ -76,19 +76,120 @@ def test_detect_negations_edge_cases():
     )
     assert len(negations_dup) == 1
 
-    # 3. Test different negation types / anti-pattern mapping
+    # 3. Test different negation types / anti-pattern mapping.
+    # Every restatement must keep the user's polarity — see
+    # test_anti_pattern_never_inverts_the_users_requirement below.
     words_to_test = [
-        ("avoid nested loops.", "avoid", "Prefer: nested loops."),
-        ("you must not use global vars.", "must not", "Must: you use global vars."),
-        ("cannot access disk.", "cannot", "Can: access disk."),
-        ("exclude draft results.", "exclude", "Include: draft results."),
-        ("without authentication.", "without", "With: authentication."),
+        ("avoid nested loops.", "avoid", "Avoid: nested loops."),
+        ("you must not use global vars.", "must not", "Must not: use global vars."),
+        ("cannot access disk.", "cannot", "Must not: access disk."),
+        ("exclude draft results.", "exclude", "Exclude: draft results."),
+        # Conditionals keep the sentence verbatim — see
+        # test_conditional_negations_keep_the_whole_sentence below.
+        ("without authentication.", "without", "without authentication."),
     ]
     for sentence, word, expected_anti in words_to_test:
         res = analyzer.detect_negations(sentence)
         assert len(res) == 1
         assert res[0].negation_word == word
         assert res[0].anti_pattern == expected_anti
+
+
+def test_anti_pattern_never_inverts_the_users_requirement():
+    """A restated prohibition must never tell the model to do the forbidden thing.
+
+    Regression guard. The prefix table used to map each negation onto a positive
+    ("must not" -> "Must:", "never" -> "Always consider:", "cannot" -> "Can:")
+    and then drop the negation from the clause, so "must not expose user emails"
+    compiled to "Must: expose user emails" — and the ConstraintHandler injects
+    that at priority 90, making the inverted text the top constraint in the
+    emitted system prompt.
+    """
+    analyzer = LogicAnalyzer()
+
+    # (sentence, the verb phrase that must stay forbidden)
+    cases = [
+        ("The API must not expose user emails.", "expose user emails"),
+        ("Never delete the production database.", "delete the production database"),
+        ("You cannot use jQuery in this project.", "use jQuery"),
+        ("Do not add new dependencies.", "add new dependencies"),
+        ("The parser should not crash on malformed input.", "crash on malformed input"),
+        ("Storing plaintext passwords is forbidden.", "Storing plaintext passwords"),
+    ]
+
+    affirmative_openers = ("must:", "can:", "should:", "always", "instead:", "include:", "with:")
+
+    for sentence, forbidden_phrase in cases:
+        negations = analyzer.detect_negations(sentence)
+        assert negations, f"no negation detected for {sentence!r}"
+        anti = negations[0].anti_pattern
+
+        # The forbidden action is still named...
+        assert forbidden_phrase in anti, f"{forbidden_phrase!r} lost from {anti!r}"
+        # ...but it is framed as a prohibition, not an instruction to perform it.
+        inverted = anti.lower().startswith(affirmative_openers)
+        assert not inverted, f"inverted into an affirmative: {sentence!r} -> {anti!r}"
+
+
+def test_anti_pattern_is_scoped_to_the_clause_the_negation_governs():
+    """A trailing restriction must not turn the whole request into a prohibition.
+
+    Negations are detected per sentence but scope over a clause. Restating the
+    entire sentence would compile "build X ... and must not do Y" into
+    "Must not: build X ... and do Y", forbidding the very thing being asked for.
+    """
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations(
+        "Build a rate limiter for our FastAPI service and must not add more than 5ms of latency."
+    )
+
+    assert len(negations) == 1
+    assert negations[0].anti_pattern == "Must not: add more than 5ms of latency."
+    # The request itself survives outside the prohibition.
+    assert "Build a rate limiter" not in negations[0].anti_pattern
+
+
+def test_anti_pattern_keeps_a_trailing_clause_that_is_itself_negated():
+    """Clause scoping must not drop a second prohibition joined by "and"."""
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations("Do not use JOIN operations and do not nest subqueries.")
+
+    assert negations[0].anti_pattern == "Do not: use JOIN operations and do not nest subqueries."
+
+    # ...but an affirmative trailing clause is still trimmed off.
+    affirmative = analyzer.detect_negations("Do not use eval and prefer ast.literal_eval.")
+    assert affirmative[0].anti_pattern == "Do not: use eval."
+
+
+def test_conditional_negations_keep_the_whole_sentence():
+    """Conditional markers qualify a clause; they do not name a forbidden action.
+
+    Stripping and re-prefixing them dropped the main clause and left a fragment:
+    "Deploy without running migrations." became "Without: running migrations.",
+    which says nothing actionable as a priority-90 constraint.
+    """
+    analyzer = LogicAnalyzer()
+
+    for sentence in [
+        "Deploy without running migrations.",
+        "Run the job without authentication.",
+        "Process all rows except drafts.",
+        "Unless the flag is set, use the cache.",
+    ]:
+        negations = analyzer.detect_negations(sentence)
+        assert negations, f"no negation detected for {sentence!r}"
+        assert negations[0].anti_pattern == sentence
+
+
+def test_anti_pattern_handles_predicate_final_negations():
+    """A predicate-final negation governs the clause before the negation word."""
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations("Storing plaintext passwords is forbidden.")
+
+    assert negations[0].anti_pattern == "Forbidden: Storing plaintext passwords"
 
 
 def test_detect_dependencies_edge_cases():

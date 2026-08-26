@@ -24,7 +24,12 @@ class NegativeConstraint:
     original_text: str
     stripped_text: str  # Without the negation word
     negation_word: str
-    anti_pattern: str  # Positive version (what TO do)
+    # The prohibition restated as an explicit instruction — i.e. the thing the
+    # model must NOT do. This deliberately preserves the user's polarity: the
+    # positive alternative ("what to do instead") is not recoverable from the
+    # text alone, and guessing one would invent a requirement the user never
+    # stated. See _create_anti_pattern.
+    anti_pattern: str
 
 
 @dataclass
@@ -120,6 +125,13 @@ _DEPENDENCY_FAST_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Cleanup for clauses left behind after a negation word is removed from the
+# middle or end of a sentence (see _strip_negation).
+_DANGLING_COPULA_RE = re.compile(r"\s+\b(?:is|are|was|were|be|been|being)\b\s*(?=[.!?;,]|$)")
+_SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.!?;,])")
+# Where one clause ends and the next begins (see _governed_clause).
+_CLAUSE_BOUNDARY_RE = re.compile(r"[;,]\s+|\s+\b(?:and|or|but)\b\s+", re.IGNORECASE)
+
 _NEGATION_FAST_PATH_RE = re.compile(
     r"\b(?:never|absolutely\s+not|under\s+no\s+circumstances|do\s+not|don't|dont|doesn't|does\s+not|should\s+not|shouldn't|shouldnt|must\s+not|mustn't|mustnt|cannot|can't|can\s+not|avoid|refrain\s+from|stay\s+away\s+from|exclude|omit|skip|bypass|ignore|without|except|unless|none\s+of|forbidden|prohibited|disallowed|banned|\bno\s+\w+)\b",
     re.IGNORECASE,
@@ -193,7 +205,6 @@ _NUMBERED_LIST_PAT = re.compile(r"\n\s*\d+[.):]\s*")
 
 
 class LogicAnalyzer:
-
     """
     Advanced logic extractor for prompt analysis.
 
@@ -294,7 +305,20 @@ class LogicAnalyzer:
 
                     # Strip negation to create anti-pattern
                     stripped = self._strip_negation(sentence, pattern)
-                    anti_pattern = self._create_anti_pattern(stripped, negation_word)
+                    if neg_type == "conditional":
+                        # "without" / "except" / "unless" qualify a main clause
+                        # rather than naming an action to forbid. Stripping and
+                        # re-prefixing drops that clause and leaves a fragment
+                        # ("Deploy without running migrations." -> "Without:
+                        # running migrations."), so keep the user's sentence.
+                        anti_pattern = sentence.strip()
+                    else:
+                        # Scope the restated prohibition to the clause the
+                        # negation actually governs, not the whole sentence —
+                        # otherwise a trailing restriction ("build X ... and
+                        # must not do Y") forbids the request itself.
+                        governed = self._governed_clause(sentence, match) or stripped
+                        anti_pattern = self._create_anti_pattern(governed, negation_word)
 
                     negations.append(
                         NegativeConstraint(
@@ -313,32 +337,123 @@ class LogicAnalyzer:
         # Preserve later negations in the same sentence so anti-pattern guidance
         # only flips the clause that matched this detection (count=1, not all).
         result = pattern.sub(" ", sentence, count=1)
-        return " ".join(result.split())  # Normalize whitespace
+        result = " ".join(result.split())  # Normalize whitespace
+        # Removing a trailing predicate negation ("... is forbidden.") leaves a
+        # dangling copula and a detached full stop. Tidy both so the restated
+        # prohibition reads as a sentence rather than "passwords is .".
+        result = _DANGLING_COPULA_RE.sub("", result)
+        return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", result)
+
+    def _governed_clause(self, sentence: str, match: re.Match) -> str:
+        """Return just the clause the matched negation applies to.
+
+        Negations are detected per sentence, but they scope over a clause. For
+        "Build a rate limiter ... and must not add more than 5ms of latency",
+        restating the whole sentence as a prohibition would forbid building the
+        rate limiter as well. Taking the text after the negation word — up to
+        the next clause boundary — keeps the prohibition on "add more than 5ms
+        of latency".
+
+        A trailing clause that carries its own negation is kept, so
+        "do not use JOIN operations and do not nest subqueries" stays intact
+        rather than losing its second half.
+        """
+        tail = sentence[match.end() :].strip()
+        if not tail.strip(".,;:!? "):
+            # Predicate-final negation ("... is forbidden."): the governed
+            # clause is what came before the negation word.
+            tail = sentence[: match.start()].strip()
+            if not tail:
+                return ""
+            tail = _DANGLING_COPULA_RE.sub("", tail)
+            return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", tail).strip()
+
+        boundary = _CLAUSE_BOUNDARY_RE.search(tail)
+        if boundary:
+            remainder = tail[boundary.end() :]
+            # Keep the remainder when it is itself a prohibition.
+            if not _NEGATION_FAST_PATH_RE.search(remainder):
+                tail = tail[: boundary.start()].strip()
+                if tail and tail[-1] not in ".!?":
+                    tail += "."
+
+        tail = _DANGLING_COPULA_RE.sub("", tail)
+        return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", tail).strip()
 
     def _create_anti_pattern(self, stripped: str, negation_word: str) -> str:
-        """Create a positive recommendation from a negative constraint."""
-        # Map negation types to positive suggestions
-        positive_prefix = {
-            "never": "Always consider:",
-            "do not": "Instead:",
-            "don't": "Instead:",
-            "avoid": "Prefer:",
-            "refrain from": "Prefer:",
-            "should not": "Should:",
-            "shouldn't": "Should:",
-            "must not": "Must:",
-            "mustn't": "Must:",
-            "cannot": "Can:",
-            "can't": "Can:",
-            "exclude": "Include:",
-            "omit": "Include:",
-            "skip": "Do not skip:",
-            "without": "With:",
-            "no": "Include:",
+        """Restate a negative constraint as an explicit prohibition.
+
+        This must PRESERVE the user's polarity. An earlier version mapped each
+        negation onto a positive prefix ("must not" -> "Must:", "never" ->
+        "Always consider:", "cannot" -> "Can:"), then dropped the negation word
+        from the clause. That inverted the requirement: "must not expose user
+        emails" became "Must: expose user emails", and the result was injected
+        at priority 90, so the highest-ranked constraint in the compiled prompt
+        instructed the model to do the exact opposite of what the user asked.
+
+        Deriving a genuine positive alternative ("do X instead") is not possible
+        from the negation alone — the user did not say what to do instead, and
+        inventing one would be exactly the hallucinated requirement conservative
+        mode exists to prevent. So the faithful transformation is to restate the
+        prohibition in imperative form and leave the alternative to the model.
+        """
+        prohibition_prefix = {
+            # strong
+            "never": "Never",
+            "absolutely not": "Never",
+            "under no circumstances": "Under no circumstances",
+            # direct
+            "do not": "Do not",
+            "don't": "Do not",
+            "dont": "Do not",
+            "doesn't": "Does not",
+            "does not": "Does not",
+            # modal
+            "should not": "Should not",
+            "shouldn't": "Should not",
+            "shouldnt": "Should not",
+            "must not": "Must not",
+            "mustn't": "Must not",
+            "mustnt": "Must not",
+            # capability
+            "cannot": "Must not",
+            "can't": "Must not",
+            "can not": "Must not",
+            # avoidance
+            "avoid": "Avoid",
+            "refrain from": "Refrain from",
+            "stay away from": "Stay away from",
+            # exclusion
+            "exclude": "Exclude",
+            "omit": "Omit",
+            "skip": "Skip",
+            "bypass": "Bypass",
+            "ignore": "Ignore",
+            # conditional
+            "without": "Without",
+            "except": "Except",
+            "unless": "Unless",
+            # absolute
+            "none of": "None of",
+            # prohibition
+            "forbidden": "Forbidden",
+            "prohibited": "Prohibited",
+            "disallowed": "Disallowed",
+            "banned": "Banned",
         }
 
-        prefix = positive_prefix.get(negation_word.lower(), "Consider:")
-        return f"{prefix} {stripped}"
+        word = negation_word.lower().strip()
+        prefix = prohibition_prefix.get(word)
+        if prefix is None:
+            # "no <thing>" is matched as a whole phrase by NEGATION_PATTERNS, so
+            # it arrives here as e.g. "no retries" rather than a bare "no".
+            if word.startswith("no ") or word == "no":
+                prefix = "No"
+            else:
+                # Unknown negation: keep the user's own wording rather than
+                # guessing a polarity.
+                prefix = "Do not"
+        return f"{prefix}: {stripped}"
 
     # --------------------------------------------------------------------------
     # DEPENDENCY DETECTION

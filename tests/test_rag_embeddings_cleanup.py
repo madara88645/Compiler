@@ -58,8 +58,8 @@ def test_delete_chunk_cleans_up_embeddings():
             # Verify the old chunk IDs are gone from embeddings
             for old_id in chunk_ids:
                 if old_id not in new_chunk_ids:
-                    assert (
-                        old_id not in new_emb_chunk_ids
-                    ), f"Orphaned embedding found for deleted chunk {old_id}"
+                    assert old_id not in new_emb_chunk_ids, (
+                        f"Orphaned embedding found for deleted chunk {old_id}"
+                    )
 
             conn.close()

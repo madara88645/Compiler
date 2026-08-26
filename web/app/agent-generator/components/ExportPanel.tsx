@@ -127,7 +127,9 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
     return null;
   }, [currentResult, outputMode]);
 
-  const currentFiles = currentResult?.files ?? [];
+  // Memoised so the `?? []` fallback does not allocate a fresh array on every
+  // render and invalidate the downloadFilename memo below.
+  const currentFiles = useMemo(() => currentResult?.files ?? [], [currentResult?.files]);
 
   // Named after the currently selected file's path when the export produced
   // one (e.g. the Claude Subagent markdown file); otherwise a sensible
