@@ -125,9 +125,8 @@ def test_anti_pattern_never_inverts_the_users_requirement():
         # The forbidden action is still named...
         assert forbidden_phrase in anti, f"{forbidden_phrase!r} lost from {anti!r}"
         # ...but it is framed as a prohibition, not an instruction to perform it.
-        assert not anti.lower().startswith(affirmative_openers), (
-            f"{sentence!r} was inverted into an affirmative instruction: {anti!r}"
-        )
+        inverted = anti.lower().startswith(affirmative_openers)
+        assert not inverted, f"inverted into an affirmative: {sentence!r} -> {anti!r}"
 
 
 def test_anti_pattern_is_scoped_to_the_clause_the_negation_governs():

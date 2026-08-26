@@ -73,8 +73,7 @@ MAX_ITEMS = 7
 
 # Decoration the emitters add for display; irrelevant when comparing meaning.
 _LABEL_PREFIX_RE = re.compile(
-    r"^\s*(?:[^\w\s]+\s*)?"
-    r"(?:restriction|flow|note|rule)\s*:\s*",
+    r"^\s*(?:[^\w\s]+\s*)?(?:restriction|flow|note|rule)\s*:\s*",
     re.IGNORECASE,
 )
 
