@@ -1,2 +1,6 @@
-mcp
+# server.py imports `mcp.server.fastmcp.FastMCP`, which is the mcp 1.x API.
+# mcp 2.x renamed FastMCP to MCPServer (mcp.server.mcpserver.MCPServer) and
+# changed other APIs, so an unpinned install breaks the bridge at import time.
+# Keep this pin until server.py is migrated to the 2.x API.
+mcp>=1.0,<2
 httpx
