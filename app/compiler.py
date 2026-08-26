@@ -53,6 +53,7 @@ from .heuristics.handlers.format_enforcer import FormatEnforcerHandler
 from .heuristics.handlers.paradox_resolver import ParadoxResolverHandler
 from .heuristics.handlers.deduplicator import DeduplicatorHandler
 from .heuristics.handlers.exploration import ExplorationHandler
+from .heuristics.handlers.verification import VerificationHandler
 from .heuristics.handlers.schema_sanitizer import SchemaSanitizerHandler
 
 logger = logging.getLogger(__name__)
@@ -307,6 +308,8 @@ def compile_text_v2(
         FormatEnforcerHandler(),
         ParadoxResolverHandler(),
         DeduplicatorHandler(),
+        # After Deduplicator so the checklist is built from settled constraints.
+        VerificationHandler(),
         ExplorationHandler(),  # last: needs final intents + policy
     ]
 
