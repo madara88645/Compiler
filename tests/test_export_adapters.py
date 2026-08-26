@@ -361,9 +361,9 @@ def test_named_subagent_frontmatter_at_column_zero():
         # Verify frontmatter fields have no leading spaces
         for line in lines[1:closing_idx]:
             if line.strip():
-                assert not line.startswith(
-                    " "
-                ), f"Agent {name}: Frontmatter line has leading spaces: {repr(line)}"
+                assert not line.startswith(" "), (
+                    f"Agent {name}: Frontmatter line has leading spaces: {repr(line)}"
+                )
 
 
 def test_claude_mcp_tool_stub_output():

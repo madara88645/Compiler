@@ -151,18 +151,18 @@ def test_public_endpoints_have_rate_limiting(client_without_auth_override):
 
     # Check benchmark endpoint
     benchmark_sig = inspect.signature(benchmark_run)
-    assert any(
-        param.name == "_" for param in benchmark_sig.parameters.values()
-    ), "benchmark_run should have rate limit dependency"
+    assert any(param.name == "_" for param in benchmark_sig.parameters.values()), (
+        "benchmark_run should have rate limit dependency"
+    )
 
     # Check skills generator endpoint
     skills_sig = inspect.signature(generate_skill_endpoint)
-    assert any(
-        param.name == "_" for param in skills_sig.parameters.values()
-    ), "generate_skill_endpoint should have rate limit dependency"
+    assert any(param.name == "_" for param in skills_sig.parameters.values()), (
+        "generate_skill_endpoint should have rate limit dependency"
+    )
 
     # Check agent generator endpoint
     agent_sig = inspect.signature(generate_agent_endpoint)
-    assert any(
-        param.name == "_" for param in agent_sig.parameters.values()
-    ), "generate_agent_endpoint should have rate limit dependency"
+    assert any(param.name == "_" for param in agent_sig.parameters.values()), (
+        "generate_agent_endpoint should have rate limit dependency"
+    )

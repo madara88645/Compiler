@@ -1,4 +1,5 @@
 """POST /compile RAG context retrieval is opt-in (default off) — path-leak guard."""
+
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient

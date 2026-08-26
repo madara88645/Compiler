@@ -9,17 +9,20 @@ from app.llm_engine.client import WorkerClient, _sanitize_skill_definition_plain
 
 
 def test_worker_client_prefers_openrouter_env_defaults():
-    with patch.dict(
-        "os.environ",
-        {
-            "OPENROUTER_API_KEY": "or-key",
-            "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-            "OPENROUTER_MODEL": "openai/gpt-oss-20b",
-            "OPENROUTER_HTTP_REFERER": "https://prcompiler.com",
-            "OPENROUTER_TITLE": "Prompt Compiler",
-        },
-        clear=False,
-    ), patch("app.llm_engine.client.OpenAI") as mock_openai:
+    with (
+        patch.dict(
+            "os.environ",
+            {
+                "OPENROUTER_API_KEY": "or-key",
+                "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+                "OPENROUTER_MODEL": "openai/gpt-oss-20b",
+                "OPENROUTER_HTTP_REFERER": "https://prcompiler.com",
+                "OPENROUTER_TITLE": "Prompt Compiler",
+            },
+            clear=False,
+        ),
+        patch("app.llm_engine.client.OpenAI") as mock_openai,
+    ):
         client = WorkerClient()
 
     assert client.api_key == "or-key"
