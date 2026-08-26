@@ -84,7 +84,9 @@ def test_detect_negations_edge_cases():
         ("you must not use global vars.", "must not", "Must not: use global vars."),
         ("cannot access disk.", "cannot", "Must not: access disk."),
         ("exclude draft results.", "exclude", "Exclude: draft results."),
-        ("without authentication.", "without", "Without: authentication."),
+        # Conditionals keep the sentence verbatim — see
+        # test_conditional_negations_keep_the_whole_sentence below.
+        ("without authentication.", "without", "without authentication."),
     ]
     for sentence, word, expected_anti in words_to_test:
         res = analyzer.detect_negations(sentence)
@@ -159,6 +161,26 @@ def test_anti_pattern_keeps_a_trailing_clause_that_is_itself_negated():
     # ...but an affirmative trailing clause is still trimmed off.
     affirmative = analyzer.detect_negations("Do not use eval and prefer ast.literal_eval.")
     assert affirmative[0].anti_pattern == "Do not: use eval."
+
+
+def test_conditional_negations_keep_the_whole_sentence():
+    """Conditional markers qualify a clause; they do not name a forbidden action.
+
+    Stripping and re-prefixing them dropped the main clause and left a fragment:
+    "Deploy without running migrations." became "Without: running migrations.",
+    which says nothing actionable as a priority-90 constraint.
+    """
+    analyzer = LogicAnalyzer()
+
+    for sentence in [
+        "Deploy without running migrations.",
+        "Run the job without authentication.",
+        "Process all rows except drafts.",
+        "Unless the flag is set, use the cache.",
+    ]:
+        negations = analyzer.detect_negations(sentence)
+        assert negations, f"no negation detected for {sentence!r}"
+        assert negations[0].anti_pattern == sentence
 
 
 def test_anti_pattern_handles_predicate_final_negations():

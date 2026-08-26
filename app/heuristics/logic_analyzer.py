@@ -305,12 +305,20 @@ class LogicAnalyzer:
 
                     # Strip negation to create anti-pattern
                     stripped = self._strip_negation(sentence, pattern)
-                    # Scope the restated prohibition to the clause the negation
-                    # actually governs, not the whole sentence — otherwise a
-                    # trailing restriction ("build X ... and must not do Y")
-                    # forbids the request itself.
-                    governed = self._governed_clause(sentence, match) or stripped
-                    anti_pattern = self._create_anti_pattern(governed, negation_word)
+                    if neg_type == "conditional":
+                        # "without" / "except" / "unless" qualify a main clause
+                        # rather than naming an action to forbid. Stripping and
+                        # re-prefixing drops that clause and leaves a fragment
+                        # ("Deploy without running migrations." -> "Without:
+                        # running migrations."), so keep the user's sentence.
+                        anti_pattern = sentence.strip()
+                    else:
+                        # Scope the restated prohibition to the clause the
+                        # negation actually governs, not the whole sentence —
+                        # otherwise a trailing restriction ("build X ... and
+                        # must not do Y") forbids the request itself.
+                        governed = self._governed_clause(sentence, match) or stripped
+                        anti_pattern = self._create_anti_pattern(governed, negation_word)
 
                     negations.append(
                         NegativeConstraint(
