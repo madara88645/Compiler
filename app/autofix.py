@@ -60,6 +60,7 @@ _VAGUE_FAST_PATH = re.compile(
     r"\b(?:" + "|".join(re.escape(v) for v in VAGUE_REPLACEMENTS) + r")\b", re.IGNORECASE
 )
 
+
 # Generic persona improvements
 PERSONA_SUGGESTIONS: Dict[str, str] = {
     "general": "expert consultant",

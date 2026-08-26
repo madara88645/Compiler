@@ -272,13 +272,11 @@ def _normalize_line(line: str, *, level: int) -> str:
     if m:
         prefix = ln[: m.end()]
         rest = ln[m.end() :]
-        # Bolt Optimization: Built-in split() with no arguments splits on arbitrary whitespace
-        # and joins is ~4-5x faster than using re.sub for collapsing spaces.
-        rest = " ".join(rest.split())
+        rest = _MULTI_SPACE_RE.sub(" ", rest).strip()
         return prefix + rest
 
     # Collapse internal runs of spaces/tabs.
-    ln = " ".join(ln.split()) if level >= 1 else ln
+    ln = _MULTI_SPACE_RE.sub(" ", ln).strip() if level >= 1 else ln
     return ln
 
 

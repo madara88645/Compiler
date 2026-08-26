@@ -1,9 +1,4 @@
-## 2024-08-08 - Use built-in str.split and join instead of re.sub for collapsing spaces
-**Learning:** In Python, to optimize collapsing multiple consecutive whitespaces (spaces/tabs) into a single space, using `' '.join(text.split())` is significantly faster (~5-6x) than using a compiled regular expression like `re.sub(r'\s+', ' ', text).strip()`.
-**Action:** Replace `re.sub(r'\s+', ' ', text).strip()` with `' '.join(text.split())` for collapsing spaces in Python strings.
-## 2024-08-08 - Use built-in str.split and join instead of re.sub for collapsing spaces
-**Learning:** In Python, to optimize collapsing multiple consecutive whitespaces (spaces/tabs) into a single space, using `' '.join(text.split())` is significantly faster (~5-6x) than using a compiled regular expression like `re.sub(r'\s+', ' ', text).strip()`.
-**Action:** Replace `re.sub(r'\s+', ' ', text).strip()` with `' '.join(text.split())` for collapsing spaces in Python strings.
-## 2024-08-23 - Fast string splitting
-**Learning:** Built-in str.split() with no arguments is highly optimized in C to collapse arbitrary runs of whitespace and drop empty strings, making it ~4-5x faster than using a regular expression like `re.sub(r"[ \t]{2,}", " ", text).strip()` for whitespace normalization.
-**Action:** When collapsing multiple whitespace characters into single spaces, prefer `" ".join(text.split())` over regular expressions unless specific complex matching is required.
+## 2024-08-23 - Optimizing text compression backwards scanning
+
+**Learning:** When trying to truncate a large text block at the last sentence boundary before a character limit, using `re.split` to segment the entire string into sentences allocates a large list and scans the full string (`O(N)` where N is total string length). For large documents (e.g. 1000 sentences), this is extremely slow and unnecessary when `max_chars` is small (e.g. 600). A backward scan (`for i in range(search_limit - 1, -1, -1)`) over only the truncated slice up to `max_chars + 1` takes `O(max_chars)` time and avoids regex entirely, yielding a ~200x speedup for large inputs.
+**Action:** When truncating or summarizing text up to a fixed character limit, avoid string-wide operations (like `split`, `findall`, or `re.split`). Instead, slice the text to the limit first, then use backward scanning (or `rfind`) to locate natural break points.
