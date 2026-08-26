@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from app.history.manager import HistoryManager
@@ -111,6 +112,59 @@ def test_search_and_stats_use_the_real_sqlite_store(manager):
     assert stats["total"] == 2
     assert stats["first"] is not None
     assert stats["last"] is not None
+
+
+def test_search_treats_sql_wildcards_as_literal_characters(manager):
+    manager.save(
+        HistoryEntry(
+            id="literal-percent",
+            timestamp=datetime(2026, 1, 1, 12, 0, 0),
+            prompt_text="Ship 100% confidence",
+            source="user",
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="literal-underscore",
+            timestamp=datetime(2026, 1, 1, 12, 1, 0),
+            prompt_text="Protect retry_budget keys",
+            source="user",
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="decoy",
+            timestamp=datetime(2026, 1, 1, 12, 2, 0),
+            prompt_text="Protect retry budget keys",
+            source="user",
+        )
+    )
+
+    assert [entry.id for entry in manager.search("%", limit=10)] == ["literal-percent"]
+    assert [entry.id for entry in manager.search("_", limit=10)] == ["literal-underscore"]
+
+
+def test_search_matches_source_and_metadata_fields(manager):
+    manager.save(
+        HistoryEntry(
+            id="source-match",
+            timestamp=datetime(2026, 1, 1, 13, 0, 0),
+            prompt_text="Draft a launch note",
+            source="optimizer",
+        )
+    )
+    manager.save(
+        HistoryEntry(
+            id="metadata-match",
+            timestamp=datetime(2026, 1, 1, 13, 1, 0),
+            prompt_text="Summarize retry guidance",
+            source="user",
+            metadata={"run_id": "run_special_42"},
+        )
+    )
+
+    assert [entry.id for entry in manager.search("optimizer", limit=10)] == ["source-match"]
+    assert [entry.id for entry in manager.search("run_special_42", limit=10)] == ["metadata-match"]
 
 
 def test_history_entry_to_dict_is_cli_serializable():
