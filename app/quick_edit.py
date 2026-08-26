@@ -66,26 +66,6 @@ class QuickEditor:
                 pass
             console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
             return None
-        except Exception as exc:
-            try:
-                import click
-
-                if isinstance(exc, click.ClickException):
-                    console.print(f"[yellow]⚠️ Editor failed: {exc}[/yellow]")
-                    return None
-            except ImportError:
-                pass
-            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
-            return None
-        except Exception as exc:
-            try:
-                if isinstance(exc, click.ClickException):
-                    console.print(f"[yellow]⚠️ Editor failed: {exc}[/yellow]")
-                    return None
-            except ImportError:
-                pass
-            console.print(f"[red]⚠️ Unexpected editor error: {exc}[/red]")
-            return None
 
     def edit_prompt(self, prompt_id: str, recompile: bool = False) -> bool:
         """Edit a prompt by ID."""
