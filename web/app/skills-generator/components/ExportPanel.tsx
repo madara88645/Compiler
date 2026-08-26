@@ -339,7 +339,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                     disabled={!downloadFilename}
                     className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Download file"
-                    title={downloadFilename ? `Download ${downloadFilename}` : "Download file"}
+                    title={downloadFilename ? `Download ${downloadFilename}` : "No file to download"}
                   >
                     <Download size={12} aria-hidden="true" />
                     Download
@@ -347,8 +347,10 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10"
+                    disabled={!currentContent}
+                    className="focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium flex items-center gap-1.5 border border-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={copied ? "Copied to clipboard" : "Copy code"}
+                    title={!currentContent ? "Nothing to copy" : "Copy code"}
                   >
                     <span className="sr-only" aria-live="polite">
                       {copied ? "Copied to clipboard" : ""}
