@@ -1,3 +1,5 @@
+import pytest
+
 from app.heuristics.logic_analyzer import (
     LogicAnalyzer,
     NegativeConstraint,
@@ -161,6 +163,36 @@ def test_anti_pattern_keeps_a_trailing_clause_that_is_itself_negated():
     # ...but an affirmative trailing clause is still trimmed off.
     affirmative = analyzer.detect_negations("Do not use eval and prefer ast.literal_eval.")
     assert affirmative[0].anti_pattern == "Do not: use eval."
+
+
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("Do not expose user emails and keep audit logs.", "Do not: expose user emails."),
+        (
+            "Do not expose user emails and send a summary.",
+            "Do not: expose user emails.",
+        ),
+        (
+            "The API must not expose user emails and return JSON.",
+            "Must not: expose user emails.",
+        ),
+        (
+            "You cannot use jQuery and create new widgets.",
+            "Must not: use jQuery.",
+        ),
+    ],
+)
+def test_anti_pattern_does_not_swallow_a_follow_on_affirmative_instruction(
+    sentence, expected
+):
+    """A mixed sentence must not turn a later positive instruction into a ban."""
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations(sentence)
+
+    assert len(negations) == 1
+    assert negations[0].anti_pattern == expected
 
 
 def test_conditional_negations_keep_the_whole_sentence():
