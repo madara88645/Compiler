@@ -76,7 +76,14 @@ class PricingModel:
     @classmethod
     def get_rate(cls, model: str, direction: str = None) -> float | Tuple[float, float]:
         """Returns rate for the direction if provided, else (input_rate, output_rate) per 1M tokens."""
-        # Performance optimization: get_rate is on the hot path.
+        # Bolt Optimization: get_rate is on the hot path. Check for an exact match first
+        # to avoid the overhead of frozenset comparisons and lru_cache for exact model names.
+        if model in cls.RATES:
+            rate = cls.RATES[model]
+            if direction:
+                return rate.get(direction, 0.0)
+            return rate["input"], rate["output"]
+
         # Check if the dictionary keys have changed (e.g., due to test mocking).
         # We compare a frozenset directly against the dict_keys view, which handles key
         # swaps correctly without allocating any new objects in the steady state.
