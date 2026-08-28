@@ -187,7 +187,8 @@ def _resolve_client_ip(request: Request) -> str:
 
 def _maybe_cleanup_rate_limit_store(now: float) -> None:
     stale_keys = []
-    for k, v in list(RATE_LIMIT_STORE.items()):
+    # Bolt Optimization: Iterating over items() directly without list() avoids a memory allocation overhead and is significantly faster.
+    for k, v in RATE_LIMIT_STORE.items():
         valid_ts = [t for t in v if t > now - RATE_LIMIT_WINDOW]
         if not valid_ts:
             stale_keys.append(k)
