@@ -149,6 +149,7 @@ export default function BenchmarkResults({ data }: BenchmarkResultsProps) {
                     type="button"
                     onClick={() => setPromptOpen(!promptOpen)}
                     aria-expanded={promptOpen}
+                    aria-label="Toggle compiled prompt"
 
                     aria-controls="compiled-prompt-content"
                     className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20"

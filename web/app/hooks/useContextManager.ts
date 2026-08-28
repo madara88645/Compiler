@@ -113,7 +113,10 @@ export function useContextManager() {
   }, [refreshStats]);
 
   useEffect(() => {
-    void checkConnection();
+    const init = async () => {
+      await checkConnection();
+    };
+    void init();
   }, [checkConnection]);
 
   const uploadFiles = useCallback(
