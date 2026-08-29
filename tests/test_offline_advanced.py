@@ -1,4 +1,5 @@
 from app.compiler import compile_text_v2
+from app.emitters import emit_system_prompt_v2
 from app.heuristics.logic_analyzer import analyze_prompt_logic
 
 
@@ -34,7 +35,7 @@ def test_structure_variable_injection():
 
 
 def test_logic_engine_negation():
-    """Test detection of negative constraints."""
+    """Negative constraints should stay negative when restated."""
     text = "Create a SQL query. Do not use JOIN operations. Never use nested selects."
 
     ir = compile_text_v2(text)
@@ -46,14 +47,39 @@ def test_logic_engine_negation():
     assert "do not" in words
     assert "never" in words
 
-    # LogicHandler adds the *Anti-Pattern* (positive version)
-    # "do not use JOIN" -> "Instead: use JOIN" ??? No, wrapper logic:
-    # "Instead: use JOIN operations" (Wait, strip_negation removes "do not")
-    # Let's check if *something* was added from logic
-    assert any(
-        "derived from negative" in str(c).lower() or "heuristic:logic_negation" in str(c)
-        for c in ir.constraints
+    anti_patterns = {n["negation_word"]: n["anti_pattern"] for n in negations}
+    assert anti_patterns["do not"] == "Do not: use JOIN operations."
+    assert anti_patterns["never"] == "Never: use nested selects."
+
+    negation_constraints = [c for c in ir.constraints if c.origin == "heuristic:logic_negation"]
+    assert len(negation_constraints) >= 2
+    assert any(c.text == "Do not: use JOIN operations." for c in negation_constraints)
+    assert any(c.text == "Never: use nested selects." for c in negation_constraints)
+
+
+def test_logic_engine_negation_preserves_polarity_in_emitted_key_constraints():
+    """Forbidden actions must stay forbidden in the emitted prompt."""
+    text = "Build a CSV export. The API must not expose user emails."
+
+    ir = compile_text_v2(text, offline_only=True)
+    logic = ir.metadata.get("logic_analysis", {})
+    negations = logic.get("negations", [])
+
+    assert len(negations) == 1
+    assert negations[0]["original"] == "The API must not expose user emails."
+    assert negations[0]["negation_word"] == "must not"
+    assert negations[0]["anti_pattern"] == "Must not: expose user emails."
+
+    negation_constraint = next(c for c in ir.constraints if c.origin == "heuristic:logic_negation")
+    assert negation_constraint.priority == 90
+    assert negation_constraint.text == "Must not: expose user emails."
+
+    prompt = emit_system_prompt_v2(ir)
+    key_constraints_line = next(
+        line for line in prompt.splitlines() if line.startswith("Key Constraints:")
     )
+    assert "Must not: expose user emails." in key_constraints_line
+    assert "Must: expose user emails" not in key_constraints_line
 
 
 def test_logic_engine_dependencies():
