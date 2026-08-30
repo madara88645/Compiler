@@ -90,3 +90,9 @@
 **Vulnerability:** XSS vulnerability in HTML report generation due to using `jinja2.Template()` without `autoescape=True`.
 **Learning:** `jinja2.Template` defaults to not autoescaping variables, leading to potential XSS if user-controlled input (like generated prompts) is included in the HTML.
 **Prevention:** Always use `Environment(autoescape=select_autoescape(['html', 'xml']))` rather than bare `Template()` when rendering HTML containing user input.
+
+
+## 2024-05-24 - Fix Timing Attack in API Key Validation
+**Vulnerability:** The admin API key verification logic used a dummy comparison string `admin_key` against `admin_key` when the lengths of the provided key and admin key did not match. Because `secrets.compare_digest` returns early for strings of different lengths, this still provided a timing side-channel revealing the length of the admin key.
+**Learning:** When trying to write constant-time algorithms, using an early return or a dummy operation that still depends on the length of the secret can inadvertently leak the length of the secret. We must ensure the actual computation path takes identical time regardless of the input length.
+**Prevention:** Use a dummy string constructed from the user input when lengths match, or the secret itself when they don't, to safely pass to `secrets.compare_digest`, avoiding early returns while forcing constant-time execution.
