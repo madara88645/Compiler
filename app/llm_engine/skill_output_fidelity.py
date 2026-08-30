@@ -188,8 +188,8 @@ def would_corrupt_preserved_content(transform: str, sample_key: str) -> bool:
     if transform == "collapse_newlines":
         if sample_key not in {"tables", "code_blocks", "markdown_structure"}:
             return False
-        collapsed = re.sub(r"\n+", " ", sample)
-        return collapsed != sample
+        # Bolt Optimization: Built-in str.replace or direct "in" check is significantly faster than re.sub
+        return "\n" in sample
 
     if transform == "wrap_at_80_columns":
         # Soft-wrap after flattening newlines — the unsafe default called out in #1156.
