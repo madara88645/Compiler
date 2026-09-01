@@ -183,9 +183,7 @@ def test_anti_pattern_keeps_a_trailing_clause_that_is_itself_negated():
         ),
     ],
 )
-def test_anti_pattern_does_not_swallow_a_follow_on_affirmative_instruction(
-    sentence, expected
-):
+def test_anti_pattern_does_not_swallow_a_follow_on_affirmative_instruction(sentence, expected):
     """A mixed sentence must not turn a later positive instruction into a ban."""
     analyzer = LogicAnalyzer()
 
