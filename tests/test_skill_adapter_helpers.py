@@ -38,7 +38,11 @@ class TestNeedsKeywordOnlyParams:
         assert _needs_keyword_only_params(params) is False
 
     def test_required_optional_required_returns_true(self):
-        params = [_param("a", required=True), _param("b", required=False), _param("c", required=True)]
+        params = [
+            _param("a", required=True),
+            _param("b", required=False),
+            _param("c", required=True),
+        ]
         assert _needs_keyword_only_params(params) is True
 
     def test_single_optional_param_returns_false(self):

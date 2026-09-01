@@ -36,6 +36,7 @@ def test_different_stems_produce_different_patterns():
     b = _get_stem_pattern("payments")
     assert a is not b
 
+
 def test_regex_special_characters_in_stem_are_escaped():
     pattern = _get_stem_pattern("a.b")
     assert pattern.search("look at a.b now")
