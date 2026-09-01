@@ -45,3 +45,21 @@ def test_history_cli_json_serializes_real_entries(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.exception
     assert '"id": "json-entry"' in result.stdout
+
+
+def test_history_cli_search_supports_literal_percent_and_underscore_queries(tmp_path, monkeypatch):
+    manager = HistoryManager(str(tmp_path / "history.db"))
+    manager.save(HistoryEntry(id="percent-entry", prompt_text="Ship 100% confidence"))
+    manager.save(HistoryEntry(id="underscore-entry", prompt_text="Protect retry_budget keys"))
+    monkeypatch.setattr("cli.commands.analytics.get_history_manager", lambda: manager)
+
+    percent_result = runner.invoke(app, ["history", "search", "%"])
+    underscore_result = runner.invoke(app, ["history", "search", "_"])
+
+    assert percent_result.exit_code == 0, percent_result.exception
+    assert "Ship 100% confidence" in percent_result.stdout
+    assert "Protect retry_budget keys" not in percent_result.stdout
+
+    assert underscore_result.exit_code == 0, underscore_result.exception
+    assert "Protect retry_budget keys" in underscore_result.stdout
+    assert "Ship 100% confidence" not in underscore_result.stdout
