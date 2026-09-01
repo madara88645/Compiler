@@ -90,3 +90,7 @@
 **Vulnerability:** XSS vulnerability in HTML report generation due to using `jinja2.Template()` without `autoescape=True`.
 **Learning:** `jinja2.Template` defaults to not autoescaping variables, leading to potential XSS if user-controlled input (like generated prompts) is included in the HTML.
 **Prevention:** Always use `Environment(autoescape=select_autoescape(['html', 'xml']))` rather than bare `Template()` when rendering HTML containing user input.
+## 2025-09-01 - Fix XSS in ValidationReportGenerator
+**Vulnerability:** The HTML report generator manually concatenated user-derived inputs (such as issue severities, categories, and messages) into a raw HTML string using f-strings, leading to a Cross-Site Scripting (XSS) vulnerability.
+**Learning:** When building HTML strings programmatically without a template engine (like Jinja2 with autoescaping), it is critical to explicitly sanitize or escape all inputs. Simply converting objects to strings or assuming internal enums (like severity) are safe can be bypassed if the data originates from external or untrusted sources.
+**Prevention:** Always use `html.escape()` when inserting untrusted or user-controlled strings into dynamically generated HTML, or ideally, migrate to a templating engine with built-in autoescaping.
