@@ -60,7 +60,9 @@ def test_logic_engine_preserves_absolute_no_restrictions_in_constraints():
     ir = compile_text_v2(text)
     logic = ir.metadata.get("logic_analysis", {})
     negations = logic.get("negations", [])
-    constraint_texts = [getattr(constraint, "text", str(constraint)) for constraint in ir.constraints]
+    constraint_texts = [
+        getattr(constraint, "text", str(constraint)) for constraint in ir.constraints
+    ]
 
     assert any(item["anti_pattern"] == "No PII in analytics exports." for item in negations)
     assert "No PII in analytics exports." in constraint_texts
@@ -76,7 +78,9 @@ def test_logic_engine_preserves_none_of_restrictions_in_constraints():
     ir = compile_text_v2(text)
     logic = ir.metadata.get("logic_analysis", {})
     negations = logic.get("negations", [])
-    constraint_texts = [getattr(constraint, "text", str(constraint)) for constraint in ir.constraints]
+    constraint_texts = [
+        getattr(constraint, "text", str(constraint)) for constraint in ir.constraints
+    ]
 
     sentence = "None of the exported rows should include archived accounts."
     assert any(item["anti_pattern"] == sentence for item in negations)
