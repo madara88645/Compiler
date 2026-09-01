@@ -183,6 +183,35 @@ def test_conditional_negations_keep_the_whole_sentence():
         assert negations[0].anti_pattern == sentence
 
 
+def test_absolute_no_style_negations_keep_the_whole_sentence():
+    """Absolute `no ...` restrictions must not drop the protected noun phrase.
+
+    Stripping the whole matched phrase (`no user`, `no retries`) turns privacy
+    and reliability constraints into fragments like `No: emails in logs.`,
+    which weakens the downstream compiled prompt.
+    """
+    analyzer = LogicAnalyzer()
+
+    for sentence in [
+        "No user emails in logs.",
+        "No retries after timeout.",
+    ]:
+        negations = analyzer.detect_negations(sentence)
+        assert negations, f"no negation detected for {sentence!r}"
+        assert negations[0].anti_pattern == sentence
+
+
+def test_none_of_negations_keep_the_whole_sentence():
+    """`None of ...` restrictions carry meaning in the original sentence shape."""
+    analyzer = LogicAnalyzer()
+
+    sentence = "None of the exported rows should include archived accounts."
+    negations = analyzer.detect_negations(sentence)
+
+    assert negations
+    assert negations[0].anti_pattern == sentence
+
+
 def test_anti_pattern_handles_predicate_final_negations():
     """A predicate-final negation governs the clause before the negation word."""
     analyzer = LogicAnalyzer()

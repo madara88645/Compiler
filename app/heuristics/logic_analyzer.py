@@ -281,7 +281,7 @@ class LogicAnalyzer:
 
         Identifies negation words and transforms them into:
         1. Negative Constraints (what NOT to do)
-        2. Anti-Patterns (positive version - what TO do)
+        2. Restated prohibitions for downstream prompt constraints
         """
         if sentences is None:
             sentences = self._split_sentences(text)
@@ -305,12 +305,15 @@ class LogicAnalyzer:
 
                     # Strip negation to create anti-pattern
                     stripped = self._strip_negation(sentence, pattern)
-                    if neg_type == "conditional":
+                    if neg_type in {"conditional", "absolute"}:
                         # "without" / "except" / "unless" qualify a main clause
-                        # rather than naming an action to forbid. Stripping and
-                        # re-prefixing drops that clause and leaves a fragment
+                        # rather than naming an action to forbid, and "no ..." /
+                        # "none of ..." bundle the protected subject into the
+                        # matched phrase itself. Stripping and re-prefixing can
+                        # therefore drop meaning and leave a fragment
                         # ("Deploy without running migrations." -> "Without:
-                        # running migrations."), so keep the user's sentence.
+                        # running migrations."; "No user emails in logs." ->
+                        # "No: emails in logs."), so keep the user's sentence.
                         anti_pattern = sentence.strip()
                     else:
                         # Scope the restated prohibition to the clause the
