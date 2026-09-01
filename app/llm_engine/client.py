@@ -270,7 +270,9 @@ def _sanitize_skill_definition_plain(text: str) -> str:
 
     cleaned = _SKILL_PLAIN_FENCE_LINE_PATTERN.sub("", cleaned)
     cleaned = _remove_skill_plain_remaining_fence_lines(cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    # Bolt Optimization: Literal substring replacement is significantly faster than using re.sub for replacing multiple newlines
+    while "\n\n\n" in cleaned:
+        cleaned = cleaned.replace("\n\n\n", "\n\n")
     return cleaned.strip()
 
 
