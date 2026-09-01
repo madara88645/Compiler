@@ -82,6 +82,40 @@ def test_logic_engine_negation_preserves_polarity_in_emitted_key_constraints():
     assert "Must: expose user emails" not in key_constraints_line
 
 
+def test_logic_engine_preserves_absolute_no_restrictions_in_constraints():
+    """Short absolute restrictions should survive intact into compiled constraints."""
+    text = "Build an analytics export. No PII in analytics exports. Do not add new dependencies."
+
+    ir = compile_text_v2(text)
+    logic = ir.metadata.get("logic_analysis", {})
+    negations = logic.get("negations", [])
+    constraint_texts = [
+        getattr(constraint, "text", str(constraint)) for constraint in ir.constraints
+    ]
+
+    assert any(item["anti_pattern"] == "No PII in analytics exports." for item in negations)
+    assert "No PII in analytics exports." in constraint_texts
+
+
+def test_logic_engine_preserves_none_of_restrictions_in_constraints():
+    """`None of ...` restrictions should also survive intact into compiled constraints."""
+    text = (
+        "Build an export job. None of the exported rows should include archived accounts. "
+        "Do not add new dependencies."
+    )
+
+    ir = compile_text_v2(text)
+    logic = ir.metadata.get("logic_analysis", {})
+    negations = logic.get("negations", [])
+    constraint_texts = [
+        getattr(constraint, "text", str(constraint)) for constraint in ir.constraints
+    ]
+
+    sentence = "None of the exported rows should include archived accounts."
+    assert any(item["anti_pattern"] == sentence for item in negations)
+    assert sentence in constraint_texts
+
+
 def test_logic_engine_dependencies():
     """Test detection of causal dependencies."""
     text = "Optimize the image because it loads too slowly."

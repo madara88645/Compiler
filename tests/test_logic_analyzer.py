@@ -1,3 +1,5 @@
+import pytest
+
 from app.heuristics.logic_analyzer import (
     LogicAnalyzer,
     NegativeConstraint,
@@ -163,6 +165,34 @@ def test_anti_pattern_keeps_a_trailing_clause_that_is_itself_negated():
     assert affirmative[0].anti_pattern == "Do not: use eval."
 
 
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("Do not expose user emails and keep audit logs.", "Do not: expose user emails."),
+        (
+            "Do not expose user emails and send a summary.",
+            "Do not: expose user emails.",
+        ),
+        (
+            "The API must not expose user emails and return JSON.",
+            "Must not: expose user emails.",
+        ),
+        (
+            "You cannot use jQuery and create new widgets.",
+            "Must not: use jQuery.",
+        ),
+    ],
+)
+def test_anti_pattern_does_not_swallow_a_follow_on_affirmative_instruction(sentence, expected):
+    """A mixed sentence must not turn a later positive instruction into a ban."""
+    analyzer = LogicAnalyzer()
+
+    negations = analyzer.detect_negations(sentence)
+
+    assert len(negations) == 1
+    assert negations[0].anti_pattern == expected
+
+
 def test_conditional_negations_keep_the_whole_sentence():
     """Conditional markers qualify a clause; they do not name a forbidden action.
 
@@ -181,6 +211,35 @@ def test_conditional_negations_keep_the_whole_sentence():
         negations = analyzer.detect_negations(sentence)
         assert negations, f"no negation detected for {sentence!r}"
         assert negations[0].anti_pattern == sentence
+
+
+def test_absolute_no_style_negations_keep_the_whole_sentence():
+    """Absolute `no ...` restrictions must not drop the protected noun phrase.
+
+    Stripping the whole matched phrase (`no user`, `no retries`) turns privacy
+    and reliability constraints into fragments like `No: emails in logs.`,
+    which weakens the downstream compiled prompt.
+    """
+    analyzer = LogicAnalyzer()
+
+    for sentence in [
+        "No user emails in logs.",
+        "No retries after timeout.",
+    ]:
+        negations = analyzer.detect_negations(sentence)
+        assert negations, f"no negation detected for {sentence!r}"
+        assert negations[0].anti_pattern == sentence
+
+
+def test_none_of_negations_keep_the_whole_sentence():
+    """`None of ...` restrictions carry meaning in the original sentence shape."""
+    analyzer = LogicAnalyzer()
+
+    sentence = "None of the exported rows should include archived accounts."
+    negations = analyzer.detect_negations(sentence)
+
+    assert negations
+    assert negations[0].anti_pattern == sentence
 
 
 def test_anti_pattern_handles_predicate_final_negations():

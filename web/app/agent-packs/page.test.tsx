@@ -216,6 +216,15 @@ describe("Agent Packs page", () => {
     ).toBeTruthy();
   });
 
+  test("keeps the goal textarea wired to its visible label and helper text", () => {
+    render(<AgentPacksPage />);
+
+    const goalField = screen.getByLabelText("What should Claude do?");
+    expect(goalField).toHaveAttribute("aria-labelledby", "agent-pack-goal-label");
+    expect(goalField).toHaveAttribute("aria-describedby", "agent-pack-goal-help");
+    expect(goalField).not.toHaveAttribute("aria-label");
+  });
+
   test("explains the Project Type and Stack fields for first-time users", () => {
     render(<AgentPacksPage />);
 
