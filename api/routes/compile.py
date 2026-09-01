@@ -406,6 +406,7 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
 
     sys_v2 = user_v2 = plan_v2 = exp_v2 = None
     mode = resolve_mode(req.mode, request)
+    used_fallback = False
 
     if req.v2:
         try:
@@ -441,11 +442,21 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
             plan_v2 = _safe_worker_text(worker_res, "plan") or plan_v2
             exp_v2 = _safe_worker_text(worker_res, "optimized_content") or exp_v2
         except Exception as exc:
+            used_fallback = True
             logger.warning(
                 "LLM compile failed; falling back to local v2 heuristics",
                 exc_info=exc,
                 extra={"request_id": rid, "mode": mode, "text_length": len(req.text)},
             )
+
+    if used_fallback and ir2 is not None:
+        # Keep fallback responses internally consistent: once the worker IR is
+        # unusable, render the prompt fields from the local fallback IR instead
+        # of returning blank v2 fields or mixing them with stale worker output.
+        sys_v2 = emit_system_prompt_v2(ir2)
+        user_v2 = emit_user_prompt_v2(ir2)
+        plan_v2 = emit_plan_v2(ir2)
+        exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
     if mode != "default":
         forced_expanded = forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
