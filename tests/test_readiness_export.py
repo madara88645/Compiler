@@ -27,6 +27,10 @@ client = TestClient(app)
 # A prompt that yields a non-trivial readiness verdict ("clarify" + an
 # unverifiable_reference signal), so the readiness sections are never empty.
 EXPORT_TEXT = "use the AcmeCloud SDK to deploy my model"
+VERIFICATION_TEXT = (
+    "Build a CSV export endpoint. It must not expose user emails and should never "
+    "log request bodies. Exclude soft-deleted rows. Do not add new dependencies."
+)
 
 VALID_VERDICTS = {"ready", "clarify", "risky", "noise"}
 
@@ -90,6 +94,20 @@ def test_compile_export_markdown_embeds_real_prompt_content():
     assert sys_prompt[:30] in md
 
 
+def test_compile_response_preserves_checklist_requirement_beyond_top_constraints():
+    body = _compile(VERIFICATION_TEXT)
+    sys_prompt = body["system_prompt_v2"]
+    key_constraints = next(
+        line for line in sys_prompt.splitlines() if line.startswith("Key Constraints:")
+    )
+    checklist = sys_prompt.split("Before you finish, verify each of these against your answer:\n", 1)[1]
+
+    assert "Before you finish, verify each of these against your answer:" in sys_prompt
+    # The top-3 summary drops this later requirement, so the checklist must keep it visible.
+    assert "expose user emails" not in key_constraints
+    assert "expose user emails" in checklist
+
+
 # --- 4. export json is structured and carries readiness + prompts ----------
 
 
@@ -99,6 +117,18 @@ def test_compile_export_json_has_readiness_and_prompts():
     assert data["readiness"].get("verdict") in VALID_VERDICTS
     for key in ("system_prompt", "user_prompt", "plan"):
         assert key in data, f"export json missing '{key}'"
+
+
+def test_compile_export_markdown_keeps_verification_checklist_for_hidden_requirement():
+    md = _export(VERIFICATION_TEXT)["markdown"]
+    checklist = (
+        md.split("Before you finish, verify each of these against your answer:\n", 1)[1]
+        .split("\n\n## User Prompt", 1)[0]
+    )
+
+    assert "Before you finish, verify each of these against your answer:" in md
+    assert "expose user emails" in checklist
+    assert "log request bodies" in checklist
 
 
 # --- 5. agent pack manifests surface the readiness section ------------------
