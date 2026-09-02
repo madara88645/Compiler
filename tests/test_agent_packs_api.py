@@ -100,6 +100,28 @@ def test_agent_packs_claude_pr_reviewer_manifest_shape():
         assert "hooks" not in settings
 
 
+def test_balanced_pr_reviewer_pack_stays_review_only():
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        mock_compiler.generate_agent.return_value = "# PR Reviewer\n\n## Role\nYou review code."
+
+        payload = _github_reviewer_payload()
+        payload["risk_mode"] = "balanced"
+
+        client = TestClient(app)
+        response = client.post("/agent-packs/claude", json=payload)
+
+        assert response.status_code == 200
+        files = {file["path"]: file for file in response.json()["files"]}
+
+        reviewer = files[".claude/agents/pr-reviewer.md"]["content"]
+        tool_line = next(line for line in reviewer.splitlines() if line.startswith("tools: "))
+        assert tool_line == "tools: Read, Glob, Grep, Bash"
+
+        settings = json.loads(files[".claude/settings.json"]["content"])
+        assert settings["permissions"]["defaultMode"] == "default"
+        assert "Bash(git commit:*)" in settings["permissions"]["ask"]
+
+
 def test_agent_packs_claude_mcp_stub_manifest_shape():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_skill.return_value = "# search_docs - Skill Definition\n\n## Name\nsearch_docs\n\n## Purpose\nSearch project docs.\n"
