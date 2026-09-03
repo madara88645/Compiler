@@ -276,7 +276,12 @@ def _normalize_line(line: str, *, level: int) -> str:
         return prefix + rest
 
     # Collapse internal runs of spaces/tabs.
-    ln = _MULTI_SPACE_RE.sub(" ", ln).strip() if level >= 1 else ln
+    if level >= 1:
+        if "  " in ln or "\t" in ln:
+            # Bolt Optimization: Avoid regex sub overhead if there are no multi-spaces/tabs (~2x faster)
+            ln = _MULTI_SPACE_RE.sub(" ", ln).strip()
+        else:
+            ln = ln.strip()
     return ln
 
 
