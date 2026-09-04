@@ -96,6 +96,25 @@ def test_explicit_wrap_request_lifts_forbid_for_that_transform_only() -> None:
 
 
 @pytest.mark.parametrize(
+    ("description", "transform_id"),
+    [
+        ("collapse newlines in the output", "collapse_newlines"),
+        ("remove markdown from the output", "strip_markdown_markup"),
+        ("normalize URLs in the output", "normalize_urls"),
+        ("reflow tables in the output", "reflow_tables"),
+    ],
+)
+def test_explicit_transform_requests_still_receive_fidelity_policy(
+    description: str, transform_id: str
+) -> None:
+    policy = build_output_fidelity_policy(description)
+
+    assert policy.is_formatting_intent is True
+    assert transform_id in policy.user_requested_transforms
+    assert transform_id not in policy.forbid_by_default
+
+
+@pytest.mark.parametrize(
     ("transform", "sample_key"),
     [
         ("collapse_newlines", "tables"),
@@ -175,6 +194,30 @@ def test_generate_skill_skips_fidelity_guidance_for_unrelated_skills() -> None:
 
     system_messages = [msg["content"] for msg in captured["messages"] if msg["role"] == "system"]
     assert not any("Output-fidelity requirements" in message for message in system_messages)
+
+
+def test_generate_skill_injects_fidelity_guidance_for_explicit_transform_request() -> None:
+    with patch("app.llm_engine.client.OpenAI"):
+        client = WorkerClient(api_key="test")
+
+    captured: dict = {}
+
+    def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        captured["messages"] = messages
+        return "# Skill Definition"
+
+    with patch.object(client, "_call_api", side_effect=fake_call_api):
+        result = client.generate_skill("normalize URLs in the output", include_example_code=False)
+
+    assert result == "# Skill Definition"
+    system_messages = [msg["content"] for msg in captured["messages"] if msg["role"] == "system"]
+    assert any("Output-fidelity requirements" in message for message in system_messages)
+    forbidden_lines = [
+        message for message in system_messages if "Forbidden unless explicitly requested:" in message
+    ]
+    assert forbidden_lines
+    assert any("collapse_newlines" in message for message in forbidden_lines)
+    assert all("normalize_urls" not in message for message in forbidden_lines)
 
 
 def test_ambiguous_readability_request_gets_clarification_step() -> None:
