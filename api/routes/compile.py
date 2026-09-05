@@ -458,16 +458,19 @@ def _compile_response(req: CompileRequest, request: Request) -> CompileResponse:
         plan_v2 = emit_plan_v2(ir2)
         exp_v2 = emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
+    forced_expanded = None
     if mode != "default":
         forced_expanded = forced_minimal_expanded_prompt(req.text, ir2, req.diagnostics)
         if forced_expanded:
             exp_v2 = forced_expanded
 
     if req.render_v2_prompts and ir2 is not None:
-        sys_v2 = sys_v2 or emit_system_prompt_v2(ir2)
-        user_v2 = user_v2 or emit_user_prompt_v2(ir2)
-        plan_v2 = plan_v2 or emit_plan_v2(ir2)
-        exp_v2 = exp_v2 or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
+        # Callers opting into rendered v2 prompts expect output derived from the
+        # current local IR, not stale worker-supplied prompt text.
+        sys_v2 = emit_system_prompt_v2(ir2)
+        user_v2 = emit_user_prompt_v2(ir2)
+        plan_v2 = emit_plan_v2(ir2)
+        exp_v2 = forced_expanded or emit_expanded_prompt_v2(ir2, diagnostics=req.diagnostics)
 
     if ir2 is not None and output_language_mismatch(
         req.text, " ".join(filter(None, [sys_v2, user_v2, exp_v2]))
