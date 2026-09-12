@@ -312,10 +312,16 @@ cd web && npm run build
 | Page | Path |
 |---|---|
 | Main compiler | http://localhost:3000 |
+| Agentic Coding / Projects | http://localhost:3000/agentic-coding |
+| Agents (project-aware) | http://localhost:3000/agentic-coding/agents |
+| Skills & Tools (project-aware) | http://localhost:3000/agentic-coding/skills |
+| Project pack export | http://localhost:3000/agentic-coding/projects/export |
 | Agent Generator | http://localhost:3000/agent-generator |
 | Skill Generator | http://localhost:3000/skills-generator |
 | Benchmark | http://localhost:3000/benchmark |
 | Token Optimizer | http://localhost:3000/optimizer |
+
+Agentic Coding briefs are browser-local under `promptc_projects_v1`; they do not require backend persistence. New generator routes reuse the existing pages; the legacy URLs remain supported. Project URL selection requires explicit attachment before affecting generation. Verify context preservation and detachment with `cd web && npx vitest run app/components/ProjectContextPicker.test.tsx app/agentic-coding/generatorProjectContext.test.tsx`.
 
 `/offline` redirects to `/` (main Compiler). Use the **Heuristics only (no LLM)** toggle on the main page instead of a separate offline surface.
 

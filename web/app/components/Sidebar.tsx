@@ -4,30 +4,45 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Code2, Sparkles, Swords, Bot, Zap, FolderArchive, ShieldCheck, Github, Terminal, Blocks, Plug, type LucideIcon } from "lucide-react";
 
-type NavItem = { name: string; path: string; Icon: LucideIcon };
+type NavItem = {
+    name: string;
+    path: string;
+    Icon: LucideIcon;
+    activePaths?: readonly string[];
+};
 type NavGroup = { label: string; items: NavItem[] };
 
 // Compiler is intentionally first: it is the primary, always-on entry point.
 const navGroups: NavGroup[] = [
     {
-        label: "Compile",
+        label: "Prompt tools",
         items: [
             { name: "Compiler",       path: "/",          Icon: Code2    },
             { name: "Token Optimizer", path: "/optimizer", Icon: Sparkles },
-        ],
-    },
-    {
-        label: "Prove",
-        items: [
             { name: "Benchmark", path: "/benchmark", Icon: Swords },
         ],
     },
     {
-        label: "Ship agent assets",
+        label: "Agentic Coding",
         items: [
-            { name: "Agent Packs",      path: "/agent-packs",      Icon: FolderArchive },
-            { name: "Agent Generator",  path: "/agent-generator",  Icon: Bot           },
-            { name: "Skills Generator", path: "/skills-generator", Icon: Zap           },
+            {
+                name: "Projects",
+                path: "/agentic-coding",
+                activePaths: ["/agent-packs", "/agentic-coding/projects/export"],
+                Icon: FolderArchive,
+            },
+            {
+                name: "Agents",
+                path: "/agentic-coding/agents",
+                activePaths: ["/agent-generator"],
+                Icon: Bot,
+            },
+            {
+                name: "Skills & Tools",
+                path: "/agentic-coding/skills",
+                activePaths: ["/skills-generator"],
+                Icon: Zap,
+            },
         ],
     },
     {
@@ -66,9 +81,9 @@ const accentBarMap: Record<string, string> = {
     "/optimizer":         "bg-emerald-500",
     "/benchmark":         "bg-amber-500",
     "/pr-safety":         "bg-rose-500",
-    "/agent-packs":       "bg-cyan-500",
-    "/agent-generator":   "bg-green-500",
-    "/skills-generator":  "bg-yellow-500",
+    "/agentic-coding":       "bg-cyan-500",
+    "/agentic-coding/agents": "bg-green-500",
+    "/agentic-coding/skills": "bg-yellow-500",
 };
 
 const accentRingMap: Record<string, string> = {
@@ -76,10 +91,14 @@ const accentRingMap: Record<string, string> = {
     "/optimizer":         "ring-emerald-500/30",
     "/benchmark":         "ring-amber-500/30",
     "/pr-safety":         "ring-rose-500/30",
-    "/agent-packs":       "ring-cyan-500/30",
-    "/agent-generator":   "ring-green-500/30",
-    "/skills-generator":  "ring-yellow-500/30",
+    "/agentic-coding":       "ring-cyan-500/30",
+    "/agentic-coding/agents": "ring-green-500/30",
+    "/agentic-coding/skills": "ring-yellow-500/30",
 };
+
+function isNavItemActive(item: NavItem, pathname: string): boolean {
+    return item.path === pathname || item.activePaths?.includes(pathname) === true;
+}
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -100,13 +119,21 @@ export default function Sidebar() {
                         />
                     )}
 
+                    <span
+                        className="hidden md:block mb-1 max-w-16 text-center text-[8px] font-semibold uppercase leading-tight tracking-[0.12em] text-zinc-500"
+                        aria-hidden="true"
+                        title={group.label}
+                    >
+                        {group.label}
+                    </span>
+
                     <div
                         role="group"
                         aria-label={group.label}
                         className="flex flex-col items-center gap-2 w-full"
                     >
                         {group.items.map((item) => {
-                            const isActive = pathname === item.path;
+                            const isActive = pathname ? isNavItemActive(item, pathname) : false;
                             const accentBar = accentBarMap[item.path] ?? "bg-blue-500";
                             const accentRing = accentRingMap[item.path] ?? "ring-white/20";
 

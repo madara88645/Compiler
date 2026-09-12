@@ -1,11 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
+import { usePathname } from "next/navigation";
 
 import Sidebar from "./Sidebar";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/agent-packs",
-}));
+vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -20,12 +19,27 @@ vi.mock("next/link", () => ({
 }));
 
 describe("Sidebar", () => {
-  test("renders Agent Packs as a top-level navigation item", () => {
+  const mockUsePathname = vi.mocked(usePathname);
+
+  test("renders canonical navigation links in understandable groups", () => {
+    mockUsePathname.mockReturnValue("/agentic-coding");
     render(<Sidebar />);
 
-    const link = screen.getByLabelText("Agent Packs");
-    expect(link.getAttribute("href")).toBe("/agent-packs");
-    expect(link.getAttribute("aria-current")).toBe("page");
+    const links = {
+      Compiler: "/",
+      "Token Optimizer": "/optimizer",
+      Benchmark: "/benchmark",
+      Projects: "/agentic-coding",
+      Agents: "/agentic-coding/agents",
+      "Skills & Tools": "/agentic-coding/skills",
+      "PR Safety": "/pr-safety",
+    };
+
+    for (const [label, href] of Object.entries(links)) {
+      expect(screen.getByRole("link", { name: label }).getAttribute("href")).toBe(href);
+    }
+
+    expect(screen.getByRole("link", { name: "Projects" }).getAttribute("aria-current")).toBe("page");
   });
 
   test("does not render a separate Offline navigation item", () => {
@@ -37,6 +51,7 @@ describe("Sidebar", () => {
   });
 
   test("renders a visible text label under every icon", () => {
+    mockUsePathname.mockReturnValue("/");
     render(<Sidebar />);
 
     const labels = [
@@ -44,9 +59,9 @@ describe("Sidebar", () => {
       "Token Optimizer",
       "Benchmark",
       "PR Safety",
-      "Agent Packs",
-      "Agent Generator",
-      "Skills Generator",
+      "Projects",
+      "Agents",
+      "Skills & Tools",
     ];
 
     for (const label of labels) {
@@ -57,15 +72,15 @@ describe("Sidebar", () => {
   });
 
   test("groups nav items into labeled sections with separators between them", () => {
+    mockUsePathname.mockReturnValue("/");
     render(<Sidebar />);
 
     const groups = screen.getAllByRole("group");
     const groupLabels = groups.map((group) => group.getAttribute("aria-label"));
 
     expect(groupLabels).toEqual([
-      "Compile",
-      "Prove",
-      "Ship agent assets",
+      "Prompt tools",
+      "Agentic Coding",
       "Repo checks",
     ]);
 
@@ -74,13 +89,32 @@ describe("Sidebar", () => {
     expect(separators).toHaveLength(groups.length - 1);
   });
 
-  test("keeps Compiler as the first item in the primary Compile group", () => {
+  test("keeps Compiler as the first item in the primary Prompt tools group", () => {
+    mockUsePathname.mockReturnValue("/");
     render(<Sidebar />);
 
-    const compileGroup = screen.getByRole("group", { name: "Compile" });
-    const firstLink = compileGroup.querySelector("a");
+    const promptToolsGroup = screen.getByRole("group", { name: "Prompt tools" });
+    const firstLink = promptToolsGroup.querySelector("a");
     expect(firstLink?.getAttribute("aria-label")).toBe("Compiler");
     expect(firstLink?.getAttribute("href")).toBe("/");
+  });
+
+  test.each([
+    ["/agentic-coding", "Projects"],
+    ["/agent-packs", "Projects"],
+    ["/agentic-coding/projects/export", "Projects"],
+    ["/agentic-coding/agents", "Agents"],
+    ["/agent-generator", "Agents"],
+    ["/agentic-coding/skills", "Skills & Tools"],
+    ["/skills-generator", "Skills & Tools"],
+  ])("marks %s as %s for canonical and legacy routes", (pathname, label) => {
+    mockUsePathname.mockReturnValue(pathname);
+    const { unmount } = render(<Sidebar />);
+
+    expect(screen.getByRole("link", { name: label }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page")).toHaveLength(1);
+
+    unmount();
   });
 
   test("renders outbound links for repo, CLI, VS Code, and MCP", () => {
