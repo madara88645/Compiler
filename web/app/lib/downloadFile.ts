@@ -6,11 +6,11 @@
  * anchor+Blob implementation instead of one copy per page.
  */
 export function downloadFile(
-  content: string,
+  content: string | Blob,
   filename: string,
   mimeType: string = "text/plain",
 ): void {
-  const blob = new Blob([content], { type: mimeType });
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -18,5 +18,7 @@ export function downloadFile(
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  // Let the browser consume the download before releasing the blob URL.
+  // Revoking it in the click's task can cancel downloads in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

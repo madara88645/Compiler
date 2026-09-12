@@ -362,4 +362,52 @@ describe("Optimizer page", () => {
     expect(apiJsonMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Cloud Optimizer Alert")).toBeNull();
   });
+
+  it("keeps code, URLs, inline literals, and placeholders intact in local mode", async () => {
+    render(<OptimizerPage />);
+
+    const source = [
+      "Please use `please_function` and keep {{project_id}}.",
+      "https://example.com/please?project={{project_id}}",
+      "```python",
+      "# please keep this comment",
+      "return `literal`",
+      "```",
+    ].join("\n");
+    fireEvent.change(screen.getByLabelText("Original Prompt"), {
+      target: { value: source },
+    });
+    fireEvent.change(screen.getByLabelText("Estimate model"), {
+      target: { value: "local:offline" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
+
+    const result = await screen.findByRole("textbox", { name: "Optimized Result" });
+    const output = (result as HTMLTextAreaElement).value;
+    expect(output).toContain("`please_function`");
+    expect(output).toContain("{{project_id}}");
+    expect(output).toContain("https://example.com/please?project={{project_id}}");
+    expect(output).toContain("# please keep this comment");
+  });
+
+  it("preserves long fences, indented code, quoted words and marker-like text locally", async () => {
+    render(<OptimizerPage />);
+    const source = "__PROMPTC_PROTECTED_0__ and `please`\n````md\n```python\nplease  keep\n```\n````\n    please  keep this code\nReturn the word 'please'.\n";
+    fireEvent.change(screen.getByLabelText("Original Prompt"), { target: { value: source } });
+    fireEvent.change(screen.getByLabelText("Estimate model"), { target: { value: "local:offline" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
+    expect(await screen.findByRole("textbox", { name: "Optimized Result" })).toHaveValue(source);
+    expect(apiJsonMock).not.toHaveBeenCalled();
+  });
+
+  it("warns when local output exceeds the selected token target without truncating content", async () => {
+    render(<OptimizerPage />);
+    const source = "中文".repeat(150);
+    fireEvent.change(screen.getByLabelText("Original Prompt"), { target: { value: source } });
+    fireEvent.change(screen.getByLabelText("Estimate model"), { target: { value: "local:offline" } });
+    fireEvent.change(screen.getByLabelText("Max Tokens"), { target: { value: "100" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /Optimize & estimate cost/i })[0]);
+    expect(await screen.findByText(/exceeds your 100-token target/)).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Optimized Result" })).toHaveValue(source);
+  });
 });

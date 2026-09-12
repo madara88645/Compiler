@@ -4,7 +4,7 @@ import time
 import functools
 import uuid
 import anyio
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
@@ -49,6 +49,9 @@ from app.optimizer.language_costs import (
     estimate_prompt_cost,
 )
 from app.optimizer.critic import CriticAgent
+from app.optimizer.fidelity import apply_fidelity_guard
+from app.optimizer.model_catalog import canonical_model_id
+from app.token_optimizer import optimize_text
 from app.optimizer.postprocess import strip_wrapper_labels
 from app.readiness.analyzer import analyze_readiness
 from app.readiness.language_guard import output_language_mismatch
@@ -127,7 +130,7 @@ class OptimizeRequest(BaseModel):
     max_chars: Optional[int] = Field(default=None, ge=1, le=_MAX_PROMPT_CHARS)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=8_000)
     token_ratio: float = Field(default=4.0, gt=0, le=20.0)
-    provider: str = Field(default=DEFAULT_PROVIDER, max_length=40)
+    provider: Literal["openrouter", "local"] = DEFAULT_PROVIDER
     model: Optional[str] = Field(default=None, max_length=120)
 
 
@@ -155,6 +158,22 @@ class OptimizeResponse(BaseModel):
     english_variant_cost_usd: float
     warnings: list[str]
     optimizer_call_usage: dict | None = None
+    # Estimate provenance and runtime usage are additive fields.  The original
+    # numeric cost fields remain for clients that have not migrated yet.
+    pricing_known: bool = True
+    pricing_source: str | None = None
+    pricing_verified_at: str | None = None
+    tokenizer_name: str | None = None
+    token_count_is_estimate: bool = True
+    context_length: int | None = None
+    estimated_optimized_input_cost_usd: float = 0.0
+    optimizer_model: str = DEFAULT_OPENROUTER_MODEL
+    actual_input_tokens: int | None = None
+    actual_output_tokens: int | None = None
+    actual_cost_usd: float | None = None
+    estimated_actual_cost_usd: float | None = None
+    optimizer_provider: str = DEFAULT_PROVIDER
+    english_optimizer_call_usage: dict | None = None
 
 
 def _safe_worker_text(worker_res, field_name: str) -> str:
@@ -162,6 +181,56 @@ def _safe_worker_text(worker_res, field_name: str) -> str:
     if not isinstance(value, str):
         return ""
     return value if field_name == "plan" or not is_meta_leaked(value) else ""
+
+
+def _usage_token_count(usage: dict | None, *keys: str) -> int | None:
+    """Read provider usage defensively without inventing missing token counts."""
+
+    if not isinstance(usage, dict):
+        return None
+    for key in keys:
+        value = usage.get(key)
+        if isinstance(value, bool):
+            continue
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            continue
+        if parsed >= 0:
+            return parsed
+    return None
+
+
+def _actual_usage_cost(
+    usage: dict | None,
+    *,
+    provider: str,
+    model: str,
+) -> tuple[int | None, int | None, float | None, float | None]:
+    """Separate provider-reported cost from a catalog-based cost estimate."""
+
+    input_tokens = _usage_token_count(usage, "prompt_tokens", "input_tokens")
+    output_tokens = _usage_token_count(usage, "completion_tokens", "output_tokens")
+    reported_cost = None
+    if isinstance(usage, dict):
+        for key in ("cost", "cost_usd", "total_cost"):
+            value = usage.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+                reported_cost = float(value)
+                break
+    if input_tokens is None or output_tokens is None:
+        return input_tokens, output_tokens, reported_cost, None
+
+    input_cost = estimate_prompt_cost(
+        "", provider=provider, model=model, direction="input", token_count_override=input_tokens
+    )
+    output_cost = estimate_prompt_cost(
+        "", provider=provider, model=model, direction="output", token_count_override=output_tokens
+    )
+    if not input_cost.pricing_known or not output_cost.pricing_known:
+        return input_tokens, output_tokens, reported_cost, None
+    estimated_cost = round(input_cost.estimated_cost_usd + output_cost.estimated_cost_usd, 10)
+    return input_tokens, output_tokens, reported_cost, estimated_cost
 
 
 def _serialize_readiness(text: str, ir2: IRv2 | None) -> tuple[dict, str]:
@@ -705,25 +774,58 @@ async def optimize_endpoint(
 
     try:
         worker_model = getattr(compiler.worker, "model", None)
-        model = (
-            req.model
-            or (worker_model if isinstance(worker_model, str) else None)
-            or DEFAULT_OPENROUTER_MODEL
-        )
+        optimizer_model = (
+            worker_model if isinstance(worker_model, str) and worker_model.strip() else None
+        ) or DEFAULT_OPENROUTER_MODEL
+        model = req.model or optimizer_model or DEFAULT_OPENROUTER_MODEL
         provider = (req.provider or DEFAULT_PROVIDER).strip().lower()
-        raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
-            functools.partial(
-                compiler.worker.optimize_prompt,
-                req.text,
-                max_chars=req.max_chars,
-                max_tokens=req.max_tokens,
+        if provider == "local":
+            raw_result, _local_stats = await anyio.to_thread.run_sync(
+                functools.partial(
+                    optimize_text,
+                    req.text,
+                    max_chars=req.max_chars,
+                    max_tokens=req.max_tokens,
+                    token_ratio=req.token_ratio,
+                )
             )
-        )
+            optimizer_call_usage = None
+            optimizer_model = "offline"
+            model = req.model or "offline"
+            optimizer_provider = "local"
+        else:
+            raw_result, optimizer_call_usage = await anyio.to_thread.run_sync(
+                functools.partial(
+                    compiler.worker.optimize_prompt,
+                    req.text,
+                    max_chars=req.max_chars,
+                    max_tokens=req.max_tokens,
+                )
+            )
+            # WorkerClient is the repo's OpenRouter-only cloud path.  Keep this
+            # separate from ``provider`` so a local estimate cannot imply a free
+            # cloud request (or vice versa).
+            optimizer_provider = "openrouter"
         result = strip_wrapper_labels(raw_result)
-        source_cost = estimate_prompt_cost(req.text, provider=provider, model=model)
-        optimized_cost = estimate_prompt_cost(result, provider=provider, model=model)
+        result, fidelity_warnings = apply_fidelity_guard(req.text, result)
+        source_cost = estimate_prompt_cost(
+            req.text, provider=provider, model=model, token_ratio=req.token_ratio
+        )
+        optimized_cost = estimate_prompt_cost(
+            result, provider=provider, model=model, token_ratio=req.token_ratio
+        )
 
-        warnings = list(dict.fromkeys(source_cost.warnings + optimized_cost.warnings))
+        warnings = list(
+            dict.fromkeys(source_cost.warnings + optimized_cost.warnings + fidelity_warnings)
+        )
+        if optimizer_provider == "local":
+            warnings.append("Offline local heuristic used; no cloud LLM call was made.")
+
+        if req.model and canonical_model_id(req.model) != canonical_model_id(optimizer_model):
+            warnings.append(
+                f"The estimate targets '{model}', but the configured optimizer call runs on "
+                f"'{optimizer_model}'. Select the configured model or treat this as a planning estimate."
+            )
 
         result_language = detect_language(result)
         if (
@@ -744,32 +846,45 @@ async def optimize_endpoint(
         english_variant = ""
         english_variant_tokens = 0
         english_variant_cost_usd = 0.0
+        english_optimizer_call_usage = None
 
         if source_cost.source_language != "en":
             warnings.append("Translation can change nuance; review before using.")
-            try:
-                english_variant, _ = await anyio.to_thread.run_sync(
-                    functools.partial(
-                        compiler.worker.optimize_prompt_english_variant,
-                        req.text,
-                        max_chars=req.max_chars,
-                        max_tokens=req.max_tokens,
+            if optimizer_provider == "local":
+                warnings.append("English compact suggestion is unavailable in offline mode.")
+            else:
+                try:
+                    english_variant, english_optimizer_call_usage = await anyio.to_thread.run_sync(
+                        functools.partial(
+                            compiler.worker.optimize_prompt_english_variant,
+                            req.text,
+                            max_chars=req.max_chars,
+                            max_tokens=req.max_tokens,
+                        )
                     )
-                )
-            except Exception as exc:
-                logger.debug("English optimizer variant skipped: %s", exc)
-                english_variant = ""
-                warnings.append(
-                    "English compact suggestion unavailable; the secondary optimizer call failed."
-                )
+                except Exception as exc:
+                    logger.debug("English optimizer variant skipped: %s", exc)
+                    english_variant = ""
+                    warnings.append(
+                        "English compact suggestion unavailable; the secondary optimizer call failed."
+                    )
 
-            english_variant = strip_wrapper_labels(english_variant)
+                english_variant = strip_wrapper_labels(english_variant)
+                english_variant, english_fidelity_warnings = apply_fidelity_guard(
+                    req.text, english_variant, empty_on_failure=True
+                )
+                warnings = list(dict.fromkeys(warnings + english_fidelity_warnings))
 
-            if english_variant:
-                english_cost = estimate_prompt_cost(english_variant, provider=provider, model=model)
-                english_variant_tokens = english_cost.tokens
-                english_variant_cost_usd = english_cost.estimated_cost_usd
-                warnings = list(dict.fromkeys(warnings + english_cost.warnings))
+                if english_variant:
+                    english_cost = estimate_prompt_cost(
+                        english_variant,
+                        provider=provider,
+                        model=model,
+                        token_ratio=req.token_ratio,
+                    )
+                    english_variant_tokens = english_cost.tokens
+                    english_variant_cost_usd = english_cost.estimated_cost_usd
+                    warnings = list(dict.fromkeys(warnings + english_cost.warnings))
 
         before_len = len(req.text)
         after_len = len(result)
@@ -780,6 +895,13 @@ async def optimize_endpoint(
         )
         estimated_savings = round(
             source_cost.estimated_cost_usd - optimized_cost.estimated_cost_usd, 10
+        )
+        actual_input_tokens, actual_output_tokens, actual_cost_usd, estimated_actual_cost_usd = (
+            _actual_usage_cost(
+                optimizer_call_usage,
+                provider=optimizer_provider,
+                model=optimizer_model,
+            )
         )
 
         return OptimizeResponse(
@@ -802,11 +924,25 @@ async def optimize_endpoint(
             estimated_input_cost_usd=source_cost.estimated_cost_usd,
             estimated_output_cost_usd=optimized_cost.estimated_cost_usd,
             estimated_savings_usd=estimated_savings,
+            estimated_optimized_input_cost_usd=optimized_cost.estimated_cost_usd,
             english_variant=english_variant,
             english_variant_tokens=english_variant_tokens,
             english_variant_cost_usd=english_variant_cost_usd,
             warnings=warnings,
             optimizer_call_usage=optimizer_call_usage,
+            pricing_known=source_cost.pricing_known,
+            pricing_source=source_cost.pricing_source,
+            pricing_verified_at=source_cost.pricing_verified_at,
+            tokenizer_name=source_cost.tokenizer_name,
+            token_count_is_estimate=source_cost.token_count_is_estimate,
+            context_length=source_cost.context_length,
+            optimizer_model=optimizer_model,
+            actual_input_tokens=actual_input_tokens,
+            actual_output_tokens=actual_output_tokens,
+            actual_cost_usd=actual_cost_usd,
+            estimated_actual_cost_usd=estimated_actual_cost_usd,
+            optimizer_provider=optimizer_provider,
+            english_optimizer_call_usage=english_optimizer_call_usage,
         )
     except Exception as exc:
         logger.exception("optimize endpoint failed")

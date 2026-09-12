@@ -37,6 +37,8 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
 | `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
+| `PROMPTC_INSTRUCTION_REVIEW_MAX_FILES` | Instruction review bound | Optional; default/cap `12` |
+| `PROMPTC_INSTRUCTION_REVIEW_MAX_TOTAL_CHARS` | Instruction review text bound | Optional; default/cap `120000` across all files |
 | `ADMIN_API_KEY` | Legacy/internal master API key (skip DB lookup where auth helpers are still used) | Optional; not required for the public app |
 | `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Legacy/internal auth toggle | Public app routes should not depend on this |
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
@@ -206,6 +208,8 @@ outside the deterministic analyzer and do not add browser tokens or server-side 
 
 **Live optimizer tests (opt-in only; requires upstream credentials):**
 
+Optimizer metadata is a dated OpenRouter Models API snapshot in `app/optimizer/model_catalog.py`, mirrored by `web/app/benchmark/models.json`. Keep identifiers, prices, tokenizer labels and verification dates aligned when refreshing models. Validate modernization changes with `pytest tests/optimizer/test_modernization.py tests/optimizer/test_token_estimate_provenance.py tests/optimizer/test_language_costs.py tests/optimizer/test_costs.py tests/test_optimize_api.py tests/test_estimator.py -q`. Token estimates and catalog-derived charges must remain distinct from provider-reported usage and billing.
+
 ```bash
 OPENROUTER_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
 ```
@@ -316,12 +320,15 @@ cd web && npm run build
 | Agents (project-aware) | http://localhost:3000/agentic-coding/agents |
 | Skills & Tools (project-aware) | http://localhost:3000/agentic-coding/skills |
 | Project pack export | http://localhost:3000/agentic-coding/projects/export |
+| Instruction review | http://localhost:3000/agentic-coding/instructions |
 | Agent Generator | http://localhost:3000/agent-generator |
 | Skill Generator | http://localhost:3000/skills-generator |
 | Benchmark | http://localhost:3000/benchmark |
 | Token Optimizer | http://localhost:3000/optimizer |
 
 Agentic Coding briefs are browser-local under `promptc_projects_v1`; they do not require backend persistence. New generator routes reuse the existing pages; the legacy URLs remain supported. Project URL selection requires explicit attachment before affecting generation. Verify context preservation and detachment with `cd web && npx vitest run app/components/ProjectContextPicker.test.tsx app/agentic-coding/generatorProjectContext.test.tsx`.
+
+Instruction review accepts pasted/uploaded text at `POST /instruction-review/analyze`; file names are relative labels, never paths to read on the server. The deterministic review does not use an LLM or write repository files. An optional complete repository file list enables reference checks. Keep code fences and separately scoped rules intact; only conservative duplicate removals can appear in suggested output. Frontend downloads default to the original unless the user explicitly selects the suggestion. Validate with `pytest tests/test_instruction_review.py tests/test_instruction_review_api.py -q` and `cd web && npx vitest run app/agentic-coding/instructions/page.test.tsx`.
 
 `/offline` redirects to `/` (main Compiler). Use the **Heuristics only (no LLM)** toggle on the main page instead of a separate offline surface.
 

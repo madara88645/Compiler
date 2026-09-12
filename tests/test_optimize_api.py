@@ -56,8 +56,10 @@ def test_api_optimize_preserves_fenced_code_block(mock_optimize):
     optimized = r.json()["text"]
 
     assert "```python\n" in optimized
-    assert "def foo():\n" in optimized  # Normalized spaces in mock
-    assert "    return 1\n" in optimized
+    # The source fence is protected literally; normalizing executable code
+    # would make a supposedly safe optimizer change code semantics.
+    assert "def  foo():\n" in optimized
+    assert "    return  1\n" in optimized
     assert "```\n" in optimized
 
 
@@ -67,10 +69,12 @@ def test_api_optimize_returns_english_variant_without_replacing_main_output(
     mock_optimize, mock_english_variant
 ):
     turkish_text = (
-        "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz. Guvenlik kisitlarini koru."
+        "PDF'i ozetle. Junior gelistirici icin uygulama plani yaz. "
+        "Guvenlik kisitlarini koru. {{project_name}} degiskenini koru."
     )
     english_text = (
-        "Summarize PDF. Write implementation plan for junior developer. Keep safety constraints."
+        "Summarize PDF. Write implementation plan for junior developer. "
+        "Keep safety constraints. Preserve {{project_name}}."
     )
     mock_optimize.return_value = (turkish_text, None)
     mock_english_variant.return_value = (english_text, None)

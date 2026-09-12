@@ -209,6 +209,12 @@ function ProjectCard({
               Create skill/tool <ArrowUpRight size={13} aria-hidden="true" />
             </Link>
             <Link
+              href={projectLink("/agentic-coding/instructions", project.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
+            >
+              Review instructions <ArrowUpRight size={13} aria-hidden="true" />
+            </Link>
+            <Link
               href={projectLink("/agentic-coding/projects/export", project.id)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-400 transition hover:border-cyan-300/30 hover:bg-cyan-300/10 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
             >
@@ -535,6 +541,10 @@ export default function AgenticCodingProjectsPage() {
           </p>
         )}
 
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.03] p-4">
+          <div><p className="text-sm font-medium text-white">Already have project instructions?</p><p className="mt-1 text-xs text-zinc-400">Review existing instruction files for repeated rules and possible conflicts.</p></div>
+          <Link href="/agentic-coding/instructions" className="rounded-lg border border-cyan-300/25 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-300/10">Review instructions</Link>
+        </div>
         <div className="grid gap-6 pb-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
           <section aria-labelledby="saved-projects-heading">
             <div className="mb-4 flex items-end justify-between gap-4">

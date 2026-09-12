@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 import { apiJson, describeRequestError } from "@/config";
 import { showError } from "../lib/showError";
 import { copyToClipboard } from "../lib/copyToClipboard";
+import { BENCHMARK_MODELS } from "../benchmark/modelCatalog";
 
 import InfoButton from "../components/InfoButton";
 
@@ -24,10 +25,25 @@ type OptimizeResponse = {
     estimated_input_cost_usd: number;
     estimated_output_cost_usd: number;
     estimated_savings_usd: number;
+    estimated_optimized_input_cost_usd: number;
     english_variant: string;
     english_variant_tokens: number;
     english_variant_cost_usd: number;
     warnings: string[];
+    pricing_known: boolean;
+    pricing_source: string | null;
+    pricing_verified_at: string | null;
+    tokenizer_name: string | null;
+    token_count_is_estimate: boolean;
+    context_length: number | null;
+    optimizer_model: string;
+    actual_input_tokens: number | null;
+    actual_output_tokens: number | null;
+    actual_cost_usd: number | null;
+    estimated_actual_cost_usd: number | null;
+    optimizer_provider: string;
+    optimizer_call_usage?: Record<string, unknown> | null;
+    english_optimizer_call_usage?: Record<string, unknown> | null;
 };
 
 const DEFAULT_OPTIMIZER_PROVIDER = "openrouter";
@@ -57,6 +73,8 @@ function normalizeOptimizeResponse(data: Partial<OptimizeResponse>): OptimizeRes
         ? Number((((beforeTokens - afterTokens) / beforeTokens) * 100).toFixed(1))
         : 0;
 
+    const hasLegacyPricingFields =
+        data.estimated_input_cost_usd !== undefined || data.estimated_output_cost_usd !== undefined;
     return {
         text: toStringValue(data.text),
         before_chars: toFiniteNumber(data.before_chars),
@@ -72,10 +90,28 @@ function normalizeOptimizeResponse(data: Partial<OptimizeResponse>): OptimizeRes
         estimated_input_cost_usd: toFiniteNumber(data.estimated_input_cost_usd),
         estimated_output_cost_usd: toFiniteNumber(data.estimated_output_cost_usd),
         estimated_savings_usd: toFiniteNumber(data.estimated_savings_usd),
+        estimated_optimized_input_cost_usd: toFiniteNumber(
+            data.estimated_optimized_input_cost_usd,
+            toFiniteNumber(data.estimated_output_cost_usd),
+        ),
         english_variant: toStringValue(data.english_variant),
         english_variant_tokens: toFiniteNumber(data.english_variant_tokens),
         english_variant_cost_usd: toFiniteNumber(data.english_variant_cost_usd),
         warnings: toWarnings(data.warnings),
+        pricing_known: typeof data.pricing_known === "boolean" ? data.pricing_known : hasLegacyPricingFields,
+        pricing_source: typeof data.pricing_source === "string" ? data.pricing_source : null,
+        pricing_verified_at: typeof data.pricing_verified_at === "string" ? data.pricing_verified_at : null,
+        tokenizer_name: typeof data.tokenizer_name === "string" ? data.tokenizer_name : null,
+        token_count_is_estimate: data.token_count_is_estimate !== false,
+        context_length: typeof data.context_length === "number" ? data.context_length : null,
+        optimizer_model: toStringValue(data.optimizer_model, toStringValue(data.model, DEFAULT_OPTIMIZER_MODEL)),
+        actual_input_tokens: typeof data.actual_input_tokens === "number" ? data.actual_input_tokens : null,
+        actual_output_tokens: typeof data.actual_output_tokens === "number" ? data.actual_output_tokens : null,
+        actual_cost_usd: typeof data.actual_cost_usd === "number" ? data.actual_cost_usd : null,
+        estimated_actual_cost_usd: typeof data.estimated_actual_cost_usd === "number" ? data.estimated_actual_cost_usd : null,
+        optimizer_provider: toStringValue(data.optimizer_provider, toStringValue(data.provider, DEFAULT_OPTIMIZER_PROVIDER)),
+        optimizer_call_usage: data.optimizer_call_usage ?? null,
+        english_optimizer_call_usage: data.english_optimizer_call_usage ?? null,
     };
 }
 
@@ -87,6 +123,10 @@ function formatUsd(value: number): string {
         return `$${value.toExponential(2)}`;
     }
     return `$${value.toFixed(4)}`;
+}
+
+function formatEstimatedCost(value: number, pricingKnown: boolean): string {
+    return pricingKnown ? formatUsd(value) : "Unavailable";
 }
 
 const LANGUAGE_LABELS: Record<string, string> = { tr: "TR", en: "EN" };
@@ -149,33 +189,31 @@ function MetricTile({
     );
 }
 
+// Keep literal material and Markdown structure intact. Local mode only
+// collapses redundant spaces in plain prose; it never truncates to a budget.
 const runLocalOfflineCompression = (text: string): string => {
-    let result = text;
-    // Remove HTML/Markdown comments
-    result = result.replace(/<!--[\s\S]*?-->/g, "");
-    // Remove polite/verbose filler phrases to save tokens
-    const fillers = [
-        /\bplease\b/gi,
-        /\bcan you\b/gi,
-        /\bcould you\b/gi,
-        /\bkindly\b/gi,
-        /\bwould you be so kind as to\b/gi,
-        /\bi want you to\b/gi,
-        /\bi would like you to\b/gi,
-        /\bthank you\b/gi,
-        /\bthanks\b/gi,
-        /\bas an AI\b/gi,
-        /\bas a helpful assistant\b/gi,
-    ];
-    for (const rx of fillers) {
-        result = result.replace(rx, "");
-    }
-    // Remove duplicate spacing
-    result = result.replace(/[ \t]+/g, " ");
-    // Remove duplicate newlines
-    result = result.replace(/\n\s*\n/g, "\n\n");
-    return result.trim();
+    let fence = "";
+    let inComment = false;
+    return (text.match(/[^\n]*\n|[^\n]+$/g) ?? []).map((line) => {
+        const trimmed = line.trim();
+        const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+        if (fence) {
+            if (trimmed.length >= fence.length && [...trimmed].every((char) => char === fence[0])) fence = "";
+            return line;
+        }
+        if (marker) { fence = marker[1]; return line; }
+        if (inComment || line.includes("<!--")) {
+            inComment = !line.includes("-->");
+            return line;
+        }
+        if (/^\s/.test(line) || /[`"'{}<>/\\]/.test(line)) return line;
+        return line.replace(/(\S)[ \t]{2,}(?=\S)/g, "$1 ");
+    }).join("");
 };
+
+const estimateLocalTokens = (text: string): number => text.length
+    ? Math.max(1, Math.ceil(new TextEncoder().encode(text).length / 4), text.trim().split(/\s+/).length)
+    : 0;
 
 export default function OptimizerPage() {
     const router = useRouter();
@@ -208,15 +246,13 @@ export default function OptimizerPage() {
         setResult(null);
 
         if (activeProvider === "local") {
-            // Simulate premium calculation time
-            await new Promise((resolve) => setTimeout(resolve, 600));
             const compressed = runLocalOfflineCompression(input);
             const beforeLen = input.length;
             const afterLen = compressed.length;
 
-            // Simple rule of thumb character to token ratio approximation
-            const beforeTokens = Math.max(1, Math.ceil(beforeLen / 4.1));
-            const afterTokens = Math.max(1, Math.ceil(afterLen / 4.1));
+            // Same transparent byte/word fallback used by backend local estimates.
+            const beforeTokens = estimateLocalTokens(input);
+            const afterTokens = estimateLocalTokens(compressed);
             const savedPercent = beforeTokens > 0
                 ? Number((((beforeTokens - afterTokens) / beforeTokens) * 100).toFixed(1))
                 : 0;
@@ -232,18 +268,32 @@ export default function OptimizerPage() {
                 provider: "local",
                 model: "offline",
                 source_language: "unknown",
-                tokenizer_method: "local:chars_to_tokens_ratio",
+                tokenizer_method: "heuristic:utf8_bytes_words:estimated",
                 estimated_input_cost_usd: 0,
                 estimated_output_cost_usd: 0,
                 estimated_savings_usd: 0,
+                estimated_optimized_input_cost_usd: 0,
                 english_variant: "",
                 english_variant_tokens: 0,
                 english_variant_cost_usd: 0,
                 warnings: [
                     "Offline Local Heuristic compression active.",
                     "No cloud API key required for this mode.",
-                    "Character and token metrics are approximations."
-                ]
+                    "Character and token metrics are approximations.",
+                    ...(afterTokens > maxTokens ? [`Estimated output (${afterTokens} tokens) exceeds your ${maxTokens}-token target. Local mode keeps your content instead of truncating it.`] : [])
+                ],
+                pricing_known: true,
+                pricing_source: "local:no-metered-provider",
+                pricing_verified_at: null,
+                tokenizer_name: "local heuristic",
+                token_count_is_estimate: true,
+                context_length: null,
+                optimizer_model: "offline",
+                actual_input_tokens: null,
+                actual_output_tokens: null,
+                actual_cost_usd: null,
+                estimated_actual_cost_usd: null,
+                optimizer_provider: "local",
             });
             setLoading(false);
             return;
@@ -310,7 +360,7 @@ export default function OptimizerPage() {
                 <div className="flex w-full flex-col gap-3 rounded-lg border border-white/10 bg-zinc-950/50 p-3 sm:flex-row sm:items-center lg:w-auto">
                     <div className="flex min-w-[160px] flex-col gap-1">
                         <label htmlFor="optimizer-engine" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                            Optimizer Engine
+                            Estimate model
                         </label>
                         <select
                             id="optimizer-engine"
@@ -323,11 +373,18 @@ export default function OptimizerPage() {
                             }}
                             className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
                         >
-                            <option value="openrouter:openai/gpt-oss-20b">OpenRouter GPT-OSS 20B (Cloud)</option>
-                            <option value="openrouter:openai/gpt-oss-120b">OpenRouter GPT-OSS 120B (Quality)</option>
+                            {BENCHMARK_MODELS.map((candidate) => (
+                                <option key={candidate.id} value={`openrouter:${candidate.id}`}>
+                                    {`OpenRouter ${candidate.label} (${candidate.availability === "preview" ? "Preview" : "Cloud"})`}
+                                </option>
+                            ))}
                             <option value="local:offline">Local Heuristics (Offline)</option>
                         </select>
                     </div>
+                    <p className="max-w-[14rem] text-[10px] leading-relaxed text-zinc-500">
+                        Cloud prices and tokenizer labels are reviewed from OpenRouter on 2026-09-12. They are estimates;
+                        the server&apos;s configured cloud model performs the call and reports actual usage when available.
+                    </p>
 
                     <div className="flex min-w-40 flex-col gap-1">
                         <label htmlFor="max-tokens" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -511,17 +568,17 @@ export default function OptimizerPage() {
                         <MetricTile
                             label="Original estimate"
                             value={`${result.before_tokens}`}
-                            detail={`${formatUsd(result.estimated_input_cost_usd)} input cost`}
+                            detail={`${formatEstimatedCost(result.estimated_input_cost_usd, result.pricing_known)} input cost`}
                         />
                         <MetricTile
                             label="Optimized estimate"
                             value={`${result.after_tokens}`}
-                            detail={`${formatUsd(result.estimated_output_cost_usd)} optimized cost`}
+                            detail={`${formatEstimatedCost(result.estimated_optimized_input_cost_usd, result.pricing_known)} optimized cost`}
                         />
                         <MetricTile
                             label="Saved"
                             value={`${result.saved_percent}%`}
-                            detail={`${formatUsd(result.estimated_savings_usd)} estimated delta`}
+                            detail={`${formatEstimatedCost(result.estimated_savings_usd, result.pricing_known)} estimated delta`}
                         />
                         <MetricTile
                             label="Efficiency"
@@ -545,6 +602,19 @@ export default function OptimizerPage() {
                             ))}
                         </section>
                     )}
+
+                    <p className="text-xs text-zinc-600">
+                        {result.pricing_known
+                            ? `Estimate for ${result.provider} / ${result.model}${result.pricing_verified_at ? ` (verified ${result.pricing_verified_at})` : ""}. `
+                            : "Pricing is unavailable for this model; dollar amounts are intentionally hidden. "}
+                        {result.tokenizer_name ? `${result.tokenizer_name} tokenizer; ` : ""}
+                        {result.token_count_is_estimate ? "token counts are estimates." : "token counts come from provider usage."}
+                        {` Actual call: ${formatProviderName(result.optimizer_provider)} / ${result.optimizer_model}.`}
+                        {result.actual_input_tokens !== null && result.actual_output_tokens !== null
+                            ? ` Main optimizer usage: ${result.actual_input_tokens} input + ${result.actual_output_tokens} output tokens${result.actual_cost_usd !== null ? ` (${formatUsd(result.actual_cost_usd)} reported)` : result.estimated_actual_cost_usd !== null ? ` (${formatUsd(result.estimated_actual_cost_usd)} estimated)` : ""}.`
+                            : ""}
+                        {result.english_optimizer_call_usage ? " An additional English-variant call was made; its usage is excluded from the main-call figures above." : ""}
+                    </p>
 
                     {showEnglishPanel && (
                         <div className="rounded-lg border border-white/10 bg-zinc-950/40 p-4">
@@ -571,7 +641,7 @@ export default function OptimizerPage() {
                                 />
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <span className="text-xs text-zinc-500">
-                                        Estimated cost: {formatUsd(result.english_variant_cost_usd)}
+                                        Estimated cost: {formatEstimatedCost(result.english_variant_cost_usd, result.pricing_known)}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <button
