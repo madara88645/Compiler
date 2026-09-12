@@ -149,6 +149,8 @@ def test_generate_skill_injects_fidelity_guidance_for_vague_formatting() -> None
         model_override=None,
         usage_sink=None,
         request_timeout_seconds=None,
+        reasoning_effort=None,
+        reject_truncated=False,
     ):
         captured["messages"] = messages
         return "# Skill Definition"
@@ -180,6 +182,8 @@ def test_generate_skill_skips_fidelity_guidance_for_unrelated_skills() -> None:
         model_override=None,
         usage_sink=None,
         request_timeout_seconds=None,
+        reasoning_effort=None,
+        reject_truncated=False,
     ):
         captured["messages"] = messages
         return "# Skill Definition"

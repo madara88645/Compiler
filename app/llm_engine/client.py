@@ -21,6 +21,11 @@ from app.heuristics.security import scan_text
 
 OPENROUTER_DEFAULT_MODEL = "openai/gpt-oss-20b"
 OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+# The configured OpenRouter model is a mandatory-reasoning model whose current
+# metadata exposes low/medium/high effort levels. Keep this targeted so other
+# OpenRouter models do not receive an unsupported request parameter.
+OPENROUTER_SWARM_REASONING_MODEL = "openai/gpt-oss-20b"
+SWARM_REASONING_EFFORT = "low"
 DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", OPENROUTER_DEFAULT_MODEL)
 DEFAULT_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", OPENROUTER_DEFAULT_BASE_URL)
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -348,17 +353,26 @@ class WorkerClient:
         model_override: Optional[str] = None,
         max_workers: int = 3,
         usage_sink: Optional[Dict[str, Any]] = None,
+        reasoning_effort: Optional[str] = None,
+        reject_truncated: bool = False,
     ) -> str:
         """Run an LLM call with a timeout that does not block on executor shutdown."""
         executor = ThreadPoolExecutor(max_workers=max_workers)
+        call_kwargs: Dict[str, Any] = {
+            "usage_sink": usage_sink,
+            "request_timeout_seconds": timeout_seconds,
+        }
+        if reasoning_effort is not None:
+            call_kwargs["reasoning_effort"] = reasoning_effort
+        if reject_truncated:
+            call_kwargs["reject_truncated"] = True
         future = executor.submit(
             self._call_api,
             messages,
             max_tokens,
             json_mode,
             model_override,
-            usage_sink=usage_sink,
-            request_timeout_seconds=timeout_seconds,
+            **call_kwargs,
         )
         timed_out = False
         try:
@@ -372,6 +386,13 @@ class WorkerClient:
 
     def _is_openrouter_request(self) -> bool:
         return "openrouter.ai" in (self.base_url or "").lower()
+
+    def _supports_swarm_reasoning_control(self, model: Optional[str] = None) -> bool:
+        """Return whether the configured model has a verified swarm effort control."""
+        if not self._is_openrouter_request():
+            return False
+        model_name = (model or self.model or "").strip().lower().split(":", 1)[0]
+        return model_name == OPENROUTER_SWARM_REASONING_MODEL
 
     def _worker_system_prompt_for_mode(self, mode: str) -> str:
         if mode == "default":
@@ -388,6 +409,8 @@ class WorkerClient:
         *,
         usage_sink: Optional[Dict[str, Any]] = None,
         request_timeout_seconds: Optional[float] = None,
+        reasoning_effort: Optional[str] = None,
+        reject_truncated: bool = False,
     ) -> str:
         """Internal: Makes the actual API call.
 
@@ -405,6 +428,8 @@ class WorkerClient:
         }
         if request_timeout_seconds is not None:
             kwargs["timeout"] = request_timeout_seconds
+        if reasoning_effort and self._supports_swarm_reasoning_control(kwargs["model"]):
+            kwargs["reasoning_effort"] = reasoning_effort
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
             if self._is_openrouter_request():
@@ -412,8 +437,35 @@ class WorkerClient:
 
         try:
             completion = self.client.chat.completions.create(**kwargs)
+            choice = completion.choices[0]
+            finish_reason = getattr(choice, "finish_reason", None)
+            usage = getattr(completion, "usage", None)
+            usage_summary: Dict[str, int] = {}
+            for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                value = usage.get(field) if isinstance(usage, dict) else getattr(usage, field, None)
+                if isinstance(value, int):
+                    usage_summary[field] = value
+            details = (
+                usage.get("completion_tokens_details")
+                if isinstance(usage, dict)
+                else getattr(usage, "completion_tokens_details", None)
+            )
+            reasoning_tokens = (
+                details.get("reasoning_tokens")
+                if isinstance(details, dict)
+                else getattr(details, "reasoning_tokens", None)
+            )
+            if isinstance(reasoning_tokens, int):
+                usage_summary["reasoning_tokens"] = reasoning_tokens
+            logger.debug(
+                "LLM completion metadata model=%s finish_reason=%s usage=%s",
+                kwargs["model"],
+                finish_reason,
+                usage_summary or None,
+            )
+            if reject_truncated and finish_reason == "length":
+                raise ValueError("LLM response was truncated at the token limit.")
             if usage_sink is not None:
-                usage = getattr(completion, "usage", None)
                 if usage is not None:
                     try:
                         usage_sink.update(usage.model_dump())
@@ -886,6 +938,12 @@ class WorkerClient:
                 max_tokens=4000,
                 timeout_seconds=GENERATOR_TIMEOUT_SECONDS,
                 json_mode=False,
+                reasoning_effort=(
+                    SWARM_REASONING_EFFORT
+                    if multi_agent and self._supports_swarm_reasoning_control()
+                    else None
+                ),
+                reject_truncated=True,
             )
             if multi_agent:
                 import logging
@@ -979,6 +1037,7 @@ class WorkerClient:
                 max_tokens=3000,
                 timeout_seconds=GENERATOR_TIMEOUT_SECONDS,
                 json_mode=False,
+                reject_truncated=True,
             )
             if not include_example_code:
                 content = _sanitize_skill_definition_plain(content)

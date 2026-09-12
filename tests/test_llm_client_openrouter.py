@@ -116,6 +116,88 @@ def test_worker_client_call_api_with_timeout():
         assert res == "llm response"
 
 
+def test_generator_rejects_length_finished_output_instead_of_returning_partial_markdown():
+    with patch("app.llm_engine.client.OpenAI") as mock_openai:
+        completion = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="length",
+                    message=SimpleNamespace(content="# Agent 1\n\n## Role\nPartial output"),
+                )
+            ],
+            usage=SimpleNamespace(
+                prompt_tokens=100,
+                completion_tokens=4000,
+                total_tokens=4100,
+            ),
+        )
+        mock_openai.return_value.chat.completions.create.return_value = completion
+        client = WorkerClient(
+            api_key="key",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/gpt-oss-20b",
+        )
+
+        with pytest.raises(ValueError, match="truncated"):
+            client._call_api_with_timeout(
+                messages=[{"role": "user", "content": "swarm"}],
+                max_tokens=4000,
+                timeout_seconds=90,
+                json_mode=False,
+                reject_truncated=True,
+            )
+
+
+def test_swarm_forwards_low_reasoning_effort_for_verified_gpt_oss_model():
+    with patch("app.llm_engine.client.OpenAI") as mock_openai:
+        completion = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content="# Agent 1\n# Agent 2"),
+                )
+            ],
+            usage=None,
+        )
+        mock_openai.return_value.chat.completions.create.return_value = completion
+        client = WorkerClient(
+            api_key="key",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/gpt-oss-20b",
+        )
+
+        assert client.generate_agent("Plan a small review swarm", multi_agent=True).startswith(
+            "# Agent"
+        )
+
+        call_kwargs = mock_openai.return_value.chat.completions.create.call_args.kwargs
+        assert call_kwargs["reasoning_effort"] == "low"
+
+
+def test_swarm_does_not_force_reasoning_effort_for_unknown_model_family():
+    with patch("app.llm_engine.client.OpenAI") as mock_openai:
+        completion = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content="# Agent 1\n# Agent 2"),
+                )
+            ],
+            usage=None,
+        )
+        mock_openai.return_value.chat.completions.create.return_value = completion
+        client = WorkerClient(
+            api_key="key",
+            base_url="https://openrouter.ai/api/v1",
+            model="some/unknown-model",
+        )
+
+        client.generate_agent("Plan a small review swarm", multi_agent=True)
+
+        call_kwargs = mock_openai.return_value.chat.completions.create.call_args.kwargs
+        assert "reasoning_effort" not in call_kwargs
+
+
 def test_worker_client_call_api_with_timeout_timed_out():
     client = WorkerClient(api_key="key")
 

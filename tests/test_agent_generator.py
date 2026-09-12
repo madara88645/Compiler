@@ -60,6 +60,8 @@ def test_worker_client_omits_example_code_section_when_disabled():
             model_override=None,
             usage_sink=None,
             request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
         ):
             captured["messages"] = messages
             return "# Agent System Prompt"
@@ -91,6 +93,8 @@ def test_worker_client_requests_example_code_section_when_enabled():
             model_override=None,
             usage_sink=None,
             request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
         ):
             captured["messages"] = messages
             return "# Agent System Prompt"
@@ -158,6 +162,8 @@ def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
             model_override=None,
             usage_sink=None,
             request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
         ):
             captured["messages"] = messages
             return "# Agent System Prompt"
@@ -271,6 +277,41 @@ def test_api_generate_agent_endpoint_rejects_error_artifact():
 
         assert response.status_code == 504
         assert response.json() == {"detail": "Agent generation timed out after 30s."}
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("/agent-generator/generate", {"description": "Review service", "multi_agent": True}),
+        ("/skills-generator/generate", {"description": "Review service"}),
+    ],
+)
+def test_generator_api_rejects_length_finished_provider_output(path, payload):
+    with patch("app.llm_engine.client.OpenAI") as mock_openai:
+        completion = MagicMock()
+        completion.choices[0].finish_reason = "length"
+        completion.choices[0].message.content = "# Partial generated artifact"
+        completion.usage = MagicMock(
+            prompt_tokens=100,
+            completion_tokens=4000,
+            total_tokens=4100,
+        )
+        mock_openai.return_value.chat.completions.create.return_value = completion
+
+        worker = WorkerClient(
+            api_key="key",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/gpt-oss-20b",
+        )
+        compiler = HybridCompiler()
+        compiler.worker = worker
+
+        with patch("api.routes.generators._get_compiler", return_value=compiler):
+            response = TestClient(app).post(path, json=payload)
+
+    assert response.status_code == 500
+    assert "truncated" in response.json()["detail"].lower()
+    assert "Partial generated artifact" not in response.json()["detail"]
 
 
 # ── New section-coverage regression tests ─────────────────────────────────────

@@ -71,6 +71,8 @@ The codebase is designed so that offline heuristics in `app/heuristics/` run wit
 
 WorkerClient currently uses fixed output ceilings of 4,000 tokens for agents and 3,000 for skills. The previously documented `LLM_AGENT_MAX_TOKENS` and `LLM_SKILL_MAX_TOKENS` variables are not read by this client. For slow generation, configure `LLM_GENERATOR_TIMEOUT`; changing a time limit does not raise the output-token ceiling. Generation runs off the API event loop, and the provider HTTP timeout matches the operation deadline with SDK retries disabled.
 
+Swarm reasoning and truncation runbook: the verified OpenRouter `openai/gpt-oss-20b` family receives `reasoning_effort=low` only for swarm requests; do not forward that parameter unconditionally to unknown model families. Completion metadata should be inspected without logging prompts or secrets (`finish_reason`, prompt/completion/total tokens, and reasoning tokens when supplied). Agent and skill generation reject provider responses ending with `finish_reason=length` so partial output cannot be presented as a successful export. References: [GPT-OSS-20B](https://openrouter.ai/openai/gpt-oss-20b), [OpenRouter reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens), and [chat completion API](https://openrouter.ai/docs/api/api-reference/chat/create-a-chat-completion).
+
 Generator deadline regressions: `pytest tests/test_generator_deadlines.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_llm_client_openrouter.py -q`. The deadline tests simulate slow calls without contacting a provider and check that generation does not block concurrent async work.
 
 ---

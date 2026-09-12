@@ -74,6 +74,8 @@ def test_worker_client_omits_swarm_example_code_when_disabled():
             model_override=None,
             usage_sink=None,
             request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
         ):
             captured["messages"] = messages
             return "# Agent 1: Planner"
