@@ -15,9 +15,9 @@ _PLACEHOLDER_RE = re.compile(r"\{\{[^{}\n]{1,200}\}\}|\$\{[^{}\n]{1,200}\}")
 _URL_RE = re.compile(r"https?://[^\s<>'\"]+")
 _FENCE_LINE_RE = re.compile(r"^\s*(`{3,}|~{3,})([^\n]*)$")
 _INLINE_CODE_RE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
-_FILE_RE = re.compile(
-    r"(?<![\w.-])(?:~?/|\.\.?/)?[\w.-]+(?:/[\w.-]+)+(?:\.[A-Za-z0-9_-]+)?"
-)
+# Match complete runs first, then check for a path separator in Python.
+# Requiring a slash after a greedy first segment can force regex backtracking.
+_FILE_RE = re.compile(r"[\w.-]+(?:/[\w.-]+)*")
 
 
 @dataclass(frozen=True)
@@ -64,7 +64,15 @@ def _protected_values(source: str) -> list[tuple[str, str]]:
     values.extend(("placeholder", value) for value in _PLACEHOLDER_RE.findall(source or ""))
     values.extend(("URL", value.rstrip(".,;:!?)]}")) for value in _URL_RE.findall(source or ""))
     values.extend(("inline code", value) for value in _INLINE_CODE_RE.findall(source or ""))
-    values.extend(("file path", value) for value in _FILE_RE.findall(source or ""))
+    for match in _FILE_RE.finditer(source or ""):
+        value = match.group()
+        if "/" not in value:
+            continue
+        start = match.start()
+        if start and source[start - 1] == "/":
+            prefix = "~/" if start >= 2 and source[start - 2] == "~" else "/"
+            value = prefix + value
+        values.append(("file path", value))
     return values
 
 

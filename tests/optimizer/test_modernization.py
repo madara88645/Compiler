@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -102,3 +104,28 @@ def test_unsupported_provider_is_rejected_before_cloud_call(mock_optimize) -> No
     )
     assert response.status_code == 422
     mock_optimize.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/my-file.test.ts",
+        "./src/main.py",
+        "../../src/main.py",
+        "/app/src/main.py",
+        "~/src/main.py",
+    ],
+)
+def test_fidelity_retains_relative_absolute_and_home_paths(path: str) -> None:
+    source = f"Carefully update {path} while preserving existing behavior."
+    candidate = f"Update {path}; preserve behavior."
+    assert apply_fidelity_guard(source, candidate) == (candidate, [])
+    guarded, warnings = apply_fidelity_guard(source, "Update the file.")
+    assert guarded == source
+    assert any("file path" in warning for warning in warnings)
+
+
+def test_fidelity_does_not_treat_long_separator_as_a_file_path() -> None:
+    source = "Review this section\n" + "-" * 100_000 + "\nKeep src/main.py intact."
+    candidate = "Review this section. Keep src/main.py intact."
+    assert apply_fidelity_guard(source, candidate) == (candidate, [])

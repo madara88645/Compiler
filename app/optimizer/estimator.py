@@ -37,9 +37,7 @@ MODEL_PRICING.update(
 )
 
 
-def estimate_run_cost(
-    config: OptimizationConfig, initial_prompt: str
-) -> Dict[str, Any]:
+def estimate_run_cost(config: OptimizationConfig, initial_prompt: str) -> Dict[str, Any]:
     """
     Estimate the cost of a full optimization run.
 
