@@ -47,3 +47,11 @@ This is an incremental maintenance release. It does not automatically split or s
 - ZIP contents and nested paths passed regression tests. The in-app browser's download-event wait timed out, so receiving the exported file through that browser was not independently confirmed. Clipboard content was also not independently confirmed through its clipboard API; successful copy feedback alone is not treated as content verification.
 - Independent Luna/max persona review accepted Instruction Review as a usable first-pass maintenance tool after checkbox, scope, conflict-output bounds and path preservation fixes. Optimizer review found budget visibility, provider validation and legacy pricing issues; all were corrected and covered by focused regressions.
 - Changes are local to the isolated worktree. No deployment or remote push was performed.
+
+## Generator timeout follow-up
+
+A user browser run exposed a swarm generation 504 at 30,006 ms. The full artifact shared the short compiler deadline, the SDK also used 30 seconds, and the web generator proxies stopped after 40 seconds. Generation also blocked the API event loop.
+
+Generator calls now use a separate `LLM_GENERATOR_TIMEOUT` (90 seconds by default, bounded to 1..120). The per-request SDK HTTP timeout follows the operation deadline, SDK retries are disabled, generator proxies allow 150 seconds, and route generation runs in a worker thread. Ordinary compile/coach deadlines remain separate. Documentation no longer advertises unused output-token environment settings.
+
+Five new backend regressions failed before the fix and passed afterward. The combined generator, provider, fidelity, API smoke and optimizer regression run passed 188 tests. The focused frontend proxy/generator run passed 66 tests, including simulated 50-second responses; ESLint, Ruff and production build passed. Retrying the same user swarm request in the browser succeeded with HTTP 200 in 6,742 ms and four agent sections visible. This successful run did not itself exceed 30 seconds; the slow-response regression tests establish the deadline behavior.

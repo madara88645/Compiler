@@ -35,6 +35,34 @@ const AGENT_PACK_REQUEST_BODY = {
 };
 
 describe("Next backend proxy route wiring", () => {
+  it.each([
+    ["agent", agentGenerateRoute],
+    ["skill", skillsGenerateRoute],
+  ] as const)("allows a %s artifact to finish after the old 40-second proxy cutoff", async (_kind, handler) => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve(new Response(JSON.stringify({ system_prompt: "# Finished" }), {
+          headers: { "content-type": "application/json" },
+        })), 50_000);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      }));
+      const pending = handler(new Request("http://localhost:3000/generate", {
+        method: "POST", body: JSON.stringify({ description: "Support swarm" }),
+      }));
+      await vi.advanceTimersByTimeAsync(50_000);
+      const response = await pending;
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ system_prompt: "# Finished" });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
@@ -159,7 +187,7 @@ describe("Next backend proxy route wiring", () => {
     expect(proxyOptions).toEqual(
       expect.objectContaining({
         retryNetworkErrors: true,
-        upstreamTimeoutMs: 60_000,
+        upstreamTimeoutMs: 150_000,
       }),
     );
     await expect(response.json()).resolves.toEqual({ ok: true });

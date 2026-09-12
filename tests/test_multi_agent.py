@@ -67,7 +67,14 @@ def test_worker_client_omits_swarm_example_code_when_disabled():
         client = WorkerClient(api_key="test")
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+        ):
             captured["messages"] = messages
             return "# Agent 1: Planner"
 

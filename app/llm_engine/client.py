@@ -37,6 +37,15 @@ try:
 except ValueError:
     HARD_TIMEOUT_SECONDS = 30
 
+# Full agent/swarm/skill artifacts can take longer than a short compilation.
+# Keep this bounded below the generator proxy's 150-second deadline.
+try:
+    GENERATOR_TIMEOUT_SECONDS = int(os.environ.get("LLM_GENERATOR_TIMEOUT", "90"))
+    if not 1 <= GENERATOR_TIMEOUT_SECONDS <= 120:
+        GENERATOR_TIMEOUT_SECONDS = 90
+except ValueError:
+    GENERATOR_TIMEOUT_SECONDS = 90
+
 COACH_TIMEOUT_SECONDS = 20
 logger = logging.getLogger("promptc.llm.client")
 
@@ -291,6 +300,7 @@ class WorkerClient:
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=HARD_TIMEOUT_SECONDS,  # Pass timeout to underlying httpx client
+            max_retries=0,  # Avoid SDK retries continuing after the caller's deadline.
         )
         if default_headers:
             client_kwargs["default_headers"] = default_headers
@@ -348,6 +358,7 @@ class WorkerClient:
             json_mode,
             model_override,
             usage_sink=usage_sink,
+            request_timeout_seconds=timeout_seconds,
         )
         timed_out = False
         try:
@@ -376,6 +387,7 @@ class WorkerClient:
         model_override: Optional[str] = None,
         *,
         usage_sink: Optional[Dict[str, Any]] = None,
+        request_timeout_seconds: Optional[float] = None,
     ) -> str:
         """Internal: Makes the actual API call.
 
@@ -391,6 +403,8 @@ class WorkerClient:
             "temperature": 0.2,  # Low temp for deterministic structure
             "max_tokens": max_tokens,
         }
+        if request_timeout_seconds is not None:
+            kwargs["timeout"] = request_timeout_seconds
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
             if self._is_openrouter_request():
@@ -870,7 +884,7 @@ class WorkerClient:
             content = self._call_api_with_timeout(
                 messages,
                 max_tokens=4000,
-                timeout_seconds=HARD_TIMEOUT_SECONDS,
+                timeout_seconds=GENERATOR_TIMEOUT_SECONDS,
                 json_mode=False,
             )
             if multi_agent:
@@ -895,7 +909,7 @@ class WorkerClient:
                     )
             return content
         except FuturesTimeoutError:
-            raise RuntimeError(f"Agent generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+            raise RuntimeError(f"Agent generation timed out after {GENERATOR_TIMEOUT_SECONDS}s.")
         except Exception as e:
             raise RuntimeError(f"Agent generation error: {e}") from e
 
@@ -963,13 +977,13 @@ class WorkerClient:
             content = self._call_api_with_timeout(
                 messages,
                 max_tokens=3000,
-                timeout_seconds=HARD_TIMEOUT_SECONDS,
+                timeout_seconds=GENERATOR_TIMEOUT_SECONDS,
                 json_mode=False,
             )
             if not include_example_code:
                 content = _sanitize_skill_definition_plain(content)
             return content
         except FuturesTimeoutError:
-            raise RuntimeError(f"Skill generation timed out after {HARD_TIMEOUT_SECONDS}s.")
+            raise RuntimeError(f"Skill generation timed out after {GENERATOR_TIMEOUT_SECONDS}s.")
         except Exception as e:
             raise RuntimeError(f"Skill generation error: {e}") from e

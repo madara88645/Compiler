@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 import time
+import functools
+import anyio
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -219,12 +221,15 @@ async def generate_skill_endpoint(
     compiler = _get_compiler()
 
     try:
-        result = compiler.generate_skill(
-            req.description,
-            include_example_code=req.include_example_code,
-            repo_context=req.repo_context.model_dump() if req.repo_context else None,
-            repo_context_mode=req.repo_context_mode,
-            enable_context_retrieval=req.enable_context_retrieval,
+        result = await anyio.to_thread.run_sync(
+            functools.partial(
+                compiler.generate_skill,
+                req.description,
+                include_example_code=req.include_example_code,
+                repo_context=req.repo_context.model_dump() if req.repo_context else None,
+                repo_context_mode=req.repo_context_mode,
+                enable_context_retrieval=req.enable_context_retrieval,
+            )
         )
         if not req.include_example_code:
             result = _sanitize_skill_definition_plain(result)
@@ -246,13 +251,16 @@ async def generate_agent_endpoint(
     compiler = _get_compiler()
 
     try:
-        result = compiler.generate_agent(
-            req.description,
-            multi_agent=req.multi_agent,
-            include_example_code=req.include_example_code,
-            repo_context=req.repo_context.model_dump() if req.repo_context else None,
-            repo_context_mode=req.repo_context_mode,
-            enable_context_retrieval=req.enable_context_retrieval,
+        result = await anyio.to_thread.run_sync(
+            functools.partial(
+                compiler.generate_agent,
+                req.description,
+                multi_agent=req.multi_agent,
+                include_example_code=req.include_example_code,
+                repo_context=req.repo_context.model_dump() if req.repo_context else None,
+                repo_context_mode=req.repo_context_mode,
+                enable_context_retrieval=req.enable_context_retrieval,
+            )
         )
         _raise_if_generator_error_artifact(result, kind="agent")
         inspection = inspect_agent_example_code(

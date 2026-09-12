@@ -34,8 +34,7 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `OPENROUTER_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for cloud LLM paths |
 | `OPENROUTER_BASE_URL` | LLM provider URL | `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | Default cloud model slug | `openai/gpt-oss-20b` |
-| `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
-| `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
+| `LLM_GENERATOR_TIMEOUT` | Agent/swarm/skill generation deadline | `90` seconds; valid range `1..120`. Separate from the compiler's `LLM_TIMEOUT`; generator proxies allow 150 seconds |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
 | `PROMPTC_INSTRUCTION_REVIEW_MAX_FILES` | Instruction review bound | Optional; default/cap `12` |
 | `PROMPTC_INSTRUCTION_REVIEW_MAX_TOTAL_CHARS` | Instruction review text bound | Optional; default/cap `120000` across all files |
@@ -70,7 +69,9 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
 
 The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENROUTER_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
 
-If agent-pack or skill exports are getting truncated, adjust `LLM_AGENT_MAX_TOKENS` or `LLM_SKILL_MAX_TOKENS` in `.env` before retrying.
+WorkerClient currently uses fixed output ceilings of 4,000 tokens for agents and 3,000 for skills. The previously documented `LLM_AGENT_MAX_TOKENS` and `LLM_SKILL_MAX_TOKENS` variables are not read by this client. For slow generation, configure `LLM_GENERATOR_TIMEOUT`; changing a time limit does not raise the output-token ceiling. Generation runs off the API event loop, and the provider HTTP timeout matches the operation deadline with SDK retries disabled.
+
+Generator deadline regressions: `pytest tests/test_generator_deadlines.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_llm_client_openrouter.py -q`. The deadline tests simulate slow calls without contacting a provider and check that generation does not block concurrent async work.
 
 ---
 

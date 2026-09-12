@@ -53,7 +53,14 @@ def test_worker_client_omits_example_code_section_when_disabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+        ):
             captured["messages"] = messages
             return "# Agent System Prompt"
 
@@ -77,7 +84,14 @@ def test_worker_client_requests_example_code_section_when_enabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+        ):
             captured["messages"] = messages
             return "# Agent System Prompt"
 
@@ -104,7 +118,7 @@ def test_worker_client_generate_agent_timeout_returns_quickly():
         return "# Agent System Prompt"
 
     with (
-        patch("app.llm_engine.client.HARD_TIMEOUT_SECONDS", 0.01),
+        patch("app.llm_engine.client.GENERATOR_TIMEOUT_SECONDS", 0.01),
         patch.object(client, "_call_api", side_effect=slow_call_api),
     ):
         started_at = time.perf_counter()
@@ -137,7 +151,14 @@ def test_worker_client_preserves_repo_context_when_example_code_is_disabled():
             "detected_stack": ["Python"],
         }
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+        ):
             captured["messages"] = messages
             return "# Agent System Prompt"
 

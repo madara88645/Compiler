@@ -142,7 +142,14 @@ def test_generate_skill_injects_fidelity_guidance_for_vague_formatting() -> None
 
     captured: dict = {}
 
-    def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+    def fake_call_api(
+        messages,
+        max_tokens,
+        json_mode,
+        model_override=None,
+        usage_sink=None,
+        request_timeout_seconds=None,
+    ):
         captured["messages"] = messages
         return "# Skill Definition"
 
@@ -166,7 +173,14 @@ def test_generate_skill_skips_fidelity_guidance_for_unrelated_skills() -> None:
 
     captured: dict = {}
 
-    def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+    def fake_call_api(
+        messages,
+        max_tokens,
+        json_mode,
+        model_override=None,
+        usage_sink=None,
+        request_timeout_seconds=None,
+    ):
         captured["messages"] = messages
         return "# Skill Definition"
 
