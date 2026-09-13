@@ -68,6 +68,7 @@ class ContextSuggestionHandler(BaseHandler):
 
         for path_str in file_paths:
             path = Path(path_str)
+            public_path = path.name if path.is_absolute() else path_str
             filename = path.name.lower()
             stem = path.stem.lower()
 
@@ -77,22 +78,30 @@ class ContextSuggestionHandler(BaseHandler):
 
             # Check for exact filename
             if filename in text_lower:
-                if path_str not in seen_paths:
+                if public_path not in seen_paths:
                     suggestions.append(
-                        {"path": path_str, "name": path.name, "reason": f"Mentioned '{filename}'"}
+                        {
+                            "path": public_path,
+                            "name": path.name,
+                            "reason": f"Mentioned '{filename}'",
+                        }
                     )
-                    seen_paths.add(path_str)
+                    seen_paths.add(public_path)
                 continue
 
             # Check for stem as a distinct word
             # Use regex word boundary to avoid matching "authentication" with "auth" if strictness desired
             # But "auth" is often a prefix. Let's stick to word boundaries for precision.
             if _get_stem_pattern(stem).search(text_lower):
-                if path_str not in seen_paths:
+                if public_path not in seen_paths:
                     suggestions.append(
-                        {"path": path_str, "name": path.name, "reason": f"Topic '{stem}' detected"}
+                        {
+                            "path": public_path,
+                            "name": path.name,
+                            "reason": f"Topic '{stem}' detected",
+                        }
                     )
-                    seen_paths.add(path_str)
+                    seen_paths.add(public_path)
 
         # Cap suggestions to avoid overwhelming the user
         return suggestions[:5]

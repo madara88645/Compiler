@@ -42,7 +42,7 @@ def optimize_text(
 
     src = text or ""
     before_chars = len(src)
-    before_tokens = estimate_tokens(src)
+    before_tokens = estimate_tokens(src, token_ratio=token_ratio)
 
     # If a token budget is provided but no explicit char budget, derive a char budget
     # using the same convention as RAG: token_ratio ~= chars/token.
@@ -66,7 +66,10 @@ def optimize_text(
             # No further progress possible at this level.
             # Only escalate if we have a budget and still haven't met it.
             if has_budget and not _meets_budget(
-                out, max_chars=derived_max_chars, max_tokens=max_tokens
+                out,
+                max_chars=derived_max_chars,
+                max_tokens=max_tokens,
+                token_ratio=token_ratio,
             ):
                 if level >= 3:
                     break
@@ -76,7 +79,12 @@ def optimize_text(
 
         out = candidate
 
-        if _meets_budget(out, max_chars=derived_max_chars, max_tokens=max_tokens):
+        if _meets_budget(
+            out,
+            max_chars=derived_max_chars,
+            max_tokens=max_tokens,
+            token_ratio=token_ratio,
+        ):
             break
 
         if level >= 3:
@@ -90,7 +98,7 @@ def optimize_text(
     out = out.strip() if out.strip() else out.strip("\n")
 
     after_chars = len(out)
-    after_tokens = estimate_tokens(out)
+    after_tokens = estimate_tokens(out, token_ratio=token_ratio)
 
     met_chars = derived_max_chars is None or after_chars <= derived_max_chars
     met_tokens = max_tokens is None or after_tokens <= max_tokens
@@ -110,10 +118,16 @@ def optimize_text(
     )
 
 
-def _meets_budget(text: str, *, max_chars: Optional[int], max_tokens: Optional[int]) -> bool:
+def _meets_budget(
+    text: str,
+    *,
+    max_chars: Optional[int],
+    max_tokens: Optional[int],
+    token_ratio: float = 4.0,
+) -> bool:
     if max_chars is not None and len(text) > max_chars:
         return False
-    if max_tokens is not None and estimate_tokens(text) > max_tokens:
+    if max_tokens is not None and estimate_tokens(text, token_ratio=token_ratio) > max_tokens:
         return False
     return True
 

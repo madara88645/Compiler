@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
+import time
 import zipfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.main import app
-from app.adapters.agent_packs import AgentPackManifest
+from api.routes.agent_packs import (
+    RepoPlanRequest,
+    build_claude_agent_pack,
+    download_claude_agent_pack,
+    repo_plan_claude_agent_pack,
+)
+from app.adapters.agent_packs import AgentPackManifest, AgentPackRequest
+from app.repo_inspect import RepoFacts
 
 
 def _request_payload(pack_type: str) -> dict[str, str]:
@@ -165,6 +174,83 @@ def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
 
         hooks_config = json.loads(archive.read(".claude/hooks.example.json"))
         assert hooks_config["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"
+
+
+def test_agent_packs_download_accepts_existing_manifest_without_regenerating():
+    manifest = {
+        "provider": "claude",
+        "pack_type": "project-pack",
+        "download_name": "existing-project-pack",
+        "preview_order": ["claude_md", "settings"],
+        "files": [
+            {"path": "CLAUDE.md", "content": "# Existing pack", "kind": "claude_md"},
+            {"path": ".claude/settings.json", "content": "{}", "kind": "settings"},
+        ],
+    }
+
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        response = TestClient(app).post("/agent-packs/claude/download", json=manifest)
+
+    assert response.status_code == 200
+    mock_compiler.generate_agent.assert_not_called()
+    mock_compiler.generate_skill.assert_not_called()
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    assert set(archive.namelist()) == {"CLAUDE.md", ".claude/settings.json"}
+
+
+@pytest.mark.parametrize("endpoint", [build_claude_agent_pack, download_claude_agent_pack])
+def test_agent_pack_generation_does_not_block_other_async_work(endpoint):
+    order: list[str] = []
+
+    def generate(*args, **kwargs):
+        time.sleep(0.06)
+        order.append("generated")
+        return "# Generated instructions"
+
+    compiler = MagicMock()
+    compiler.generate_agent.side_effect = generate
+    request = AgentPackRequest.model_validate(_request_payload("project-pack"))
+
+    async def check():
+        async def tick():
+            await asyncio.sleep(0.01)
+            order.append("tick")
+
+        await asyncio.gather(endpoint(request), tick())
+
+    with patch("api.routes.agent_packs._get_compiler", return_value=compiler):
+        asyncio.run(check())
+
+    assert order == ["tick", "generated"]
+
+
+def test_repo_plan_generation_does_not_block_other_async_work():
+    order: list[str] = []
+
+    def generate(*args, **kwargs):
+        time.sleep(0.06)
+        order.append("generated")
+        return "# Generated instructions"
+
+    compiler = MagicMock()
+    compiler.generate_agent.side_effect = generate
+    request = RepoPlanRequest(
+        pack_type="project-pack",
+        goal="Review repository setup.",
+        repo_facts=RepoFacts(),
+    )
+
+    async def check():
+        async def tick():
+            await asyncio.sleep(0.01)
+            order.append("tick")
+
+        await asyncio.gather(repo_plan_claude_agent_pack(request), tick())
+
+    with patch("api.routes.agent_packs._get_compiler", return_value=compiler):
+        asyncio.run(check())
+
+    assert order == ["tick", "generated"]
 
 
 def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
@@ -342,6 +428,9 @@ def test_agent_pack_manifest_rejects_preview_order_kinds_not_present_in_files():
         "/etc/passwd",
         "C:/windows/system32/config",
         ".claude/../secrets.txt",
+        "unsafe\nname.md",
+        "unsafe\x00name.md",
+        'unsafe"name.md',
     ],
 )
 def test_agent_pack_manifest_rejects_unsafe_file_paths(bad_path: str):
@@ -382,6 +471,118 @@ def test_agent_pack_manifest_rejects_duplicate_file_paths():
                         "content": "world",
                         "kind": "agents",
                     },
+                ],
+            }
+        )
+
+
+@pytest.mark.parametrize("download_name", ["pack\r\nX-Bad: yes", "pack\x00name", 'pack"name'])
+def test_agent_pack_manifest_rejects_unsafe_download_names(download_name: str):
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": download_name,
+                "preview_order": ["agents"],
+                "files": [
+                    {
+                        "path": ".claude/agents/review-agent.md",
+                        "content": "hello",
+                        "kind": "agents",
+                    }
+                ],
+            }
+        )
+
+
+def test_agent_pack_download_rejects_header_injection_in_manifest():
+    response = TestClient(app).post(
+        "/agent-packs/claude/download",
+        json={
+            "provider": "claude",
+            "pack_type": "subagent",
+            "download_name": "pack\r\nX-Bad: yes",
+            "preview_order": ["agents"],
+            "files": [
+                {
+                    "path": ".claude/agents/review-agent.md",
+                    "content": "hello",
+                    "kind": "agents",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_agent_pack_download_encodes_non_ascii_filename_safely():
+    response = TestClient(app).post(
+        "/agent-packs/claude/download",
+        json={
+            "provider": "claude",
+            "pack_type": "subagent",
+            "download_name": "review-pack",
+            "preview_order": ["readme"],
+            "files": [
+                {"path": "résumé.md", "content": "hello", "kind": "readme"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "filename*=UTF-8''r%C3%A9sum%C3%A9.md" in response.headers["content-disposition"]
+
+
+def test_agent_pack_manifest_canonicalizes_backslash_paths():
+    manifest = AgentPackManifest.model_validate(
+        {
+            "provider": "claude",
+            "pack_type": "subagent",
+            "download_name": "demo-pack",
+            "preview_order": ["agents"],
+            "files": [
+                {
+                    "path": ".claude\\agents\\review-agent.md",
+                    "content": "hello",
+                    "kind": "agents",
+                }
+            ],
+        }
+    )
+
+    assert manifest.files[0].path == ".claude/agents/review-agent.md"
+
+
+def test_agent_pack_manifest_rejects_too_many_files():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents"],
+                "files": [
+                    {"path": f".claude/agents/{index}.md", "content": "x", "kind": "agents"}
+                    for index in range(51)
+                ],
+            }
+        )
+
+
+def test_agent_pack_manifest_rejects_oversized_total_content():
+    with pytest.raises(ValidationError):
+        AgentPackManifest.model_validate(
+            {
+                "provider": "claude",
+                "pack_type": "subagent",
+                "download_name": "demo-pack",
+                "preview_order": ["agents"],
+                "files": [
+                    {"path": ".claude/agents/a.md", "content": "a" * 1_000_000, "kind": "agents"},
+                    {"path": ".claude/agents/b.md", "content": "b" * 1_000_000, "kind": "agents"},
+                    {"path": ".claude/agents/c.md", "content": "c" * 1_000_001, "kind": "agents"},
                 ],
             }
         )

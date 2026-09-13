@@ -7,15 +7,27 @@ from typing import List
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 
-def estimate_tokens(text: str) -> int:
-    """Rough GPT-style token estimate (1 token ~= 4 chars or 0.75 words)."""
+def estimate_tokens(text: str, token_ratio: float = 4.0) -> int:
+    """Estimate tokens from text size and words, without provider exactness.
+
+    This is deliberately labelled an estimate: provider tokenizers differ and
+    chat-message overhead is not represented. ``token_ratio`` applies to ASCII
+    characters (UTF-8 bytes for other scripts), avoiding tiny word-count caps
+    for CJK text and minified code when a tokenizer is unavailable.
+    """
     if not text:
         return 0
-    chars = len(text)
-    # Bolt Optimization: Built-in split() with no arguments splits on arbitrary whitespace
-    # and drops empty strings automatically. This avoids regex and generator overhead.
+    size = len(text.encode("utf-8", errors="replace"))
+    try:
+        ratio = float(token_ratio)
+    except (TypeError, ValueError):
+        ratio = 4.0
+    if not math.isfinite(ratio) or ratio <= 0:
+        ratio = 4.0
     words = len(text.split())
-    return max(1, math.ceil(min(chars / 4, words / 0.75)))
+    # Word boundaries must never cap the estimate for long identifiers, CJK
+    # paragraphs or code separated by just a few newlines.
+    return max(1, math.ceil(max(size / ratio, words)))
 
 
 def compress_text_block(text: str, max_chars: int = 600) -> str:

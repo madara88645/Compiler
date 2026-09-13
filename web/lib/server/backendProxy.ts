@@ -1,10 +1,9 @@
 const DEFAULT_BACKEND_API_BASE = "http://127.0.0.1:8080";
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 25_000;
-// Agent Pack generation runs a single LLM `generate_agent` call (max_tokens=4000)
-// that legitimately takes ~24s, while the backend's own hard LLM timeout is 30s
-// (and up to 99s in production). The 25s default proxy budget cuts that off before
-// the backend even finishes, so these routes get a larger, route-scoped budget.
-export const AGENT_PACK_UPSTREAM_TIMEOUT_MS = 60_000;
+// Full generator artifacts use a separate backend budget (90s default, <=120s).
+// Leave room for retrieval and the backend to return its own error response.
+export const GENERATOR_UPSTREAM_TIMEOUT_MS = 150_000;
+export const AGENT_PACK_UPSTREAM_TIMEOUT_MS = GENERATOR_UPSTREAM_TIMEOUT_MS;
 const NETWORK_ERROR_DETAIL =
   "The service is temporarily unavailable or still waking up. Please retry in a few seconds.";
 const TIMEOUT_ERROR_DETAIL =
@@ -150,11 +149,28 @@ export async function proxyBackendRequest(
       return await cloneProxyResponse(upstreamResponse, attemptsUsed, durationMs);
     } catch (error) {
       const timedOut = isAbortError(error);
+      if (timedOut) {
+        const attemptsUsed = attempt + 1;
+        const durationMs = Date.now() - requestStartedAt;
+        console.error("[backendProxy] upstream timed out", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+          upstreamTimeoutMs,
+          timedOut: true,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
+        diagnosticHeaders.set(PROXY_TIMED_OUT_HEADER, "1");
+        return Response.json(
+          { detail: TIMEOUT_ERROR_DETAIL },
+          { status: 504, headers: diagnosticHeaders },
+        );
+      }
       if (attempt === retryAttempts - 1) {
         const attemptsUsed = attempt + 1;
         const durationMs = Date.now() - requestStartedAt;
-        const logLabel = timedOut ? "[backendProxy] upstream timed out" : "[backendProxy] upstream unavailable";
-        console.error(logLabel, {
+        console.error("[backendProxy] upstream unavailable", {
           attempts: attemptsUsed,
           backendPath: path,
           durationMs,
@@ -163,13 +179,6 @@ export async function proxyBackendRequest(
           error: error instanceof Error ? error.message : String(error),
         });
         const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
-        if (timedOut) {
-          diagnosticHeaders.set(PROXY_TIMED_OUT_HEADER, "1");
-          return Response.json(
-            { detail: TIMEOUT_ERROR_DETAIL },
-            { status: 504, headers: diagnosticHeaders },
-          );
-        }
         return Response.json(
           { detail: NETWORK_ERROR_DETAIL },
           { status: 502, headers: diagnosticHeaders },

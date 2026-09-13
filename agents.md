@@ -34,9 +34,10 @@ You do **not** need to commit `.env`. It is gitignored and only needed for local
 | `OPENROUTER_API_KEY` | LLM compile, optimize, benchmark | No default — must be set for cloud LLM paths |
 | `OPENROUTER_BASE_URL` | LLM provider URL | `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | Default cloud model slug | `openai/gpt-oss-20b` |
-| `LLM_AGENT_MAX_TOKENS` | Agent generator response cap | `2048`; lower it to reduce token usage or raise it for longer generated packs |
-| `LLM_SKILL_MAX_TOKENS` | Skill generator response cap | `2048`; mirrors the agent cap for MCP/skill output generation |
+| `LLM_GENERATOR_TIMEOUT` | Agent/swarm/skill generation deadline | `90` seconds; valid range `1..120`. Separate from the compiler's `LLM_TIMEOUT`; generator proxies allow 150 seconds |
 | `PROMPT_COMPILER_MODE` | Compiler aggressiveness | `conservative` (default) or `default` |
+| `PROMPTC_INSTRUCTION_REVIEW_MAX_FILES` | Instruction review bound | Optional; default/cap `12` |
+| `PROMPTC_INSTRUCTION_REVIEW_MAX_TOTAL_CHARS` | Instruction review text bound | Optional; default/cap `120000` across all files |
 | `ADMIN_API_KEY` | Legacy/internal master API key (skip DB lookup where auth helpers are still used) | Optional; not required for the public app |
 | `PROMPTC_REQUIRE_API_KEY_FOR_ALL` | Legacy/internal auth toggle | Public app routes should not depend on this |
 | `DB_DIR` | Where `users.db` is written | `.` (repo root) |
@@ -68,7 +69,11 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
 
 The codebase is designed so that offline heuristics in `app/heuristics/` run without any LLM key. Set `PROMPT_COMPILER_MODE=conservative` and simply omit `OPENROUTER_API_KEY`; the compiler falls back to local heuristics for most operations. Test files under `tests/` do the same — no live LLM calls are made.
 
-If agent-pack or skill exports are getting truncated, adjust `LLM_AGENT_MAX_TOKENS` or `LLM_SKILL_MAX_TOKENS` in `.env` before retrying.
+WorkerClient currently uses fixed output ceilings of 4,000 tokens for agents and 3,000 for skills. The previously documented `LLM_AGENT_MAX_TOKENS` and `LLM_SKILL_MAX_TOKENS` variables are not read by this client. For slow generation, configure `LLM_GENERATOR_TIMEOUT`; changing a time limit does not raise the output-token ceiling. Generation runs off the API event loop, and the provider HTTP timeout matches the operation deadline with SDK retries disabled.
+
+Swarm reasoning and truncation runbook: the verified OpenRouter `openai/gpt-oss-20b` family receives `reasoning_effort=low` only for swarm requests; do not forward that parameter unconditionally to unknown model families. Completion metadata should be inspected without logging prompts or secrets (`finish_reason`, prompt/completion/total tokens, and reasoning tokens when supplied). Agent and skill generation reject provider responses ending with `finish_reason=length` so partial output cannot be presented as a successful export. References: [GPT-OSS-20B](https://openrouter.ai/openai/gpt-oss-20b), [OpenRouter reasoning tokens](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens), and [chat completion API](https://openrouter.ai/docs/api/api-reference/chat/create-a-chat-completion).
+
+Generator deadline regressions: `pytest tests/test_generator_deadlines.py tests/test_agent_generator.py tests/test_skills_generator.py tests/test_llm_client_openrouter.py -q`. The deadline tests simulate slow calls without contacting a provider and check that generation does not block concurrent async work.
 
 ---
 
@@ -87,6 +92,24 @@ cd web && npm run dev
 Open http://localhost:3000 in a browser.
 
 Frontend routes use same-origin Next proxy handlers so the browser never needs a backend secret. Do not add browser API-key inputs or server-proxy key requirements for public usage.
+
+Quality Coach uses the same-origin `POST /validate` Next route, which proxies to
+the FastAPI `POST /validate` endpoint. Keep this route in `web/app/validate/route.ts`
+and cover it in `web/app/proxy-routes.test.ts` when changing frontend routing.
+
+For Agent Pack downloads, post the already generated `AgentPackManifest` to
+`POST /agent-packs/claude/download`. This avoids a second LLM generation and
+guarantees the downloaded bytes match the reviewed preview. The legacy
+`AgentPackRequest` body remains supported for direct one-step clients.
+Agent Pack generation is synchronous internally, so routes must offload
+`build_manifest` with `anyio.to_thread.run_sync`. Frontend Agent Pack proxy routes
+must not retry POST generation or download requests automatically. Submitted
+manifests are limited to 50 files and 3 MB of UTF-8 content; keep relative paths
+and download names free of control characters.
+
+The `/optimize` provider contract is intentionally limited to `openrouter` and
+`local`. Legacy `openai`, `groq`, and `anthropic` values return 422; callers must
+migrate cloud requests to `provider: "openrouter"`.
 
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
@@ -206,6 +229,8 @@ outside the deterministic analyzer and do not add browser tokens or server-side 
 
 **Live optimizer tests (opt-in only; requires upstream credentials):**
 
+Optimizer metadata is a dated OpenRouter Models API snapshot in `app/optimizer/model_catalog.py`, mirrored by `web/app/benchmark/models.json`. Keep identifiers, prices, tokenizer labels and verification dates aligned when refreshing models. Validate modernization changes with `pytest tests/optimizer/test_modernization.py tests/optimizer/test_token_estimate_provenance.py tests/optimizer/test_language_costs.py tests/optimizer/test_costs.py tests/test_optimize_api.py tests/test_estimator.py -q`. Token estimates and catalog-derived charges must remain distinct from provider-reported usage and billing.
+
 ```bash
 OPENROUTER_API_KEY=... pytest tests/optimizer/test_optimize_live.py --run-live -m live -v
 ```
@@ -312,10 +337,19 @@ cd web && npm run build
 | Page | Path |
 |---|---|
 | Main compiler | http://localhost:3000 |
+| Agentic Coding / Projects | http://localhost:3000/agentic-coding |
+| Agents (project-aware) | http://localhost:3000/agentic-coding/agents |
+| Skills & Tools (project-aware) | http://localhost:3000/agentic-coding/skills |
+| Project pack export | http://localhost:3000/agentic-coding/projects/export |
+| Instruction review | http://localhost:3000/agentic-coding/instructions |
 | Agent Generator | http://localhost:3000/agent-generator |
 | Skill Generator | http://localhost:3000/skills-generator |
 | Benchmark | http://localhost:3000/benchmark |
 | Token Optimizer | http://localhost:3000/optimizer |
+
+Agentic Coding briefs are browser-local under `promptc_projects_v1`; they do not require backend persistence. New generator routes reuse the existing pages; the legacy URLs remain supported. Project URL selection requires explicit attachment before affecting generation. Verify context preservation and detachment with `cd web && npx vitest run app/components/ProjectContextPicker.test.tsx app/agentic-coding/generatorProjectContext.test.tsx`.
+
+Instruction review accepts pasted/uploaded text at `POST /instruction-review/analyze`; file names are relative labels, never paths to read on the server. The deterministic review does not use an LLM or write repository files. An optional complete repository file list enables reference checks. Keep code fences and separately scoped rules intact; only conservative duplicate removals can appear in suggested output. Frontend downloads default to the original unless the user explicitly selects the suggestion. Validate with `pytest tests/test_instruction_review.py tests/test_instruction_review_api.py -q` and `cd web && npx vitest run app/agentic-coding/instructions/page.test.tsx`.
 
 `/offline` redirects to `/` (main Compiler). Use the **Heuristics only (no LLM)** toggle on the main page instead of a separate offline surface.
 

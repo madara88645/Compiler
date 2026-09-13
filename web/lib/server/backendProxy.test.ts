@@ -263,6 +263,36 @@ describe("backend proxy", () => {
     });
   });
 
+  it("does not retry a timed-out request even when network retries are enabled", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      return new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    });
+
+    const response = await proxyBackendRequest(
+      new Request("http://localhost:3000/agent-packs/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: "generate pack" }),
+      }),
+      "/agent-packs/claude",
+      {
+        retryNetworkErrors: true,
+        networkRetryAttempts: 3,
+        networkRetryDelayMs: 1,
+        upstreamTimeoutMs: 20,
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(504);
+    expect(response.headers.get("x-promptc-proxy-attempts")).toBe("1");
+  });
+
   it("returns a 502 bad gateway when the upstream fetch throws a network error", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://api.memo.dev";
 

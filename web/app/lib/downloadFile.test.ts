@@ -10,6 +10,7 @@ describe("downloadFile", () => {
   let lastAnchor: HTMLAnchorElement | null;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     createObjectURL.mockClear();
     revokeObjectURL.mockClear();
     URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL;
@@ -28,6 +29,8 @@ describe("downloadFile", () => {
   });
 
   afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -39,6 +42,8 @@ describe("downloadFile", () => {
     expect(blob.type).toBe("text/plain");
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    vi.runOnlyPendingTimers();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
   });
 
@@ -53,5 +58,12 @@ describe("downloadFile", () => {
     downloadFile("data", "compile-result.json", "application/json");
 
     expect(lastAnchor?.download).toBe("compile-result.json");
+  });
+
+  it("preserves an existing binary Blob and its content type", () => {
+    const archive = new Blob([new Uint8Array([80, 75, 3, 4])], { type: "application/zip" });
+    downloadFile(archive, "instructions.zip");
+    expect(createObjectURL).toHaveBeenCalledWith(archive);
+    expect(lastAnchor?.download).toBe("instructions.zip");
   });
 });

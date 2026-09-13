@@ -369,7 +369,16 @@ def test_worker_client_omits_skill_implementation_example_when_disabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
+        ):
             captured["messages"] = messages
             return "# Skill Definition"
 
@@ -509,7 +518,16 @@ def test_worker_client_requests_skill_implementation_example_when_enabled():
 
         captured = {}
 
-        def fake_call_api(messages, max_tokens, json_mode, model_override=None, usage_sink=None):
+        def fake_call_api(
+            messages,
+            max_tokens,
+            json_mode,
+            model_override=None,
+            usage_sink=None,
+            request_timeout_seconds=None,
+            reasoning_effort=None,
+            reject_truncated=False,
+        ):
             captured["messages"] = messages
             return "# Skill Definition"
 

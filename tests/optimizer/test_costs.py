@@ -183,7 +183,7 @@ class TestCostTracker:
     def test_add_usage_multiple_models(self):
         tracker = CostTracker()
 
-        # gpt-4o: 1M input ($5), 1M output ($15) = $20
+        # Verified OpenRouter GPT-4o: 1M input ($2.50), 1M output ($10) = $12.50
         tracker.add_usage("gpt-4o", 1_000_000, "input")
         tracker.add_usage("gpt-4o", 1_000_000, "output")
 
@@ -193,4 +193,4 @@ class TestCostTracker:
 
         assert tracker.total_input_tokens == 2_000_000
         assert tracker.total_output_tokens == 2_000_000
-        assert pytest.approx(tracker.total_cost) == 22.0
+        assert pytest.approx(tracker.total_cost) == 14.5

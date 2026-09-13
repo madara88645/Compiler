@@ -3,6 +3,13 @@ import tiktoken
 from typing import Dict, Tuple, Optional
 from functools import lru_cache
 
+from app.optimizer.model_catalog import (
+    OPENROUTER_MODEL_CATALOG,
+    LEGACY_MODEL_ALIASES,
+    get_model_metadata,
+)
+from app.text_utils import estimate_tokens
+
 
 # Module-level cache to avoid repeated encoding lookups
 _ENCODER_CACHE = {}
@@ -22,14 +29,25 @@ class TokenCounter:
         """
         global _TIKTOKEN_AVAILABLE
         if not _TIKTOKEN_AVAILABLE:
-            return max(1, len(text) // 4)
+            return max(1, estimate_tokens(text))
         try:
+            metadata = get_model_metadata(model)
+            if metadata is not None and metadata.tokenizer != "GPT":
+                return estimate_tokens(text)
             # Fast path: check local cache first
             encoding = _ENCODER_CACHE.get(model)
             if encoding is None:
-                try:
-                    encoding = tiktoken.encoding_for_model(model)
-                except KeyError:
+                if metadata is not None and metadata.tokenizer == "GPT":
+                    encoding = _ENCODER_CACHE.get("o200k_base")
+                    if encoding is None:
+                        encoding = tiktoken.get_encoding("o200k_base")
+                        _ENCODER_CACHE["o200k_base"] = encoding
+                else:
+                    try:
+                        encoding = tiktoken.encoding_for_model(model)
+                    except KeyError:
+                        encoding = None
+                if encoding is None:
                     # Default to GPT-4/3.5 encoding if model unknown
                     encoding = _ENCODER_CACHE.get("cl100k_base")
                     if encoding is None:
@@ -38,14 +56,14 @@ class TokenCounter:
                     # Note: we intentionally do not cache the fallback under the unknown
                     # model name to avoid unbounded growth of _ENCODER_CACHE and sticky
                     # mappings for dynamically introduced model identifiers.
-                else:
+                elif metadata is None:
                     _ENCODER_CACHE[model] = encoding
             return len(encoding.encode(text))
         except (ImportError, OSError):
             # BPE data unavailable (e.g. network-restricted CI); use char-based estimate.
             # Disable tiktoken for the rest of the process to avoid repeated failed retries.
             _TIKTOKEN_AVAILABLE = False
-            return max(1, len(text) // 4)
+            return max(1, estimate_tokens(text))
 
 
 class PricingModel:
@@ -53,9 +71,21 @@ class PricingModel:
 
     # Rates are in USD per 1,000,000 tokens
     RATES: Dict[str, Dict[str, float]] = {
-        "gpt-4o": {"input": 5.0, "output": 15.0},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.6},
-        "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
+        **{
+            alias: {
+                "input": OPENROUTER_MODEL_CATALOG[canonical].input_rate_per_million,
+                "output": OPENROUTER_MODEL_CATALOG[canonical].output_rate_per_million,
+            }
+            for alias, canonical in LEGACY_MODEL_ALIASES.items()
+        },
+        # Provider-qualified entries use the reviewed OpenRouter snapshot.
+        **{
+            model_id: {
+                "input": metadata.input_rate_per_million,
+                "output": metadata.output_rate_per_million,
+            }
+            for model_id, metadata in OPENROUTER_MODEL_CATALOG.items()
+        },
     }
 
     # Track the set of known keys as a frozenset to catch all test mock changes (additions, removals, and swaps)
@@ -84,10 +114,23 @@ class PricingModel:
             cls._KNOWN_KEYS_SET = frozenset(cls.RATES.keys())
             cls._SORTED_KEYS_TUPLE = tuple(sorted(cls.RATES.keys(), key=len, reverse=True))
 
+        # Provider-qualified ids must match exactly.  In particular, a ``:batch``
+        # or dated variant can have different pricing and must stay unknown until
+        # its own record is verified.  Unqualified legacy ids retain prefix
+        # compatibility for the evolutionary optimizer and old callers.
+        # Keep unqualified legacy ids in their historical table.  Provider
+        # qualified ids use the reviewed OpenRouter records below.
+        normalized = (model or "").strip()
+        if "/" in normalized:
+            rate = cls.RATES.get(normalized)
+            if rate is None:
+                return 0.0 if direction else (0.0, 0.0)
+            return rate.get(direction, 0.0) if direction else (rate["input"], rate["output"])
+
         # Dynamically fetch the matching key from the bounded LRU cache.
         # The cache key includes `cls._SORTED_KEYS_TUPLE`, so cache invalidation is automatic
         # when the dictionary keys are modified during test mocks.
-        matched_key = cls._get_prefix_key(model, cls._SORTED_KEYS_TUPLE)
+        matched_key = cls._get_prefix_key(normalized, cls._SORTED_KEYS_TUPLE)
         if matched_key:
             # Dynamically fetch the values from RATES ensuring we never return stale data
             # if a test patches only the pricing values of an existing key.

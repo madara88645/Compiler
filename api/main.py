@@ -122,6 +122,7 @@ from api.routes.compile import router as compile_router  # noqa: E402
 from api.routes.agent_packs import router as agent_packs_router  # noqa: E402
 from api.routes.export import router as export_router  # noqa: E402
 from api.routes.generators import router as generators_router  # noqa: E402
+from api.routes.instruction_review import router as instruction_review_router  # noqa: E402
 from api.routes.meta import router as meta_router  # noqa: E402
 from api.routes.pr_safety import router as pr_safety_router  # noqa: E402
 from api.routes.rag import router as rag_router  # noqa: E402
@@ -132,6 +133,7 @@ app.include_router(meta_router)
 app.include_router(compile_router)
 app.include_router(agent_packs_router)
 app.include_router(generators_router)
+app.include_router(instruction_review_router)
 app.include_router(export_router)
 app.include_router(pr_safety_router)
 app.include_router(rag_router)

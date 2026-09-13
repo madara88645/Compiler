@@ -26,9 +26,11 @@ def test_turkish_prompt_can_cost_more_tokens_than_english_equivalent():
 def test_default_openrouter_gpt_oss_20b_pricing_is_applied():
     estimate = estimate_prompt_cost("hello world", token_count_override=1_000_000)
 
-    assert estimate.input_rate_per_million == pytest.approx(0.075)
-    assert estimate.output_rate_per_million == pytest.approx(0.30)
-    assert estimate.estimated_cost_usd == pytest.approx(0.075)
+    assert estimate.input_rate_per_million == pytest.approx(0.03)
+    assert estimate.output_rate_per_million == pytest.approx(0.13)
+    assert estimate.estimated_cost_usd == pytest.approx(0.03)
+    assert estimate.pricing_known is True
+    assert estimate.pricing_verified_at == "2026-09-12"
 
 
 def test_gemini_flash_lite_pricing_is_applied():

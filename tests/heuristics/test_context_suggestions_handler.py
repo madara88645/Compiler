@@ -23,6 +23,23 @@ def test_exact_filename_match(handler):
     assert suggestions[0]["reason"] == "Mentioned 'auth.py'"
 
 
+def test_absolute_index_path_is_reduced_to_filename_for_public_metadata(handler, tmp_path):
+    indexed_file = tmp_path / "private-worktree" / "auth.py"
+
+    suggestions = handler._find_suggestions("Please review auth.py.", [str(indexed_file)])
+
+    assert suggestions == [{"path": "auth.py", "name": "auth.py", "reason": "Mentioned 'auth.py'"}]
+    assert str(tmp_path) not in str(suggestions)
+
+
+def test_absolute_paths_with_same_filename_share_one_public_suggestion(handler, tmp_path):
+    paths = [str(tmp_path / folder / "auth.py") for folder in ("service-a", "service-b")]
+
+    suggestions = handler._find_suggestions("Please review auth.py.", paths)
+
+    assert suggestions == [{"path": "auth.py", "name": "auth.py", "reason": "Mentioned 'auth.py'"}]
+
+
 def test_no_match_returns_empty_list(handler):
     text = "Please write a poem about the ocean."
     suggestions = handler._find_suggestions(text, ["app/services/auth.py"])

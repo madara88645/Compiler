@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ProjectContextPicker, { withProjectContext } from "../components/ProjectContextPicker";
+import type { ProjectBrief } from "@/lib/projects";
 import ReactMarkdown from "react-markdown";
 import { Zap } from "lucide-react";
 import { apiJson, buildGeneratorApiHeaders } from "@/config";
@@ -46,6 +48,7 @@ function getExampleCodeStatusLabel(result: SkillGenerationView): string {
 
 export default function SkillsGenerator() {
   const [description, setDescription] = useState("");
+  const [projectContext, setProjectContext] = useState<ProjectBrief | null>(null);
   const [repoUrl, setRepoUrl] = useState("");
   const [repoContext, setRepoContext] = useState<GitHubRepoContextPayload | null>(null);
   const [repoAnalysisLoading, setRepoAnalysisLoading] = useState(false);
@@ -107,7 +110,7 @@ export default function SkillsGenerator() {
         method: "POST",
         headers: buildGeneratorApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          description,
+          description: withProjectContext(description, projectContext),
           include_example_code: includeExampleCode,
           enable_context_retrieval: contextAttached,
           ...(repoContext && !repoContextDirty ? { repo_context: repoContext } : {}),
@@ -211,6 +214,7 @@ export default function SkillsGenerator() {
                 : "flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6 md:p-8"
             }
           >
+            <ProjectContextPicker onChange={setProjectContext} disabled={loading} />
             <div className="flex flex-col gap-2">
               <label htmlFor="skill-description" className="text-sm font-medium text-zinc-300">Skill Description</label>
               <p id="skill-description-help" className="text-xs text-zinc-500">

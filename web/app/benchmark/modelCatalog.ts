@@ -10,6 +10,12 @@ export type BenchmarkModelDefinition = {
   availability: BenchmarkModelAvailability;
   helperText: string;
   group: "Cheap" | "Balanced" | "Preview";
+  tokenizer: string;
+  contextLength: number;
+  inputRatePerMillion: number;
+  outputRatePerMillion: number;
+  verifiedAt: string;
+  sourceUrl: string;
 };
 
 export const BENCHMARK_MODELS = benchmarkModelsData as BenchmarkModelDefinition[];

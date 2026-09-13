@@ -5,6 +5,8 @@ import { Bot, Copy, Download, FileCode2, FolderArchive, Loader2, ShieldCheck, Sp
 
 import { apiJson, buildGeneratorApiHeaders, describeRequestError } from "@/config";
 import InfoButton from "../components/InfoButton";
+import ProjectContextPicker, { withProjectContext } from "../components/ProjectContextPicker";
+import type { ProjectBrief } from "@/lib/projects";
 import { showError } from "../lib/showError";
 import { copyToClipboard } from "../lib/copyToClipboard";
 import FileTree from "./components/FileTree";
@@ -64,12 +66,17 @@ function bundleFiles(files: AgentPackFile[]): string {
 
 export default function AgentPacksPage() {
   const provider = agentPackProviders[0];
+  const [projectContext, setProjectContext] = useState<ProjectBrief | null>(null);
   const [request, setRequest] = useState<AgentPackRequest>(() => {
     if (typeof window === "undefined") {
       return DEFAULT_REQUEST;
     }
-    const handoffGoal = window.localStorage.getItem("promptc_agent_pack_goal");
-    return handoffGoal ? { ...DEFAULT_REQUEST, goal: handoffGoal } : DEFAULT_REQUEST;
+    try {
+      const handoffGoal = window.localStorage.getItem("promptc_agent_pack_goal");
+      return handoffGoal ? { ...DEFAULT_REQUEST, goal: handoffGoal } : DEFAULT_REQUEST;
+    } catch {
+      return DEFAULT_REQUEST;
+    }
   });
   const [manifest, setManifest] = useState<AgentPackManifest | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -83,7 +90,11 @@ export default function AgentPacksPage() {
   // Clear the handoff key once we've read it so a stale value doesn't leak
   // into a later, unrelated visit to this page.
   useEffect(() => {
-    window.localStorage.removeItem("promptc_agent_pack_goal");
+    try {
+      window.localStorage.removeItem("promptc_agent_pack_goal");
+    } catch {
+      // ProjectContextPicker surfaces storage availability; manual export still works.
+    }
   }, []);
 
   const requestHeaders = useMemo(
@@ -128,7 +139,12 @@ export default function AgentPacksPage() {
       const data = await apiJson<AgentPackManifest>("/agent-packs/claude", {
         method: "POST",
         headers: requestHeaders,
-        body: JSON.stringify(request),
+        body: JSON.stringify({
+          ...request,
+          project_type: projectContext?.projectType || request.project_type,
+          stack: projectContext?.stack || request.stack,
+          goal: withProjectContext(request.goal, projectContext),
+        }),
       });
       setManifest(data);
       setSelectedPath(data.files[0]?.path ?? null);
@@ -260,6 +276,8 @@ export default function AgentPacksPage() {
               <p className="text-sm leading-relaxed text-zinc-400">{provider.summary}</p>
             </div>
 
+            <ProjectContextPicker onChange={setProjectContext} disabled={loading} />
+            {projectContext && <p className="text-xs text-cyan-200">Saved project type and stack are used below when provided. Detach the project to use your manual values. Your task stays unchanged.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="agent-pack-project-type" className="text-sm font-medium text-zinc-300">
@@ -271,7 +289,8 @@ export default function AgentPacksPage() {
                 <input
                   id="agent-pack-project-type"
                   aria-describedby="agent-pack-project-type-hint"
-                  value={request.project_type}
+                  value={projectContext?.projectType || request.project_type}
+                  readOnly={Boolean(projectContext?.projectType)}
                   onChange={(event) => handleFieldChange("project_type", event.target.value)}
                   className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
                   placeholder="SaaS, CLI, internal tool..."
@@ -288,7 +307,8 @@ export default function AgentPacksPage() {
                 <input
                   id="agent-pack-stack"
                   aria-describedby="agent-pack-stack-hint"
-                  value={request.stack}
+                  value={projectContext?.stack || request.stack}
+                  readOnly={Boolean(projectContext?.stack)}
                   onChange={(event) => handleFieldChange("stack", event.target.value)}
                   className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 focus:ring-cyan-500/50"
                   placeholder="React, FastAPI, Node..."

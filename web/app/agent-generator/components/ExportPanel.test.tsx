@@ -70,6 +70,13 @@ describe("Agent ExportPanel", () => {
     return { clickSpy, anchors };
   }
 
+  test("labels exports as integration templates that require review", () => {
+    render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
+
+    expect(screen.getByText("integration template; review before use")).toBeInTheDocument();
+    expect(screen.queryByText("executable agent target")).toBeNull();
+  });
+
   test("exposes pressed state for the selected target and clears output mode tabs for the handoff target", async () => {
     render(<ExportPanel systemPrompt={"# Agent\n\n## Role\nTest"} isMultiAgent={false} />);
 

@@ -225,12 +225,17 @@ curl -X POST https://api.example.com/agent-packs/claude \
     "risk_mode": "strict"
   }'
 
-# Same payload, returns a deflate-compressed .zip ready to drop into a repo
+# Download the exact reviewed manifest without running generation again
 curl -X POST https://api.example.com/agent-packs/claude/download \
   -H "content-type: application/json" \
-  -d '{...same body...}' \
+  --data-binary @manifest.json \
   --output claude-project-pack.zip
 ```
+
+Save the first response as `manifest.json` before using the second command. The
+download endpoint still accepts the original generation request for backwards
+compatibility, but posting the manifest is faster and guarantees that the
+downloaded files match the reviewed preview.
 
 **Repo-native adoption.** This repo eats its own dog food: the Compiler itself ships a `CLAUDE.md`, a hardened `.claude/settings.json` (denies `.env*`, `secrets/**`, `users.db`, `web/.env.local`; gates `git push`, `fly:`, `railway:` behind explicit confirmation), four ready-to-dispatch subagents in `.claude/agents/` (`compiler-architect`, `frontend-polisher`, `mcp-integrator`, `prompt-safety-reviewer`), and a `claude.yml` workflow for hosted Claude Code review on PRs.
 
@@ -239,6 +244,11 @@ curl -X POST https://api.example.com/agent-packs/claude/download \
 ### Token Optimizer
 
 Compresses your prompt by roughly **20-30%** without losing meaning, logic, or variables. Useful near context-window limits.
+
+The `/optimize` API accepts `provider: "openrouter"` for the server-side cloud path or
+`provider: "local"` for deterministic local optimization. Legacy provider values such
+as `openai`, `groq`, and `anthropic` now return HTTP 422; API clients should migrate
+those requests to `openrouter`.
 
 <p align="center">
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">

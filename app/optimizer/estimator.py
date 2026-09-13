@@ -4,24 +4,40 @@ Predicts token usage and cost based on configuration and initial prompt.
 """
 
 from __future__ import annotations
-from typing import Dict, Union
+from typing import Any, Dict
 import math
+from .language_costs import count_estimated_tokens
+from .model_catalog import (
+    OPENROUTER_MODELS_URL,
+    OPENROUTER_MODEL_CATALOG,
+    canonical_model_id,
+    get_model_metadata,
+)
 from .models import OptimizationConfig
 
-# Pricing per 1M tokens (USD)
-# Source: OpenAI Pricing (Approximate as of late 2024/2025)
+# Pricing per 1M tokens (USD), sourced from the reviewed OpenRouter snapshot.
+# Keep the public mapping for older callers, but do not add a fake default rate:
+# an unknown model must produce an unavailable estimate.
 MODEL_PRICING = {
-    "gpt-4o": {"input": 5.00, "output": 15.00},
-    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    # Fallback/Default
-    "default": {"input": 5.00, "output": 15.00},
+    model_id: {
+        "input": metadata.input_rate_per_million,
+        "output": metadata.output_rate_per_million,
+    }
+    for model_id, metadata in OPENROUTER_MODEL_CATALOG.items()
 }
+MODEL_PRICING.update(
+    {
+        alias: MODEL_PRICING[canonical]
+        for alias, canonical in {
+            "gpt-4o": "openai/gpt-4o",
+            "gpt-4o-mini": "openai/gpt-4o-mini",
+            "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+        }.items()
+    }
+)
 
 
-def estimate_run_cost(
-    config: OptimizationConfig, initial_prompt: str
-) -> Dict[str, Union[float, str]]:
+def estimate_run_cost(config: OptimizationConfig, initial_prompt: str) -> Dict[str, Any]:
     """
     Estimate the cost of a full optimization run.
 
@@ -32,8 +48,9 @@ def estimate_run_cost(
     Returns:
         Dict containing 'min_cost', 'max_cost', and a formatted 'message'.
     """
-    model_name = config.model.lower()
-    pricing = MODEL_PRICING.get(model_name, MODEL_PRICING["default"])
+    model_name = (config.model or "").strip()
+    metadata = get_model_metadata(model_name)
+    pricing = MODEL_PRICING.get(canonical_model_id(model_name))
 
     # 1. Volume Estimation
     generations = config.max_generations
@@ -58,8 +75,7 @@ def estimate_run_cost(
     # 2. Token Estimation
     # Rough generic estimator: 1 token ~= 4 chars
     # This is conservative for code/technical text but decent for English.
-    prompt_len = len(initial_prompt)
-    prompt_tokens = math.ceil(prompt_len / 4)
+    prompt_tokens = count_estimated_tokens(initial_prompt or "", model=model_name)
 
     # Input Tokens per Mutation Call:
     # - System Prompt (~500 tokens for strategies like CoT/Persona)
@@ -94,7 +110,26 @@ def estimate_run_cost(
     final_input_tokens = total_input_tokens * buffer_multiplier
     final_output_tokens = total_output_tokens * buffer_multiplier
 
-    # 5. Cost Calculation
+    # 5. Cost Calculation.  A missing rate is a real unknown, not a free call.
+    if pricing is None or metadata is None:
+        return {
+            "min_cost": None,
+            "max_cost": None,
+            "message": (
+                f"Cost estimate unavailable for {model_name or 'the selected model'} "
+                f"(model pricing was not verified; refresh from {OPENROUTER_MODELS_URL})."
+            ),
+            "cost_estimate_available": False,
+            "pricing_known": False,
+            "pricing_source": None,
+            "pricing_verified_at": None,
+            "details": {
+                "total_calls": total_llm_calls,
+                "estimated_input_tokens": int(final_input_tokens),
+                "estimated_output_tokens": int(final_output_tokens),
+            },
+        }
+
     cost_input = (final_input_tokens / 1_000_000) * pricing["input"]
     cost_output = (final_output_tokens / 1_000_000) * pricing["output"]
 
@@ -115,6 +150,10 @@ def estimate_run_cost(
         "min_cost": round(min_cost, 4),
         "max_cost": round(max_cost, 4),
         "message": msg,
+        "cost_estimate_available": True,
+        "pricing_known": True,
+        "pricing_source": metadata.source_url,
+        "pricing_verified_at": metadata.verified_at,
         "details": {
             "total_calls": total_llm_calls,
             "estimated_input_tokens": int(final_input_tokens),

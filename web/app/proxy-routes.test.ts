@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as backendProxy from "@/lib/server/backendProxy";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
+import { POST as validateRoute } from "./validate/route";
 import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
 import { POST as agentPacksClaudeDownloadRoute } from "./agent-packs/claude/download/route";
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
@@ -35,6 +36,34 @@ const AGENT_PACK_REQUEST_BODY = {
 };
 
 describe("Next backend proxy route wiring", () => {
+  it.each([
+    ["agent", agentGenerateRoute],
+    ["skill", skillsGenerateRoute],
+  ] as const)("allows a %s artifact to finish after the old 40-second proxy cutoff", async (_kind, handler) => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve(new Response(JSON.stringify({ system_prompt: "# Finished" }), {
+          headers: { "content-type": "application/json" },
+        })), 50_000);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      }));
+      const pending = handler(new Request("http://localhost:3000/generate", {
+        method: "POST", body: JSON.stringify({ description: "Support swarm" }),
+      }));
+      await vi.advanceTimersByTimeAsync(50_000);
+      const response = await pending;
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ system_prompt: "# Finished" });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   beforeEach(() => {
     delete process.env.INTERNAL_API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
@@ -89,6 +118,27 @@ describe("Next backend proxy route wiring", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/compile");
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
+  });
+
+  it("forwards quality analysis requests to the validate backend path", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ score: 82 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await validateRoute(
+      new Request("http://localhost:3000/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "Review this prompt" }),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/validate");
+    await expect(response.json()).resolves.toEqual({ score: 82 });
   });
 
   it("retries compile requests after a transient backend connection failure", async () => {
@@ -158,8 +208,8 @@ describe("Next backend proxy route wiring", () => {
     expect(proxiedPath).toBe(backendPath);
     expect(proxyOptions).toEqual(
       expect.objectContaining({
-        retryNetworkErrors: true,
-        upstreamTimeoutMs: 60_000,
+        retryNetworkErrors: false,
+        upstreamTimeoutMs: 150_000,
       }),
     );
     await expect(response.json()).resolves.toEqual({ ok: true });
@@ -193,20 +243,6 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
-    {
-      name: "agent packs",
-      handler: agentPacksClaudeRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
-    },
-    {
-      name: "agent pack download",
-      handler: agentPacksClaudeDownloadRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
-    },
     {
       name: "repo context analysis",
       handler: repoContextGithubRoute,
@@ -299,6 +335,20 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
+    {
+      name: "agent pack generation",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+    },
     {
       name: "agent generation",
       handler: agentGenerateRoute,
