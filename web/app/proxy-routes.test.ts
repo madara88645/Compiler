@@ -208,7 +208,7 @@ describe("Next backend proxy route wiring", () => {
     expect(proxiedPath).toBe(backendPath);
     expect(proxyOptions).toEqual(
       expect.objectContaining({
-        retryNetworkErrors: true,
+        retryNetworkErrors: false,
         upstreamTimeoutMs: 150_000,
       }),
     );
@@ -243,20 +243,6 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
-    {
-      name: "agent packs",
-      handler: agentPacksClaudeRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude",
-      requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
-    },
-    {
-      name: "agent pack download",
-      handler: agentPacksClaudeDownloadRoute,
-      requestUrl: "http://localhost:3000/agent-packs/claude/download",
-      requestBody: AGENT_PACK_REQUEST_BODY,
-      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
-    },
     {
       name: "repo context analysis",
       handler: repoContextGithubRoute,
@@ -349,6 +335,20 @@ describe("Next backend proxy route wiring", () => {
   });
 
   it.each<RouteCase>([
+    {
+      name: "agent pack generation",
+      handler: agentPacksClaudeRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude",
+    },
+    {
+      name: "agent pack download",
+      handler: agentPacksClaudeDownloadRoute,
+      requestUrl: "http://localhost:3000/agent-packs/claude/download",
+      requestBody: AGENT_PACK_REQUEST_BODY,
+      expectedUrl: "http://127.0.0.1:8080/agent-packs/claude/download",
+    },
     {
       name: "agent generation",
       handler: agentGenerateRoute,

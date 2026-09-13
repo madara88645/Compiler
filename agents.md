@@ -101,6 +101,15 @@ For Agent Pack downloads, post the already generated `AgentPackManifest` to
 `POST /agent-packs/claude/download`. This avoids a second LLM generation and
 guarantees the downloaded bytes match the reviewed preview. The legacy
 `AgentPackRequest` body remains supported for direct one-step clients.
+Agent Pack generation is synchronous internally, so routes must offload
+`build_manifest` with `anyio.to_thread.run_sync`. Frontend Agent Pack proxy routes
+must not retry POST generation or download requests automatically. Submitted
+manifests are limited to 50 files and 3 MB of UTF-8 content; keep relative paths
+and download names free of control characters.
+
+The `/optimize` provider contract is intentionally limited to `openrouter` and
+`local`. Legacy `openai`, `groq`, and `anthropic` values return 422; callers must
+migrate cloud requests to `provider: "openrouter"`.
 
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 

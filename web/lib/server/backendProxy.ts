@@ -149,11 +149,28 @@ export async function proxyBackendRequest(
       return await cloneProxyResponse(upstreamResponse, attemptsUsed, durationMs);
     } catch (error) {
       const timedOut = isAbortError(error);
+      if (timedOut) {
+        const attemptsUsed = attempt + 1;
+        const durationMs = Date.now() - requestStartedAt;
+        console.error("[backendProxy] upstream timed out", {
+          attempts: attemptsUsed,
+          backendPath: path,
+          durationMs,
+          upstreamTimeoutMs,
+          timedOut: true,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
+        diagnosticHeaders.set(PROXY_TIMED_OUT_HEADER, "1");
+        return Response.json(
+          { detail: TIMEOUT_ERROR_DETAIL },
+          { status: 504, headers: diagnosticHeaders },
+        );
+      }
       if (attempt === retryAttempts - 1) {
         const attemptsUsed = attempt + 1;
         const durationMs = Date.now() - requestStartedAt;
-        const logLabel = timedOut ? "[backendProxy] upstream timed out" : "[backendProxy] upstream unavailable";
-        console.error(logLabel, {
+        console.error("[backendProxy] upstream unavailable", {
           attempts: attemptsUsed,
           backendPath: path,
           durationMs,
@@ -162,13 +179,6 @@ export async function proxyBackendRequest(
           error: error instanceof Error ? error.message : String(error),
         });
         const diagnosticHeaders = addProxyDiagnostics(new Headers(), attemptsUsed, durationMs);
-        if (timedOut) {
-          diagnosticHeaders.set(PROXY_TIMED_OUT_HEADER, "1");
-          return Response.json(
-            { detail: TIMEOUT_ERROR_DETAIL },
-            { status: 504, headers: diagnosticHeaders },
-          );
-        }
         return Response.json(
           { detail: NETWORK_ERROR_DETAIL },
           { status: 502, headers: diagnosticHeaders },

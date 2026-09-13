@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import functools
+
+import anyio
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth import rate_limit_by_ip
@@ -28,7 +31,9 @@ async def build_claude_agent_pack(
     adapter = AGENT_PACK_ADAPTERS["claude"]
 
     try:
-        return adapter.build_manifest(req, compiler)
+        return await anyio.to_thread.run_sync(
+            functools.partial(adapter.build_manifest, req, compiler)
+        )
     except Exception as exc:
         logger.exception(
             "agent pack generation failed", extra={"provider": "claude", "pack_type": req.pack_type}
@@ -47,8 +52,10 @@ async def download_claude_agent_pack(
         else:
             compiler = _get_compiler()
             adapter = AGENT_PACK_ADAPTERS["claude"]
-            manifest = adapter.build_manifest(req, compiler)
-        return create_download_response(manifest)
+            manifest = await anyio.to_thread.run_sync(
+                functools.partial(adapter.build_manifest, req, compiler)
+            )
+        return await anyio.to_thread.run_sync(create_download_response, manifest)
     except Exception as exc:
         logger.exception(
             "agent pack download failed", extra={"provider": "claude", "pack_type": req.pack_type}
@@ -95,7 +102,9 @@ async def repo_plan_claude_agent_pack(
             detected_stack=ctx.stack_summary() or None,
             has_existing_claude_md=ctx.has_existing_claude_md,
         )
-        manifest = adapter.build_manifest(pack_req, compiler)
+        manifest = await anyio.to_thread.run_sync(
+            functools.partial(adapter.build_manifest, pack_req, compiler)
+        )
     except Exception as exc:
         logger.exception(
             "agent pack repo-plan failed",

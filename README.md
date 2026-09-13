@@ -245,6 +245,11 @@ downloaded files match the reviewed preview.
 
 Compresses your prompt by roughly **20-30%** without losing meaning, logic, or variables. Useful near context-window limits.
 
+The `/optimize` API accepts `provider: "openrouter"` for the server-side cloud path or
+`provider: "local"` for deterministic local optimization. Legacy provider values such
+as `openai`, `groq`, and `anthropic` now return HTTP 422; API clients should migrate
+those requests to `openrouter`.
+
 <p align="center">
   <img src="docs/images/comp2tokenoptimizer.PNG" alt="Token Optimizer Interface" width="80%">
 </p>

@@ -21,3 +21,15 @@ This follow-up closes the four actionable findings from the 2026-09-12 Luna QA r
 - Live Agent Pack manifest download through Next.js: HTTP 200, `application/zip`, expected Claude files present.
 
 The historical QA report and its raw observations are preserved under `docs/qa/` and `docs/qa/evidence/`.
+
+## Pre-merge hardening follow-up
+
+An independent merge review found three additional risks, which were reproduced before fixing:
+
+- Agent Pack generation ran synchronous provider work on the FastAPI event loop. All three generating routes now offload manifest construction to a worker thread, with concurrency regression coverage.
+- Agent Pack frontend routes could retry a long-running POST after timeout. Those routes no longer retry automatically, and the shared proxy returns the first timeout without replaying the request.
+- Client-submitted manifests lacked strict filename and size bounds. Manifests now canonicalize relative paths, reject control characters and unsafe download names, limit files and total UTF-8 content, and safely encode non-ASCII download filenames.
+
+The optimizer provider restriction is intentional: `openrouter` and `local` are the supported values. README and contributor instructions now state that legacy provider labels return HTTP 422 and must migrate to `openrouter`.
+
+Follow-up validation: **234 backend tests**, **372 frontend tests**, **65 frontend contracts**, lint, production build, and pre-commit passed. The frontend test process still prints known connection-refused noise from existing localhost probes, but exits successfully with all tests passing.

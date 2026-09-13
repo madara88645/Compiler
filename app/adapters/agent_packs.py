@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import re
 from typing import Any, Literal, Protocol
+from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi.responses import Response
@@ -24,6 +25,10 @@ RiskMode = Literal["balanced", "strict"]
 AgentPackProvider = Literal["claude"]
 AgentPackFileKind = Literal["claude_md", "settings", "agents", "workflow", "mcp", "readme", "files"]
 
+_MAX_PACK_FILES = 50
+_MAX_PACK_FILE_CHARS = 2_000_000
+_MAX_PACK_TOTAL_BYTES = 3_000_000
+
 
 class AgentPackRequest(BaseModel):
     project_type: str = Field(..., min_length=1, max_length=120)
@@ -37,31 +42,37 @@ class AgentPackRequest(BaseModel):
 
 
 class AgentPackFile(BaseModel):
-    path: str
-    content: str
+    path: str = Field(..., min_length=1, max_length=240)
+    content: str = Field(..., max_length=_MAX_PACK_FILE_CHARS)
     kind: AgentPackFileKind
 
 
 class AgentPackManifest(BaseModel):
     provider: AgentPackProvider
     pack_type: PackType
-    files: list[AgentPackFile]
-    download_name: str
-    preview_order: list[AgentPackFileKind]
+    files: list[AgentPackFile] = Field(..., min_length=1, max_length=_MAX_PACK_FILES)
+    download_name: str = Field(..., min_length=1, max_length=120)
+    preview_order: list[AgentPackFileKind] = Field(..., max_length=7)
 
     @model_validator(mode="after")
     def validate_preview_order(self) -> "AgentPackManifest":
+        self.download_name = _validate_download_name(self.download_name)
         file_kinds = {file.kind for file in self.files}
         unknown_preview_kinds = [kind for kind in self.preview_order if kind not in file_kinds]
         if unknown_preview_kinds:
             joined = ", ".join(unknown_preview_kinds)
             raise ValueError(f"preview_order includes kinds without matching files: {joined}")
         normalized_paths: set[str] = set()
+        total_bytes = 0
         for file in self.files:
             normalized_path = _normalize_pack_path(file.path)
             if normalized_path in normalized_paths:
                 raise ValueError(f"duplicate file path in manifest: {file.path}")
             normalized_paths.add(normalized_path)
+            file.path = normalized_path
+            total_bytes += len(file.content.encode("utf-8"))
+        if total_bytes > _MAX_PACK_TOTAL_BYTES:
+            raise ValueError(f"manifest content exceeds {_MAX_PACK_TOTAL_BYTES} encoded bytes")
         return self
 
 
@@ -140,7 +151,7 @@ def create_download_response(manifest: AgentPackManifest) -> Response:
         return Response(
             content=file.content.encode("utf-8"),
             media_type=media_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": _content_disposition(filename)},
         )
 
     buffer = io.BytesIO()
@@ -151,7 +162,7 @@ def create_download_response(manifest: AgentPackManifest) -> Response:
     return Response(
         content=buffer.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{manifest.download_name}.zip"'},
+        headers={"Content-Disposition": _content_disposition(f"{manifest.download_name}.zip")},
     )
 
 
@@ -264,6 +275,8 @@ def _normalize_pack_path(path: str) -> str:
         raise ValueError("manifest file paths must not be empty")
 
     normalized = trimmed.replace("\\", "/")
+    if '"' in normalized or any(ord(char) < 32 or ord(char) == 127 for char in normalized):
+        raise ValueError(f"manifest file path contains unsafe characters: {path}")
     if normalized.startswith("/") or re.match(r"^[A-Za-z]:/", normalized):
         raise ValueError(f"manifest file path must be relative: {path}")
 
@@ -273,6 +286,28 @@ def _normalize_pack_path(path: str) -> str:
         raise ValueError(f"manifest file path contains unsafe segments: {path}")
 
     return normalized
+
+
+def _validate_download_name(name: str) -> str:
+    trimmed = name.strip()
+    if not trimmed:
+        raise ValueError("download_name must not be empty")
+    if (
+        '"' in trimmed
+        or "/" in trimmed
+        or "\\" in trimmed
+        or any(ord(char) < 32 or ord(char) == 127 for char in trimmed)
+    ):
+        raise ValueError("download_name contains unsafe characters")
+    return trimmed
+
+
+def _content_disposition(filename: str) -> str:
+    ascii_fallback = re.sub(r"[^A-Za-z0-9._-]+", "-", filename).strip(".-") or "download"
+    if filename == ascii_fallback:
+        return f'attachment; filename="{ascii_fallback}"'
+    encoded = quote(filename, safe="")
+    return f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
 
 
 def _build_agent_ir(req: AgentPackRequest, generated_markdown: str) -> AgentExportIR:
