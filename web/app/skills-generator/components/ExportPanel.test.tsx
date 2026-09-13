@@ -60,6 +60,13 @@ describe("Skill ExportPanel", () => {
     return { clickSpy, anchors };
   }
 
+  test("labels exports as integration templates that require review", () => {
+    render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
+
+    expect(screen.getByText("integration template; review before use")).toBeInTheDocument();
+    expect(screen.queryByText("runnable tool target")).toBeNull();
+  });
+
   test("exposes pressed state for the selected target and output mode", async () => {
     render(<SkillExportPanel skillDefinition={"# Tool\n\n## Name\nweb_search"} />);
 

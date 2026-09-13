@@ -243,7 +243,7 @@ export default function ExportPanel({ systemPrompt, isMultiAgent }: ExportPanelP
             Export
           </span>
           <span className="text-[10px] text-zinc-600 font-mono">
-            -&gt; executable agent target
+            integration template; review before use
           </span>
         </div>
         <svg

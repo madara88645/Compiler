@@ -167,6 +167,28 @@ def test_agent_packs_download_multi_file_pack_returns_nonempty_zip():
         assert hooks_config["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write"
 
 
+def test_agent_packs_download_accepts_existing_manifest_without_regenerating():
+    manifest = {
+        "provider": "claude",
+        "pack_type": "project-pack",
+        "download_name": "existing-project-pack",
+        "preview_order": ["claude_md", "settings"],
+        "files": [
+            {"path": "CLAUDE.md", "content": "# Existing pack", "kind": "claude_md"},
+            {"path": ".claude/settings.json", "content": "{}", "kind": "settings"},
+        ],
+    }
+
+    with patch("api.main.hybrid_compiler") as mock_compiler:
+        response = TestClient(app).post("/agent-packs/claude/download", json=manifest)
+
+    assert response.status_code == 200
+    mock_compiler.generate_agent.assert_not_called()
+    mock_compiler.generate_skill.assert_not_called()
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    assert set(archive.namelist()) == {"CLAUDE.md", ".claude/settings.json"}
+
+
 def test_agent_packs_download_returns_plain_file_for_single_file_manifest():
     with patch("api.main.hybrid_compiler") as mock_compiler:
         mock_compiler.generate_agent.return_value = "# Review Agent\n\n## Role\nYou review code."

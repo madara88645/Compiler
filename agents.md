@@ -93,6 +93,15 @@ Open http://localhost:3000 in a browser.
 
 Frontend routes use same-origin Next proxy handlers so the browser never needs a backend secret. Do not add browser API-key inputs or server-proxy key requirements for public usage.
 
+Quality Coach uses the same-origin `POST /validate` Next route, which proxies to
+the FastAPI `POST /validate` endpoint. Keep this route in `web/app/validate/route.ts`
+and cover it in `web/app/proxy-routes.test.ts` when changing frontend routing.
+
+For Agent Pack downloads, post the already generated `AgentPackManifest` to
+`POST /agent-packs/claude/download`. This avoids a second LLM generation and
+guarantees the downloaded bytes match the reviewed preview. The legacy
+`AgentPackRequest` body remains supported for direct one-step clients.
+
 Backend is available at http://127.0.0.1:8080 and exposes an OpenAPI spec at http://127.0.0.1:8080/docs.
 
 ### Production-style run (single process, no reload)

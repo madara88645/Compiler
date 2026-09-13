@@ -38,14 +38,16 @@ async def build_claude_agent_pack(
 
 @router.post("/agent-packs/claude/download")
 async def download_claude_agent_pack(
-    req: AgentPackRequest,
+    req: AgentPackRequest | AgentPackManifest,
     _: None = Depends(rate_limit_by_ip),
 ):
-    compiler = _get_compiler()
-    adapter = AGENT_PACK_ADAPTERS["claude"]
-
     try:
-        manifest = adapter.build_manifest(req, compiler)
+        if isinstance(req, AgentPackManifest):
+            manifest = req
+        else:
+            compiler = _get_compiler()
+            adapter = AGENT_PACK_ADAPTERS["claude"]
+            manifest = adapter.build_manifest(req, compiler)
         return create_download_response(manifest)
     except Exception as exc:
         logger.exception(

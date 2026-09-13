@@ -225,12 +225,17 @@ curl -X POST https://api.example.com/agent-packs/claude \
     "risk_mode": "strict"
   }'
 
-# Same payload, returns a deflate-compressed .zip ready to drop into a repo
+# Download the exact reviewed manifest without running generation again
 curl -X POST https://api.example.com/agent-packs/claude/download \
   -H "content-type: application/json" \
-  -d '{...same body...}' \
+  --data-binary @manifest.json \
   --output claude-project-pack.zip
 ```
+
+Save the first response as `manifest.json` before using the second command. The
+download endpoint still accepts the original generation request for backwards
+compatibility, but posting the manifest is faster and guarantees that the
+downloaded files match the reviewed preview.
 
 **Repo-native adoption.** This repo eats its own dog food: the Compiler itself ships a `CLAUDE.md`, a hardened `.claude/settings.json` (denies `.env*`, `secrets/**`, `users.db`, `web/.env.local`; gates `git push`, `fly:`, `railway:` behind explicit confirmation), four ready-to-dispatch subagents in `.claude/agents/` (`compiler-architect`, `frontend-polisher`, `mcp-integrator`, `prompt-safety-reviewer`), and a `claude.yml` workflow for hosted Claude Code review on PRs.
 

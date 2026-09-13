@@ -214,7 +214,7 @@ export default function SkillExportPanel({ skillDefinition }: ExportPanelProps) 
             Export
           </span>
           <span className="text-[10px] text-zinc-600 font-mono">
-            -&gt; runnable tool target
+            integration template; review before use
           </span>
         </div>
         <svg

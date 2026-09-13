@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as backendProxy from "@/lib/server/backendProxy";
 import { GET as healthRoute } from "./health/route";
 import { POST as compileRoute } from "./compile/route";
+import { POST as validateRoute } from "./validate/route";
 import { POST as agentPacksClaudeRoute } from "./agent-packs/claude/route";
 import { POST as agentPacksClaudeDownloadRoute } from "./agent-packs/claude/download/route";
 import { POST as agentGenerateRoute } from "./agent-generator/generate/route";
@@ -117,6 +118,27 @@ describe("Next backend proxy route wiring", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/compile");
     await expect(response.json()).resolves.toEqual({ system_prompt: "safe" });
+  });
+
+  it("forwards quality analysis requests to the validate backend path", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ score: 82 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await validateRoute(
+      new Request("http://localhost:3000/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "Review this prompt" }),
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8080/validate");
+    await expect(response.json()).resolves.toEqual({ score: 82 });
   });
 
   it("retries compile requests after a transient backend connection failure", async () => {
