@@ -44,7 +44,7 @@ Kod akışı swarm için tek provider çağrısı kullanıyor; iç fan-out veya 
 Pinned Python/pre-commit ortamı ile:
 
 ```text
-/Users/mehmetozel/Developer/personal/Compiler/.venv/bin/python -m pytest tests/test_generator_deadlines.py tests/test_agent_generator.py tests/test_multi_agent.py tests/test_llm_client_openrouter.py tests/test_skill_output_fidelity.py tests/test_skills_generator.py tests/test_generator_rag_opt_in_api.py tests/test_context_generation.py -q
+.venv/bin/python -m pytest tests/test_generator_deadlines.py tests/test_agent_generator.py tests/test_multi_agent.py tests/test_llm_client_openrouter.py tests/test_skill_output_fidelity.py tests/test_skills_generator.py tests/test_generator_rag_opt_in_api.py tests/test_context_generation.py -q
 112 passed, 1 warning
 ```
 

@@ -13,7 +13,7 @@ Tam kanıt: [Quality Coach 404](evidence/qa-luna-quality-coach-404.md), [Agent P
 
 ## Ortam ve yöntem
 
-- Checkout: `/Users/mehmetozel/.codex/worktrees/Compiler/agentic-coding-workspace`
+- Checkout: isolated `agentic-coding-workspace` worktree
 - Branch/HEAD: `codex/agentic-coding-workspace` / `d743b136` (`091c3e3d` was the starting baseline)
 - UI: `http://127.0.0.1:3014`; backend: `http://127.0.0.1:8080`
 - Ayrı CUA IAB tabı kullanıldı; user tablarına dokunulmadı. Sub-agent yüzünden IAB görünürlük seçeneği desteklenmedi, disposable tab arka planda çalıştı.
@@ -40,7 +40,7 @@ Tam kanıt: [Quality Coach 404](evidence/qa-luna-quality-coach-404.md), [Agent P
 | Skill Generator | **Tested pass** | Tek küçük cloud skill sonucu schema/implementation/error/testing bölümleriyle render oldu. |
 | Skill exports | **Partial / quality risk** | Claude Tool JSON render oldu; MCP ve LangChain çıktıları `TODO`/`NotImplementedError` içeriyor. MCP README bunu `Stub` diye açıklıyor; LangChain paneli aynı açıklığı vermiyor. Kod çalıştırılmadı. |
 | Agent Packs — Project Pack | **Tested pass** | 7 dosyalı preview, deny/ask güvenlik ayarları ve checklist render oldu. Gerçek ZIP açılıp 7 dosya ve içerik kontrol edildi. |
-| Agent Packs — UI download | **Tested pass** | `/Users/mehmetozel/Downloads/local-fastapi-service-project-pack-claude.zip`; `unzip -l` 7 beklenen dosyayı gösterdi. CUA download event yakalanmadı, dosya ve archive içeriği doğrudan bulundu. |
+| Agent Packs — UI download | **Tested pass** | `local-fastapi-service-project-pack-claude.zip`; `unzip -l` 7 beklenen dosyayı gösterdi. CUA download event yakalanmadı, dosya ve archive içeriği doğrudan bulundu. |
 | Agent Packs — backend download | **Blocked/P2 observation** | `POST :8080/agent-packs/claude/download`, aynı küçük payload, `curl --max-time 25`: 0 byte timeout. Yeniden denenmedi; route manifest’i baştan üretiyor. |
 | Agent Packs — PR Reviewer/MCP Stub variants | **Not tested** | Bir cloud pack üretimi bütçesi aşıldığı için varyantlar çalıştırılmadı. |
 | Instruction Review | **Tested in prior same-day QA** | Duplicate detection, edit invalidation ve download akışı önceki raporda geçmiştir; semantic conflict kapsamı deterministik analyzer ile sınırlı kaldı. |
@@ -49,7 +49,7 @@ Tam kanıt: [Quality Coach 404](evidence/qa-luna-quality-coach-404.md), [Agent P
 | Benchmark — Mock Engine | **Tested pass** | `Demo Mode Active: Fake Scores`, “No model is called” açık; randomized demo result render oldu. |
 | Benchmark — real model | **Not tested** | Ayrı ücretli benchmark çağrısı yapılmadı. |
 | PR Safety — example/analyze | **Tested pass** | HOLD verdict, auth/API riskleri, test coverage gap, branch freshness ve scope mismatch render oldu. |
-| PR Safety — copy/download/stale state | **Tested pass** | Clipboard’a markdown kopyası ve `/Users/mehmetozel/Downloads/pr-safety-report.md` içeriği eşleşti. Description değişince eski verdict temizlendi; yeniden Analyze güncel sonucu üretti. |
+| PR Safety — copy/download/stale state | **Tested pass** | Clipboard’a markdown kopyası ve indirilen `pr-safety-report.md` içeriği eşleşti. Description değişince eski verdict temizlendi; yeniden Analyze güncel sonucu üretti. |
 | Navigation/legacy routes | **Tested pass** | Sidebar collapse/expand; `/offline` → `/`; `/agent-generator`, `/skills-generator`, `/agentic-coding/projects/export` yükleniyor. |
 | CLI | **Automated pass** | Port 8000 opportunistic check izole edilerek CLI suite **16 passed**. |
 | MCP server | **Automated pass** | `test_server`, compile settings, repo collect/write: **19 passed**. Gerçek stdio server’ı üretim repo’sunda çalıştırma yapılmadı. |
