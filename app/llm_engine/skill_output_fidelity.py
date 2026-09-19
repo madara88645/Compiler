@@ -96,8 +96,14 @@ def is_output_formatting_intent(description: str) -> bool:
     text = (description or "").strip()
     if not text:
         return False
-    # Bolt Optimization: combine patterns into a single regex cached via lru_cache
-    # to eliminate Python generator overhead and push iteration to the C-based regex engine.
+    # Treat explicit transform requests as formatting intents too, otherwise
+    # policy/guidance silently turns off for requests like "normalize URLs in
+    # the output" even though this module already knows that transform.
+    if detect_explicit_transform_requests(text):
+        return True
+    # Bolt Optimization: combine vague-intent patterns into a single regex
+    # cached via lru_cache to eliminate Python generator overhead and push
+    # iteration to the C-based regex engine.
     return bool(_get_format_intent_pattern().search(text))
 
 
