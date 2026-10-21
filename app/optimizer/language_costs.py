@@ -11,6 +11,7 @@ from app.optimizer.model_catalog import (
     get_model_metadata,
 )
 from app.text_utils import estimate_tokens
+from app.llm.openrouter_models import retirement_warning
 
 try:
     import tiktoken
@@ -211,6 +212,9 @@ def estimate_prompt_cost(
         pricing_known = metadata is not None and not warnings
         pricing_source = OPENROUTER_MODELS_URL if pricing_known else None
         pricing_verified_at = metadata.verified_at if metadata else None
+        warning = retirement_warning(resolved_model)
+        if warning:
+            warnings.append(warning)
         if metadata is None:
             tokenizer_name = None
     else:

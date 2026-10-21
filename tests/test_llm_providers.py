@@ -12,7 +12,7 @@ from app.llm.factory import get_provider, register_provider, PROVIDERS
 class TestProviderConfig:
     def test_default_values(self):
         config = ProviderConfig()
-        assert config.model == "gpt-4o"
+        assert config.model == "openai/gpt-oss-20b"
         assert config.temperature == 0.7
         assert config.max_tokens == 2048
 

@@ -50,9 +50,9 @@
     "group": "Cheap",
     "tokenizer": "GPT",
     "contextLength": 131072,
-    "inputRatePerMillion": 0.03,
-    "outputRatePerMillion": 0.13,
-    "verifiedAt": "2026-09-12",
+    "inputRatePerMillion": 0.018,
+    "outputRatePerMillion": 0.09,
+    "verifiedAt": "2026-10-21",
     "sourceUrl": "https://openrouter.ai/api/v1/models"
   },
   {

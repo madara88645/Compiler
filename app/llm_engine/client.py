@@ -18,6 +18,7 @@ from openai import OpenAI, APIError
 from .schemas import WorkerResponse, QualityReport, LLMFixResponse
 from .skill_output_fidelity import build_output_fidelity_guidance
 from app.heuristics.security import scan_text
+from app.llm.openrouter_models import is_openrouter_url, prepare_openrouter_model
 
 OPENROUTER_DEFAULT_MODEL = "openai/gpt-oss-20b"
 OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -426,6 +427,8 @@ class WorkerClient:
             "temperature": 0.2,  # Low temp for deterministic structure
             "max_tokens": max_tokens,
         }
+        if is_openrouter_url(self.base_url):
+            kwargs["model"] = prepare_openrouter_model(kwargs["model"])
         if request_timeout_seconds is not None:
             kwargs["timeout"] = request_timeout_seconds
         if reasoning_effort and self._supports_swarm_reasoning_control(kwargs["model"]):

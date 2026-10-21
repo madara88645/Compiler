@@ -11,7 +11,7 @@ class OptimizationConfig(BaseModel):
     max_generations: int = 3
     candidates_per_generation: int = 3
     target_score: float = 1.0  # Stop if this score is reached
-    model: str = "gpt-4o"  # Model used for the Mutation Agent
+    model: str = "openai/gpt-oss-20b"  # Model used for the Mutation Agent
     custom_system_prompt: Optional[str] = None
     interactive_every: int = 0  # Pause for human input every N generations (0 = never)
     adversarial_every: int = 0  # Run adversarial generation every N generations (0 = never)
