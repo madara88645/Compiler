@@ -14,6 +14,7 @@ from .model_catalog import (
     get_model_metadata,
 )
 from .models import OptimizationConfig
+from app.llm.openrouter_models import retirement_warning
 
 # Pricing per 1M tokens (USD), sourced from the reviewed OpenRouter snapshot.
 # Keep the public mapping for older callers, but do not add a fake default rate:
@@ -49,6 +50,7 @@ def estimate_run_cost(config: OptimizationConfig, initial_prompt: str) -> Dict[s
         Dict containing 'min_cost', 'max_cost', and a formatted 'message'.
     """
     model_name = (config.model or "").strip()
+    warning = retirement_warning(model_name)
     metadata = get_model_metadata(model_name)
     pricing = MODEL_PRICING.get(canonical_model_id(model_name))
 
@@ -113,6 +115,7 @@ def estimate_run_cost(config: OptimizationConfig, initial_prompt: str) -> Dict[s
     # 5. Cost Calculation.  A missing rate is a real unknown, not a free call.
     if pricing is None or metadata is None:
         return {
+            "warnings": [warning] if warning else [],
             "min_cost": None,
             "max_cost": None,
             "message": (
@@ -146,7 +149,11 @@ def estimate_run_cost(config: OptimizationConfig, initial_prompt: str) -> Dict[s
         f"({config.model}, {total_llm_calls} calls, ~{int(final_input_tokens + final_output_tokens)} tokens)"
     )
 
+    if warning:
+        msg += "\n" + warning
+
     return {
+        "warnings": [warning] if warning else [],
         "min_cost": round(min_cost, 4),
         "max_cost": round(max_cost, 4),
         "message": msg,

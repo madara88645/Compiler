@@ -5,6 +5,7 @@ import os
 from typing import Optional
 
 from .base import LLMProvider, LLMResponse
+from .openrouter_models import is_openrouter_url, prepare_openrouter_model
 
 
 class MockProvider(LLMProvider):
@@ -127,6 +128,12 @@ class OpenAIProvider(LLMProvider):
             "temperature": kwargs.get("temperature", self.config.temperature),
             "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
         }
+
+        if is_openrouter_url(base_url):
+            try:
+                payload["model"] = prepare_openrouter_model(payload["model"])
+            except ValueError as exc:
+                return LLMResponse(content=f"Error: {exc}", latency_ms=0)
 
         start = time.time()
         try:

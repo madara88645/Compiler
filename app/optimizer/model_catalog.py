@@ -42,8 +42,9 @@ OPENROUTER_MODEL_CATALOG: dict[str, OpenRouterModel] = {
         name="OpenAI: gpt-oss-20b",
         tokenizer="GPT",
         context_length=131_072,
-        input_rate_per_million=0.03,
-        output_rate_per_million=0.13,
+        input_rate_per_million=0.018,
+        output_rate_per_million=0.09,
+        verified_at="2026-10-21",
     ),
     "openai/gpt-oss-120b": OpenRouterModel(
         id="openai/gpt-oss-120b",
@@ -109,8 +110,8 @@ OPENROUTER_MODEL_CATALOG: dict[str, OpenRouterModel] = {
         input_rate_per_million=0.30,
         output_rate_per_million=2.50,
     ),
-    # These legacy aliases are still live OpenRouter ids and keep the
-    # evolutionary optimizer's existing configurations usable.
+    # Historical pricing compatibility: these ids retire on 2027-01-14.
+    # Keep their own prices for saved runs; never alias them to a replacement.
     "openai/gpt-4o": OpenRouterModel(
         id="openai/gpt-4o",
         name="OpenAI: GPT-4o",

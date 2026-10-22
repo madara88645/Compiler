@@ -21,7 +21,7 @@ class ProviderConfig(BaseModel):
 
     api_key: Optional[str] = None
     base_url: Optional[str] = None
-    model: str = "gpt-4o"
+    model: str = "openai/gpt-oss-20b"
     temperature: float = 0.7
     max_tokens: int = 2048
     timeout: float = 30.0

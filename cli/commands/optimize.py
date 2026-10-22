@@ -41,7 +41,7 @@ def optimize_run(
         "mock", "--provider", "-p", help="LLM provider: openai, ollama, or mock"
     ),
     model: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Model identifier (e.g., gpt-4o, llama3)"
+        None, "--model", "-m", help="Model identifier (e.g., openai/gpt-oss-20b, llama3)"
     ),
     interactive_every: int = typer.Option(
         0, "--interactive-every", "-i", help="Pause every N generations for human input (0 = never)"
@@ -202,7 +202,7 @@ def optimize_resume(
         "mock", "--provider", "-p", help="LLM provider: openai, ollama, or mock"
     ),
     model: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Model identifier (e.g., gpt-4o, llama3)"
+        None, "--model", "-m", help="Model identifier (e.g., openai/gpt-oss-20b, llama3)"
     ),
 ):
     """
