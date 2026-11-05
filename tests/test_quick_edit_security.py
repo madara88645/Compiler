@@ -223,6 +223,36 @@ def test_edit_history_tags(mock_ask, tmp_path, monkeypatch):
     assert history_manager.get_by_id("h1").metadata["tags"] == ["tag1", "tag2", "tag3"]
 
 
+@patch("rich.prompt.Prompt.ask")
+def test_edit_history_source_persists_source_change(mock_ask, tmp_path, monkeypatch):
+    history_manager = HistoryManager(str(tmp_path / "history.db"))
+    history_manager.save(
+        HistoryEntry(
+            id="h1",
+            prompt_text="hello",
+            source="user",
+            parent_id="parent-1",
+            metadata={"run_id": "run-42"},
+            score=0.91,
+        )
+    )
+    monkeypatch.setattr("app.quick_edit.get_history_manager", lambda: history_manager)
+    editor = QuickEditor()
+
+    mock_ask.side_effect = ["2", "optimizer"]
+
+    res = editor.edit_prompt("h1")
+    assert res is True
+
+    updated = history_manager.get_by_id("h1")
+    assert updated is not None
+    assert updated.source == "optimizer"
+    assert updated.prompt_text == "hello"
+    assert updated.parent_id == "parent-1"
+    assert updated.metadata == {"run_id": "run-42"}
+    assert updated.score == 0.91
+
+
 def test_edit_prompt_not_found(capsys):
     editor = QuickEditor()
     editor.history_manager = MagicMock()
