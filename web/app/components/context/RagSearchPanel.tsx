@@ -100,6 +100,7 @@ export default function RagSearchPanel({
                                 onInsertContext(formatSearchResultForPrompt(result));
                                 toast.success("Snippet inserted into prompt");
                             }}
+                            title={`Insert snippet from ${result.path} into prompt`}
                             aria-label={`Insert snippet from ${result.path} into prompt`}
                             className="mt-1 self-start text-[10px] text-blue-300 hover:text-blue-200 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded transition-all flex items-center gap-1 font-medium"
                         >
