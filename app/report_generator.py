@@ -5,6 +5,7 @@ Generates detailed validation reports in HTML, Markdown, and JSON formats.
 Includes quality scores, issue summaries, recommendations, and visual charts.
 """
 
+import html
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import operator
@@ -443,13 +444,13 @@ class ValidationReportGenerator:
             parts.append('<div class="issues-list"><h3>Issues</h3>')
             for issue in result.issues:
                 parts.append(
-                    f'<div class="issue {issue.severity}">'
+                    f'<div class="issue {html.escape(issue.severity)}">'
                     f'<div class="issue-header">'
                     f"{self._get_severity_icon(issue.severity)} "
-                    f"{issue.severity.upper()} - {issue.category}"
+                    f"{html.escape(issue.severity.upper())} - {html.escape(issue.category)}"
                     f"</div>"
-                    f"<div>{issue.message}</div>"
-                    f'<div class="issue-suggestion">💡 {issue.suggestion}</div>'
+                    f"<div>{html.escape(issue.message)}</div>"
+                    f'<div class="issue-suggestion">💡 {html.escape(issue.suggestion)}</div>'
                     f"</div>"
                 )
             parts.append("</div>")
@@ -458,12 +459,14 @@ class ValidationReportGenerator:
         if self.config.show_strengths and result.strengths:
             parts.append('<h3>Strengths</h3><ul class="strengths-list">')
             for strength in result.strengths:
-                parts.append(f"<li>✓ {strength}</li>")
+                parts.append(f"<li>✓ {html.escape(strength)}</li>")
             parts.append("</ul>")
 
         # Prompt preview
         preview = prompt[:300] + "..." if len(prompt) > 300 else prompt
-        parts.append(f'<h3>Prompt Text</h3><div class="prompt-preview">{preview}</div>')
+        parts.append(
+            f'<h3>Prompt Text</h3><div class="prompt-preview">{html.escape(preview)}</div>'
+        )
 
         parts.append("</div>")
         return "\n".join(parts)
@@ -499,7 +502,7 @@ class ValidationReportGenerator:
             category, severity = issue_key.split(":")
             parts.append(
                 f'<div class="recommendation-item">'
-                f"<strong>{count} prompt(s)</strong> have {severity} issues with <strong>{category}</strong>"
+                f"<strong>{count} prompt(s)</strong> have {html.escape(severity)} issues with <strong>{html.escape(category)}</strong>"
                 f"</div>"
             )
 
