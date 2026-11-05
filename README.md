@@ -15,9 +15,9 @@ It also ships a **PR Safety / Merge Readiness Layer**: paste an AI-agent PR and 
   <img src="docs/images/demo.gif" alt="Animated tour: a vague request is compiled into an expanded prompt, execution plan, and readiness check, ending with a PR Safety verdict" width="100%">
 </p>
 
-Try it now at [prcompiler.com](https://prcompiler.com) — or open [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
+Try it now at [prcompiler.com](https://prcompiler.com) — or open [Agentic Coding](https://prcompiler.com/agentic-coding) · [PR Safety](https://prcompiler.com/pr-safety) ([guide](docs/pr-safety.md)) · [VS Code extension](integrations/vscode-extension) · [GitHub artifacts](docs/pattern-library.md)
 
-**Jump to:** [What It Does](#what-it-does) · [Key Features](#key-features) · [Installation](#installation) · [Running the App](#running-the-app) · [How To Use](#how-to-use) · [Project Structure](#project-structure) · [Docs](#docs) · [License](#license)
+**Jump to:** [What It Does](#what-it-does) · [Key Features](#key-features) · [Agentic Coding](#agentic-coding-workspace) · [Installation](#installation) · [Running the App](#running-the-app) · [How To Use](#how-to-use) · [Project Structure](#project-structure) · [Docs](#docs) · [License](#license)
 
 ---
 
@@ -41,6 +41,8 @@ The core pipeline is **offline and deterministic** — compilation needs no API 
 - **Recommendations** — plus a GitHub-ready Markdown export you can paste into the PR
 
 It runs fully offline (no GitHub API, no AI calls, no sign-in) and never blocks a merge — it's advice for the human in the loop.
+
+**Organize agentic coding work.** The **Agentic Coding Workspace** keeps reusable project context, agent and skill generation, instruction review, and installable Agent Packs in one place. It is built for repositories where a single `CLAUDE.md` or similar instruction file grows until rules repeat, conflict, or become hard to maintain.
 
 ---
 
@@ -133,7 +135,31 @@ This is not a separate product. It is a new capability inside Prompt Compiler th
 
 ---
 
-### Agent Generator
+### Agentic Coding Workspace
+
+The [Agentic Coding Workspace](https://prcompiler.com/agentic-coding) groups project context and agent-building tools under one collapsible sidebar section. Save a small project brief once, then reuse its stack, goal, and rules when creating agents, skills, tools, or repo assets.
+
+This is especially useful when a long-lived repository has accumulated a large `CLAUDE.md`, `AGENTS.md`, or other instruction files. **Review Instructions** accepts up to 12 files at a time and reports repeated rules, possible conflicts, and suggested file boundaries. The review is advisory: it shows what should be consolidated or split without silently rewriting the originals.
+
+| Workspace area | What it does | When to use it |
+|---|---|---|
+| **Projects** | Stores a reusable project brief in your browser | Keep stack, goal, and important rules consistent across generators |
+| **Review Instructions** | Checks pasted or uploaded instruction files for repetition, conflicts, and growth problems | Clean up an oversized `CLAUDE.md` or compare rules spread across several files |
+| **Agent Generator** | Creates focused single-agent or multi-agent system prompts | Define a coding, review, research, or orchestration role |
+| **Skill Generator** | Produces structured tool schemas and framework exports | Turn a capability into a reusable skill or MCP tool stub |
+| **Agent Packs** | Builds downloadable Claude project, subagent, reviewer, or MCP bundles | Add reviewed, repo-ready agent assets without assembling each file manually |
+
+A practical workflow:
+
+1. Open **Agentic Coding → Projects** and save the project's type, stack, goal, and durable rules.
+2. If instruction files already exist, run **Review Instructions** before adding more rules.
+3. Create an agent or skill using the saved project context.
+4. Preview generated files, inspect permissions and commands, then download the Agent Pack.
+5. Commit the reviewed files in a small PR and validate them with the repository's real test commands.
+
+Project briefs stay in the current browser and are not synced to a server. Uploaded or generated content should still be reviewed before it is committed or executed.
+
+#### Agent Generator
 
 Describe a role or autonomous task, and the **Agent Generator** produces a complete, constraint-driven system prompt for an AI agent.
 
@@ -156,7 +182,7 @@ After generating an agent, the **Export** section can turn the output into frame
 
 ---
 
-### Skill & Tool Generator
+#### Skill & Tool Generator
 
 Describe a capability in plain English, and the **Skill Generator** translates it into a structured tool definition.
 
@@ -179,7 +205,7 @@ After generating a skill, the **Export** section can wrap the output in framewor
 
 ---
 
-### Claude Agent Packs Beta
+#### Claude Agent Packs Beta
 
 The **Agent Packs** sidebar turns a short project brief (project type, stack, goal) into a **runnable, repo-ready bundle of Claude assets** — not just a prompt. Pick a pack type, preview the files, copy individual snippets, or download the whole thing as a `.zip`.
 
@@ -433,7 +459,8 @@ Open [http://localhost:3000](http://localhost:3000).
 4. Review the output tabs: `Intent`, `System`, `User`, `Plan`, `Expanded`, `JSON`, `Quality`.
 5. Use **Conservative** mode when you want grounded output.
 6. If the task is sensitive, inspect the policy layer before using the result downstream.
-7. Use Agent, Skill, Optimizer, Benchmark, and RAG surfaces as needed.
+7. For coding-agent work, open **Agentic Coding**: save a project brief, review existing instruction files, then create an agent, skill, or downloadable pack with that context.
+8. Use Optimizer, Benchmark, and RAG surfaces as needed.
 
 To check a pull request instead, open **PR Safety** in the sidebar, paste the PR's title, description, and changed files, then **Analyze PR** and read the verdict — copy the Markdown report into the PR if it's useful.
 
@@ -442,7 +469,7 @@ To check a pull request instead, open **PR Safety** in the sidebar, paste the PR
 ## Project Structure
 
 ```text
-api/            FastAPI endpoints (compile, agent-generator, skills-generator, optimize, rag)
+api/            FastAPI endpoints (compile, instruction review, generators, agent packs, optimize, rag)
 app/
   compiler.py       Core compiler pipeline
   emitters.py       Prompt rendering layer
@@ -457,9 +484,10 @@ web/
   app/
     page.tsx                    Main compiler UI
     pr-safety/                  PR Safety page + report proxy + Markdown export
-    agent-packs/                Claude Agent Packs generator + install checklist
-    agent-generator/            Agent Generator page
-    skills-generator/           Skill Generator page
+    agentic-coding/             Project hub, instruction review, Agent Generator, Skill Generator
+    agent-packs/                Legacy-compatible route to the Agent Pack export flow
+    agent-generator/            Legacy-compatible route to Agentic Coding / Agents
+    skills-generator/           Legacy-compatible route to Agentic Coding / Skills
     benchmark/                  Benchmark Playground
     optimizer/                  Token Optimizer
     components/                 Shared UI components
