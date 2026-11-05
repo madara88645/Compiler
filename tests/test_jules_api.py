@@ -10,6 +10,75 @@ def _auth_headers():
     return {"x-api-key": "test-admin-key"}
 
 
+def test_with_jules_client_returns_operation_result_and_closes_client():
+    from app.routers.jules import _with_jules_client
+
+    with patch("app.routers.jules.JulesClient") as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+
+        result = _with_jules_client(lambda client: client)
+
+    assert result is mock_client
+    mock_client.close.assert_called_once()
+
+
+def test_with_jules_client_closes_client_when_operation_raises():
+    from app.routers.jules import _with_jules_client
+
+    with patch("app.routers.jules.JulesClient") as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+
+        def _raise_error(_client):
+            raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            _with_jules_client(_raise_error)
+
+    mock_client.close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "json_body", "client_method", "expected_detail"),
+    [
+        ("get", "/jules/sources", None, "list_sources", "Failed to fetch Jules sources."),
+        (
+            "post",
+            "/jules/sessions",
+            {"prompt": "build a script", "source": "sources/github/acme/repo"},
+            "create_session",
+            "Failed to create Jules session.",
+        ),
+        ("get", "/jules/sessions/s1", None, "get_session", "Failed to fetch Jules session."),
+        (
+            "get",
+            "/jules/sessions/s1/activities",
+            None,
+            "list_activities",
+            "Failed to fetch Jules activities.",
+        ),
+    ],
+)
+def test_helper_backed_jules_endpoints_close_client_after_upstream_error(
+    method, path, json_body, client_method, expected_detail
+):
+    with (
+        patch.dict("os.environ", {"ADMIN_API_KEY": "test-admin-key"}, clear=False),
+        patch("app.routers.jules.JulesClient") as mock_client_cls,
+    ):
+        mock_client = mock_client_cls.return_value
+        getattr(mock_client, client_method).side_effect = Exception("upstream fail")
+
+        client = TestClient(app)
+        request_kwargs = {"headers": _auth_headers()}
+        if json_body is not None:
+            request_kwargs["json"] = json_body
+        response = getattr(client, method)(path, **request_kwargs)
+
+    assert response.status_code == 502, response.text
+    assert response.json()["detail"] == expected_detail
+    mock_client.close.assert_called_once()
+
+
 def test_jules_reply_endpoint_uses_latest_agent_message():
     activities = {
         "activities": [
